@@ -3,6 +3,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MainPage from "./Components/mainPage";
 import LoginPage from "./Components/loginPage";
+import Homepage from "./Components/homePage"
 
 const App = () => {
   return (
@@ -13,6 +14,7 @@ const App = () => {
 
         {/* Define the route for LoginPage */}
         <Route path="/loginPage" element={<LoginPage />} />
+        <Route path="/homepage" element={<Homepage />} />
       </Routes>
     </Router>
   );
