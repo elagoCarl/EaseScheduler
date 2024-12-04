@@ -5,14 +5,17 @@ const bodyParser = require('body-parser');
 
 const app = express();
 
-const db = require('./models/index')
+// const db = require('./models')
+
+// db.sequelize.sync({ force: true });
+// console.log('All models were synchronized successfully.');
 
 //MIDDLEWARES
-
-db.connectDB()
+// db.connectDB()
 
 //TO LOG CLIENT REQUEST-RESPONSE DATA IN A DEV ENVIRONMENT
 app.use(morgan('dev'));
+app.use(express.json())
 
 //PARSE DATA THAT ARE URLENCODED
 //content-type: application/x-www-form-urlencoded
