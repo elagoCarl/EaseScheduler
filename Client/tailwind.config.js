@@ -1,15 +1,27 @@
-// tailwind.config.js
 module.exports = {
   content: [
     "./src/**/*.{html,js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
-       backgroundImage: {
-        'hero-pattern': "url('/img/1.jpg')",
-        'footer-texture': "url('/img/1.jpg')",
+      screens: {
+        colors: {
+          customBlue: '#16689B',
+          customLightBlue: '#C5D6DC',
+        },
+        'xxs': '320px',  // Extra Extra Small screens
+        'xs': '480px',   // Extra Small screens
+      },
+      spacing: {
+        ...Array.from({ length: 200 }, (_, i) => i + 1).reduce(
+          (acc, val) => ({
+            ...acc,
+            [val]: `${val}px`, // e.g., '1': '1px', '200': '200px'
+          }),
+          {} // Initial accumulator value for reduce
+        ),
+      },
     },
   },
-},
   plugins: [],
 };
