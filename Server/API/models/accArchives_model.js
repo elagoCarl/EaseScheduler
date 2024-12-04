@@ -4,7 +4,7 @@ const { isEmail } = require('validator');
 
 module.exports = (sequelize, DataTypes) => {
 
-    const Account = sequelize.define('Account', {
+    const AccountArchives = sequelize.define('AccountArchives', {
       Name: {
           type: DataTypes.STRING,
           allowNull: false,
@@ -21,27 +21,12 @@ module.exports = (sequelize, DataTypes) => {
               notEmpty: { msg: "Email is required." }
           }
       },
-      Password: {
-          type: DataTypes.STRING,
-          allowNull: false,
-          validate: {
-              notEmpty: { msg: "Password is required." },
-              len: {
-                  args: [8],
-                  msg: "Minimum password length should be 8 characters."
-              }
-          }
-      },
       isAdmin: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
-    },
-      verified: {
-          type: DataTypes.BOOLEAN,
-          defaultValue: false
-      }
+    }
   }, {
       timestamps: true
   });
-    return Account
+    return AccountArchives
   }
