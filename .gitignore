@@ -1,3 +1,2 @@
 .env
-Server/node_modules
 Server\API\config\config.json

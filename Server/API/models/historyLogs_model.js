@@ -26,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false
     }
 }, {
-    timestamps: false, // Disable Sequelize auto-managed timestamps
+    timestamps: true, // Disable Sequelize auto-managed timestamps
     tableName: 'HistoryLogs' // Explicitly define the table name if needed
 });
     return HistoryLog
