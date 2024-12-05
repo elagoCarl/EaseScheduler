@@ -1,33 +1,21 @@
-// const { Sequelize, DataTypes } = require('sequelize');
-const bcrypt = require('bcrypt');
-const { isEmail } = require('validator');
-
 module.exports = (sequelize, DataTypes) => {
-
-  const HistoryLog = sequelize.define('HistoryLog', {
-    account: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'Accounts', // Replace with the name of the referenced table
-            key: 'id'
+    const Account = require("./account_model")(sequelize, DataTypes)
+    const HistoryLog = sequelize.define('HistoryLog', {
+        Page: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        Details: {
+            type: DataTypes.STRING,
+            allowNull: false
         }
-    },
-    accountEmail: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    page: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    details: {
-        type: DataTypes.STRING,
-        allowNull: false
-    }
-}, {
-    timestamps: true, // Disable Sequelize auto-managed timestamps
-    tableName: 'HistoryLogs' // Explicitly define the table name if needed
-});
+    }, {
+        timestamps: true
+    });
+    Account.hasMany(HistoryLog, {
+        onDelete: 'RESTRICT',
+        onUpdate: 'CASCADE'
+    })
+    HistoryLog.belongsTo(Account)
     return HistoryLog
-  }
+}

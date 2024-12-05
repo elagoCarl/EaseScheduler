@@ -11,7 +11,6 @@ const db = {};
 require('dotenv').config()
 // const mysql = require('mysql2')
 
-
 // let sequelize;
 // if (config.use_env_variable) {
 //   sequelize = new Sequelize(process.env[config.use_env_variable], config);
@@ -65,8 +64,10 @@ Object.keys(db).forEach(modelName => {
 //     })
 // }
 
+
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
 
 module.exports = db;
+
