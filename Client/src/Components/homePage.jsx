@@ -45,7 +45,7 @@ const HomePage = () => {
           />
         </div>
 
-        <div className="bg-customLightBlue h-auto w-auto rounded-xl shadow-lg grid grid-cols-2 gap-20 p-60 xs:p-20 xs:mt-50 sm:p-20 sm:mt-60 xl:gap-20 mt-auto text-2xl font-bold">
+        <div className="bg-blue-300 h-auto w-auto rounded-xl shadow-lg grid grid-cols-2 gap-20 p-60 xs:p-20 xs:mt-50 sm:p-20 sm:mt-60 xl:gap-20 mt-auto text-2xl font-bold">
           <Buttons imgg={vector} name={'Schedule'} />
           <Buttons imgg={vector1} name={'Professor'} />
           <Buttons imgg={vector2} name={'Subject'} />
