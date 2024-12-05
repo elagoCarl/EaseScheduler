@@ -5,10 +5,6 @@ module.exports = {
   theme: {
     extend: {
       screens: {
-        colors: {
-          'customBlue': '#16689B',
-          'customLightBlue': '#C5D6DC',
-        },
         'xxs': '320px',  // Extra Extra Small screens
         'xs': '480px',   // Extra Small screens
       },
