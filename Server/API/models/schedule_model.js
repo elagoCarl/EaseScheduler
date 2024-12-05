@@ -1,37 +1,39 @@
-// const { Sequelize, DataTypes } = require('sequelize');
-const bcrypt = require('bcrypt');
-const { isEmail } = require('validator');
-
 module.exports = (sequelize, DataTypes) => {
-
-  const Schedule = sequelize.define('Schedule', {
-    prof_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-    },
-    course_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-    },
-    school_yr: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    semester: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    block: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    dept_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-    }
-}, {
-    tableName: 'schedules', // Explicit table name
-    timestamps: true // Disable Sequelize-managed timestamps
-});
+    const Room = require("./room_model")(sequelize, DataTypes)
+    const Assignation = require("./assignation_model")(sequelize, DataTypes)
+    const Schedule = sequelize.define('Schedule', {
+        id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+            allowNull: false,
+        },
+        Day: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        Start_time: {
+            type: DataTypes.TIME,
+            allowNull: false
+        },
+        End_time: {
+            type: DataTypes.TIME,
+            allowNull: false
+        }
+    }, {
+        timestamps: true
+    });
+    Room.belongsToMany(Assignation, {through: 'Schedule'})
+    Assignation.belongsToMany(Room, {through: 'Schedule'})
+    Room.hasMany(Schedule, {
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
+    })
+    Schedule.belongsTo(Room)
+    Assignation.hasMany(Schedule, {
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
+    })
+    Schedule.belongsTo(Assignation)
     return Schedule
-  }
+}

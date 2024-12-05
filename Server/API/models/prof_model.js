@@ -1,5 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
-    const Account = sequelize.define('Account', {
+    const ProfAvail = require("./profAvail_model")(sequelize, DataTypes);
+    const Professor = sequelize.define('Professor', {
         Name: {
             type: DataTypes.STRING,
             allowNull: false,
@@ -16,28 +17,27 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Email is required." }
             }
         },
-        Password: {
+        Total_units: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            min: 0,
+            defaultValue: 0
+        },
+        Status: {
             type: DataTypes.STRING,
             allowNull: false,
             validate: {
-                notEmpty: { msg: "Password is required." },
-                len: {
-                    args: [8],
-                    msg: "Minimum password length should be 8 characters."
-                }
+                notEmpty: { msg: "Status is required." }
             }
-        },
-        isAdmin: {
-            type: DataTypes.BOOLEAN,
-            defaultValue: false
-        },
-        verified: {
-            type: DataTypes.BOOLEAN,
-            defaultValue: false
         }
     }, {
         timestamps: true
     });
-    
-    return Account
+    Professor.hasMany(ProfAvail, {
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
+    })
+    ProfAvail.belongsTo(Professor)
+
+    return Professor
 }
