@@ -36,6 +36,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     <div
       ref={sidebarRef}
       className={`fixed top-0 right-0 h-full bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 w-2/12 z-50 flex flex-col justify-center`}>
+        <button
+          id="logoBtn"
+          className="text-md md:text-xl font-bold text-blue-500 relative"
+          onClick={() => navigate("/")}
+        >
+          EASE<span className="text-white">SCHEDULER</span>
+        </button>
 
       {/* Schedules Section */}
       <div className="flex flex-col items-start space-y-4 px-20 py-15">
@@ -138,7 +145,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
-            navigate('/rooms');
+            navigate('/room');
             toggleSidebar(false); // Close the sidebar after navigation
           }}
         >
@@ -188,7 +195,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <button
               className="hover:bg-gray-700 p-2 rounded w-full text-left"
               onClick={() => {
-                navigate('/account/settings');
+                navigate('/accountSettings');
                 toggleSidebar(false); // Close the sidebar after navigation
               }}
             >
