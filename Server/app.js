@@ -12,6 +12,9 @@ const app = express();
 
 //IMPORT ALL ROUTERS NEEDED
 const account_rtr = require('./API/routers/account_rtr')
+const prof_rtr = require('./API/routers/prof_rtr')
+const room_rtr = require('./API/routers/room_rtr')
+
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
   next();
@@ -59,6 +62,8 @@ app.use((req, res, next)=>{
 
 //MIDDLEWARE FOR THE ROUTERS
 app.use('/accounts', account_rtr)
+app.use('/professor', prof_rtr)
+app.use('/room', room_rtr)
 
 
 
