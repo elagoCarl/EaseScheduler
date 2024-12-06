@@ -7,6 +7,7 @@ import Homepage from "./Components/homePage"
 import AccountSettings from "./Components/accountSettings";
 import CreateAccount from "./Components/createAccount";
 import HistoryLogs from "./Components/historyLogs";
+import Room from "./Components/room";
 
 const App = () => {
   return (
@@ -21,6 +22,7 @@ const App = () => {
         <Route path="/accountSettings" element={<AccountSettings />} />
         <Route path="/createAccount" element={<CreateAccount />} />
         <Route path="/historyLogs" element={<HistoryLogs />} />
+        <Route path="/room" element={<Room />} />
       </Routes>
     </Router>
   );
