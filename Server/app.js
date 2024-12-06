@@ -14,6 +14,7 @@ const app = express();
 const account_rtr = require('./API/routers/account_rtr')
 const prof_rtr = require('./API/routers/prof_rtr')
 const room_rtr = require('./API/routers/room_rtr')
+const dept_rtr = require('./API/routers/dept_rtr')
 
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
@@ -62,8 +63,9 @@ app.use((req, res, next)=>{
 
 //MIDDLEWARE FOR THE ROUTERS
 app.use('/accounts', account_rtr)
-app.use('/professor', prof_rtr)
+app.use('/prof', prof_rtr)
 app.use('/room', room_rtr)
+app.use('/dept', dept_rtr)
 
 
 

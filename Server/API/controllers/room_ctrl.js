@@ -114,7 +114,7 @@ const getRoom = async (req, res, next) => {
         } else {
             res.status(200).send({
                 successful: true,
-                message: "Successfully retrieved roomo.",
+                message: "Successfully retrieved room.",
                 data: room
             });
         }

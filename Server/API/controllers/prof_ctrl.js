@@ -41,7 +41,7 @@ const addProf = async (req, res, next) => {
             if (existingEmail) {
                 return res.status(406).json({
                     successful: false,
-                    message: "$Email already exists. Please use a different email."
+                    message: "Email already exists. Please use a different email."
                 })
             }
 
