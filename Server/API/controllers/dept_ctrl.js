@@ -126,4 +126,40 @@ const deleteDept = async (req, res, next) => {
         });
     }
 }
-module.exports = { addDept, getAllDept, getDept, deleteDept };
+
+const updateDept = async (req, res, next) => {
+    try {
+        let dept = await Department.findByPk(req.params.id)
+        const { Name } = req.body
+
+        if (!dept) {
+            res.status(404).send({
+                successful: false,
+                message: "Department not found"
+            });
+        }
+
+        if (!util.checkMandatoryFields([Name])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            })
+        }
+
+        const updateDept = await dept.update({
+            Name: Name
+        })
+
+        return res.status(201).json({
+            successful: true,
+            message: "Successfully updated department."
+        })
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+module.exports = { addDept, getAllDept, getDept, deleteDept, updateDept };

@@ -97,7 +97,8 @@ const getAllProf = async (req, res, next) => {
 
 const getProf = async (req, res, next) => {
     try {
-        let prof = await Professor.findByPk(req.params.id);
+        let prof = await Professor.findByPk(req.params.id)
+        
 
         if (!prof) {
             res.status(404).send({
@@ -145,4 +146,67 @@ const deleteProf = async (req, res, next) => {
         });
     }
 }
-module.exports = { addProf, getAllProf, getProf, deleteProf };
+
+const updateProf = async (req, res, next) => {
+    try {
+        let prof = await Professor.findByPk(req.params.id)
+        const { Name, Email, Status } = req.body
+
+        if (!prof) {
+            res.status(404).send({
+                successful: false,
+                message: "Professor not found"
+            });
+        }
+
+        if (!util.checkMandatoryFields([Name, Email, Status])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            })
+        }
+
+            // Validate email format
+        if (!util.validateEmail(Email)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Invalid email format."
+            });
+        }
+
+        if (!['Full-time', 'Part-time', 'Fixed-term'].includes(Status)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Invalid status. Allowed values are: Full-time, Part-time, Fixed-term."
+            });
+        }
+
+        if (Email !== prof.Email) {
+            const emailConflict = await Professor.findOne({ where: { Email: Email } })
+            if (emailConflict) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Email already exists. Please use a different email."
+                })
+            }
+        }
+
+        const updateProf = await prof.update({
+            Name: Name,
+            Email: Email,
+            Status: Status
+        })
+
+        return res.status(201).json({
+            successful: true,
+            message: "Successfully updated professor."
+        })
+    } 
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+module.exports = { addProf, getAllProf, getProf, deleteProf, updateProf };
