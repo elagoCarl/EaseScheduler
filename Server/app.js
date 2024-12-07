@@ -14,6 +14,9 @@ const app = express();
 const account_rtr = require('./API/routers/account_rtr')
 const prof_rtr = require('./API/routers/prof_rtr')
 const room_rtr = require('./API/routers/room_rtr')
+const program_rtr = require('./API/routers/program_rtr')
+const progYrSec_rtr = require('./API/routers/progYrSec_rtr')
+const profAvail_rtr = require('./API/routers/profAvail_rtr')
 
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
@@ -64,8 +67,9 @@ app.use((req, res, next)=>{
 app.use('/accounts', account_rtr)
 app.use('/professor', prof_rtr)
 app.use('/room', room_rtr)
-
-
+app.use('/program', program_rtr)
+app.use('/progYrSec', progYrSec_rtr)
+app.use('/profAvail', profAvail_rtr)
 
 //ERROR MIDDLEWARES
 app.use((req, res, next)=>{
