@@ -5,7 +5,7 @@ import Menu from "./Img/menu.png";
 import Sidebar from "./sideBar.jsx";
 import Door from "./Img/Vector4.png";
 
-const Room = () => {
+const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
   const [isAllChecked, setAllChecked] = useState(false);
@@ -97,9 +97,9 @@ const Room = () => {
         {/* Table Container */}
         <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-full md:w-2/3 max-h-[70vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
-            <img src={Door} className="w-8 h-8 md:w-12 md:h-12" alt="Room img" />
+            <img src={Door} className="w-8 h-8 md:w-12 md:h-12" alt="Course img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
-              Room
+              Course
             </h2>
           </div>
 
@@ -159,4 +159,4 @@ const Room = () => {
   );
 };
 
-export default Room;
+export default Course;
