@@ -101,4 +101,29 @@ const getDept = async (req, res, next) => {
     }
 }
 
-module.exports = { addDept, getAllDept, getDept };
+const deleteDept = async (req, res, next) => {
+    try {
+        const deleteDept = await Department.destroy({
+            where: {
+              id: req.params.id, // Replace with the ID of the record you want to delete
+            },
+          })
+        if (deleteDept) {
+            res.status(200).send({
+                successful: true,
+                message: "Successfully deleted department."
+            })
+        } else {
+            res.status(400).send({
+                successful: false,
+                message: "Department not found."
+            })
+        }
+    } catch (err) {
+        res.status(500).send({
+            successful: false,
+            message: err.message
+        });
+    }
+}
+module.exports = { addDept, getAllDept, getDept, deleteDept };

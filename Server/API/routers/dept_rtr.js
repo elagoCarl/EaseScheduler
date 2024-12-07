@@ -5,5 +5,6 @@ const router = express.Router();
 router.post('/addDept', dept_ctrl.addDept)
 router.get('/getAllDept', dept_ctrl.getAllDept)
 router.get('/getDept/:id', dept_ctrl.getDept)
+router.delete('/deleteDept/:id', dept_ctrl.deleteDept)
 
 module.exports = router;

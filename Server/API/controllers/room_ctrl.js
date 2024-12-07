@@ -119,4 +119,30 @@ const getRoom = async (req, res, next) => {
     }
 }
 
-module.exports = { addRoom, getAllRoom, getRoom };
+const deleteRoom = async (req, res, next) => {
+    try {
+        const deleteRoom = await Room.destroy({
+            where: {
+              id: req.params.id, // Replace with the ID of the record you want to delete
+            },
+          })
+        if (deleteRoom) {
+            res.status(200).send({
+                successful: true,
+                message: "Successfully deleted room."
+            })
+        } else {
+            res.status(400).send({
+                successful: false,
+                message: "Room not found."
+            })
+        }
+    } catch (err) {
+        res.status(500).send({
+            successful: false,
+            message: err.message
+        });
+    }
+}
+
+module.exports = { addRoom, getAllRoom, getRoom, deleteRoom };
