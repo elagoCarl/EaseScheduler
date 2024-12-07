@@ -178,7 +178,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
-            navigate('/courses');
+            navigate('/course');
             toggleSidebar(false);
           }}
         >
@@ -227,7 +227,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/account/profile');
+              navigate('/createAccount');
               toggleSidebar(false);
             }}
           >
