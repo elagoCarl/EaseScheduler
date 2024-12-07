@@ -209,4 +209,10 @@ const updateProf = async (req, res, next) => {
         })
     }
 }
-module.exports = { addProf, getAllProf, getProf, deleteProf, updateProf };
+module.exports = { 
+    addProf, 
+    getAllProf, 
+    getProf, 
+    deleteProf, 
+    updateProf 
+};
