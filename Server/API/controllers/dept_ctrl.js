@@ -1,60 +1,42 @@
-const { Room, Department } = require('../models')
+const { Department } = require('../models')
 const util = require('../../utils')
 
-const addRoom = async (req, res, next) => {
+const addDept = async (req, res, next) => {
     try {
-        let rooms = req.body;
+        let depts = req.body;
 
         // Check if the request body contains an array of professors
-        if (!Array.isArray(rooms)) {
+        if (!Array.isArray(depts)) {
             // If not an array, convert the single professor to an array
-            rooms = [rooms];
+            depts = [depts];
         }
 
-        for (const room of rooms) {
-            const { Code, Floor, Building, Type, Dept_id } = room;
+        for (const dept of depts) {
+            const { Name } = dept;
 
-            if (!util.checkMandatoryFields([Code, Floor, Building, Type, Dept_id])) {
+            if (!util.checkMandatoryFields([Name])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
                 })
             }
 
-            const existingRoom = await Room.findOne({ where: { Code } });
-            if (existingRoom) {
+            const existingDept = await Department.findOne({ where: { Name } });
+            if (existingDept) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Room code already exists."
+                    message: "Department already exists."
                 })
             }
-    
-            if (!['LV', 'GP'].includes(Building)) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Invalid Building."
-                });
-            }
 
-            if (!['Lab', 'Lec'].includes(Type)) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Invalid Room Type."
-                });
-            }
-
-            const newRoom = await Room.create({
-                Code: Code,
-                Floor: Floor,
-                Building: Building,
-                Type: Type
+            const newDept = await Department.create({
+                Name: Name
             })
-            const newDeptRoom = await newRoom.addRoomDepts(Dept_id)
         }
 
         return res.status(201).json({
             successful: true,
-            message: "Successfully added new room."
+            message: "Successfully added new department."
         })
 
     } 
@@ -66,13 +48,13 @@ const addRoom = async (req, res, next) => {
     }
 }
 
-const getAllRoom = async (req, res, next) => {
+const getAllDept = async (req, res, next) => {
     try {
-        let room = await Room.findAll()
-        if (!room) {
+        let dept = await Department.findAll()
+        if (!dept) {
             res.status(200).send({
                 successful: true,
-                message: "No room found",
+                message: "No department found",
                 count: 0,
                 data: []
             })
@@ -80,9 +62,9 @@ const getAllRoom = async (req, res, next) => {
         else {
             res.status(200).send({
                 successful: true,
-                message: "Retrieved all rooms",
-                count: room.length,
-                data: room
+                message: "Retrieved all departments",
+                count: dept.length,
+                data: dept
             })
         }
     }
@@ -94,20 +76,20 @@ const getAllRoom = async (req, res, next) => {
     }
 }
 
-const getRoom = async (req, res, next) => {
+const getDept = async (req, res, next) => {
     try {
-        let room = await Room.findByPk(req.params.id);
+        let dept = await Department.findByPk(req.params.id);
 
-        if (!room) {
+        if (!dept) {
             res.status(404).send({
                 successful: false,
-                message: "Room not found"
+                message: "Department not found"
             });
         } else {
             res.status(200).send({
                 successful: true,
-                message: "Successfully retrieved room.",
-                data: room
+                message: "Successfully retrieved department.",
+                data: dept
             });
         }
     }
@@ -119,22 +101,22 @@ const getRoom = async (req, res, next) => {
     }
 }
 
-const deleteRoom = async (req, res, next) => {
+const deleteDept = async (req, res, next) => {
     try {
-        const deleteRoom = await Room.destroy({
+        const deleteDept = await Department.destroy({
             where: {
               id: req.params.id, // Replace with the ID of the record you want to delete
             },
           })
-        if (deleteRoom) {
+        if (deleteDept) {
             res.status(200).send({
                 successful: true,
-                message: "Successfully deleted room."
+                message: "Successfully deleted department."
             })
         } else {
             res.status(400).send({
                 successful: false,
-                message: "Room not found."
+                message: "Department not found."
             })
         }
     } catch (err) {
@@ -144,5 +126,4 @@ const deleteRoom = async (req, res, next) => {
         });
     }
 }
-
-module.exports = { addRoom, getAllRoom, getRoom, deleteRoom };
+module.exports = { addDept, getAllDept, getDept, deleteDept };

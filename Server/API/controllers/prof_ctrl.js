@@ -41,7 +41,7 @@ const addProf = async (req, res, next) => {
             if (existingEmail) {
                 return res.status(406).json({
                     successful: false,
-                    message: "$Email already exists. Please use a different email."
+                    message: "Email already exists. Please use a different email."
                 })
             }
 
@@ -120,4 +120,29 @@ const getProf = async (req, res, next) => {
     }
 }
 
-module.exports = { addProf, getAllProf, getProf };
+const deleteProf = async (req, res, next) => {
+    try {
+        const deleteProf = await Professor.destroy({
+            where: {
+              id: req.params.id, // Replace with the ID of the record you want to delete
+            },
+          })
+        if (deleteProf) {
+            res.status(200).send({
+                successful: true,
+                message: "Successfully deleted professor."
+            })
+        } else {
+            res.status(400).send({
+                successful: false,
+                message: "Professor not found."
+            })
+        }
+    } catch (err) {
+        res.status(500).send({
+            successful: false,
+            message: err.message
+        });
+    }
+}
+module.exports = { addProf, getAllProf, getProf, deleteProf };
