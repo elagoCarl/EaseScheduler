@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-
+    const Department = require("./dept_model")(sequelize, DataTypes)
     const Room = sequelize.define('Room', {
         Code: {
             type: DataTypes.STRING,
@@ -9,10 +9,12 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Room code is required." }
             }
         },
-        Seats: {
-            type: DataTypes.INTEGER,
+        Floor: {
+            type: DataTypes.STRING,
             allowNull: false,
-            min: 1
+            validate: {
+                notEmpty: { msg: "Floor is required." }
+            }
         },
         Building: {
             type: DataTypes.STRING,
@@ -31,5 +33,18 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
+    Department.belongsToMany(Room, {
+        through: 'DeptRoom',
+        as: 'DeptRooms',
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
+    })
+    Room.belongsToMany(Department, {
+        through: 'DeptRoom',
+        as: 'RoomDepts',
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE'
+    })
+
     return Room
 }

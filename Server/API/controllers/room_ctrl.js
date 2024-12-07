@@ -1,4 +1,4 @@
-const { Room } = require('../models')
+const { Room, Department } = require('../models')
 const util = require('../../utils')
 
 const addRoom = async (req, res, next) => {
@@ -12,9 +12,9 @@ const addRoom = async (req, res, next) => {
         }
 
         for (const room of rooms) {
-            const { Code, Seats, Building, Type } = room;
+            const { Code, Floor, Building, Type, Dept_id } = room;
 
-            if (!util.checkMandatoryFields([Code, Seats, Building, Type])) {
+            if (!util.checkMandatoryFields([Code, Floor, Building, Type, Dept_id])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -28,16 +28,7 @@ const addRoom = async (req, res, next) => {
                     message: "Room code already exists."
                 })
             }
-            const maxSeat = 50;
-
-            // Validate email format
-            if (Seats>maxSeat) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Max number of seats limit reached."
-                });
-            }
-
+    
             if (!['LV', 'GP'].includes(Building)) {
                 return res.status(406).json({
                     successful: false,
@@ -54,10 +45,11 @@ const addRoom = async (req, res, next) => {
 
             const newRoom = await Room.create({
                 Code: Code,
-                Seats: Seats,
+                Floor: Floor,
                 Building: Building,
                 Type: Type
             })
+            const newDeptRoom = await newRoom.addRoomDepts(Dept_id)
         }
 
         return res.status(201).json({
