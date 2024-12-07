@@ -9,10 +9,12 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Room code is required." }
             }
         },
-        Seats: {
-            type: DataTypes.INTEGER,
+        Floor: {
+            type: DataTypes.STRING,
             allowNull: false,
-            min: 1
+            validate: {
+                notEmpty: { msg: "Floor is required." }
+            }
         },
         Building: {
             type: DataTypes.STRING,

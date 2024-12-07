@@ -5,56 +5,54 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
 
-  // Manage the state for showing sub-contents
   const [activeSection, setActiveSection] = useState(null);
 
-  // Close sidebar when clicking outside of it
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-        toggleSidebar(false); // Close the sidebar if clicked outside
+        toggleSidebar(false);
       }
     };
 
-    // Add event listener when sidebar is open
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    // Cleanup on component unmount or when sidebar is closed
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, toggleSidebar]);
 
-  // Toggle sub-content visibility
   const toggleSubContent = (section) => {
-    setActiveSection(activeSection === section ? null : section); // Toggle sub-content
+    setActiveSection(activeSection === section ? null : section);
   };
 
   return (
     <div
       ref={sidebarRef}
-      className={`fixed top-0 right-0 h-full bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 w-2/12 z-50 flex flex-col justify-center`}>
-        <button
-          id="logoBtn"
-          className="text-md md:text-xl font-bold text-blue-500 relative"
-          onClick={() => navigate("/")}
-        >
-          EASE<span className="text-white">SCHEDULER</span>
-        </button>
+      className={`fixed top-0 right-0 h-full bg-gray-800 text-white shadow-lg transform ${
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      } transition-transform duration-300 w-2/12 z-50 flex flex-col justify-center`}
+    >
+      <button
+        id="logoBtn"
+        className="text-md md:text-xl font-bold text-blue-500 relative"
+        onClick={() => navigate('/')}
+      >
+        EASE<span className="text-white">SCHEDULER</span>
+      </button>
 
       {/* Schedules Section */}
       <div className="flex flex-col items-start space-y-4 px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
-          onClick={() => {
-            toggleSubContent('schedules'); // Toggle sub-content for schedules
-          }}
+          onClick={() => toggleSubContent('schedules')}
         >
           Schedules
           <svg
-            className={`w-9 h-9 transform ${activeSection === 'schedules' ? 'rotate-180' : ''}`}
+            className={`w-9 h-9 transform transition-transform ${
+              activeSection === 'schedules' ? 'rotate-180' : ''
+            }`}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             stroke="currentColor"
@@ -68,41 +66,43 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             />
           </svg>
         </button>
-        {activeSection === 'schedules' && (
-          <div className="pl-12 space-y-3">
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/schedules/daily');
-                toggleSidebar(false); // Close the sidebar after navigation
-              }}
-            >
-              Daily View
-            </button>
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/schedules/week');
-                toggleSidebar(false); // Close the sidebar after navigation
-              }}
-            >
-              Weekly View
-            </button>
-          </div>
-        )}
+        <div
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${
+            activeSection === 'schedules' ? 'max-h-screen' : 'max-h-0'
+          }`}
+        >
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/schedules/daily');
+              toggleSidebar(false);
+            }}
+          >
+            Daily View
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/schedules/week');
+              toggleSidebar(false);
+            }}
+          >
+            Weekly View
+          </button>
+        </div>
       </div>
 
       {/* Professors Section */}
       <div className="flex flex-col items-start space-y-4 px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
-          onClick={() => {
-            toggleSubContent('professors'); // Toggle sub-content for professors
-          }}
+          onClick={() => toggleSubContent('professors')}
         >
           Professors
           <svg
-            className={`w-9 h-9 transform ${activeSection === 'professors' ? 'rotate-180' : ''}`}
+            className={`w-9 h-9 transform transition-transform ${
+              activeSection === 'professors' ? 'rotate-180' : ''
+            }`}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             stroke="currentColor"
@@ -116,28 +116,30 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             />
           </svg>
         </button>
-        {activeSection === 'professors' && (
-          <div className="pl-12 space-y-3">
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/professors/all');
-                toggleSidebar(false); // Close the sidebar after navigation
-              }}
-            >
-              All Professors
-            </button>
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/professors/add');
-                toggleSidebar(false); // Close the sidebar after navigation
-              }}
-            >
-              Add Professor
-            </button>
-          </div>
-        )}
+        <div
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${
+            activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
+          }`}
+        >
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/professors/all');
+              toggleSidebar(false);
+            }}
+          >
+            All Professors
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/professors/add');
+              toggleSidebar(false);
+            }}
+          >
+            Add Professor
+          </button>
+        </div>
       </div>
 
       {/* Rooms Section (No sub-content) */}
@@ -146,7 +148,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
             navigate('/room');
-            toggleSidebar(false); // Close the sidebar after navigation
+            toggleSidebar(false);
           }}
         >
           Rooms
@@ -159,7 +161,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
             navigate('/courses');
-            toggleSidebar(false); // Close the sidebar after navigation
+            toggleSidebar(false);
           }}
         >
           Courses
@@ -170,13 +172,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       <div className="flex flex-col items-start space-y-4 px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
-          onClick={() => {
-            toggleSubContent('account'); // Toggle sub-content for account
-          }}
+          onClick={() => toggleSubContent('account')}
         >
           Account
           <svg
-            className={`w-9 h-9 transform ${activeSection === 'account' ? 'rotate-180' : ''}`}
+            className={`w-9 h-9 transform transition-transform ${
+              activeSection === 'account' ? 'rotate-180' : ''
+            }`}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             stroke="currentColor"
@@ -190,28 +192,30 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             />
           </svg>
         </button>
-        {activeSection === 'account' && (
-          <div className="pl-12 space-y-3">
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/accountSettings');
-                toggleSidebar(false); // Close the sidebar after navigation
-              }}
-            >
-              Settings
-            </button>
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/account/profile');
-                toggleSidebar(false); // Close the sidebar after navigation
-              }}
-            >
-              Profile
-            </button>
-          </div>
-        )}
+        <div
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${
+            activeSection === 'account' ? 'max-h-screen' : 'max-h-0'
+          }`}
+        >
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/accountSettings');
+              toggleSidebar(false);
+            }}
+          >
+            Settings
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/account/profile');
+              toggleSidebar(false);
+            }}
+          >
+            Profile
+          </button>
+        </div>
       </div>
     </div>
   );
