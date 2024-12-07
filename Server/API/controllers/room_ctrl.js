@@ -28,7 +28,7 @@ const addRoom = async (req, res, next) => {
                     message: "Room code already exists."
                 })
             }
-    
+
             if (!['LV', 'GP'].includes(Building)) {
                 return res.status(406).json({
                     successful: false,
@@ -57,7 +57,7 @@ const addRoom = async (req, res, next) => {
             message: "Successfully added new room."
         })
 
-    } 
+    }
     catch (err) {
         return res.status(500).json({
             successful: false,
@@ -123,9 +123,9 @@ const deleteRoom = async (req, res, next) => {
     try {
         const deleteRoom = await Room.destroy({
             where: {
-              id: req.params.id, // Replace with the ID of the record you want to delete
+                id: req.params.id, // Replace with the ID of the record you want to delete
             },
-          })
+        })
         if (deleteRoom) {
             res.status(200).send({
                 successful: true,
@@ -145,4 +145,67 @@ const deleteRoom = async (req, res, next) => {
     }
 }
 
-module.exports = { addRoom, getAllRoom, getRoom, deleteRoom };
+const updateRoom = async (req, res, next) => {
+    try {
+        let room = await Room.findByPk(req.params.id)
+        const { Code, Floor, Building, Type } = req.body
+
+        if (!room) {
+            res.status(404).send({
+                successful: false,
+                message: "Room not found"
+            });
+        }
+
+        if (!util.checkMandatoryFields([Code, Floor, Building, Type])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            })
+        }
+
+
+        if (!['LV', 'GP'].includes(Building)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Invalid Building."
+            });
+        }
+
+        if (!['Lab', 'Lec'].includes(Type)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Invalid Room Type."
+            });
+        }
+
+        if (Code !== room.Code) {
+            const roomConflict = await Room.findOne({ where: { Code: Code } })
+            if (roomConflict) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Room already exists."
+                })
+            }
+        }
+
+        const updateRoom = await room.update({
+            Code: Code,
+            Floor: Floor,
+            Building: Building,
+            Type: Type
+        })
+
+        return res.status(201).json({
+            successful: true,
+            message: "Successfully updated room."
+        })
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+module.exports = { addRoom, getAllRoom, getRoom, deleteRoom, updateRoom };

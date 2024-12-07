@@ -6,5 +6,6 @@ router.post('/addRoom', room_ctrl.addRoom)
 router.get('/getAllRoom', room_ctrl.getAllRoom)
 router.get('/getRoom/:id', room_ctrl.getRoom)
 router.delete('/deleteRoom/:id', room_ctrl.deleteRoom)
+router.put('/updateRoom/:id', room_ctrl.updateRoom)
 
 module.exports = router;
