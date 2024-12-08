@@ -28,12 +28,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   };
 
   return (
-    <div
-      ref={sidebarRef}
-      className={`fixed top-0 right-0 h-full bg-gray-800 text-white shadow-lg transform ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      } transition-transform duration-300 w-2/12 z-50 flex flex-col justify-center`}
-    >
+    <div ref={sidebarRef} 
+    className={`fixed top-0 right-0 h-full bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 w-2/12 z-50 flex flex-col justify-center`}>
       <button
         id="logoBtn"
         className="text-md md:text-xl font-bold text-blue-500 relative"
@@ -50,9 +46,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         >
           Timetables
           <svg
-            className={`w-9 h-9 transform transition-transform ${
-              activeSection === 'Timetables' ? 'rotate-180' : ''
-            }`}
+            className={`w-9 h-9 transform transition-transform ${activeSection === 'Timetables' ? 'rotate-180' : ''
+              }`}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             stroke="currentColor"
@@ -67,9 +62,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </svg>
         </button>
         <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${
-            activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
-          }`}
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
+            }`}
         >
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
@@ -118,9 +112,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         >
           Professors
           <svg
-            className={`w-9 h-9 transform transition-transform ${
-              activeSection === 'professors' ? 'rotate-180' : ''
-            }`}
+            className={`w-9 h-9 transform transition-transform ${activeSection === 'professors' ? 'rotate-180' : ''
+              }`}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             stroke="currentColor"
@@ -135,9 +128,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </svg>
         </button>
         <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${
-            activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
-          }`}
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
+            }`}
         >
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
@@ -194,9 +186,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         >
           Account
           <svg
-            className={`w-9 h-9 transform transition-transform ${
-              activeSection === 'account' ? 'rotate-180' : ''
-            }`}
+            className={`w-9 h-9 transform transition-transform ${activeSection === 'account' ? 'rotate-180' : ''
+              }`}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             stroke="currentColor"
@@ -211,9 +202,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </svg>
         </button>
         <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${
-            activeSection === 'account' ? 'max-h-screen' : 'max-h-0'
-          }`}
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'account' ? 'max-h-screen' : 'max-h-0'
+            }`}
         >
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"

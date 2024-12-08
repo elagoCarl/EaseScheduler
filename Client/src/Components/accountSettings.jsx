@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Background from './Img/4.jpg';
 import { useNavigate } from 'react-router-dom';
-import Menu from './Img/menu.png';
-import Sidebar from './sideBar.jsx';
+import Sidebar from './callComponents/sideBar.jsx';
+import TopMenu from "./callComponents/topMenu.jsx";
 
 const AccountSettings = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -11,40 +11,21 @@ const AccountSettings = () => {
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
-
   return (
     <div
       id="bgImg"
       className="bg-cover bg-center bg-no-repeat h-screen w-screen"
-      style={{ backgroundImage: `url(${Background})` }}
-    >
+      style={{ backgroundImage: `url(${Background})` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-
       {/* Top Menu */}
-      <div className="flex justify-end items-end px-8 py-4 xl:py-40 xl:px-40">
-        <button
-          id="logoBtn"
-          className="text-3xl xl:text-3xl font-bold text-blue-500"
-          onClick={() => navigate('/')}
-        >
-          EASE<span className="text-white">SCHEDULER</span>
-        </button>
-        <img
-          src={Menu}
-          className="w-40 h-40 cursor-pointer absolute top-40 right-10 xl:top-75 xl:right-35"
-          alt="menu button"
-          onClick={toggleSidebar}
-        />
-      </div>
-
+      <TopMenu toggleSidebar={toggleSidebar} />
       {/* Main Content */}
       <div className="h-screen flex justify-center items-center">
         <div className="relative bg-customBlue1 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
           <button
             className="absolute top-3 right-10 text-white font-bold text-2xl hover:text-red-500"
-            onClick={() => navigate('/')}
-          >
+            onClick={() => navigate('/')}>
             &times;
           </button>
 

@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import Background from "./Img/4.jpg";
+import Background from "./Img/5.jpg";
 import { useNavigate } from "react-router-dom";
-import Menu from "./Img/menu.png";
-import Sidebar from "./sideBar.jsx";
+import Sidebar from "./callComponents/sideBar.jsx";
+import TopMenu from "./callComponents/topMenu.jsx";
+import AddCourseModal from "./callComponents/addCourseModal.jsx";
+import EditCourseModal from "./callComponents/editCourseModal.jsx";
+import DelCourseWarn from "./callComponents/delCourseWarn.jsx";
 import Book from "./Img/Book.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
@@ -15,8 +18,9 @@ const Course = () => {
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
   const [selectedFloor, setSelectedFloor] = useState("Select Floor");
 
-  const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
-
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
+  const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
+  const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const campuses = ["Campus A", "Campus B", "Campus C"];
   const floors = ["1st Floor", "2nd Floor", "3rd Floor"];
 
@@ -40,38 +44,43 @@ const Course = () => {
   };
 
   const handleAddCourseClick = () => {
-    setIsModalOpen(true); // Open the modal when add button is clicked
+    setIsAddCourseModalOpen(true); // Open the add course modal when add button is clicked
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false); // Close the modal
+  const handleAddCourseCloseModal = () => {
+    setIsAddCourseModalOpen(false); // Close the add course modal
+  };
+  // setIsEditCourseModalOpen
+  const handleEditCourseClick = () => {
+    setIsEditCourseModalOpen(true); // Open the add course modal when add button is clicked
   };
 
+  const handleEditCourseCloseModal = () => {
+    setIsEditCourseModalOpen(false); // Close the add course modal
+  };
+  // Del warning
+  const handleDeleteClick = () => {
+    setIsDeleteWarningOpen(true); // Open the delete warning modal
+  };
+
+  const handleCloseDelWarning = () => {
+    setIsDeleteWarningOpen(false); // Close the delete warning modal
+  };
+
+  const handleConfirmDelete = () => {
+    // Handle the actual delete logic here
+    console.log("Course deleted");
+    setIsDeleteWarningOpen(false); // Close the warning after deletion
+  };
   return (
-    <body
+    <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}
-    >
+      style={{ backgroundImage: `url(${Background})` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
       {/* Top Menu */}
-      <div className="absolute top-0 left-0 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
-        <button
-          id="logoBtn"
-          className="text-lg md:text-3xl font-bold text-blue-500"
-          onClick={() => navigate("/")}
-        >
-          EASE<span className="text-white">SCHEDULER</span>
-        </button>
-        <img
-          src={Menu}
-          className="w-15 h-15 md:w-40 md:h-40 hover:bg-customLightBlue2 cursor-pointer rounded"
-          alt="menu button"
-          onClick={toggleSidebar}
-        />
-      </div>
-
+      <TopMenu toggleSidebar={toggleSidebar} />
       {/* Main Content */}
       <div className="flex flex-col justify-center items-center h-screen w-full px-8">
         {/* Filters */}
@@ -81,8 +90,7 @@ const Course = () => {
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base"
-            >
+              className="px-4 py-2 border rounded text-sm md:text-base">
               <option disabled>Select Campus</option>
               {campuses.map((campus, index) => (
                 <option key={index} value={campus}>
@@ -90,7 +98,6 @@ const Course = () => {
                 </option>
               ))}
             </select>
-
             {/* Floor Dropdown */}
             <select
               value={selectedFloor}
@@ -106,7 +113,6 @@ const Course = () => {
             </select>
           </div>
         </div>
-
         {/* Table Container */}
         <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
@@ -115,7 +121,6 @@ const Course = () => {
               Course
             </h2>
           </div>
-
           {/* Scrollable Table */}
           <div className="overflow-auto w-full h-full flex-grow">
             <table className="text-center w-full border-collapse">
@@ -142,6 +147,8 @@ const Course = () => {
                       checked={isAllChecked}
                       onChange={handleMasterCheckboxChange}
                     />
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
                   </th>
                 </tr>
               </thead>
@@ -170,8 +177,18 @@ const Course = () => {
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => handleCheckboxChange(index)}
-                      />
+                        onChange={() => handleCheckboxChange(index)} />
+                    </td>
+                    <td className="py-2 border border-gray-300">
+                      <button className=" text-white rounded "
+                        onClick={handleEditCourseClick}
+                      >
+                        <img
+                          src={editBtn}
+                          className="w-9 h-9 md:w-15 md:h-15 hover:scale-110"
+                          alt="Edit Course"
+                        />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -180,7 +197,6 @@ const Course = () => {
           </div>
         </div>
       </div>
-
       {/* Vertical Buttons Container */}
       <div className="fixed top-1/4 right-4 border border-gray-900 bg-white rounded p-4 flex flex-col gap-4">
         <button
@@ -193,14 +209,18 @@ const Course = () => {
             alt="Add Course"
           />
         </button>
-        <button className="py-2 px-4 text-white rounded ">
+        <button className="py-2 px-4 text-white rounded "
+          onClick={handleEditCourseClick}
+        >
           <img
             src={editBtn}
             className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
             alt="Edit Course"
           />
         </button>
-        <button className="py-2 px-4 text-white rounded ">
+        <button className="py-2 px-4 text-white rounded "
+          onClick={handleDeleteClick}
+        >
           <img
             src={delBtn}
             className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
@@ -208,75 +228,23 @@ const Course = () => {
           />
         </button>
       </div>
-
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-          <div className=" bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Add Course</h2>
-              <button
-                className="text-xl text-white hover:text-black"
-                onClick={handleCloseModal}
-              >
-                &times;
-              </button>
-            </div>
-            <form className="space-y-10 px-20">
-              <label htmlFor="" className="block font-semibold text-white">Course Code</label>
-              <input
-                type="text"
-                placeholder="Course Code"
-                className="w-full p-8 border rounded bg-customWhite" required
-              />
-
-              <label htmlFor="" className="block font-semibold text-white">Course Description</label>
-              <input
-                type="text"
-                placeholder="Course Description"
-                className="w-full p-8 border rounded bg-customWhite" required
-              />
-
-              <label htmlFor="" className="block font-semibold text-white">Course Duration</label>
-              <input
-                type="number"
-                placeholder="Course Duration"
-                className="w-full p-8 border rounded bg-customWhite" required
-              />
-
-              <label htmlFor="" className="block font-semibold text-white">No. of Units</label>
-              <input
-                type="number"
-                placeholder="No. of Units"
-                className="w-full p-8 border rounded bg-customWhite" required
-              />
-
-              <label htmlFor="" className="block font-semibold text-white">Course Type</label>
-              <select className="w-full p-8 border rounded bg-customWhite">
-                <option disabled>Select Course Type</option>
-                <option>Lecture</option>
-                <option>Lab</option>
-              </select>
-              <div className="flex justify-center mt-4 gap-4">
-                <button
-                  type="submit"
-                  className="bg-blue-500 text-white px-6 py-2 rounded-lg" required
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  className="bg-gray-500 text-white px-6 py-2 rounded-lg"
-                  onClick={handleCloseModal}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </body>
+      {/* Add Course Modal */}
+      <AddCourseModal
+        isOpen={isAddCourseModalOpen}
+        onClose={handleAddCourseCloseModal}
+      />
+      {/* Edit Course Modal */}
+      <EditCourseModal
+        isOpen={isEditCourseModalOpen}
+        onClose={handleEditCourseCloseModal}
+      />
+      {/* Delete Warning Modal */}
+      <DelCourseWarn
+        isOpen={isDeleteWarningOpen}
+        onClose={handleCloseDelWarning}
+        onConfirm={handleConfirmDelete}
+      />
+    </div>
   );
 };
 

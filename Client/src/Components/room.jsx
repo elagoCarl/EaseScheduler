@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Background from "./Img/4.jpg";
 import { useNavigate } from "react-router-dom";
 import Menu from "./Img/menu.png";
-import Sidebar from "./sideBar.jsx";
+import Sidebar from "./callComponents/sideBar.jsx";
 import Door from "./Img/Vector4.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
