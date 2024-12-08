@@ -1,18 +1,28 @@
 //IMPORT ALL PACKAGE DEPENDENCIES
 const express = require('express');
+const path = require('path');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
+// const cookieParser = require('cookie-parser');
+require('dotenv').config()
 
+//INITIALIZE EXPRESS APPLICATION AND STORE TO app
 const app = express();
 
-const db = require('./models/index')
 
-//MIDDLEWARES
+//IMPORT ALL ROUTERS NEEDED
+const account_rtr = require('./API/routers/account_rtr')
+app.use((req, res, next) => {
+  console.log(`Incoming request: ${req.method} ${req.url}`);
+  next();
+});
 
-db.connectDB()
+
 
 //TO LOG CLIENT REQUEST-RESPONSE DATA IN A DEV ENVIRONMENT
 app.use(morgan('dev'));
+app.use(express.json())
+// app.use(cookieParser());
 
 //PARSE DATA THAT ARE URLENCODED
 //content-type: application/x-www-form-urlencoded
@@ -45,6 +55,11 @@ app.use((req, res, next)=>{
     //THIS PASS THE NEXT CONTROL TO THE NEXT MIDDLEWARE
     next();
 })
+
+
+//MIDDLEWARE FOR THE ROUTERS
+app.use('/accounts', account_rtr)
+
 
 
 //ERROR MIDDLEWARES
