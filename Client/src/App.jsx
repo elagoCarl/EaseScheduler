@@ -5,6 +5,10 @@ import MainPage from "./Components/mainPage";
 import LoginPage from "./Components/loginPage";
 import Homepage from "./Components/homePage"
 import AccountSettings from "./Components/accountSettings";
+import CreateAccount from "./Components/createAccount";
+import HistoryLogs from "./Components/historyLogs";
+import Room from "./Components/room";
+import Course from "./Components/course";
 
 const App = () => {
   return (
@@ -17,6 +21,10 @@ const App = () => {
         <Route path="/loginPage" element={<LoginPage />} />
         <Route path="/homepage" element={<Homepage />} />
         <Route path="/accountSettings" element={<AccountSettings />} />
+        <Route path="/createAccount" element={<CreateAccount />} />
+        <Route path="/historyLogs" element={<HistoryLogs />} />
+        <Route path="/room" element={<Room />} />
+        <Route path="/course" element={<Course />} />
       </Routes>
     </Router>
   );

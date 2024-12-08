@@ -1,58 +1,195 @@
-import React from 'react'
-import image5 from './Img/5.jpg'
-import calendar from './Img/Calendar.png'
-import vector from './Img/Vector.png'
-import vector1 from './Img/Vector1.png'
-import vector2 from './Img/Vector2.png'
-import vector3 from './Img/Vector3.png'
-import profileBtn from './Img/ProfileBtn.png'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useRef } from 'react';
+import image5 from './Img/5.jpg';
+import calendar from './Img/Calendar.png';
+import vector from './Img/Vector.png';
+import vector1 from './Img/Vector1.png';
+import vector2 from './Img/Vector2.png';
+import vector3 from './Img/Vector3.png';
+import ProfileBtn from './Img/ProfileBtn.png';
+import { useNavigate } from 'react-router-dom';
 
 const HomePage = () => {
   const navigate = useNavigate();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState(null);
+  const [fadeIn, setFadeIn] = useState(false);
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);  // State for dropdown visibility
+
+  // Create refs for the profile button and the dropdown
+  const profileBtnRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  const openModal = (content) => {
+    setModalContent(content);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setFadeIn(false);  // Start the fade-out animation
+    setTimeout(() => {
+      setIsModalOpen(false);
+      setModalContent(null);
+    }, 300);  // Delay to match the fade-out duration
+  };
+
+  useEffect(() => {
+    if (isModalOpen) {
+      setFadeIn(true);  // Trigger fade-in when modal opens
+    }
+  }, [isModalOpen]);
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);  // Toggle the dropdown visibility
+  };
+
+  // Close the dropdown if the user clicks outside the profile button or dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        profileBtnRef.current && !profileBtnRef.current.contains(event.target) &&
+        dropdownRef.current && !dropdownRef.current.contains(event.target)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    // Add event listener on mount
+    document.addEventListener('mousedown', handleClickOutside);
+
+    // Cleanup the event listener on unmount
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const Buttons = (props) => {
     return (
-      <button className="flex flex-col items-center bg-blue-100 hover:bg-blue-200 rounded-lg p-30">
-        <img src={props.imgg} alt="Schedule" className="w-auto h-auto xl:w-200 xl:h-200 mb-0 md:w-auto sm:bottom-200 sm:h-100 md:h-auto" />
+      <button className="flex flex-col items-center bg-blue-100 hover:bg-blue-200 rounded-lg p-6">
+        <img src={props.imgg} alt="Schedule" className="w-auto h-auto xl:w-40 xl:h-40 mb-0 md:w-auto sm:bottom-200 sm:h-100 md:h-auto" />
         <span className="text-blue-600 font-semibold">{props.name}</span>
       </button>
-    )
-  }
+    );
+  };
+
   return (
-    <div
-      className="bg-cover bg-center bg-no-repeat h-screen w-screen block md:flex items-center justify-between xl:px-200 lg:px-300 sm:px-60"
+    <body className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
       style={{ backgroundImage: `url(${image5})` }}>
-      {/* Left Section */}
-      <div className="relative flex-col flex items-center">
-        <button className="text-4xl xl:text-5xl font-bold text-blue-500 mb-[-1rem] ml-20 sm:ml-10 md:mb-0 xs:mt-100 sm:mt-150 md:mt-60 lg:mt-auto sm:text-5xl">
-          EASE<span className="text-white"
-            onClick={() => navigate('/')}>SCHEDULER</span>
-        </button>
-        <div className='hidden md:block'>
-          <img src={calendar} alt="Calendar" className="w-auto h-auto md:w-auto md:h-auto" />
+      {/* Profile Button */}
+      <button
+        ref={profileBtnRef}  // Attach the ref to the ProfileBtn
+        className='absolute top-5 right-5 w-40 h-40 duration-500 hover:scale-110'
+        onClick={toggleDropdown}  // Toggle the dropdown visibility on click
+      >
+        <img className='' src={ProfileBtn} alt="ProfileBtn" />
+      </button>
+
+      {/* Dropdown Menu */}
+      {isDropdownOpen && (
+        <div ref={dropdownRef} className="absolute top-16 right-5 bg-white shadow-lg rounded-md p-4 z-10">
+          <ul className="space-y-4">
+            <li>
+              <a href="/accountSettings" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Account Settings</a>
+            </li>
+            <li>
+              <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Create Account</a>
+            </li>
+            <li>
+              <a href="#" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Logout</a>
+            </li>
+          </ul>
         </div>
+      )}
+
+      {/* LEFT SIDE CALENDAR IMG */}
+      <div className="hidden md:block w-1/2 mx-auto">
+        {/* EASESCHEDULER LOGO */}
+        <div className='pb-4 flex justify-center'>
+          <button id="logoBtn" className="text-lg md:text-3xl font-bold text-blue-500" onClick={() => navigate("/")}>
+            EASE<span className="text-white">SCHEDULER</span>
+          </button>
+        </div>
+        <img src={calendar} alt="Calendar" className="w-full" />
       </div>
 
-      {/* Right Section (Menu Buttons) */}
-      <div className="relative flex flex-col items-center">
-        {/* Profile Button */}
-        <div className="self-end mb-4">
-          <img
-            src={profileBtn}
-            alt="Profile"
-            className="absolute xs:top-[-3rem] xs:right-20 sm:top-[-2rem] xl:top-[-2rem] w-auto h-auto sm:w-50 xl:w-auto cursor-pointer hover:opacity-50"
-            onClick={() => console.log('Profile button clicked!')}
-          />
-        </div>
+      {/* RIGHT SIDE */}
+      <div className='w-full md:w-5/12 lg:w-5/12 xl:w-5/12 px-4 sm:px-0 flex flex-col items-center my-20 mx-40 relative'>
+        <div className='m-auto w-full'>
+          <section>
+            <div className='relative pt-4 mx-auto'>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                {/* 1st Card (Timetable) */}
+                <button
+                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-1 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  onClick={() => openModal('Add/Configure Timetables')}
+                >
+                  <img src={vector} alt="" />
+                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Timetables</span>
+                </button>
 
-        <div className="bg-blue-300 h-auto w-auto rounded-xl shadow-lg grid grid-cols-2 gap-20 p-60 xs:p-20 xs:mt-50 sm:p-20 sm:mt-60 xl:gap-20 mt-auto text-2xl font-bold">
-          <Buttons imgg={vector} name={'Schedule'} />
-          <Buttons imgg={vector1} name={'Professor'} />
-          <Buttons imgg={vector2} name={'Subject'} />
-          <Buttons imgg={vector3} name={'Room'} />
+                {/* 2nd Card (Professor) */}
+                <button
+                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-12 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  onClick={() => openModal('Professor availability')}
+                >
+                  <img src={vector1} alt="" />
+                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Professor</span>
+                </button>
+
+                {/* 3rd Card (Course) */}
+                <button onClick={() => {
+                  navigate('/course');
+                }}
+                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-12 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                >
+                  <img src={vector2} alt="" />
+                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Course</span>
+                </button>
+
+                {/* 4th Card (Room) */}
+                <button onClick={() => {
+                  navigate('/room');
+                }}
+                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-12 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                >
+                  <img src={vector3} alt="" />
+                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Room</span>
+                </button>
+              </div>
+
+              {/* Modal */}
+              {isModalOpen && (
+                <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+                  <button
+                    className="absolute top-0 right-0 text-xl font-bold text-red-500"
+                    onClick={closeModal}
+                  >
+                    <span className="font-bold m-9">x</span>
+                  </button>
+                  <h2 className="whitespace-nowrap text-3xl font-semibold text-ceuViolet text-center my-10">{modalContent}</h2>
+                  <ul className="space-y-20 m-20 text-center">
+                    {/* Display links based on modal content */}
+                    {modalContent === 'Add/Configure Timetables' && (
+                      <>
+                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">View Timetables</a></li>
+                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">Configure Timetables</a></li>
+                      </>
+                    )}
+                    {modalContent === 'Professor availability' && (
+                      <>
+                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">View Availability</a></li>
+                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">Set Availability</a></li>
+                      </>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </div>
-    </div>
+    </body>
   );
 };
 
