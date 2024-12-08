@@ -1,5 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const ProfAvail = require("./profAvail_model")(sequelize, DataTypes);
     const Professor = sequelize.define('Professor', {
         Name: {
             type: DataTypes.STRING,
@@ -33,11 +32,5 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
-    Professor.hasMany(ProfAvail, {
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-    })
-    ProfAvail.belongsTo(Professor)
-
     return Professor
 }

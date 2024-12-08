@@ -1,4 +1,4 @@
-const { ProfAvailSchedule } = require('../models');
+const { ProfAvailSchedule, ProfessorAvail } = require('../models');
 const util = require('../../utils');
 
 // Add Professor Availability Schedule (Single or Bulk)
@@ -13,19 +13,30 @@ const addProfAvailSched = async (req, res, next) => {
 
         // Validate and create schedules
         for (const schedule of schedulesToAdd) {
-            const { Start_time, End_time } = schedule;
+            const { Start_time, End_time, ProfessorAvailId } = schedule;
 
-            if (!util.checkMandatoryFields([Start_time, End_time])) {
+            // Check mandatory fields
+            if (!util.checkMandatoryFields([Start_time, End_time, ProfessorAvailId])) {
                 return res.status(400).json({
                     successful: false,
-                    message: "Mandatory fields (Start_time, End_time) are missing."
+                    message: "Mandatory fields (Start_time, End_time, ProfAvailId) are missing."
                 });
             }
 
-            await ProfAvailSchedule.create({ Start_time, End_time });
+            // Validate ProfAvailId existence
+            const profAvail = await ProfessorAvail.findByPk(ProfessorAvailId);
+            if (!profAvail) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Professor Availability with ID ${ProfessorAvailId} not found.`
+                });
+            }
+
+            // Create schedule
+            await ProfAvailSchedule.create({ Start_time, End_time, ProfessorAvailId });
         }
 
-        return res.status(200).json({
+        return res.status(201).json({
             successful: true,
             message: "Successfully added Professor Availability Schedule(s)."
         });
@@ -43,7 +54,13 @@ const getProfAvailSched = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const schedule = await ProfAvailSchedule.findByPk(id);
+        const schedule = await ProfAvailSchedule.findByPk(id, {
+            include: {
+                model: ProfessorAvail,
+                as: 'profAvail',
+                attributes: ['Day']
+            }
+        });
 
         if (!schedule) {
             return res.status(404).json({
@@ -68,7 +85,13 @@ const getProfAvailSched = async (req, res, next) => {
 // Get All Schedules
 const getAllProfAvailSched = async (req, res, next) => {
     try {
-        const schedules = await ProfAvailSchedule.findAll();
+        const schedules = await ProfAvailSchedule.findAll({
+            include: {
+                model: ProfessorAvail,
+                as: 'profAvail',
+                attributes: ['Day']
+            }
+        });
 
         return res.status(200).json({
             successful: true,
@@ -87,12 +110,13 @@ const getAllProfAvailSched = async (req, res, next) => {
 const updateProfAvailSched = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Start_time, End_time } = req.body;
+        const { Start_time, End_time, ProfessorAvailId } = req.body;
 
-        if (!util.checkMandatoryFields([Start_time, End_time])) {
+        // Check mandatory fields
+        if (!util.checkMandatoryFields([Start_time, End_time, ProfessorAvailId])) {
             return res.status(400).json({
                 successful: false,
-                message: "Mandatory fields (Start_time, End_time) are missing."
+                message: "Mandatory fields (Start_time, End_time, ProfAvailId) are missing."
             });
         }
 
@@ -104,7 +128,16 @@ const updateProfAvailSched = async (req, res, next) => {
             });
         }
 
-        await schedule.update({ Start_time, End_time });
+        // Validate ProfAvailId existence
+        const profAvail = await ProfessorAvail.findByPk(ProfessorAvailId);
+        if (!profAvail) {
+            return res.status(404).json({
+                successful: false,
+                message: `Professor Availability with ID ${ProfessorAvailId} not found.`
+            });
+        }
+
+        await schedule.update({ Start_time, End_time, ProfessorAvailId });
 
         return res.status(200).json({
             successful: true,

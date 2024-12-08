@@ -1,4 +1,4 @@
-const { Program } = require('../models');
+const { Program, Department } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 
@@ -12,35 +12,40 @@ const addProgram = async (req, res, next) => {
         }
 
         for (const programData of programsToAdd) {
-            const { Code, Name } = programData;
+            const { Code, Name, DepartmentId } = programData;
 
-            if (!util.checkMandatoryFields([Code, Name])) {
+            if (!util.checkMandatoryFields([Code, Name, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
                 });
             }
 
-            // Check if Program Code already exists
-            const existingProgramCode = await Program.findOne({ where: { Code } });
-            if (existingProgramCode) {
-                return res.status(406).json({
+            // Check if the department exists
+            const department = await Department.findByPk(DepartmentId);
+            if (!department) {
+                return res.status(404).json({
                     successful: false,
-                    message: `Program Code ${Code} already exists.`,
+                    message: `Department with ID ${DepartmentId} does not exist.`,
                 });
             }
 
-            // Check if Program Name already exists
-            const existingProgramName = await Program.findOne({ where: { Name } });
-            if (existingProgramName) {
+            // Check if Program Code or Name already exists
+            const existingProgram = await Program.findOne({
+                where: {
+                    [Op.or]: [{ Code }, { Name }]
+                }
+            });
+
+            if (existingProgram) {
                 return res.status(406).json({
                     successful: false,
-                    message: `Program Name ${Name} already exists.`,
+                    message: `Program with Code "${Code}" or Name "${Name}" already exists.`,
                 });
             }
 
             // Create the new program
-            await Program.create({ Code, Name });
+            await Program.create({ Code, Name, DepartmentId });
         }
 
         return res.status(201).json({
@@ -58,7 +63,9 @@ const addProgram = async (req, res, next) => {
 const getProgram = async (req, res, next) => {
     try {
         const programId = req.params.id; // Retrieve id from request parameters
-        const program = await Program.findByPk(programId);
+        const program = await Program.findByPk(programId, {
+            include: Department, // Include associated department details
+        });
 
         if (!program) {
             return res.status(404).json({
@@ -82,7 +89,9 @@ const getProgram = async (req, res, next) => {
 
 const getAllProgram = async (req, res, next) => {
     try {
-        const programs = await Program.findAll();
+        const programs = await Program.findAll({
+            include: Department, // Include associated department details
+        });
 
         if (!programs || programs.length === 0) {
             return res.status(200).json({
@@ -110,7 +119,7 @@ const getAllProgram = async (req, res, next) => {
 const updateProgram = async (req, res, next) => {
     try {
         const programId = req.params.id; // Retrieve id from request parameters
-        const { Code, Name } = req.body; // Fields to update
+        const { Code, Name, DepartmentId } = req.body; // Fields to update
 
         // Check if the program exists
         const program = await Program.findByPk(programId);
@@ -121,33 +130,36 @@ const updateProgram = async (req, res, next) => {
             });
         }
 
-        // Check if Code or Name already exists (excluding the current program)
-        if (Code) {
-            const existingProgramCode = await Program.findOne({
-                where: { Code, id: { [Op.ne]: programId } },
-            });
-            if (existingProgramCode) {
-                return res.status(406).json({
+        // Validate DepartmentId if provided
+        if (DepartmentId) {
+            const department = await Department.findByPk(DepartmentId);
+            if (!department) {
+                return res.status(404).json({
                     successful: false,
-                    message: `Program Code "${Code}" already exists.`,
+                    message: `Department with ID ${DepartmentId} does not exist.`,
                 });
             }
         }
 
-        if (Name) {
-            const existingProgramName = await Program.findOne({
-                where: { Name, id: { [Op.ne]: programId } },
+        // Check if Code or Name already exists (excluding the current program)
+        if (Code || Name) {
+            const existingProgram = await Program.findOne({
+                where: {
+                    [Op.or]: [{ Code }, { Name }],
+                    id: { [Op.ne]: programId },
+                },
             });
-            if (existingProgramName) {
+
+            if (existingProgram) {
                 return res.status(406).json({
                     successful: false,
-                    message: `Program Name "${Name}" already exists.`,
+                    message: `Program with Code "${Code}" or Name "${Name}" already exists.`,
                 });
             }
         }
 
         // Update the program
-        await program.update({ Code, Name });
+        await program.update({ Code, Name, DepartmentId });
         return res.status(200).json({
             successful: true,
             message: `Program with ID "${programId}" updated successfully.`,

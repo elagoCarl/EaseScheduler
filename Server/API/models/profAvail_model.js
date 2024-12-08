@@ -1,5 +1,6 @@
 module.exports = (sequelize, DataTypes) => {
-    const ProfAvailSched = require("./profAvailSched_model")(sequelize, DataTypes);
+    const Professor = require("./prof_model")(sequelize, DataTypes);
+
     const ProfAvail = sequelize.define('ProfessorAvail', {
         Day: {
             type: DataTypes.STRING,
@@ -7,17 +8,20 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Day is required." }
             }
+        },
+        ProfessorId: { // Adding the foreign key
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            references: {
+                model: Professor,
+                key: 'id' // Adjust the key if your primary key is named differently
+            },
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE',
         }
     }, {
         timestamps: true
     });
 
-    ProfAvail.hasMany(ProfAvailSched, {
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-      })
-    ProfAvailSched.belongsTo(ProfAvail)
-
-    return ProfAvail
-}
-
+    return ProfAvail;
+};

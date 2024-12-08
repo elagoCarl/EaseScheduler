@@ -1,4 +1,4 @@
-const { ProfessorAvail } = require('../models');
+const { ProfessorAvail, Professor } = require('../models');
 const util = require('../../utils');
 
 // Add Professor Availability (Single or Bulk)
@@ -13,20 +13,30 @@ const addProfessorAvail = async (req, res, next) => {
 
         // Iterate through the array and validate required fields
         for (const professorAvailData of professorAvailToAdd) {
-            const { Day } = professorAvailData;
+            const { Day, ProfessorId } = professorAvailData;
 
-            if (!util.checkMandatoryFields([Day])) {
+            // Validate mandatory fields
+            if (!util.checkMandatoryFields([Day, ProfessorId])) {
                 return res.status(400).json({
                     successful: false,
-                    message: "A mandatory field (Day) is missing."
+                    message: "Mandatory fields (Day, ProfessorId) are missing."
+                });
+            }
+
+            // Check if the referenced Professor exists
+            const professorExists = await Professor.findByPk(ProfessorId);
+            if (!professorExists) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Professor with ID ${ProfessorId} not found.`
                 });
             }
 
             // Create Professor Availability
-            await ProfessorAvail.create({ Day });
+            await ProfessorAvail.create({ Day, ProfessorId });
         }
 
-        return res.status(200).json({
+        return res.status(201).json({
             successful: true,
             message: "Successfully added Professor Availability(ies)."
         });

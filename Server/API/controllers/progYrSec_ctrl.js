@@ -1,4 +1,4 @@
-const { ProgYrSec } = require('../models');
+const { ProgYrSec, Program } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 
@@ -14,40 +14,42 @@ const addProgYrSec = async (req, res, next) => {
 
         // Iterate through the array and check required fields
         for (const progYrSecData of progYrSecToAdd) {
-            const { Year, Section } = progYrSecData;
+            const { Year, Section, ProgramId } = progYrSecData;
 
-            if (!util.checkMandatoryFields([Year, Section])) {
+            if (!util.checkMandatoryFields([Year, Section, ProgramId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
                 });
             }
 
-            // Ensure Year is unique
-            const existingProgYrSecYear = await ProgYrSec.findOne({ where: { Year } });
-            if (existingProgYrSecYear) {
-                return res.status(406).json({
+            // Check if ProgramId exists in the Program table
+            const program = await Program.findByPk(ProgramId);
+            if (!program) {
+                return res.status(404).json({
                     successful: false,
-                    message: `ProgYrSec ${Year} already exists.`
+                    message: `Program with ID ${ProgramId} not found.`
                 });
             }
 
-            // Ensure Section is unique
-            const existingProgYrSecSection = await ProgYrSec.findOne({ where: { Section } });
-            if (existingProgYrSecSection) {
+            // Ensure Year and Section combination is unique for the same ProgramId
+            const existingProgYrSec = await ProgYrSec.findOne({
+                where: { Year, Section, ProgramId }
+            });
+            if (existingProgYrSec) {
                 return res.status(406).json({
                     successful: false,
-                    message: `ProgYrSec with section ${Section} already exists.`
+                    message: `ProgYrSec with Year ${Year} and Section ${Section} already exists for Program ID ${ProgramId}.`
                 });
             }
 
             // Create ProgYrSec record
-            await ProgYrSec.create({ Year, Section });
+            await ProgYrSec.create({ Year, Section, ProgramId });
         }
 
         return res.status(200).json({
             successful: true,
-            message: "Successfully added new progYrSec(s)."
+            message: "Successfully added new ProgYrSec(s)."
         });
 
     } catch (error) {
@@ -63,7 +65,10 @@ const getProgYrSec = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const progYrSec = await ProgYrSec.findByPk(id);
+        const progYrSec = await ProgYrSec.findByPk(id, {
+            include: { model: Program, attributes: ['id', 'Name', 'Code'] }
+        });
+
         if (!progYrSec) {
             return res.status(404).json({
                 successful: false,
@@ -87,7 +92,9 @@ const getProgYrSec = async (req, res, next) => {
 // Get All ProgYrSec
 const getAllProgYrSec = async (req, res, next) => {
     try {
-        const progYrSecs = await ProgYrSec.findAll();
+        const progYrSecs = await ProgYrSec.findAll({
+            include: { model: Program, attributes: ['id', 'Name', 'Code'] }
+        });
 
         return res.status(200).json({
             successful: true,
@@ -106,9 +113,9 @@ const getAllProgYrSec = async (req, res, next) => {
 const updateProgYrSec = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Year, Section } = req.body;
+        const { Year, Section, ProgramId } = req.body;
 
-        if (!util.checkMandatoryFields([Year, Section])) {
+        if (!util.checkMandatoryFields([Year, Section, ProgramId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -123,24 +130,27 @@ const updateProgYrSec = async (req, res, next) => {
             });
         }
 
-        // Ensure Year and Section are unique
-        const existingProgYrSecYear = await ProgYrSec.findOne({ where: { Year, id: { [Op.ne]: id } } });
-        if (existingProgYrSecYear) {
-            return res.status(406).json({
+        // Check if ProgramId exists in the Program table
+        const program = await Program.findByPk(ProgramId);
+        if (!program) {
+            return res.status(404).json({
                 successful: false,
-                message: `ProgYrSec with Year ${Year} already exists.`
+                message: `Program with ID ${ProgramId} not found.`
             });
         }
 
-        const existingProgYrSecSection = await ProgYrSec.findOne({ where: { Section, id: { [Op.ne]: id } } });
-        if (existingProgYrSecSection) {
+        // Ensure Year and Section combination is unique for the same ProgramId
+        const existingProgYrSec = await ProgYrSec.findOne({
+            where: { Year, Section, ProgramId, id: { [Op.ne]: id } }
+        });
+        if (existingProgYrSec) {
             return res.status(406).json({
                 successful: false,
-                message: `ProgYrSec with section ${Section} already exists.`
+                message: `ProgYrSec with Year ${Year} and Section ${Section} already exists for Program ID ${ProgramId}.`
             });
         }
 
-        await progYrSec.update({ Year, Section });
+        await progYrSec.update({ Year, Section, ProgramId });
 
         return res.status(200).json({
             successful: true,
