@@ -79,7 +79,7 @@ const HomePage = () => {
       {/* Profile Button */}
       <button
         ref={profileBtnRef}  // Attach the ref to the ProfileBtn
-        className='absolute top-5 right-5 w-40 h-40 duration-500 hover:scale-110'
+        className='absolute top-20 right-20 w-40 h-40 duration-500 hover:scale-110'
         onClick={toggleDropdown}  // Toggle the dropdown visibility on click
       >
         <img className='' src={ProfileBtn} alt="ProfileBtn" />
@@ -106,7 +106,7 @@ const HomePage = () => {
       <div className="hidden md:block w-1/2 mx-auto">
         {/* EASESCHEDULER LOGO */}
         <div className='pb-4 flex justify-center'>
-          <button id="logoBtn" className="text-lg md:text-3xl font-bold text-blue-500" onClick={() => navigate("/")}>
+          <button id="logoBtn" className="text-xl md:text-3xl font-bold text-blue-500" onClick={() => navigate("/")}>
             EASE<span className="text-white">SCHEDULER</span>
           </button>
         </div>
