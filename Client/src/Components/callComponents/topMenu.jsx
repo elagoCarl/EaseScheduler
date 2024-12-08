@@ -16,7 +16,7 @@ const TopMenu = ({ toggleSidebar }) => {
       </button>
       <img
         src={Menu}
-        className="w-15 h-15 md:w-40 md:h-40 hover:bg-customLightBlue2 cursor-pointer rounded"
+        className="w-15 h-15 md:w-40 md:h-40 hover:scale-110 cursor-pointer rounded"
         alt="menu button"
         onClick={toggleSidebar} // Call toggleSidebar function passed via props
       />

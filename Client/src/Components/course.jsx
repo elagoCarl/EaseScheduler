@@ -198,7 +198,7 @@ const Course = () => {
         </div>
       </div>
       {/* Vertical Buttons Container */}
-      <div className="fixed top-1/4 right-4 border border-gray-900 bg-white rounded p-4 flex flex-col gap-4">
+      <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
         <button
           className="py-2 px-4 text-white rounded"
           onClick={handleAddCourseClick}
@@ -207,15 +207,6 @@ const Course = () => {
             src={addBtn}
             className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
             alt="Add Course"
-          />
-        </button>
-        <button className="py-2 px-4 text-white rounded "
-          onClick={handleEditCourseClick}
-        >
-          <img
-            src={editBtn}
-            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-            alt="Edit Course"
           />
         </button>
         <button className="py-2 px-4 text-white rounded "
