@@ -28,8 +28,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   };
 
   return (
-    <div ref={sidebarRef} 
-    className={`fixed top-0 right-0 h-full bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 w-2/12 z-50 flex flex-col justify-center`}>
+    <div ref={sidebarRef}
+      className={`fixed right-0 xs:right-0 h-full bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 w-5/12 md:w-3/12 z-50 flex flex-col justify-center`}>
       <button
         id="logoBtn"
         className="text-md md:text-xl font-bold text-blue-500 relative"
