@@ -17,6 +17,7 @@ const room_rtr = require('./API/routers/room_rtr')
 const program_rtr = require('./API/routers/program_rtr')
 const progYrSec_rtr = require('./API/routers/progYrSec_rtr')
 const profAvail_rtr = require('./API/routers/profAvail_rtr')
+const profAvailSched_rtr = require('./API/routers/profAvailSched_rtr')
 
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
@@ -70,6 +71,7 @@ app.use('/room', room_rtr)
 app.use('/program', program_rtr)
 app.use('/progYrSec', progYrSec_rtr)
 app.use('/profAvail', profAvail_rtr)
+app.use('/profAvailSched', profAvailSched_rtr)
 
 //ERROR MIDDLEWARES
 app.use((req, res, next)=>{
