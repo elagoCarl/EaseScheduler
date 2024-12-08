@@ -328,45 +328,47 @@ const deleteCourseProf = async (req, res) => {
     }
 }
 
-// const getProfsByCourse = async (req, res, next) => {
-//     try {
-//         const courseId = req.params.id
-//         const profs = await Professor.findAll({
-//             include: {
-//                 model: Course,
-//                 as: 'ProfCourses',
-//                 where: {
-//                     id: courseId // Filter by department ID
-//                 },
-//                 through: {
-//                     attributes: [] // Exclude the junction table data
-//                 }
-//             }
-//         })
-//         if (!profs) {
-//             res.status(200).send({
-//                 successful: true,
-//                 message: "No professor found",
-//                 count: 0,
-//                 data: []
-//             })
-//         }
-//         else {
-//             res.status(200).send({
-//                 successful: true,
-//                 message: "Retrieved all professors",
-//                 count: profs.length,
-//                 data: profs
-//             })
-//         }
-//     }
-//     catch (err) {
-//         return res.status(500).json({
-//             successful: false,
-//             message: err.message || "An unexpected error occurred."
-//         })
-//     }
-// }
+const getProfsByCourse = async (req, res, next) => {
+    try {
+        const courseId = req.params.id
+        const profs = await Professor.findAll({
+            attributes: { exclude: ['ProfCourses'] }, // Exclude ProfCourses field
+            include: {
+                model: Course,
+                as: 'ProfCourses',
+                where: {
+                    id: courseId, 
+                },
+                attributes: [],
+                through: {
+                    attributes: []
+                }
+            }
+        })
+        if (!profs) {
+            res.status(200).send({
+                successful: true,
+                message: "No professor found",
+                count: 0,
+                data: []
+            })
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all professors",
+                count: profs.length,
+                data: profs
+            })
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
 
 
 module.exports = {
@@ -376,6 +378,6 @@ module.exports = {
     deleteProf,
     updateProf,
     addCourseProf,
-    deleteCourseProf
-    // getProfsByCourse
+    deleteCourseProf,
+    getProfsByCourse
 };

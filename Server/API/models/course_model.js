@@ -38,18 +38,14 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
-    Professor.belongsToMany(Course, { 
-        through: 'CourseProf',
-        as: 'ProfCourses',
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-    })
-    Course.belongsToMany(Professor, {
-        through: 'CourseProf',
-        as: 'CourseProfs',
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-    })
+    Course.associate = (models) => {
+        Course.belongsToMany(models.Professor, {
+            through: 'CourseProf',
+            as: 'CourseProfs',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        });
+    }
 
     return Course
 }
