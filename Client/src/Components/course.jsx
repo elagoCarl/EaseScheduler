@@ -1,9 +1,15 @@
 import React, { useState } from "react";
-import Background from "./Img/4.jpg";
+import Background from "./Img/5.jpg";
 import { useNavigate } from "react-router-dom";
-import Menu from "./Img/menu.png";
-import Sidebar from "./sideBar.jsx";
-import Door from "./Img/Vector4.png";
+import Sidebar from "./callComponents/sideBar.jsx";
+import TopMenu from "./callComponents/topMenu.jsx";
+import AddCourseModal from "./callComponents/addCourseModal.jsx";
+import EditCourseModal from "./callComponents/editCourseModal.jsx";
+import DelCourseWarn from "./callComponents/delCourseWarn.jsx";
+import Book from "./Img/Book.png";
+import addBtn from "./Img/addBtn.png";
+import editBtn from "./Img/editBtn.png";
+import delBtn from "./Img/delBtn.png";
 
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -12,6 +18,9 @@ const Course = () => {
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
   const [selectedFloor, setSelectedFloor] = useState("Select Floor");
 
+  const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
+  const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
+  const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const campuses = ["Campus A", "Campus B", "Campus C"];
   const floors = ["1st Floor", "2nd Floor", "3rd Floor"];
 
@@ -34,42 +43,54 @@ const Course = () => {
     setAllChecked(updatedCheckboxes.every((isChecked) => isChecked));
   };
 
+  const handleAddCourseClick = () => {
+    setIsAddCourseModalOpen(true); // Open the add course modal when add button is clicked
+  };
+
+  const handleAddCourseCloseModal = () => {
+    setIsAddCourseModalOpen(false); // Close the add course modal
+  };
+  // setIsEditCourseModalOpen
+  const handleEditCourseClick = () => {
+    setIsEditCourseModalOpen(true); // Open the add course modal when add button is clicked
+  };
+
+  const handleEditCourseCloseModal = () => {
+    setIsEditCourseModalOpen(false); // Close the add course modal
+  };
+  // Del warning
+  const handleDeleteClick = () => {
+    setIsDeleteWarningOpen(true); // Open the delete warning modal
+  };
+
+  const handleCloseDelWarning = () => {
+    setIsDeleteWarningOpen(false); // Close the delete warning modal
+  };
+
+  const handleConfirmDelete = () => {
+    // Handle the actual delete logic here
+    console.log("Course deleted");
+    setIsDeleteWarningOpen(false); // Close the warning after deletion
+  };
   return (
-    <body
+    <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}
-    >
+      style={{ backgroundImage: `url(${Background})` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
       {/* Top Menu */}
-      <div className="absolute top-0 left-0 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
-        <button
-          id="logoBtn"
-          className="text-lg md:text-3xl font-bold text-blue-500"
-          onClick={() => navigate("/")}
-        >
-          EASE<span className="text-white">SCHEDULER</span>
-        </button>
-        <img
-          src={Menu}
-          className="w-15 h-15 md:w-40 md:h-40 hover:bg-customLightBlue2 cursor-pointer rounded"
-          alt="menu button"
-          onClick={toggleSidebar}
-        />
-      </div>
-
+      <TopMenu toggleSidebar={toggleSidebar} />
       {/* Main Content */}
-      <div className="flex flex-col justify-center items-center h-screen w-full px-4 md:px-8">
+      <div className="flex flex-col justify-center items-center h-screen w-full px-8">
         {/* Filters */}
-        <div className="flex justify-end w-full md:w-2/3 mb-4">
+        <div className="flex justify-end w-10/12 mb-4">
           <div className="flex gap-4">
             {/* Campus Dropdown */}
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base"
-            >
+              className="px-4 py-2 border rounded text-sm md:text-base">
               <option disabled>Select Campus</option>
               {campuses.map((campus, index) => (
                 <option key={index} value={campus}>
@@ -77,7 +98,6 @@ const Course = () => {
                 </option>
               ))}
             </select>
-
             {/* Floor Dropdown */}
             <select
               value={selectedFloor}
@@ -93,29 +113,33 @@ const Course = () => {
             </select>
           </div>
         </div>
-
         {/* Table Container */}
-        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-full md:w-2/3 max-h-[70vh]">
+        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
-            <img src={Door} className="w-8 h-8 md:w-12 md:h-12" alt="Course img" />
+            <img src={Book} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Course img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
               Course
             </h2>
           </div>
-
           {/* Scrollable Table */}
           <div className="overflow-auto w-full h-full flex-grow">
             <table className="text-center w-full border-collapse">
               <thead>
                 <tr className="bg-customLightBlue2">
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
-                    Campus
+                    Code
                   </th>
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
-                    Room Code
+                    Description
                   </th>
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
-                    Room Type
+                    Duration
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Units
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Type
                   </th>
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
                     <input
@@ -123,6 +147,8 @@ const Course = () => {
                       checked={isAllChecked}
                       onChange={handleMasterCheckboxChange}
                     />
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
                   </th>
                 </tr>
               </thead>
@@ -141,12 +167,28 @@ const Course = () => {
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
                       TEST
                     </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      TEST
+                    </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      TEST
+                    </td>
                     <td className="py-2 border border-gray-300">
                       <input
                         type="checkbox"
                         checked={isChecked}
-                        onChange={() => handleCheckboxChange(index)}
-                      />
+                        onChange={() => handleCheckboxChange(index)} />
+                    </td>
+                    <td className="py-2 border border-gray-300">
+                      <button className=" text-white rounded "
+                        onClick={handleEditCourseClick}
+                      >
+                        <img
+                          src={editBtn}
+                          className="w-9 h-9 md:w-15 md:h-15 hover:scale-110"
+                          alt="Edit Course"
+                        />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -155,7 +197,45 @@ const Course = () => {
           </div>
         </div>
       </div>
-    </body>
+      {/* Vertical Buttons Container */}
+      <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
+        <button
+          className="py-2 px-4 text-white rounded"
+          onClick={handleAddCourseClick}
+        >
+          <img
+            src={addBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Add Course"
+          />
+        </button>
+        <button className="py-2 px-4 text-white rounded "
+          onClick={handleDeleteClick}
+        >
+          <img
+            src={delBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Delete Course"
+          />
+        </button>
+      </div>
+      {/* Add Course Modal */}
+      <AddCourseModal
+        isOpen={isAddCourseModalOpen}
+        onClose={handleAddCourseCloseModal}
+      />
+      {/* Edit Course Modal */}
+      <EditCourseModal
+        isOpen={isEditCourseModalOpen}
+        onClose={handleEditCourseCloseModal}
+      />
+      {/* Delete Warning Modal */}
+      <DelCourseWarn
+        isOpen={isDeleteWarningOpen}
+        onClose={handleCloseDelWarning}
+        onConfirm={handleConfirmDelete}
+      />
+    </div>
   );
 };
 

@@ -2,8 +2,11 @@ import React, { useState } from "react";
 import Background from "./Img/4.jpg";
 import { useNavigate } from "react-router-dom";
 import Menu from "./Img/menu.png";
-import Sidebar from "./sideBar.jsx";
+import Sidebar from "./callComponents/sideBar.jsx";
 import Door from "./Img/Vector4.png";
+import addBtn from "./Img/addBtn.png";
+import editBtn from "./Img/editBtn.png";
+import delBtn from "./Img/delBtn.png";
 
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -60,9 +63,9 @@ const Room = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col justify-center items-center h-screen w-full px-4 md:px-8">
+      <div className="flex flex-col justify-center items-center h-screen w-full px-8">
         {/* Filters */}
-        <div className="flex justify-end w-full md:w-2/3 mb-4">
+        <div className="flex justify-end w-10/12 mb-4">
           <div className="flex gap-4">
             {/* Campus Dropdown */}
             <select
@@ -95,9 +98,9 @@ const Room = () => {
         </div>
 
         {/* Table Container */}
-        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-full md:w-2/3 max-h-[70vh]">
+        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
-            <img src={Door} className="w-8 h-8 md:w-12 md:h-12" alt="Room img" />
+            <img src={Door} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Room img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
               Room
             </h2>
@@ -154,6 +157,19 @@ const Room = () => {
             </table>
           </div>
         </div>
+      </div>
+
+      {/* Vertical Buttons Container */}
+      <div className="fixed top-1/4 right-4 border border-gray-900 bg-white rounded p-4 flex flex-col gap-4">
+        <button className="py-2 px-4 text-white rounded ">
+          <img src={addBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
+        </button>
+        <button className="py-2 px-4 text-white rounded ">
+          <img src={editBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
+        </button>
+        <button className="py-2 px-4 text-white rounded ">
+          <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
+        </button>
       </div>
     </body>
   );

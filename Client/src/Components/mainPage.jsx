@@ -4,7 +4,7 @@ import image from './Img/1.jpg';
 
 const MainPage = () => {
   const navigate = useNavigate();
-  
+
   // State to manage the modal visibility
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -16,41 +16,48 @@ const MainPage = () => {
 
   return (
     <div
-      className="bg-cover bg-center bg-no-repeat h-screen w-screen flex items-center justify-start px-40"
+      className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-between items-center overflow-y-auto"
       style={{ backgroundImage: `url(${image})` }}
     >
-      <div id='loginBtn' className="absolute lg:top-80 lg:right-80 top-30 right-30 flex justify-between items-center">
-        <button className="text-white text-xl font-semibold hover:text-blue-500"
-          onClick={() => navigate('/loginPage')}>Login</button>
-      </div>
+      {/* Header with Login */}
+      <header className="w-full p-6 flex justify-end">
+        <button onClick={() => navigate('/loginPage')} className="p-20 text-white text-base md:text-xl font-semibold hover:text-blue-500">
+          Login
+        </button>
+      </header>
 
-      <section className="text-start max-w-4xl">
-        <p className="text-5xl xl:text-6xl font-bold text-blue-500 mb-5">EASE<span className="text-white">SCHEDULER</span></p>
-        <h1 className="text-2xl text-white leading-relaxed">
-          EaseScheduler simplifies academic scheduling by automating timetabling processes for CEU Makati, ensuring conflict-free schedules tailored to the institutional needs. Giving you a better resource management, reducing manual errors, and saving you time.
-        </h1>
-      </section>
-      <div id='contactBtn' className="absolute lg:bottom-70 lg:right-60 bottom-30 right-30">
-        <button className="text-gray-200 text-xl font-semibold hover:text-blue-500" onClick={openModal}>
+      {/* Main Content */}
+      <main className="flex-grow flex items-center justify-center">
+        <div className="w-fit md:flex p-40">
+          <div className=" w-full md:w-1/2">
+            <p className="text-2xl md:text-5xl xl:text-6xl font-bold text-blue-500 mb-5">EASE<span className="text-white">SCHEDULER</span></p>
+            <p className="mt-6 text-customWhite text-sm md:text-lg leading-relaxed">
+              EaseScheduler simplifies academic scheduling by automating timetabling processes for CEU Makati, ensuring conflict-free schedules tailored to the institutional needs. Giving you a better resource management, reducing manual errors, and saving you time.
+            </p>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer with Contact Us */}
+      <footer className="w-full p-10 flex justify-end">
+        <button onClick={openModal} className="p-20 text-white text-sm md:text-xl font-semibold hover:text-blue-500">
           Contact Us
         </button>
-      </div>
+      </footer>
 
       {/* Modal - Positioned at bottom right */}
       {isModalOpen && (
-        <div className="fixed bottom-10 right-10 bg-white rounded-lg shadow-lg p-6 max-w-sm w-full z-50">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Contact Us</h2>
-          <p className="text-gray-600 mb-4">
-            Please reach out to us at <a href="mailto:easescheduler@gmail.com" className="text-blue-500">easescheduler@gmail.com</a>.
-          </p>
-          <div className="flex justify-end">
-            <button
-              className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+        <div className="fixed bottom-10 right-10 bg-customWhite rounded-lg shadow-lg p-6 max-w-sm z-50">
+          <button
+              className="absolute right-5 top-0 text-black rounded-md"
               onClick={closeModal}
             >
-              Close
+              &times;
             </button>
-          </div>
+          <h2 className="text-lg md:text-2xl font-semibold text-gray-800 md:mb-4">Contact Us</h2>
+          <p className="text-gray-600 mb-3 text-sm md:text-base">
+            Please reach out to us at <a href="mailto:easescheduler@gmail.com" className="text-blue-500">easescheduler@gmail.com</a>.
+          </p>
         </div>
       )}
     </div>

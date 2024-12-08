@@ -36,7 +36,7 @@ const loginPage = () => {
               </a>
             </div>
           </div>
-          <button id='signInBtn' type="submit" class="w-full text-white bg-blue-700 hover:bg-gray-500 font-medium rounded-lg text-sm py-2.5 text-center">Sign in</button>
+          <button onClick={() => navigate('/homePage')} id='signInBtn' type="submit" class="w-full text-white bg-blue-700 hover:bg-gray-500 font-medium rounded-lg text-sm py-2.5 text-center">Sign in</button>
         </form>
       </section>
     </div>
