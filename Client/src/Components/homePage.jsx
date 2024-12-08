@@ -74,16 +74,24 @@ const HomePage = () => {
   };
 
   return (
-    <body className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
+    <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
       style={{ backgroundImage: `url(${image5})` }}>
-      {/* Profile Button */}
-      <button
-        ref={profileBtnRef}  // Attach the ref to the ProfileBtn
-        className='absolute top-5 right-5 w-40 h-40 duration-500 hover:scale-110'
-        onClick={toggleDropdown}  // Toggle the dropdown visibility on click
-      >
-        <img className='' src={ProfileBtn} alt="ProfileBtn" />
-      </button>
+      <div className="absolute top-0 left-0 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
+        <button
+          id="logoBtn"
+          className="text-lg md:text-3xl font-bold block md:hidden text-blue-500"
+          onClick={() => navigate("/")}>
+          EASE<span className="text-white">SCHEDULER</span>
+        </button>
+        {/* Profile Button */}
+        <button
+          ref={profileBtnRef}  // Attach the ref to the ProfileBtn
+          className='absolute top-5 right-5 w-25 h-25 md:w-40 md:h-40 duration-500 hover:scale-110'
+          onClick={toggleDropdown}  // Toggle the dropdown visibility on click
+        >
+          <img className='' src={ProfileBtn} alt="ProfileBtn" />
+        </button>
+      </div>
 
       {/* Dropdown Menu */}
       {isDropdownOpen && (
@@ -115,46 +123,46 @@ const HomePage = () => {
 
       {/* RIGHT SIDE */}
       <div className='w-full md:w-5/12 lg:w-5/12 xl:w-5/12 px-4 sm:px-0 flex flex-col items-center my-20 mx-40 relative'>
-        <div className='m-auto w-full'>
+        <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 {/* 1st Card (Timetable) */}
                 <button
-                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-1 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => openModal('Add/Configure Timetables')}
                 >
-                  <img src={vector} alt="" />
-                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Timetables</span>
+                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector} alt="" />
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Timetables</span>
                 </button>
 
                 {/* 2nd Card (Professor) */}
                 <button
-                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-12 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => openModal('Professor availability')}
                 >
-                  <img src={vector1} alt="" />
-                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Professor</span>
+                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector1} alt="" />
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Professor</span>
                 </button>
 
                 {/* 3rd Card (Course) */}
                 <button onClick={() => {
                   navigate('/course');
                 }}
-                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-12 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <img src={vector2} alt="" />
-                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Course</span>
+                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector2} alt="" />
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Course</span>
                 </button>
 
                 {/* 4th Card (Room) */}
                 <button onClick={() => {
                   navigate('/room');
                 }}
-                  className='shadow-2xl bg-customLightBlue2 xs:mx-16 xs:py-3 sm:mx-14 md:mx-1 md:py-6 md:px-12 2xl:py-20 2xl:px-24 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <img src={vector3} alt="" />
-                  <span className="text-ceuViolet md:text-lg 2xl:text-2xl font-semibold">Room</span>
+                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector3} alt="" />
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Room</span>
                 </button>
               </div>
 
@@ -189,7 +197,7 @@ const HomePage = () => {
           </section>
         </div>
       </div>
-    </body>
+    </div>
   );
 };
 
