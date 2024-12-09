@@ -1,5 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const Account = require("./account_model")(sequelize, DataTypes)
     const OTP = sequelize.define('OTP', {
         OTP: {
             type: DataTypes.STRING,
@@ -20,10 +19,9 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
-    Account.hasMany(OTP, {
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-    })
-    OTP.belongsTo(Account)
+    OTP.associate = (models) => {
+        OTP.belongsTo(models.Account)
+    }
+    
     return OTP
 }

@@ -40,7 +40,20 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         timestamps: true
-    });
-    
+    })
+    Account.associate = (models) => {
+        Account.hasMany(models.HistoryLog, {
+            onDelete: 'RESTRICT',
+            onUpdate: 'CASCADE'
+        }),
+        Account.hasMany(models.OTP, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        }),
+        Account.hasMany(models.Session, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        })
+    }
     return Account
 }
