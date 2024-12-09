@@ -10,6 +10,7 @@ import HistoryLogs from "./Components/historyLogs";
 import Room from "./Components/room";
 import Course from "./Components/course";
 import ProfAvailability from "./Components/profAvailability";
+import Professor from "./Components/professor";
 
 const App = () => {
   return (
@@ -27,6 +28,7 @@ const App = () => {
         <Route path="/room" element={<Room />} />
         <Route path="/profAvailability" element={<ProfAvailability />} />
         <Route path="/course" element={<Course />} />
+        <Route path="/professor" element={<Professor />} />
       </Routes>
     </Router>
   );

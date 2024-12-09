@@ -1,7 +1,13 @@
-import React from 'react';
-import Background from './Img/4.jpg'; // Replace with your actual image path
+import React, { useState } from "react";
+import Background from './Img/1.jpg'; // Replace with your actual image path
+import Sidebar from "./callComponents/sideBar.jsx";
+import TopMenu from "./callComponents/topMenu.jsx";
 
 const HistoryLogs = () => {
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const toggleSidebar = () => {
+    setSidebarOpen(!isSidebarOpen);
+  };
   // Sample data for history logs
   const logs = [
     {
@@ -26,11 +32,15 @@ const HistoryLogs = () => {
   ];
 
   return (
-    <div
-      className="bg-cover bg-center bg-no-repeat min-h-screen w-screen flex items-center justify-center"
-      style={{ backgroundImage: `url(${Background})` }}
-    >
-      <div className="bg-white bg-opacity-90 shadow-lg rounded-lg w-11/12 max-w-6xl p-8">
+    <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
+      style={{ backgroundImage: `url(${Background})` }}>
+      {/* Sidebar */}
+      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+
+      {/* Top Menu */}
+      <TopMenu toggleSidebar={toggleSidebar} />
+
+      <div className="bg-white bg-opacity-90 shadow-lg rounded-lg m-auto w-11/12 p-8">
         {/* Title */}
         <h1 className="text-3xl font-extrabold text-gray-800 text-center mb-6">
           History Logs

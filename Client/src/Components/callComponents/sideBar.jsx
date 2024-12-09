@@ -33,10 +33,22 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       <button
         id="logoBtn"
         className="text-md md:text-xl font-bold text-blue-500 relative"
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/homePage')}
       >
         EASE<span className="text-white">SCHEDULER</span>
       </button>
+
+      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+        <button
+          className="hover:bg-gray-700 p-10 rounded w-full text-left"
+          onClick={() => {
+            navigate('/homePage');
+            toggleSidebar(false);
+          }}
+        >
+          Home
+        </button>
+      </div>
 
       {/* Timetables Section */}
       <div className="flex flex-col items-start space-y-1 px-20 py-15">
@@ -134,7 +146,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/professors/all');
+              navigate('/professor');
               toggleSidebar(false);
             }}
           >
@@ -226,7 +238,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/account/profile');
+              navigate('/historyLogs');
               toggleSidebar(false);
             }}
           >
@@ -235,7 +247,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/account/profile');
+              navigate('/');
               toggleSidebar(false);
             }}
           >

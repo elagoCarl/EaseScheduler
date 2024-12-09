@@ -1,0 +1,236 @@
+import React, { useState } from "react";
+import Background from "./Img/5.jpg";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "./callComponents/sideBar.jsx";
+import TopMenu from "./callComponents/topMenu.jsx";
+import AddProfModal from "./callComponents/addProfModal.jsx";
+import EditProfModal from "./callComponents/editProfModal.jsx";
+import DelCourseWarn from "./callComponents/delCourseWarn.jsx";
+import profV from "./Img/profV.png";
+import addBtn from "./Img/addBtn.png";
+import editBtn from "./Img/editBtn.png";
+import delBtn from "./Img/delBtn.png";
+
+const Professor = () => {
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
+  const [isAllChecked, setAllChecked] = useState(false);
+  const [selectedCampus, setSelectedCampus] = useState("Select Campus");
+  const [selectedFloor, setSelectedFloor] = useState("Select Floor");
+
+  const [isAddProfModalOpen, setIsAddCourseModalOpen] = useState(false); // Add ProfModal state
+  const [isEditProfModalOpen, setIsEditProfModalOpen] = useState(false); // Edit ProfModal state
+  const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
+  const campuses = ["Campus A", "Campus B", "Campus C"];
+  const floors = ["1st Floor", "2nd Floor", "3rd Floor"];
+
+  const navigate = useNavigate();
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleMasterCheckboxChange = () => {
+    const newState = !isAllChecked;
+    setAllChecked(newState);
+    setCheckboxes(checkboxes.map(() => newState));
+  };
+
+  const handleCheckboxChange = (index) => {
+    const updatedCheckboxes = [...checkboxes];
+    updatedCheckboxes[index] = !updatedCheckboxes[index];
+    setCheckboxes(updatedCheckboxes);
+    setAllChecked(updatedCheckboxes.every((isChecked) => isChecked));
+  };
+
+  const handleAddCourseClick = () => {
+    setIsAddCourseModalOpen(true); // Open the add Prof modal when add button is clicked
+  };
+
+  const handleAddProfCloseModal = () => {
+    setIsAddCourseModalOpen(false); // Close the add Prof modal
+  };
+
+  const handleEditCourseClick = () => {
+    setIsEditProfModalOpen(true); // Open the edit Prof modal when add button is clicked
+  };
+
+  const handleEditProfCloseModal = () => {
+    setIsEditProfModalOpen(false); // Close the edit Prof modal
+  };
+  // Del warning
+  const handleDeleteClick = () => {
+    setIsDeleteWarningOpen(true); // Open the delete warning modal
+  };
+
+  const handleCloseDelWarning = () => {
+    setIsDeleteWarningOpen(false); // Close the delete warning modal
+  };
+
+  const handleConfirmDelete = () => {
+    // Handle the actual delete logic here
+    console.log("Course deleted");
+    setIsDeleteWarningOpen(false); // Close the warning after deletion
+  };
+  return (
+    <div
+      className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
+      style={{ backgroundImage: `url(${Background})` }}>
+      {/* Sidebar */}
+      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+
+      {/* Top Menu */}
+      <TopMenu toggleSidebar={toggleSidebar} />
+      {/* Main Content */}
+      <div className="flex flex-col justify-center items-center h-screen w-full px-8">
+        {/* Filters */}
+        <div className="flex justify-end w-10/12 mb-4">
+          <div className="flex gap-4">
+            {/* Campus Dropdown */}
+            <select
+              value={selectedCampus}
+              onChange={(e) => setSelectedCampus(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base">
+              <option disabled>Select Campus</option>
+              {campuses.map((campus, index) => (
+                <option key={index} value={campus}>
+                  {campus}
+                </option>
+              ))}
+            </select>
+            {/* Floor Dropdown */}
+            <select
+              value={selectedFloor}
+              onChange={(e) => setSelectedFloor(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base"
+            >
+              <option disabled>Select Floor</option>
+              {floors.map((floor, index) => (
+                <option key={index} value={floor}>
+                  {floor}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {/* Table Container */}
+        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
+          <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
+            <img src={profV} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Course img" />
+            <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
+              Professors
+            </h2>
+          </div>
+          {/* Scrollable Table */}
+          <div className="overflow-auto w-full h-full flex-grow">
+            <table className="text-center w-full border-collapse">
+              <thead>
+                <tr className="bg-customLightBlue2">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Name
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Email
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Total Units
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Teaching Status
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={isAllChecked}
+                      onChange={handleMasterCheckboxChange}
+                    />
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {checkboxes.map((isChecked, index) => (
+                  <tr
+                    key={index}
+                    className="hover:bg-customLightBlue2 border-t border-gray-300"
+                  >
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      {selectedCampus}
+                    </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      TEST
+                    </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      TEST
+                    </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      TEST
+                    </td>
+                    <td className="py-2 border border-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleCheckboxChange(index)} />
+                    </td>
+                    <td className="py-2 border border-gray-300">
+                      <button className=" text-white rounded "
+                        onClick={handleEditCourseClick}
+                      >
+                        <img
+                          src={editBtn}
+                          className="w-9 h-9 md:w-15 md:h-15 hover:scale-110"
+                          alt="Edit Course"
+                        />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {/* Vertical Buttons Container */}
+      <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
+        <button
+          className="py-2 px-4 text-white rounded"
+          onClick={handleAddCourseClick}
+        >
+          <img
+            src={addBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Add Course"
+          />
+        </button>
+        <button className="py-2 px-4 text-white rounded "
+          onClick={handleDeleteClick}
+        >
+          <img
+            src={delBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Delete Course"
+          />
+        </button>
+      </div>
+      {/* Add Professor Modal */}
+      <AddProfModal
+        isOpen={isAddProfModalOpen}
+        onClose={handleAddProfCloseModal}
+      />
+      {/* Edit Professor Modal */}
+      <EditProfModal
+        isOpen={isEditProfModalOpen}
+        onClose={handleEditProfCloseModal}
+      />
+      {/* Delete Warning Modal */}
+      <DelCourseWarn
+        isOpen={isDeleteWarningOpen}
+        onClose={handleCloseDelWarning}
+        onConfirm={handleConfirmDelete}
+      />
+    </div>
+  );
+};
+
+export default Professor;

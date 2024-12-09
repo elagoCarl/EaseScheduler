@@ -21,10 +21,13 @@ module.exports = (sequelize, DataTypes) => {
               notEmpty: { msg: "Email is required." }
           }
       },
-      isAdmin: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
-    }
+      Roles: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: "Role is required." }
+        }
+    },
   }, {
       timestamps: true
   })
