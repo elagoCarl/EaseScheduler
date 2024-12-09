@@ -1,4 +1,4 @@
-const { ProfAvailSchedule, ProfessorAvail } = require('../models');
+const { ProfAvailSched, ProfAvail } = require('../models');
 const util = require('../../utils');
 
 // Add Professor Availability Schedule (Single or Bulk)
@@ -13,10 +13,10 @@ const addProfAvailSched = async (req, res, next) => {
 
         // Validate and create schedules
         for (const schedule of schedulesToAdd) {
-            const { Start_time, End_time, ProfessorAvailId } = schedule;
+            const { Start_time, End_time, ProfAvailId } = schedule;
 
             // Check mandatory fields
-            if (!util.checkMandatoryFields([Start_time, End_time, ProfessorAvailId])) {
+            if (!util.checkMandatoryFields([Start_time, End_time, ProfAvailId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "Mandatory fields (Start_time, End_time, ProfAvailId) are missing."
@@ -24,16 +24,16 @@ const addProfAvailSched = async (req, res, next) => {
             }
 
             // Validate ProfAvailId existence
-            const profAvail = await ProfessorAvail.findByPk(ProfessorAvailId);
+            const profAvail = await ProfAvail.findByPk(ProfAvailId);
             if (!profAvail) {
                 return res.status(404).json({
                     successful: false,
-                    message: `Professor Availability with ID ${ProfessorAvailId} not found.`
+                    message: `Professor Availability with ID ${ProfAvailId} not found.`
                 });
             }
 
             // Create schedule
-            await ProfAvailSchedule.create({ Start_time, End_time, ProfessorAvailId });
+            await ProfAvailSched.create({ Start_time, End_time, ProfAvailId });
         }
 
         return res.status(201).json({
@@ -54,9 +54,9 @@ const getProfAvailSched = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const schedule = await ProfAvailSchedule.findByPk(id, {
+        const schedule = await ProfAvailSched.findByPk(id, {
             include: {
-                model: ProfessorAvail,
+                model: ProfAvail,
                 as: 'profAvail',
                 attributes: ['Day']
             }
@@ -85,9 +85,9 @@ const getProfAvailSched = async (req, res, next) => {
 // Get All Schedules
 const getAllProfAvailSched = async (req, res, next) => {
     try {
-        const schedules = await ProfAvailSchedule.findAll({
+        const schedules = await ProfAvailSched.findAll({
             include: {
-                model: ProfessorAvail,
+                model: ProfAvail,
                 as: 'profAvail',
                 attributes: ['Day']
             }
@@ -110,17 +110,17 @@ const getAllProfAvailSched = async (req, res, next) => {
 const updateProfAvailSched = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Start_time, End_time, ProfessorAvailId } = req.body;
+        const { Start_time, End_time, ProfAvailId } = req.body;
 
         // Check mandatory fields
-        if (!util.checkMandatoryFields([Start_time, End_time, ProfessorAvailId])) {
+        if (!util.checkMandatoryFields([Start_time, End_time, ProfAvailId])) {
             return res.status(400).json({
                 successful: false,
                 message: "Mandatory fields (Start_time, End_time, ProfAvailId) are missing."
             });
         }
 
-        const schedule = await ProfAvailSchedule.findByPk(id);
+        const schedule = await ProfAvailSched.findByPk(id);
         if (!schedule) {
             return res.status(404).json({
                 successful: false,
@@ -129,15 +129,15 @@ const updateProfAvailSched = async (req, res, next) => {
         }
 
         // Validate ProfAvailId existence
-        const profAvail = await ProfessorAvail.findByPk(ProfessorAvailId);
+        const profAvail = await ProfAvail.findByPk(ProfAvailId);
         if (!profAvail) {
             return res.status(404).json({
                 successful: false,
-                message: `Professor Availability with ID ${ProfessorAvailId} not found.`
+                message: `Professor Availability with ID ${ProfAvailId} not found.`
             });
         }
 
-        await schedule.update({ Start_time, End_time, ProfessorAvailId });
+        await schedule.update({ Start_time, End_time, ProfAvailId });
 
         return res.status(200).json({
             successful: true,
@@ -157,7 +157,7 @@ const deleteProfAvailSched = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const schedule = await ProfAvailSchedule.findByPk(id);
+        const schedule = await ProfAvailSched.findByPk(id);
         if (!schedule) {
             return res.status(404).json({
                 successful: false,

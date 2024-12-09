@@ -7,16 +7,6 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Day is required." }
             }
         },
-        ProfessorId: { // Adding the foreign key
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: Professor,
-                key: 'id' // Adjust the key if your primary key is named differently
-            },
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE',
-        }
     }, {
         timestamps: true
     });

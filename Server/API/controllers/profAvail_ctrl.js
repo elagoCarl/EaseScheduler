@@ -1,4 +1,5 @@
-const { ProfessorAvail, Professor } = require('../models');
+const { ProfAvail, Professor } = require('../models');
+const { Op } = require('sequelize');
 const util = require('../../utils');
 
 // Add Professor Availability (Single or Bulk)
@@ -11,7 +12,6 @@ const addProfessorAvail = async (req, res, next) => {
             professorAvailToAdd = [professorAvailToAdd];
         }
 
-        // Iterate through the array and validate required fields
         for (const professorAvailData of professorAvailToAdd) {
             const { Day, ProfessorId } = professorAvailData;
 
@@ -32,8 +32,20 @@ const addProfessorAvail = async (req, res, next) => {
                 });
             }
 
+            // Check if the combination of Day and ProfessorId already exists
+            const existingAvailability = await ProfAvail.findOne({
+                where: { Day, ProfessorId }
+            });
+
+            if (existingAvailability) {
+                return res.status(409).json({
+                    successful: false,
+                    message: `Availability for ${Day} already exists for Professor ID ${ProfessorId}.`
+                });
+            }
+
             // Create Professor Availability
-            await ProfessorAvail.create({ Day, ProfessorId });
+            await ProfAvail.create({ Day, ProfessorId });
         }
 
         return res.status(201).json({
@@ -54,7 +66,7 @@ const getProfessorAvail = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const professorAvail = await ProfessorAvail.findByPk(id);
+        const professorAvail = await ProfAvail.findByPk(id);
 
         if (!professorAvail) {
             return res.status(404).json({
@@ -79,7 +91,7 @@ const getProfessorAvail = async (req, res, next) => {
 // Get All Professor Availabilities
 const getAllProfessorAvail = async (req, res, next) => {
     try {
-        const professorAvails = await ProfessorAvail.findAll();
+        const professorAvails = await ProfAvail.findAll();
 
         return res.status(200).json({
             successful: true,
@@ -107,11 +119,23 @@ const updateProfessorAvail = async (req, res, next) => {
             });
         }
 
-        const professorAvail = await ProfessorAvail.findByPk(id);
+        const professorAvail = await ProfAvail.findByPk(id);
         if (!professorAvail) {
             return res.status(404).json({
                 successful: false,
                 message: "Professor Availability not found."
+            });
+        }
+
+        // Check if the updated Day already exists for the same ProfessorId
+        const existingAvailability = await ProfAvail.findOne({
+            where: { Day, ProfessorId: professorAvail.ProfessorId, id: { [Op.ne]: id } }
+        });
+
+        if (existingAvailability) {
+            return res.status(409).json({
+                successful: false,
+                message: `Availability for ${Day} already exists for Professor ID ${professorAvail.ProfessorId}.`
             });
         }
 
@@ -135,7 +159,7 @@ const deleteProfessorAvail = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const professorAvail = await ProfessorAvail.findByPk(id);
+        const professorAvail = await ProfAvail.findByPk(id);
         if (!professorAvail) {
             return res.status(404).json({
                 successful: false,

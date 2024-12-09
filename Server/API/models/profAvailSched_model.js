@@ -8,17 +8,7 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.TIME,
             allowNull: false
         },
-        ProfessorAvailId: { // Foreign key for ProfessorAvail
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            references: {
-                model: ProfAvail, // Name of the target table
-                key: 'id'               // Primary key in the target table
-            },
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
-        }
-    }, {
+    },{
         timestamps: true
     })
     ProfAvailSched.associate = (models) => {

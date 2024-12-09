@@ -69,6 +69,7 @@ const getProgYrSec = async (req, res, next) => {
             include: { model: Program, attributes: ['id', 'Name', 'Code'] }
         });
 
+        console.log("TNAGIN::::: :ASD:AD: A:SD :A:: ", progYrSec)
         if (!progYrSec) {
             return res.status(404).json({
                 successful: false,
