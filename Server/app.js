@@ -17,6 +17,7 @@ const room_rtr = require('./API/routers/room_rtr')
 const dept_rtr = require('./API/routers/dept_rtr')
 const course_rtr = require('./API/routers/course_rtr')
 const historyLogs_rtr = require('./API/routers/historyLogs_rtr')
+const accArchive_rtr = require('./API/routers/accArchive_rtr')
 
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
@@ -70,6 +71,7 @@ app.use('/room', room_rtr)
 app.use('/dept', dept_rtr)
 app.use('/course', course_rtr)
 app.use('/historyLogs', historyLogs_rtr)
+app.use('/accArchive', accArchive_rtr)
 
 
 
