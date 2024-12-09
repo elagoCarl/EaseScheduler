@@ -1,7 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-    const Professor = require("./prof_model")(sequelize, DataTypes);
-
-    const ProfAvail = sequelize.define('ProfessorAvail', {
+    const ProfAvail = sequelize.define('ProfAvail', {
         Day: {
             type: DataTypes.STRING,
             allowNull: false,
@@ -22,6 +20,13 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
+    ProfAvail.associate = (models) => {
+        ProfAvail.hasMany(models.ProfAvailSched, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        }),
+        ProfAvail.belongsTo(models.Professor)
+    }
+    return ProfAvail
+}
 
-    return ProfAvail;
-};

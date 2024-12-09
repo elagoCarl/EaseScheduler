@@ -12,7 +12,7 @@ const loginPage = () => {
         <button id='logoBtn' className="text-5xl xl:text-5xl font-bold text-blue-500 mb-20"
           onClick={() => navigate('/')}>EASE<span className="text-white">SCHEDULER</span></button>
 
-        <form id='blueBox' className='bg-blue-400 p-80 items-center justify-center flex-col space-y-5 sm:p-60 w-[400px] sm:w-[450px]'>
+        <form id='blueBox' className='bg-black/40 p-80 items-center justify-center flex-col space-y-5 sm:p-60 w-[400px] sm:w-[450px]'>
           <div>
             <label for="email" class="text-start block mb-2 text-sm font-medium text-gray-100">Email</label>
             <input type="email" name="email" id="email" class="text-gray-700 rounded-lg w-full p-3.5 bg-gray-100" placeholder="Email" required="" /> {/* for email*/}
@@ -36,7 +36,7 @@ const loginPage = () => {
               </a>
             </div>
           </div>
-          <button id='signInBtn' type="submit" class="w-full text-white bg-blue-700 hover:bg-gray-500 font-medium rounded-lg text-sm py-2.5 text-center">Sign in</button>
+          <button onClick={() => navigate('/homePage')} id='signInBtn' type="submit" class="w-full text-white bg-blue-700 hover:bg-gray-500 font-medium rounded-lg text-sm py-2.5 text-center">Sign in</button>
         </form>
       </section>
     </div>

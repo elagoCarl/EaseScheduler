@@ -1,6 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const Schedule = require("./schedule_model")(sequelize, DataTypes)
-    const Program = require("./program_model")(sequelize, DataTypes)
     const ProgYrSec = sequelize.define('ProgYrSec', {
         Year: {
             type: DataTypes.INTEGER,
@@ -17,14 +15,13 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         timestamps: true
-    });
-
-    Program.hasMany(ProgYrSec, {
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
     })
-    ProgYrSec.belongsTo(Program)
-    ProgYrSec.belongsToMany(Schedule, { through: 'SectionSched' })
-    Schedule.belongsToMany(ProgYrSec, { through: 'SectionSched' })
+    ProgYrSec.associate = (models) => {
+        ProgYrSec.belongsTo(models.Program)
+        ProgYrSec.belongsToMany(models.Schedule, { through: 'SectionSched' })
+    }
+    
+    
+    
     return ProgYrSec
 }
