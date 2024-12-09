@@ -79,7 +79,7 @@ const addProf = async (req, res, next) => {
 const getAllProf = async (req, res, next) => {
     try {
         let professor = await Professor.findAll()
-        if (!professor) {
+        if (!professor || professor.length === 0) {
             res.status(200).send({
                 successful: true,
                 message: "No professor found",
@@ -345,7 +345,7 @@ const getProfsByCourse = async (req, res, next) => {
                 }
             }
         })
-        if (!profs) {
+        if (!profs || profs.length === 0) {
             res.status(200).send({
                 successful: true,
                 message: "No professor found",
@@ -371,6 +371,7 @@ const getProfsByCourse = async (req, res, next) => {
 }
 
 
+
 module.exports = {
     addProf,
     getAllProf,
@@ -380,4 +381,4 @@ module.exports = {
     addCourseProf,
     deleteCourseProf,
     getProfsByCourse
-};
+}

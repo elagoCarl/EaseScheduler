@@ -1,4 +1,4 @@
-const { Department } = require('../models')
+const { Department, Course, Room } = require('../models')
 const util = require('../../utils')
 
 const addDept = async (req, res, next) => {
@@ -39,7 +39,7 @@ const addDept = async (req, res, next) => {
             message: "Successfully added new department."
         })
 
-    } 
+    }
     catch (err) {
         return res.status(500).json({
             successful: false,
@@ -51,7 +51,7 @@ const addDept = async (req, res, next) => {
 const getAllDept = async (req, res, next) => {
     try {
         let dept = await Department.findAll()
-        if (!dept) {
+        if (!dept || dept.length === 0) {
             res.status(200).send({
                 successful: true,
                 message: "No department found",
@@ -105,9 +105,9 @@ const deleteDept = async (req, res, next) => {
     try {
         const deleteDept = await Department.destroy({
             where: {
-              id: req.params.id, // Replace with the ID of the record you want to delete
+                id: req.params.id, // Replace with the ID of the record you want to delete
             },
-          })
+        })
         if (deleteDept) {
             res.status(200).send({
                 successful: true,
@@ -162,4 +162,88 @@ const updateDept = async (req, res, next) => {
         })
     }
 }
-module.exports = { addDept, getAllDept, getDept, deleteDept, updateDept };
+
+const getDeptsByCourse = async (req, res, next) => {
+    try {
+        const courseId = req.params.id
+        const depts = await Department.findAll({
+            attributes: { exclude: ['DeptCourses'] }, // Exclude ProfCourses field
+            include: {
+                model: Course,
+                as: 'DeptCourses',
+                where: {
+                    id: courseId,
+                },
+                attributes: [],
+                through: {
+                    attributes: []
+                }
+            }
+        })
+        if (!depts || depts.length === 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No department found",
+                count: 0,
+                data: []
+            })
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all department",
+                count: depts.length,
+                data: depts
+            })
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+
+const getDeptsByRoom = async (req, res, next) => {
+    try {
+        const roomId = req.params.id
+        const depts = await Department.findAll({
+            attributes: { exclude: ['DeptRooms'] }, // Exclude ProfCourses field
+            include: {
+                model: Room,
+                as: 'DeptRooms',
+                where: {
+                    id: roomId,
+                },
+                attributes: [],
+                through: {
+                    attributes: []
+                }
+            }
+        })
+        if (!depts || depts.length === 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No department found",
+                count: 0,
+                data: []
+            })
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all department",
+                count: depts.length,
+                data: depts
+            })
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+module.exports = { addDept, getAllDept, getDept, deleteDept, updateDept, getDeptsByCourse, getDeptsByRoom };

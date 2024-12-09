@@ -8,5 +8,9 @@ router.get('/getAllCourses', course_ctrl.getAllCourses)
 router.delete('/deleteCourse/:id', course_ctrl.deleteCourse)
 router.get('/getCourse/:id', course_ctrl.getCourse)
 router.put('/updateCourse/:id', course_ctrl.updateCourse)
+router.get('/getCoursesByProf/:id', course_ctrl.getCourseByProf)
+router.post('/addDeptCourse', course_ctrl.addDeptCourse)
+router.delete('/deleteDeptCourse', course_ctrl.deleteDeptCourse)
+router.get('/getCoursesByDept/:id', course_ctrl.getCoursesByDept)
 
 module.exports = router;
