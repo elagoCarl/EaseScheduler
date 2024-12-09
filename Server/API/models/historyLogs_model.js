@@ -1,5 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const Account = require("./account_model")(sequelize, DataTypes)
     const HistoryLog = sequelize.define('HistoryLog', {
         Page: {
             type: DataTypes.STRING,
@@ -11,11 +10,10 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         timestamps: true
-    });
-    Account.hasMany(HistoryLog, {
-        onDelete: 'RESTRICT',
-        onUpdate: 'CASCADE'
     })
-    HistoryLog.belongsTo(Account)
+    HistoryLog.associate = (models) => {
+        HistoryLog.belongsTo(models.Account)
+    }
+    
     return HistoryLog
 }

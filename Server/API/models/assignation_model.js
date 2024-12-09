@@ -1,7 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const Professor = require("./prof_model")(sequelize, DataTypes)
-    const Department = require("./dept_model")(sequelize, DataTypes)
-    const Course = require("./course_model")(sequelize, DataTypes)
     const Assignation = sequelize.define('Assignation', {
         id: {
             type: DataTypes.INTEGER,
@@ -23,24 +20,16 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, {
         timestamps: true
-    });
-    Professor.belongsToMany(Course, { through: Assignation });
-    Course.belongsToMany(Professor, { through: Assignation });
-
-    Professor.belongsToMany(Department, { through: Assignation });
-    Department.belongsToMany(Professor, { through: Assignation });
-
-    Course.belongsToMany(Department, { through: Assignation });
-    Department.belongsToMany(Course, { through: Assignation });
-
-    // Direct associations with Assignation
-    Professor.hasMany(Assignation);
-    Assignation.belongsTo(Professor);
-
-    Course.hasMany(Assignation);
-    Assignation.belongsTo(Course);
-
-    Department.hasMany(Assignation);
-    Assignation.belongsTo(Department);
+    })
+    Assignation.associate = (models) => {
+        Assignation.belongsTo(models.Professor),
+        Assignation.belongsTo(models.Course),
+        Assignation.belongsTo(models.Department),
+        Assignation.belongsToMany(models.Room, {through: 'Schedule'}),
+        Assignation.hasMany(models.Schedule, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        })
+    }
     return Assignation
 }

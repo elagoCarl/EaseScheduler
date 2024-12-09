@@ -1,5 +1,14 @@
-const { Professor } = require('../models')
+const { Professor, Course } = require('../models')
 const util = require('../../utils')
+const isExceedingUnitLimit = (status, newTotalUnits) => {
+    const limits = {
+        "Full-time": 24,
+        "Part-time": 12,
+        "Fixed-term": 12
+    }
+
+    return newTotalUnits > (limits[status] || 0);
+}
 
 const addProf = async (req, res, next) => {
     try {
@@ -58,7 +67,7 @@ const addProf = async (req, res, next) => {
             message: "Successfully added new professor."
         })
 
-    } 
+    }
     catch (err) {
         return res.status(500).json({
             successful: false,
@@ -98,7 +107,7 @@ const getAllProf = async (req, res, next) => {
 const getProf = async (req, res, next) => {
     try {
         let prof = await Professor.findByPk(req.params.id)
-        
+
 
         if (!prof) {
             res.status(404).send({
@@ -125,9 +134,9 @@ const deleteProf = async (req, res, next) => {
     try {
         const deleteProf = await Professor.destroy({
             where: {
-              id: req.params.id, // Replace with the ID of the record you want to delete
+                id: req.params.id, // Replace with the ID of the record you want to delete
             },
-          })
+        })
         if (deleteProf) {
             res.status(200).send({
                 successful: true,
@@ -166,7 +175,7 @@ const updateProf = async (req, res, next) => {
             })
         }
 
-            // Validate email format
+        // Validate email format
         if (!util.validateEmail(Email)) {
             return res.status(406).json({
                 successful: false,
@@ -201,7 +210,7 @@ const updateProf = async (req, res, next) => {
             successful: true,
             message: "Successfully updated professor."
         })
-    } 
+    }
     catch (err) {
         return res.status(500).json({
             successful: false,
@@ -209,10 +218,166 @@ const updateProf = async (req, res, next) => {
         })
     }
 }
-module.exports = { 
-    addProf, 
-    getAllProf, 
-    getProf, 
-    deleteProf, 
-    updateProf 
+
+const addCourseProf = async (req, res) => {
+    try {
+        const { courseId, profId } = req.body;
+
+        if (!util.checkMandatoryFields([courseId, profId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const course = await Course.findByPk(courseId);
+        if (!course) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        const prof = await Professor.findByPk(profId);
+        if (!prof) {
+            return res.status(404).json({
+                successful: false,
+                message: "Professor not found."
+            });
+        }
+
+        const newTotalUnits = prof.Total_units + course.Units
+        if (isExceedingUnitLimit(prof.Status, newTotalUnits)) {
+            return res.status(400).send({
+                successful: false,
+                message: `Professor ${prof.Name} has exceeded the total units limit.`
+            })
+        }
+
+        await prof.update({
+            Total_units: newTotalUnits
+        })
+
+        // Create the association
+        await course.addCourseProfs(profId);
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully associated course with professor."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const deleteCourseProf = async (req, res) => {
+    try {
+        const { courseId, profId } = req.body;
+
+        if (!util.checkMandatoryFields([courseId, profId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const course = await Course.findByPk(courseId);
+        if (!course) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        const prof = await Professor.findByPk(profId);
+        if (!prof) {
+            return res.status(404).json({
+                successful: false,
+                message: "Professor not found."
+            });
+        }
+
+        const existingAssociation = await course.hasCourseProfs(profId)
+        if (!existingAssociation) {
+            return res.status(404).json({
+                successful: false,
+                message: "Association between the course and professor does not exist."
+            });
+        }
+
+        const newTotalUnits = prof.Total_units - course.Units
+
+        await prof.update({
+            Total_units: newTotalUnits
+        })
+
+        await course.removeCourseProfs(profId);
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully deleted association."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const getProfsByCourse = async (req, res, next) => {
+    try {
+        const courseId = req.params.id
+        const profs = await Professor.findAll({
+            attributes: { exclude: ['ProfCourses'] }, // Exclude ProfCourses field
+            include: {
+                model: Course,
+                as: 'ProfCourses',
+                where: {
+                    id: courseId, 
+                },
+                attributes: [],
+                through: {
+                    attributes: []
+                }
+            }
+        })
+        if (!profs) {
+            res.status(200).send({
+                successful: true,
+                message: "No professor found",
+                count: 0,
+                data: []
+            })
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all professors",
+                count: profs.length,
+                data: profs
+            })
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+
+
+module.exports = {
+    addProf,
+    getAllProf,
+    getProf,
+    deleteProf,
+    updateProf,
+    addCourseProf,
+    deleteCourseProf,
+    getProfsByCourse
 };
