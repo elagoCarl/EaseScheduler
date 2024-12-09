@@ -11,7 +11,7 @@ const TopMenu = ({ toggleSidebar }) => {
       <button
         id="logoBtn"
         className="text-lg md:text-3xl sm:text-3xl xs:text-2xl font-bold text-blue-500"
-        onClick={() => navigate("/")}>
+        onClick={() => navigate("/homePage")}>
         EASE<span className="text-white">SCHEDULER</span>
       </button>
       <img

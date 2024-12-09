@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Background from './Img/4.jpg';
 import { useNavigate } from 'react-router-dom';
-import Menu from './Img/menu.png';
 import Sidebar from "./callComponents/sideBar.jsx";
+import TopMenu from "./callComponents/topMenu.jsx";
 
 const CreateAccount = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -22,21 +22,7 @@ const CreateAccount = () => {
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
       {/* Top Menu */}
-      <div className="absolute top-0 left-0 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
-        <button
-          id="logoBtn"
-          className=" shadow-2xl bg-gray-600 bg-opacity-40 p-5 text-lg md:text-3xl font-bold text-blue-500 "
-          onClick={() => navigate("/")}
-        >
-          EASE<span className="text-white">SCHEDULER</span>
-        </button>
-        <img
-          src={Menu}
-          className="w-15 h-15 md:w-40 md:h-40 hover:bg-customLightBlue2 cursor-pointer rounded"
-          alt="menu button"
-          onClick={toggleSidebar}
-        />
-      </div>
+      <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Form Container */}
       <div className="relative bg-customBlue1 p-22 rounded-lg shadow-lg w-full max-w-lg">

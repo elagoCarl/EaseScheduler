@@ -80,13 +80,13 @@ const HomePage = () => {
         <button
           id="logoBtn"
           className="text-lg md:text-3xl font-bold block md:hidden text-blue-500"
-          onClick={() => navigate("/")}>
+          onClick={() => navigate("/homePage")}>
           EASE<span className="text-white">SCHEDULER</span>
         </button>
         {/* Profile Button */}
         <button
           ref={profileBtnRef}  // Attach the ref to the ProfileBtn
-          className='absolute top-5 right-5 w-25 h-25 md:w-40 md:h-40 duration-500 hover:scale-110'
+          className='absolute top-5 right-5 w-25 h-25 md:w-40 md:h-40 duration-200 hover:scale-105'
           onClick={toggleDropdown}  // Toggle the dropdown visibility on click
         >
           <img className='' src={ProfileBtn} alt="ProfileBtn" />
@@ -102,6 +102,9 @@ const HomePage = () => {
             </li>
             <li>
               <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Create Account</a>
+            </li>
+            <li>
+              <a href="/historyLogs" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">History Logs</a>
             </li>
             <li>
               <a href="#" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Logout</a>
@@ -126,22 +129,22 @@ const HomePage = () => {
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-4 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button
-                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => openModal('Add/Configure Timetables')}
                 >
-                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector} alt="" />
+                  <img className='h-70 w-70 md:h-100 md:w-100' src={vector} alt="" />
                   <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Timetables</span>
                 </button>
 
                 {/* 2nd Card (Professor) */}
                 <button
-                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => openModal('Professor availability')}
                 >
-                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector1} alt="" />
+                  <img className='h-70 w-70 md:h-100 md:w-100' src={vector1} alt="" />
                   <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Professor</span>
                 </button>
 
@@ -149,9 +152,9 @@ const HomePage = () => {
                 <button onClick={() => {
                   navigate('/course');
                 }}
-                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector2} alt="" />
+                  <img className='h-70 w-70 md:h-100 md:w-100' src={vector2} alt="" />
                   <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Course</span>
                 </button>
 
@@ -159,9 +162,9 @@ const HomePage = () => {
                 <button onClick={() => {
                   navigate('/room');
                 }}
-                  className='p-10 sm:p-15 md:p-25  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <img className='h-55 w-55 sm:h-70 sm:w-70 md:h-90 md:w-90' src={vector3} alt="" />
+                  <img className='h-70 w-70 md:h-100 md:w-100' src={vector3} alt="" />
                   <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Room</span>
                 </button>
               </div>
