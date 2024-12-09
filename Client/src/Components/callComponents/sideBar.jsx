@@ -146,7 +146,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/professors/all');
+              navigate('/professor');
               toggleSidebar(false);
             }}
           >
