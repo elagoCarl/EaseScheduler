@@ -7,8 +7,8 @@ module.exports = (sequelize, DataTypes) => {
         End_time: {
             type: DataTypes.TIME,
             allowNull: false
-        }
-    }, {
+        },
+    },{
         timestamps: true
     })
     ProfAvailSched.associate = (models) => {

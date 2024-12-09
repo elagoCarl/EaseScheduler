@@ -47,8 +47,5 @@ module.exports = (sequelize, DataTypes) => {
         Professor.belongsToMany(models.Department, { through: 'Assignation' }),
         Professor.hasMany(models.Assignation);
     }
-    
-    
-
     return Professor
 }

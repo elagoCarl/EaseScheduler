@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Day is required." }
             }
-        }
+        },
     }, {
         timestamps: true
     });

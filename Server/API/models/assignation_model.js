@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
         School_Year: {
             type: DataTypes.STRING,
             allowNull: false
-        },
+        },  
         Semester: {
             type: DataTypes.STRING,
             allowNull: false
