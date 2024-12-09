@@ -69,7 +69,7 @@ const addRoom = async (req, res, next) => {
 const getAllRoom = async (req, res, next) => {
     try {
         let room = await Room.findAll()
-        if (!room) {
+        if (!room || room.length === 0) {
             res.status(200).send({
                 successful: true,
                 message: "No room found",
@@ -208,4 +208,136 @@ const updateRoom = async (req, res, next) => {
         })
     }
 }
-module.exports = { addRoom, getAllRoom, getRoom, deleteRoom, updateRoom };
+
+const addDeptRoom = async (req, res) => {
+    try {
+        const { roomId, deptId } = req.body;
+
+        if (!util.checkMandatoryFields([roomId, deptId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const room = await Room.findByPk(roomId);
+        if (!room) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+
+        const dept = await Department.findByPk(deptId);
+        if (!dept) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        await room.addRoomDepts(deptId);
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully associated room with department."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const deleteDeptRoom = async (req, res) => {
+    try {
+        const { roomId, deptId } = req.body;
+
+        if (!util.checkMandatoryFields([roomId, deptId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const room = await Room.findByPk(roomId);
+        if (!room) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+
+        const dept = await Department.findByPk(deptId);
+        if (!dept) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        const existingAssociation = await room.hasRoomDepts(deptId)
+        if (!existingAssociation) {
+            return res.status(404).json({
+                successful: false,
+                message: "Association between the course and department does not exist."
+            });
+        }
+
+        await room.removeRoomDepts(deptId);
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully deleted association."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const getRoomsByDept = async (req, res, next) => {
+    try {
+        const deptId = req.params.id
+        const rooms = await Room.findAll({
+            attributes: { exclude: ['RoomDepts'] },
+            include: {
+                model: Department,
+                as: 'RoomDepts',
+                where: {
+                    id: deptId,
+                },
+                attributes: [],
+                through: {
+                    attributes: []
+                }
+            }
+        })
+        if (!rooms || rooms.length == 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No rooms found",
+                count: 0,
+                data: []
+            })
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all rooms",
+                count: rooms.length,
+                data: rooms
+            })
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        })
+    }
+}
+module.exports = { addRoom, getAllRoom, getRoom, deleteRoom, updateRoom, addDeptRoom, deleteDeptRoom, getRoomsByDept };
