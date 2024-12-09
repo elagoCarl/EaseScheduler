@@ -9,6 +9,7 @@ import CreateAccount from "./Components/createAccount";
 import HistoryLogs from "./Components/historyLogs";
 import Room from "./Components/room";
 import Course from "./Components/course";
+import ProfAvailability from "./Components/profAvailability";
 
 const App = () => {
   return (
@@ -24,6 +25,7 @@ const App = () => {
         <Route path="/createAccount" element={<CreateAccount />} />
         <Route path="/historyLogs" element={<HistoryLogs />} />
         <Route path="/room" element={<Room />} />
+        <Route path="/profAvailability" element={<ProfAvailability />} />
         <Route path="/course" element={<Course />} />
       </Routes>
     </Router>

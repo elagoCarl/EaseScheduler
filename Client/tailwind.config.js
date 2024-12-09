@@ -13,7 +13,8 @@ module.exports = {
         'customRed': '#B92C2C',
         'customGray': '#EFECEC',
         'customLightBlue2': '#D6F0F9',
-        'customWhite': '#EFECEC'
+        'customWhite': '#EFECEC',
+        'customGray2': 'D9D9D9',
       },
       spacing: {
         ...Array.from({ length: 1000 }, (_, i) => i + 1).reduce(

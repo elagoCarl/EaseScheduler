@@ -82,7 +82,7 @@ const Course = () => {
       {/* Top Menu */}
       <TopMenu toggleSidebar={toggleSidebar} />
       {/* Main Content */}
-      <div className="flex flex-col justify-center items-center h-screen w-full px-8">
+      <div className="flex flex-col justify-center items-center h-screen w-full px-20">
         {/* Filters */}
         <div className="flex justify-end w-10/12 mb-4">
           <div className="flex gap-4">
@@ -114,11 +114,11 @@ const Course = () => {
           </div>
         </div>
         {/* Table Container */}
-        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
-          <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
+        <div className="bg-white p-4 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
+          <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
             <img src={Book} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Course img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
-              Course
+              Course Configuration
             </h2>
           </div>
           {/* Scrollable Table */}
