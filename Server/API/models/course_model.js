@@ -1,7 +1,6 @@
 
 
 module.exports = (sequelize, DataTypes) => {
-    const Professor = require("./prof_model")(sequelize, DataTypes)
     const Course = sequelize.define('Course', {
         Code: {
             type: DataTypes.STRING,
@@ -44,8 +43,18 @@ module.exports = (sequelize, DataTypes) => {
             as: 'CourseProfs',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        });
+        }),
+        Course.belongsToMany(models.Professor, { through: 'Assignation' }),
+        Course.belongsToMany(models.Department, { through: 'Assignation' }),
+        Course.hasMany(models.Assignation),
+        Course.belongsToMany(models.Department, { 
+            through: 'DeptCourse',
+            as: 'CourseDepts',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        })
     }
+    
 
     return Course
 }

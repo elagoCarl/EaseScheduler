@@ -1,5 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const Account = require("./account_model")(sequelize, DataTypes)
     const Session = sequelize.define('Session', {
         Token: {
             type: DataTypes.STRING,
@@ -12,10 +11,9 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true
 
     });
-    Account.hasMany(Session, {
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-    })
-    Session.belongsTo(Account)
+    Session.associate = (models) => {
+        Session.belongsTo(models.Account)
+    }
+    
     return Session
 }

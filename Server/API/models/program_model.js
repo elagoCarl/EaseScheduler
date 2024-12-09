@@ -1,5 +1,4 @@
 module.exports = (sequelize, DataTypes) => {
-    const Department = require("./dept_model")(sequelize, DataTypes)
     const Program = sequelize.define('Program', {
         Code: {
             type: DataTypes.STRING,
@@ -19,10 +18,13 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
-    Department.hasMany(Program, {
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE'
-    })
-    Program.belongsTo(Department)
+    Program.associate = (models) => {
+        Program.belongsTo(models.Department),
+        Program.hasMany(models.ProgYrSec, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        })
+    }
+    
     return Program
 }
