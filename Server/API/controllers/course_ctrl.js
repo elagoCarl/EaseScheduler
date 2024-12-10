@@ -380,6 +380,73 @@ const getCoursesByDept = async (req, res, next) => {
     }
 }
 
+const updateDeptCourse = async (req, res, next) => {
+    try {
+        const { oldCourseId, oldDeptId, newCourseId, newDeptId } = req.body;
+
+        if (!util.checkMandatoryFields([oldCourseId, oldDeptId, newCourseId, newDeptId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const oldCourse = await Course.findByPk(oldCourseId);
+        if (!oldCourse) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        const oldDept = await Department.findByPk(oldDeptId);
+        if (!oldDept) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        const newCourse = await Course.findByPk(newCourseId);
+        if (!newCourse) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        const newDept = await Department.findByPk(newDeptId);
+        if (!newDept) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        const existingAssociation = await oldCourse.hasCourseDepts(oldDeptId)
+        if (!existingAssociation) {
+            return res.status(404).json({
+                successful: false,
+                message: "Association between the course and department does not exist."
+            });
+        }
+
+
+        await oldDept.removeDeptCourses(oldCourseId)
+        await newDept.addDeptCourses(newCourseId)
+
+        return res.status(200).json({
+            successful: true,
+            message: "Association updated successfully."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
 module.exports = {
     addCourse,
     getAllCourses,
@@ -389,5 +456,6 @@ module.exports = {
     getCourseByProf,
     addDeptCourse,
     deleteDeptCourse,
-    getCoursesByDept
+    getCoursesByDept,
+    updateDeptCourse
 }

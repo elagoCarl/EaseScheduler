@@ -10,4 +10,6 @@ router.put('/updateRoom/:id', room_ctrl.updateRoom)
 router.post('/addDeptRoom', room_ctrl.addDeptRoom)
 router.delete('/deleteDeptRoom', room_ctrl.deleteDeptRoom)
 router.get('/getRoomsByDept/:id', room_ctrl.getRoomsByDept)
+router.put('/updateDeptRoom', room_ctrl.updateDeptRoom)
+
 module.exports = router;

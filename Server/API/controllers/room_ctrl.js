@@ -340,4 +340,81 @@ const getRoomsByDept = async (req, res, next) => {
         })
     }
 }
-module.exports = { addRoom, getAllRoom, getRoom, deleteRoom, updateRoom, addDeptRoom, deleteDeptRoom, getRoomsByDept };
+
+const updateDeptRoom = async (req, res, next) => {
+    try {
+        const { oldRoomId, oldDeptId, newRoomId, newDeptId } = req.body;
+
+        if (!util.checkMandatoryFields([oldRoomId, oldDeptId, newRoomId, newDeptId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const oldRoom = await Room.findByPk(oldRoomId);
+        if (!oldRoom) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+
+        const oldDept = await Department.findByPk(oldDeptId);
+        if (!oldDept) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        const newRoom = await Room.findByPk(newRoomId);
+        if (!newRoom) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+
+        const newDept = await Department.findByPk(newDeptId);
+        if (!newDept) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        const existingAssociation = await oldRoom.hasRoomDepts(oldDeptId)
+        if (!existingAssociation) {
+            return res.status(404).json({
+                successful: false,
+                message: "Association between the room and department does not exist."
+            });
+        }
+
+
+        await oldDept.removeDeptRooms(oldRoomId)
+        await newDept.addDeptRooms(newRoomId)
+
+        return res.status(200).json({
+            successful: true,
+            message: "Association updated successfully."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+module.exports = {
+    addRoom,
+    getAllRoom,
+    getRoom,
+    deleteRoom,
+    updateRoom,
+    addDeptRoom,
+    deleteDeptRoom,
+    getRoomsByDept,
+    updateDeptRoom
+};

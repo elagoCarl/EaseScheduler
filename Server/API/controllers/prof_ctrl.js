@@ -370,6 +370,93 @@ const getProfsByCourse = async (req, res, next) => {
     }
 }
 
+const updateCourseProf = async (req, res, next) => {
+    try {
+        const { oldCourseId, oldProfId, newCourseId, newProfId } = req.body;
+
+        // Validate input
+        if (!util.checkMandatoryFields([oldCourseId, oldProfId, newCourseId, newProfId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const oldCourse = await Course.findByPk(oldCourseId);
+        if (!oldCourse) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        const oldProf = await Professor.findByPk(oldProfId);
+        if (!oldProf) {
+            return res.status(404).json({
+                successful: false,
+                message: "Professor not found."
+            });
+        }
+
+        const newCourse = await Course.findByPk(newCourseId);
+        if (!newCourse) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        let newProf = await Professor.findByPk(newProfId);
+        if (!newProf) {
+            return res.status(404).json({
+                successful: false,
+                message: "Professor not found."
+            });
+        }
+
+        const existingAssociation = await oldCourse.hasCourseProfs(oldProfId)
+        if (!existingAssociation) {
+            return res.status(404).json({
+                successful: false,
+                message: "Association between the course and professor does not exist."
+            });
+        }
+
+        const decUnits = oldProf.Total_units - oldCourse.Units
+        await oldProf.update({
+            Total_units: decUnits
+        })
+        newProf = await Professor.findByPk(newProfId)
+        
+        const incUnits = newProf.Total_units + newCourse.Units
+        if (isExceedingUnitLimit(newProf.Status, incUnits)) {
+            const prevUnits = decUnits + oldCourse.Units
+            await oldProf.update({
+                Total_units: prevUnits
+            })
+            return res.status(400).send({
+                successful: false,
+                message: `Professor ${newProf.Name} has exceeded the total units limit.`
+            })
+        }
+        await newProf.update({
+            Total_units: incUnits
+        })
+
+        await oldProf.removeProfCourses(oldCourseId)
+        await newProf.addProfCourses(newCourseId)
+
+        return res.status(200).json({
+            successful: true,
+            message: "Association updated successfully."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
 
 
 module.exports = {
@@ -380,5 +467,6 @@ module.exports = {
     updateProf,
     addCourseProf,
     deleteCourseProf,
-    getProfsByCourse
+    getProfsByCourse,
+    updateCourseProf
 }
