@@ -10,5 +10,6 @@ router.put('/updateProf/:id', prof_ctrl.updateProf)
 router.post('/addCourseProf', prof_ctrl.addCourseProf)
 router.delete('/deleteCourseProf', prof_ctrl.deleteCourseProf)
 router.get('/getProfsByCourse/:id', prof_ctrl.getProfsByCourse)
+router.put('/updateCourseProf', prof_ctrl.updateCourseProf)
 
 module.exports = router;
