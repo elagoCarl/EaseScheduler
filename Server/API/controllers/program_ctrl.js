@@ -200,4 +200,31 @@ const deleteProgram = async (req, res, next) => {
     }
 };
 
-module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram };
+const getAllProgramByDept = async (req, res, next) => {
+    try {
+        const DepartmentId = req.params.id
+        const programs = await Program.findAll({ where: { DepartmentId } })
+        if (!programs || programs.length === 0) {
+            return res.status(200).json({
+                successful: true,
+                message: "No programs found.",
+                count: 0,
+                data: [],
+            })
+        }
+
+        return res.status(200).json({
+            successful: true,
+            message: "Retrieved all programs.",
+            count: programs.length,
+            data: programs,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred.",
+        });
+    }
+};
+
+module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByDept};
