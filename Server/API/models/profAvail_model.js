@@ -7,14 +7,18 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Day is required." }
             }
         },
+        Start_time: {
+            type: DataTypes.TIME,
+            allowNull: false
+        },
+        End_time: {
+            type: DataTypes.TIME,
+            allowNull: false
+        }
     }, {
         timestamps: true
     });
     ProfAvail.associate = (models) => {
-        ProfAvail.hasMany(models.ProfAvailSched, {
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
-        }),
         ProfAvail.belongsTo(models.Professor)
     }
     return ProfAvail

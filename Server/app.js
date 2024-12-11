@@ -21,7 +21,6 @@ const accArchive_rtr = require('./API/routers/accArchive_rtr')
 const program = require('./API/routers/program_rtr')
 const progYrSec = require('./API/routers/progYrSec_rtr')
 const profAvail = require('./API/routers/profAvail_rtr')
-const ProfAvailSched = require('./API/routers/profAvailSched_rtr')
 
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
@@ -79,7 +78,6 @@ app.use('/accArchive', accArchive_rtr)
 app.use('/program', program)
 app.use('/progYrSec', progYrSec)
 app.use('/profAvail', profAvail)
-app.use('/profAvailSched', ProfAvailSched)
 
 
 
