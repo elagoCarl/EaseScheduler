@@ -1,56 +1,49 @@
-const { ProfAvail, Professor } = require('../models');
-const { Op } = require('sequelize');
-const util = require('../../utils');
+const { ProfAvail, Professor } = require('../models')
+const util = require('../../utils')
+
+//LAGYAN NG PREFIX NA ZERO ANG INPUT SA HOURS KUNG SINGLE DIGIT LANG
 
 // Add Professor Availability (Single or Bulk)
 const addProfessorAvail = async (req, res, next) => {
     try {
-        let professorAvailToAdd = req.body;
+        let profAvails = req.body;
 
-        // Turn to array for bulk processing
-        if (!Array.isArray(professorAvailToAdd)) {
-            professorAvailToAdd = [professorAvailToAdd];
+        if (!Array.isArray(profAvails)) {
+            profAvails = [profAvails];
         }
 
-        for (const professorAvailData of professorAvailToAdd) {
-            const { Day, ProfessorId } = professorAvailData;
+        for (const profAvail of profAvails) {
+            const { Day, ProfessorId, Start_time, End_time } = profAvail;
 
-            // Validate mandatory fields
-            if (!util.checkMandatoryFields([Day, ProfessorId])) {
+            if (!util.checkMandatoryFields([Day, ProfessorId, Start_time, End_time])) {
                 return res.status(400).json({
                     successful: false,
-                    message: "Mandatory fields (Day, ProfessorId) are missing."
+                    message: "A mandatory field is missing."
                 });
             }
 
             // Check if the referenced Professor exists
-            const professorExists = await Professor.findByPk(ProfessorId);
-            if (!professorExists) {
+            const prof = await Professor.findByPk(ProfessorId);
+            if (!prof) {
                 return res.status(404).json({
                     successful: false,
-                    message: `Professor with ID ${ProfessorId} not found.`
+                    message: 'Professor not found.'
                 });
             }
 
-            // Check if the combination of Day and ProfessorId already exists
-            const existingAvailability = await ProfAvail.findOne({
-                where: { Day, ProfessorId }
-            });
-
-            if (existingAvailability) {
-                return res.status(409).json({
+            if (End_time <= Start_time) {
+                return res.status(400).json({
                     successful: false,
-                    message: `Availability for ${Day} already exists for Professor ID ${ProfessorId}.`
+                    message: "End time must be greater than Start time."
                 });
             }
 
-            // Create Professor Availability
-            await ProfAvail.create({ Day, ProfessorId });
+            await ProfAvail.create({ Day, ProfessorId, Start_time, End_time });
         }
 
         return res.status(201).json({
             successful: true,
-            message: "Successfully added Professor Availability(ies)."
+            message: "Successfully added Professor Availability."
         });
 
     } catch (error) {
@@ -64,9 +57,7 @@ const addProfessorAvail = async (req, res, next) => {
 // Get a Single Professor Availability by ID
 const getProfessorAvail = async (req, res, next) => {
     try {
-        const { id } = req.params;
-
-        const professorAvail = await ProfAvail.findByPk(id);
+        const professorAvail = await ProfAvail.findByPk(req.params.id);
 
         if (!professorAvail) {
             return res.status(404).json({
@@ -109,37 +100,39 @@ const getAllProfessorAvail = async (req, res, next) => {
 // Update Professor Availability by ID
 const updateProfessorAvail = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        const { Day } = req.body;
+        const { Day, End_time, Start_time, ProfessorId } = req.body;
 
-        if (!util.checkMandatoryFields([Day])) {
+        if (!util.checkMandatoryFields([Day, End_time, Start_time, ProfessorId])) {
             return res.status(400).json({
                 successful: false,
-                message: "A mandatory field (Day) is missing."
+                message: "A mandatory field is missing."
             });
         }
 
-        const professorAvail = await ProfAvail.findByPk(id);
-        if (!professorAvail) {
+        const profAvail = await ProfAvail.findByPk(req.params.id);
+        if (!profAvail) {
             return res.status(404).json({
                 successful: false,
                 message: "Professor Availability not found."
             });
         }
 
-        // Check if the updated Day already exists for the same ProfessorId
-        const existingAvailability = await ProfAvail.findOne({
-            where: { Day, ProfessorId: professorAvail.ProfessorId, id: { [Op.ne]: id } }
-        });
-
-        if (existingAvailability) {
-            return res.status(409).json({
+        const prof = await Professor.findByPk(ProfessorId);
+        if (!prof) {
+            return res.status(404).json({
                 successful: false,
-                message: `Availability for ${Day} already exists for Professor ID ${professorAvail.ProfessorId}.`
+                message: "Professor not found."
+            })
+        }
+
+        if (End_time <= Start_time) {
+            return res.status(400).json({
+                successful: false,
+                message: "End time must be greater than Start time."
             });
         }
 
-        await professorAvail.update({ Day });
+        await profAvail.update({ Day, Start_time, End_time, ProfessorId });
 
         return res.status(200).json({
             successful: true,
@@ -157,9 +150,7 @@ const updateProfessorAvail = async (req, res, next) => {
 // Delete Professor Availability by ID
 const deleteProfessorAvail = async (req, res, next) => {
     try {
-        const { id } = req.params;
-
-        const professorAvail = await ProfAvail.findByPk(id);
+        const professorAvail = await ProfAvail.findByPk(req.params.id);
         if (!professorAvail) {
             return res.status(404).json({
                 successful: false,
