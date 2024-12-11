@@ -194,11 +194,38 @@ const deleteProgYrSec = async (req, res, next) => {
     }
 };
 
+const getAllProgYrSecByProgram = async (req, res, next) => {
+    try {
+        const ProgramId = req.params.id
+        const progYrSecs = await ProgYrSec.findAll({ where: { ProgramId } })
+        if (!progYrSecs || progYrSecs.length === 0) {
+            return res.status(200).json({
+                successful: true,
+                message: "No progYrSecs found.",
+                count: 0,
+                data: [],
+            })
+        }
+
+        return res.status(200).json({
+            successful: true,
+            message: "Retrieved all progYrSecs.",
+            count: progYrSecs.length,
+            data: progYrSecs,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred.",
+        });
+    }
+};
 // Export the functions
 module.exports = {
     addProgYrSec,
     getProgYrSec,
     getAllProgYrSec,
     updateProgYrSec,
-    deleteProgYrSec
+    deleteProgYrSec,
+    getAllProgYrSecByProgram
 };
