@@ -23,6 +23,7 @@ const progYrSec = require('./API/routers/progYrSec_rtr')
 const profAvail = require('./API/routers/profAvail_rtr')
 const ProfAvailSched = require('./API/routers/profAvailSched_rtr')
 
+// para lang makita kung anong request sa console
 app.use((req, res, next) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
   next();
