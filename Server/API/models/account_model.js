@@ -1,3 +1,5 @@
+const bcrypt = require('bcrypt');
+
 module.exports = (sequelize, DataTypes) => {
     const Account = sequelize.define('Account', {
         Name: {
@@ -39,21 +41,47 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: false
         }
     }, {
-        timestamps: true
-    })
+        timestamps: true,
+        hooks: {
+            beforeCreate: async (account) => {
+                const salt = await bcrypt.genSalt();
+                account.Password = await bcrypt.hash(account.Password, salt);
+            },
+            beforeUpdate: async (account) => {
+                if (account.changed('Password')) {
+                    const salt = await bcrypt.genSalt();
+                    account.Password = await bcrypt.hash(account.Password, salt);
+                }
+            }
+        }
+    });
+
     Account.associate = (models) => {
         Account.hasMany(models.HistoryLog, {
             onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
-        }),
+        });
         Account.hasMany(models.OTP, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        }),
+        });
         Account.hasMany(models.Session, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        })
-    }
-    return Account
-}
+        });
+    };
+
+    Account.login = async function (Email, Password) {
+        const user = await Account.findOne({ where: { Email } });
+        if (user) {
+            const auth = await bcrypt.compare(Password, user.Password);
+            if (auth) {
+                return user;
+            }
+            throw new Error('Invalid Password');
+        }
+        throw new Error('Invalid Email');
+    };
+
+    return Account;
+};
