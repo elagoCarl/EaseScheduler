@@ -1,35 +1,48 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Axios from 'axios'; // Import Axios
 import Background from './Img/1.jpg'; // Replace with your actual image path
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
 
 const HistoryLogs = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [logs, setLogs] = useState([]); // State to store fetched logs
+  const [loading, setLoading] = useState(true); // Loading state
+  const [error, setError] = useState(null); // Error state
+
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
-  // Sample data for history logs
-  const logs = [
-    {
-      timestamp: '2024-12-05 10:30 AM',
-      account: 'john.doe@example.com',
-      page: 'Create Account',
-      details: 'User created an account successfully.',
-    },
-    {
-      timestamp: '2024-12-05 11:00 AM',
-      account: 'jane.smith@example.com',
-      page: 'Login',
-      details: 'User logged in.',
-    },
-    {
-      timestamp: '2024-12-05 11:30 AM',
-      account: 'admin@example.com',
-      page: 'Admin Dashboard',
-      details: 'Admin viewed the dashboard statistics.',
-    },
-    // Add more logs as needed
-  ];
+
+  // Function to fetch history logs from the server
+  const fetchHistoryLogs = async () => {
+    try {
+      const response = await Axios.get('http://localhost:8080/historyLogs/getAllCourses'); // Replace with your backend API endpoint
+      console.log("response", response.data)
+      if (response.data.successful) {
+        setLogs(response.data.data); // Update logs state with the fetched data
+      } else {
+        setError(response.data.message); // Set error message if the response is not successful
+      }
+    } catch (err) {
+      setError("Error fetching history logs: " + err.message); // Catch errors and set error message
+    } finally {
+      setLoading(false); // Set loading to false after request is complete
+    }
+  };
+
+  // Fetch logs when the component mounts
+  useEffect(() => {
+    fetchHistoryLogs();
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>; // Display loading message while fetching data
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>; // Display error message if there's an issue
+  }
 
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
@@ -63,10 +76,10 @@ const HistoryLogs = () => {
                   key={index}
                   className="hover:bg-gray-100 transition-colors duration-200"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">{log.timestamp}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{log.account}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{log.page}</td>
-                  <td className="px-6 py-4">{log.details}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{log.createdAt}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{log.AccountId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{log.Page}</td>
+                  <td className="px-6 py-4">{log.Details}</td>
                 </tr>
               ))}
             </tbody>
@@ -82,19 +95,19 @@ const HistoryLogs = () => {
             >
               <p className="text-sm text-gray-500 font-medium">
                 <span className="font-bold text-gray-700">Timestamp: </span>
-                {log.timestamp}
+                {log.createdAt}
               </p>
               <p className="text-sm text-gray-500 font-medium mt-1">
                 <span className="font-bold text-gray-700">Account: </span>
-                {log.account}
+                {log.AccountId}
               </p>
               <p className="text-sm text-gray-500 font-medium mt-1">
                 <span className="font-bold text-gray-700">Page: </span>
-                {log.page}
+                {log.Page}
               </p>
               <p className="text-sm text-gray-500 font-medium mt-1">
                 <span className="font-bold text-gray-700">Details: </span>
-                {log.details}
+                {log.Details}
               </p>
             </div>
           ))}
