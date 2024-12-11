@@ -1,5 +1,9 @@
 const { Professor, Course } = require('../models')
 const util = require('../../utils')
+
+
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+
 const isExceedingUnitLimit = (status, newTotalUnits) => {
     const limits = {
         "Full-time": 24,
@@ -19,6 +23,8 @@ const addProf = async (req, res, next) => {
             // If not an array, convert the single professor to an array
             professorsToAdd = [professorsToAdd];
         }
+
+        const addedProfs = [];
 
         for (const professorData of professorsToAdd) {
             const { Name, Email, Status } = professorData;
@@ -60,7 +66,15 @@ const addProf = async (req, res, next) => {
                 Status: Status,
                 Total_units: 0
             })
+            addedProfs.push(Name);
         }
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor';
+        const details = `Added Professor${addedProfs.length > 1 ? 's' : ''}: ${addedProfs.join(', ')}`;
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,
@@ -132,21 +146,44 @@ const getProf = async (req, res, next) => {
 
 const deleteProf = async (req, res, next) => {
     try {
+        // Find the professor before deletion (to log the professor's name)
+        const professor = await Professor.findOne({
+            where: {
+                id: req.params.id, // Replace with the ID of the record you want to delete
+            },
+        });
+
+        if (!professor) {
+            return res.status(400).send({
+                successful: false,
+                message: "Professor not found."
+            });
+        }
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor';
+        const details = `Deleted Professor record for: ${professor.Name}`; // Include professor's name or other info
+
+        await addHistoryLog(accountId, page, details);
+
+        // Delete the professor record
         const deleteProf = await Professor.destroy({
             where: {
                 id: req.params.id, // Replace with the ID of the record you want to delete
             },
-        })
+        });
+
         if (deleteProf) {
             res.status(200).send({
                 successful: true,
                 message: "Successfully deleted professor."
-            })
+            });
         } else {
             res.status(400).send({
                 successful: false,
                 message: "Professor not found."
-            })
+            });
         }
     } catch (err) {
         res.status(500).send({
@@ -155,6 +192,8 @@ const deleteProf = async (req, res, next) => {
         });
     }
 }
+
+
 
 const updateProf = async (req, res, next) => {
     try {
@@ -200,11 +239,25 @@ const updateProf = async (req, res, next) => {
             }
         }
 
+        // Store old course details for history logging
+        const oldDetails = {
+            Name: prof.Name,
+            Email: prof.Email,
+            Status: prof.Status
+        };
+
         const updateProf = await prof.update({
             Name: Name,
             Email: Email,
             Status: Status
         })
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor';
+        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${Name}, Email: ${Email}, Status: ${Status}`;
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,
@@ -337,7 +390,7 @@ const getProfsByCourse = async (req, res, next) => {
                 model: Course,
                 as: 'ProfCourses',
                 where: {
-                    id: courseId, 
+                    id: courseId,
                 },
                 attributes: [],
                 through: {
@@ -427,7 +480,7 @@ const updateCourseProf = async (req, res, next) => {
             Total_units: decUnits
         })
         newProf = await Professor.findByPk(newProfId)
-        
+
         const incUnits = newProf.Total_units + newCourse.Units
         if (isExceedingUnitLimit(newProf.Status, incUnits)) {
             const prevUnits = decUnits + oldCourse.Units

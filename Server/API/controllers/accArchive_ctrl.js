@@ -16,10 +16,7 @@ const archiveAccount = async (req, res) => {
         // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Archive Account';
-        const details = `Archived Account: 
-            Account_ID - ${acc.id},
-            Name - ${acc.Name},
-            Email - ${acc.Email}`;
+        const details = `Archived Account: Account_ID - ${acc.id}, Name - ${acc.Name}, Email - ${acc.Email}`;
 
         await addHistoryLog(accountId, page, details);
 

@@ -1,5 +1,6 @@
 const { Course, Professor, Department } = require('../models');
 const util = require('../../utils');
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addCourse = async (req, res) => {
     try {
@@ -10,10 +11,14 @@ const addCourse = async (req, res) => {
             courses = [courses];
         }
 
+        const addedCourses = [];
+
         for (const course of courses) {
             const { Code, Description, Duration, Units, Type, Dept_id } = course;
 
             // Validate mandatory fields
+            //TINANGGAL KO MUNA Dept_id sa check mandatory
+            // if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
             if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
                 return res.status(400).json({
                     successful: false,
@@ -44,24 +49,38 @@ const addCourse = async (req, res) => {
                 Duration,
                 Units,
                 Type
-            })
+            });
+
             if (Type === 'Professional') {
                 await newCourse.addCourseDepts(Dept_id);
             }
+
+            addedCourses.push(Code);
         }
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Course';
+        const details = `Added Course${addedCourses.length > 1 ? 's' : ''}: ${addedCourses.join(', ')}`;
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,
             message: "Successfully added new course(s)."
         });
-    }
-    catch (err) {
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
         });
     }
-}
+};
+
+
+
+
+
 
 const getAllCourses = async (req, res) => {
     try {
@@ -93,29 +112,42 @@ const getAllCourses = async (req, res) => {
 
 const deleteCourse = async (req, res, next) => {
     try {
-        const deleteCourse = await Course.destroy({
-            where: {
-                id: req.params.id, // Replace with the ID of the record you want to delete
-            },
-        })
-        if (deleteCourse) {
-            res.status(200).send({
-                successful: true,
-                message: "Successfully deleted course."
-            })
-        } else {
-            res.status(400).send({
+        // Find the course before deletion for detailed logging
+        const course = await Course.findOne({
+            where: { id: req.params.id }
+        });
+
+        if (!course) {
+            return res.status(400).send({
                 successful: false,
                 message: "Course not found."
-            })
+            });
         }
+
+        // Delete the course
+        await Course.destroy({
+            where: { id: req.params.id }
+        });
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Course';
+        const details = `Deleted Course: Code - ${course.Code}, Description - ${course.Description}`;
+
+        await addHistoryLog(accountId, page, details);
+
+        res.status(200).send({
+            successful: true,
+            message: "Successfully deleted course."
+        });
     } catch (err) {
         res.status(500).send({
             successful: false,
-            message: err.message
+            message: err.message || "An unexpected error occurred."
         });
     }
-}
+};
+
 
 const getCourse = async (req, res, next) => {
     try {
@@ -184,6 +216,15 @@ const updateCourse = async (req, res) => {
             }
         }
 
+        // Store old course details for history logging
+        const oldDetails = {
+            Code: course.Code,
+            Description: course.Description,
+            Duration: course.Duration,
+            Units: course.Units,
+            Type: course.Type
+        };
+
         // Update course details
         await course.update({
             Code,
@@ -193,18 +234,25 @@ const updateCourse = async (req, res) => {
             Type
         });
 
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Course';
+        const details = `Updated Course: Old Code: ${oldDetails.Code}, Desc: ${oldDetails.Description}, Duration: ${oldDetails.Duration}, Units: ${oldDetails.Units}, Type: ${oldDetails.Type}; New Code: ${Code}, Desc: ${Description}, Duration: ${Duration}, Units: ${Units}, Type: ${Type}`;
+
+        await addHistoryLog(accountId, page, details);
+
         return res.status(201).json({
             successful: true,
             message: "Successfully updated course."
         });
-    }
-    catch (err) {
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
         });
     }
-}
+};
+
 
 const getCourseByProf = async (req, res, next) => {
     try {

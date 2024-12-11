@@ -17,11 +17,74 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: false, // Use `true` for port 465, `false` for all other ports
     auth: {
-        user: process.env.USER,
-        pass: process.env.APP_PASSWORD,
+        user: USER,
+        pass: APP_PASSWORD,
     },
 });
 
+
+// Create access token
+const maxAge = 60; // 1 minute in seconds
+const createAccessToken = (id) => {
+    return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
+        expiresIn: maxAge,
+    });
+};
+// Create refresh token
+const createRefreshToken = (id) => {
+    return jwt.sign({ id }, REFRESH_TOKEN_SECRET, {
+        expiresIn: 60 * 60 * 24 * 30, // 30 days in seconds
+    });
+};
+
+const generateAccessToken = async (req, res, next) => {
+    const { refreshToken } = req.body; // Assuming the refresh token is sent in the request body
+
+    // If refresh token is not provided, send error message
+    if (!refreshToken) {
+        return res.status(401).json({
+            successful: false,
+            message: "Refresh token not provided",
+        });
+    }
+
+    try {
+        // Find the session associated with the provided refresh token
+        const session = await Session.findOne({ where: { token: refreshToken } });
+
+        if (!session) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refresh token",
+            });
+        }
+
+        // Verify the refresh token
+        const user = await jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+        console.log("user: ", user);
+
+        // Create a new access token using the user id from the refresh token
+        const accessToken = createAccessToken(user.id);
+
+        // Send the new access token in a cookie (HTTP-only for security)
+        res.cookie("jwt", accessToken, {
+            httpOnly: true,
+            maxAge: maxAge * 1000, // Convert seconds to milliseconds
+        });
+
+        return res.status(200).json({
+            successful: true,
+            message: "Access token generated successfully",
+            AccessToken: accessToken,
+        });
+    } catch (err) {
+        console.error("Error generating access token:", err);
+        return res.status(400).json({
+            successful: false,
+            message: err.message || "Error generating access token",
+        });
+    }
+};
 
 
 // Send OTP Verification Email
@@ -153,5 +216,6 @@ const addAccount = async (req, res, next) => {
 
 module.exports = {
     addAccount,
-    sendOTPVerificationEmail
+    sendOTPVerificationEmail,
+    generateAccessToken
 };
