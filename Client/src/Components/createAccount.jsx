@@ -25,7 +25,7 @@ const CreateAccount = () => {
       <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Form Container */}
-      <div className="relative bg-customBlue1 p-22 rounded-lg shadow-lg w-full max-w-lg">
+      <div className="relative bg-customBlue1 p-24 rounded-lg shadow-lg w-full lg:max-w-lg xs:max-w-md xs:max-h-md">
         {/* Close Button */}
         <button
           className="absolute top-3 right-10 text-white font-bold text-2xl hover:text-red-500"
@@ -132,7 +132,7 @@ const CreateAccount = () => {
               className="bg-customLightBlue2 hover:bg-blue-300 text-gray-600 font-bold py-3 px-8 rounded"
               type="submit"
             >
-              Create Account
+              Create
             </button>
           </div>
         </form>
