@@ -11,6 +11,7 @@ import Room from "./Components/room";
 import Course from "./Components/course";
 import ProfAvailability from "./Components/profAvailability";
 import Professor from "./Components/professor";
+import AssignSubjToProf from "./Components/assignSubjtoProf";
 
 const App = () => {
   return (
@@ -29,6 +30,7 @@ const App = () => {
         <Route path="/profAvailability" element={<ProfAvailability />} />
         <Route path="/course" element={<Course />} />
         <Route path="/professor" element={<Professor />} />
+        <Route path="/assignSubjtoProf" element={<AssignSubjToProf />} />
       </Routes>
     </Router>
   );
