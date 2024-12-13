@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import Image3 from './Img/3.jpg';
+import bg from './Img/bg.jpg';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 
 const ProfAvailability = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({
-    professor: "",
     day: "",
+    professor: "",
     timeIn: "",
     timeOut: "",
   });
@@ -29,24 +29,34 @@ const ProfAvailability = () => {
     console.log("Added:", formData);
     resetForm();
   };
-
   return (
     <div
-      className="main bg-cover bg-no-repeat min-h-screen flex justify-center items-center"
-      style={{ backgroundImage: `url(${Image3})` }}
+      className="main bg-cover bg-no-repeat min-h-screen flex justify-center items-center xs:h-full"
+      style={{ backgroundImage: `url(${bg})` }}
     >
-      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      <div className='fixed top-0 h-full z-50'>
+        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      </div>
+
       <TopMenu toggleSidebar={toggleSidebar} />
 
       <div className="flex flex-col items-center text-center w-full">
-        <h1 className=" text-xl md:text-3xl mt-50 md:mt-10 font-bold text-white text-center w-full">Professor Availability</h1>
+        <h1 className=" font-bold text-white text-xl md:text-3xl mt-45 mb-10 text-center">Add/Configure Schedule</h1>
+
         {/* Main container with left and right sections */}
-        <div className="flex flex-wrap md:flex-nowrap gap-6 w-full max-w-7xl justify-center items-start px-5 xs:-mt-20 md:mt-20 lg:mt-10">
+        <div className="flex flex-wrap md:flex-nowrap gap-5 w-full max-w-6xl justify-center items-start px-5 xs:px-15 mt-10">
+
           {/* Left Container (Form Section) */}
           <div
             id="leftContainer"
-            className="bg-customWhite mt-40 mr-8 text-gray-900 p-10 rounded-lg shadow-lg w-full max-w-md md:w-3/12"
+            className="bg-customWhite mr-8 text-gray-900 p-10 rounded-lg shadow-lg w-full max-w-md md:w-3/12"
           >
+            <div className="mb-4">
+              <label htmlFor="day" className="block text-md font-medium mb-1 text-start ml-2">
+                Department:
+              </label>
+              <input className='w-full p-5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500' type="text" placeholder='Department of logged in Account' disabled/>
+            </div>
             <div className="mb-4">
               <label htmlFor="professor" className="block text-md font-medium mb-1 text-start ml-2">
                 Professor:
@@ -65,7 +75,7 @@ const ProfAvailability = () => {
             </div>
             <div className="mb-4">
               <label htmlFor="day" className="block text-md font-medium mb-1 text-start ml-2">
-                Day:
+                Course:
               </label>
               <select
                 id="day"
@@ -74,17 +84,29 @@ const ProfAvailability = () => {
                 onChange={handleInputChange}
                 className="w-full p-5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Select Day</option>
-                <option value="Monday">Monday</option>
-                <option value="Tuesday">Tuesday</option>
-                <option value="Wednesday">Wednesday</option>
-                <option value="Thursday">Thursday</option>
-                <option value="Friday">Friday</option>
-                <option value="Saturday">Saturday</option>
+                <option value="">Select Course</option>
               </select>
             </div>
             <div className="mb-4">
-              <label htmlFor="timeIn" className="block text-md font-medium mb-1 text-start ml-2">
+              <label htmlFor="day" className="block text-md font-medium mb-1 text-start ml-2">
+                School Year:
+              </label>
+              <input className='w-full p-5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500' type="text" placeholder='Enter School Year' />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="day" className="block text-md font-medium mb-1 text-start ml-2">
+                Semester:
+              </label>
+              <input className='w-full p-5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500' type="text" placeholder='Enter Semester' />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="day" className="block text-md font-medium mb-1 text-start ml-2">
+                Block:
+              </label>
+              <input className='w-full p-5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500' type="text" placeholder='Enter Block' />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="" className="block text-md font-medium mb-1 text-start ml-2">
                 Time in:
               </label>
               <select
@@ -138,7 +160,7 @@ const ProfAvailability = () => {
           </div>
 
           {/* Right Container (Timetable Section) */}
-          <div className="bg-white w-full md:w-2/3 p-5 rounded-lg shadow-lg overflow-x-auto md:-mt-8 mt-2">
+          <div className="bg-white w-full md:w-2/3 p-5 rounded-lg shadow-lg overflow-x-auto md:-mt-8 mt-5">
             <table className="table-auto w-full text-left border-collapse border border-customWhite">
               <thead>
                 <tr className="bg-gray-100 text-center">
