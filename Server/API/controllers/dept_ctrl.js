@@ -1,5 +1,6 @@
 const { Department, Course, Room } = require('../models')
 const util = require('../../utils')
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addDept = async (req, res, next) => {
     try {
@@ -32,6 +33,14 @@ const addDept = async (req, res, next) => {
             const newDept = await Department.create({
                 Name: Name
             })
+
+               // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Department';
+        const details = `Added Department${Name}`;
+
+        await addHistoryLog(accountId, page, details);
+
         }
 
         return res.status(201).json({
@@ -103,11 +112,31 @@ const getDept = async (req, res, next) => {
 
 const deleteDept = async (req, res, next) => {
     try {
-        const deleteDept = await Department.destroy({
-            where: {
-                id: req.params.id, // Replace with the ID of the record you want to delete
-            },
+
+        const department = await Department.findOne({
+            where: { id: req.params.id }
         })
+
+          if (!department) {
+            return res.status(400).send({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+
+        // Delete the course
+        await Department.destroy({
+            where: { id: req.params.id }
+        });
+
+
+          // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Department';
+        const details = `Deleted Department${department.Name}`;
+
+        await addHistoryLog(accountId, page, details);
+
         if (deleteDept) {
             res.status(200).send({
                 successful: true,
@@ -131,6 +160,13 @@ const updateDept = async (req, res, next) => {
     try {
         let dept = await Department.findByPk(req.params.id)
         const { Name } = req.body
+
+          // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Department';
+        const details = `Department Updated: Old; Name${dept.Name};;; New; Name:${Name}`;
+
+        await addHistoryLog(accountId, page, details);
 
         if (!dept) {
             res.status(404).send({

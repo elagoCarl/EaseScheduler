@@ -67,6 +67,7 @@ const addProf = async (req, res, next) => {
                 Total_units: 0
             })
             addedProfs.push(Name);
+
         }
 
         // Log the archive action

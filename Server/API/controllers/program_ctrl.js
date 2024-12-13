@@ -1,6 +1,7 @@
 const { Program, Department } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addProgram = async (req, res, next) => {
     try {
@@ -46,6 +47,14 @@ const addProgram = async (req, res, next) => {
 
             // Create the new program
             await Program.create({ Code, Name, DepartmentId });
+
+              // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Program';
+        const details = `Added Program${Code, Name}`;
+
+        await addHistoryLog(accountId, page, details);
+
         }
 
         return res.status(201).json({
@@ -130,6 +139,12 @@ const updateProgram = async (req, res, next) => {
             });
         }
 
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Program';
+        const details = `Program Updated: Old; Code:${program.Code},Name${program.Name};;; New; Code:${Code}, Name:${Name}`;
+
+        await addHistoryLog(accountId, page, details);
+
         // Validate DepartmentId if provided
         if (DepartmentId) {
             const department = await Department.findByPk(DepartmentId);
@@ -185,9 +200,16 @@ const deleteProgram = async (req, res, next) => {
                 message: `Program with ID ${programId} not found.`,
             });
         }
-
+        
         // Delete the program
         await program.destroy();
+
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Program';
+        const details = `Program Deleted${program.Code, program.Name}`;
+
+        await addHistoryLog(accountId, page, details);
+        
         return res.status(200).json({
             successful: true,
             message: `Program with Program Code ${program.Code} deleted successfully.`,

@@ -1,6 +1,7 @@
 const { ProfAvail, Professor } = require('../models')
 const util = require('../../utils')
 const { Op } = require('sequelize')
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 //LAGYAN NG PREFIX NA ZERO ANG INPUT SA HOURS KUNG SINGLE DIGIT LANG
 
@@ -56,6 +57,12 @@ const addProfessorAvail = async (req, res, next) => {
                     ]
                 }
             });
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor Availability';
+        const details = `Added Professor Availability${prof.Day, prof.ProfessorId}`;
+
+        await addHistoryLog(accountId, page, details);
 
             if (overlapping) {
                 return res.status(400).json({
@@ -194,6 +201,14 @@ const updateProfessorAvail = async (req, res, next) => {
             }
         });
 
+         // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor Availability';
+         const details = `Updated Professor Availability: Old; Day: ${profAvail.Day}, Start Time: ${profAvail.Start_time}, End Time: ${profAvail.End_time}, Professor Id: ${profAvail.ProfessorId};;; New; Day: ${Day}, Start Time: ${Start_time}, End Time: ${End_time}, Professor Id: ${ProfessorId}`;
+
+        await addHistoryLog(accountId, page, details);
+
+
         if (overlapping) {
             return res.status(400).json({
                 successful: false,
@@ -227,6 +242,14 @@ const deleteProfessorAvail = async (req, res, next) => {
                 message: "Professor Availability not found."
             });
         }
+
+            // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor Availability';
+        const details = `Deleted Professor Availability${prof.Day, prof.ProfessorId}`;
+
+        await addHistoryLog(accountId, page, details);
+
 
         await professorAvail.destroy();
 
