@@ -38,7 +38,7 @@ const Room = () => {
   };
 
   return (
-    <body
+    <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
       style={{ backgroundImage: `url(${Background})` }}
     >
@@ -171,7 +171,7 @@ const Room = () => {
           <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
         </button>
       </div>
-    </body>
+    </div>
   );
 };
 

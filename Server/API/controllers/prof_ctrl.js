@@ -240,12 +240,6 @@ const updateProf = async (req, res, next) => {
             }
         }
 
-        // Store old course details for history logging
-        const oldDetails = {
-            Name: prof.Name,
-            Email: prof.Email,
-            Status: prof.Status
-        };
 
         const updateProf = await prof.update({
             Name: Name,
