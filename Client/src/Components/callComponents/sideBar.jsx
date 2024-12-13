@@ -38,7 +38,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         EASE<span className="text-white">SCHEDULER</span>
       </button>
 
-      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-4 md:py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -51,7 +51,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Timetables Section */}
-      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('Timetables')}
@@ -117,7 +117,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Professors Section */}
-      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('professors')}
@@ -155,7 +155,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/professors/add');
+              navigate('/profAvailability');
               toggleSidebar(false);
             }}
           >
@@ -165,7 +165,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Rooms Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -178,7 +178,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Courses Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -191,7 +191,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Account Section */}
-      <div className="flex flex-col items-start space-y-1 px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('account')}

@@ -22,7 +22,6 @@ const Professor = () => {
   const [isEditProfModalOpen, setIsEditProfModalOpen] = useState(false); // Edit ProfModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const campuses = ["Campus A", "Campus B", "Campus C"];
-  const floors = ["1st Floor", "2nd Floor", "3rd Floor"];
 
   const navigate = useNavigate();
 
@@ -95,19 +94,6 @@ const Professor = () => {
               {campuses.map((campus, index) => (
                 <option key={index} value={campus}>
                   {campus}
-                </option>
-              ))}
-            </select>
-            {/* Floor Dropdown */}
-            <select
-              value={selectedFloor}
-              onChange={(e) => setSelectedFloor(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base"
-            >
-              <option disabled>Select Floor</option>
-              {floors.map((floor, index) => (
-                <option key={index} value={floor}>
-                  {floor}
                 </option>
               ))}
             </select>
