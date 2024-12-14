@@ -1,10 +1,19 @@
-const { Course, Professor, Department } = require('../models');
+const { Course, Professor, Department, Settings } = require('../models');
 const util = require('../../utils');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addCourse = async (req, res) => {
     try {
         let courses = req.body;
+
+        const settings = await Settings.findByPk(1);
+        if (!settings) {
+            return res.status(406).json({
+                successful: false,
+                message: 'Settings not found.'
+            })
+        }
+
 
         // Ensure the request body is an array
         if (!Array.isArray(courses)) {
@@ -26,7 +35,14 @@ const addCourse = async (req, res) => {
                 });
             }
 
-            // Check if the course already exists
+            if (Duration > settings.MaxCourseDuration){
+                return res.status(406).json({
+                    successful: false,
+                    message: 'Duration limit reached.'
+                });
+            }
+
+                // Check if the course already exists
             const existingCourse = await Course.findOne({ where: { Code } });
             if (existingCourse) {
                 return res.status(406).json({
@@ -214,6 +230,20 @@ const updateCourse = async (req, res) => {
                     message: "Course code already exists. Please use a different code."
                 });
             }
+        }
+        const settings = await Settings.findByPk(1);
+        if (!settings) {
+            return res.status(406).json({
+                successful: false,
+                message: 'Settings not found.'
+            })
+        }
+
+        if (Duration > settings.MaxCourseDuration){
+            return res.status(406).json({
+                successful: false,
+                message: 'Duration limit reached.'
+            });
         }
 
         // Store old course details for history logging

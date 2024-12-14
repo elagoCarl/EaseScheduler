@@ -21,6 +21,7 @@ const accArchive_rtr = require('./API/routers/accArchive_rtr')
 const program = require('./API/routers/program_rtr')
 const progYrSec = require('./API/routers/progYrSec_rtr')
 const profAvail = require('./API/routers/profAvail_rtr')
+const settings_rtr = require('./API/routers/settings_rtr')
 
 // para lang makita kung anong request sa console
 app.use((req, res, next) => {
@@ -79,6 +80,7 @@ app.use('/accArchive', accArchive_rtr)
 app.use('/program', program)
 app.use('/progYrSec', progYrSec)
 app.use('/profAvail', profAvail)
+app.use('/settings', settings_rtr)
 
 
 

@@ -1,16 +1,13 @@
-const { Professor, Course } = require('../models')
+const { Professor, Course, Settings } = require('../models')
 const util = require('../../utils')
-
-
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
-const isExceedingUnitLimit = (status, newTotalUnits) => {
+const isExceedingUnitLimit = (settings, status, newTotalUnits) => {
     const limits = {
-        "Full-time": 24,
-        "Part-time": 12,
-        "Fixed-term": 12
+        "Full-time": settings.FullTimeMax,
+        "Part-time": settings.PartTimeMax,
+        "Fixed-term": settings.FullTimeMax
     }
-
     return newTotalUnits > (limits[status] || 0);
 }
 
@@ -194,8 +191,6 @@ const deleteProf = async (req, res, next) => {
     }
 }
 
-
-
 const updateProf = async (req, res, next) => {
     try {
         let prof = await Professor.findByPk(req.params.id)
@@ -294,8 +289,16 @@ const addCourseProf = async (req, res) => {
             });
         }
 
+        const settings = await Settings.findByPk(1);
+        if (!settings) {
+            return res.status(404).json({
+                successful: false,
+                message: "Settings not found."
+            });
+        }
+
         const newTotalUnits = prof.Total_units + course.Units
-        if (isExceedingUnitLimit(prof.Status, newTotalUnits)) {
+        if (isExceedingUnitLimit(settings, prof.Status, newTotalUnits)) {
             return res.status(400).send({
                 successful: false,
                 message: `Professor ${prof.Name} has exceeded the total units limit.`
@@ -470,6 +473,14 @@ const updateCourseProf = async (req, res, next) => {
             });
         }
 
+        const settings = await Settings.findByPk(1);
+        if (!settings) {
+            return res.status(404).json({
+                successful: false,
+                message: "Settings not found."
+            });
+        }
+
         const decUnits = oldProf.Total_units - oldCourse.Units
         await oldProf.update({
             Total_units: decUnits
@@ -477,7 +488,7 @@ const updateCourseProf = async (req, res, next) => {
         newProf = await Professor.findByPk(newProfId)
 
         const incUnits = newProf.Total_units + newCourse.Units
-        if (isExceedingUnitLimit(newProf.Status, incUnits)) {
+        if (isExceedingUnitLimit(settings, newProf.Status, incUnits)) {
             const prevUnits = decUnits + oldCourse.Units
             await oldProf.update({
                 Total_units: prevUnits
