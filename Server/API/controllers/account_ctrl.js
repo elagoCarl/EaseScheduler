@@ -446,8 +446,13 @@ const sendTempPass = async (req, res, next) => {
             });
         }
 
+        // Generate a random temporary password
         const randomNumber = Math.floor(100000 + Math.random() * 900000);
-        const tempPassword = `Ceu!${randomNumber}!Admin`;
+        let tempPassword = `Ceu!${randomNumber}!Admin`;  // Use 'let' instead of 'const'
+        
+        // Hash the generated temporary password
+        const salt = await bcrypt.genSalt();
+        const hashedTempPassword = await bcrypt.hash(tempPassword, salt);
 
         // Mail options from nodemailer documentation
         const mailOptions = {
@@ -471,13 +476,13 @@ const sendTempPass = async (req, res, next) => {
             });
         }
 
-        // Update password with Sequelize
+        // Update password with hashed password in Sequelize
         await Account.update(
-            { Password: tempPassword },
+            { Password: hashedTempPassword },
             { where: { Email } }
         );
 
-        // Send email
+        // Send email with temporary password
         await transporter.sendMail(mailOptions, (error, info) => {
             if (error) {
                 console.log("Error occurred while sending email:", error);
@@ -503,6 +508,7 @@ const sendTempPass = async (req, res, next) => {
         });
     }
 };
+
 
 
 module.exports = {
