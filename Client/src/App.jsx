@@ -13,6 +13,7 @@ import ProfAvailability from "./Components/profAvailability";
 import Professor from "./Components/professor";
 import AssignSubjToProf from "./Components/assignSubjtoProf";
 import AddConfigSchedule from "./Components/addConfigSchedule";
+import OTPVerification from "./Components/otpVerification";
 
 const App = () => {
   return (
@@ -33,6 +34,7 @@ const App = () => {
         <Route path="/professor" element={<Professor />} />
         <Route path="/assignSubjtoProf" element={<AssignSubjToProf />} />
         <Route path="/addConfigSchedule" element={<AddConfigSchedule />} />
+        <Route path="/otpVerification" element={<OTPVerification />} />
       </Routes>
     </Router>
   );
