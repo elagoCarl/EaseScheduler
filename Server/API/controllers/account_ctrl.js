@@ -279,6 +279,16 @@ const loginAccount = async (req, res, next) => {
                 return;
             }
 
+            if (!user.verified) {
+                // Send OTP verification email
+                await sendOTPVerificationEmail(user.id, user.Email);
+                res.status(401).json({
+                    successful: false,
+                    message: "Account not verified. OTP sent to email."
+                });
+                return;
+            }
+
             const accessToken = createAccessToken(user.id);
             const refreshToken = createRefreshToken(user.id);
 
@@ -311,20 +321,80 @@ const loginAccount = async (req, res, next) => {
 
 
 
+// const verifyAccountOTP = async (req, res, next) => {
+//     try {
+//         const { userId, otp } = req.body;
+
+//         if (!userId || !otp) {
+//             throw new Error("Empty OTP details are not allowed");
+//         }
+
+//         // Fetch OTP and account records
+//         const OTPModelRecord = await OTP.findOne({ where: { AccountId: userId } });
+//         const account = await Account.findOne({ where: { id: userId } });
+
+//         if (!OTPModelRecord) {
+//             throw new Error("Account record doesn't exist or has been verified already. Please sign up or log in.");
+//         }
+
+//         console.log("Fetched OTP Record:", OTPModelRecord);
+
+//         const { expiresAt, OTP: hashedOTP } = OTPModelRecord;
+
+//         if (!hashedOTP) {
+//             throw new Error("OTP not found.");
+//         }
+
+//         if (expiresAt < Date.now()) {
+//             await OTP.destroy({ where: { AccountId: userId } });
+//             await sendOTPVerificationEmail(account.id, account.Email);
+
+//             throw new Error("Code has expired. Please check your email, we sent a new verification code.");
+//         }
+
+//         const validOTP = await bcrypt.compare(otp, hashedOTP);
+//         if (!validOTP) {
+//             throw new Error("Invalid code, check your email.");
+//         }
+
+//         await Account.update({ verified: true }, { where: { id: userId } });
+//         await OTP.destroy({ where: { AccountId: userId } });
+
+//         res.status(200).json({
+//             successful: true,
+//             status: "Verified",
+//             message: "User email verified successfully."
+//         });
+
+//     } catch (error) {
+//         console.error("Verification Error:", error);
+//         res.status(400).json({
+//             successful: false,
+//             message: error.message
+//         });
+//     }
+// };
+
+
 const verifyAccountOTP = async (req, res, next) => {
     try {
-        const { userId, otp } = req.body;
+        const { email, otp } = req.body;
 
-        if (!userId || !otp) {
+        if (!email || !otp) {
             throw new Error("Empty OTP details are not allowed");
         }
 
-        // Fetch OTP and account records
-        const OTPModelRecord = await OTP.findOne({ where: { AccountId: userId } });
-        const account = await Account.findOne({ where: { id: userId } });
+        // Fetch account record using email
+        const account = await Account.findOne({ where: { Email: email } });
+
+        if (!account) {
+            throw new Error("Account record doesn't exist or has been verified already. Please sign up or log in.");
+        }
+
+        const OTPModelRecord = await OTP.findOne({ where: { AccountId: account.id } });
 
         if (!OTPModelRecord) {
-            throw new Error("Account record doesn't exist or has been verified already. Please sign up or log in.");
+            throw new Error("OTP record doesn't exist or has been verified already. Please sign up or log in.");
         }
 
         console.log("Fetched OTP Record:", OTPModelRecord);
@@ -336,7 +406,7 @@ const verifyAccountOTP = async (req, res, next) => {
         }
 
         if (expiresAt < Date.now()) {
-            await OTP.destroy({ where: { AccountId: userId } });
+            await OTP.destroy({ where: { AccountId: account.id } });
             await sendOTPVerificationEmail(account.id, account.Email);
 
             throw new Error("Code has expired. Please check your email, we sent a new verification code.");
@@ -347,8 +417,8 @@ const verifyAccountOTP = async (req, res, next) => {
             throw new Error("Invalid code, check your email.");
         }
 
-        await Account.update({ verified: true }, { where: { id: userId } });
-        await OTP.destroy({ where: { AccountId: userId } });
+        await Account.update({ verified: true }, { where: { id: account.id } });
+        await OTP.destroy({ where: { AccountId: account.id } });
 
         res.status(200).json({
             successful: true,

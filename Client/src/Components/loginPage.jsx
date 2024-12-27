@@ -1,40 +1,49 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios'; // Import axios
 import image2 from './Img/2.jpg';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:8080/accounts/loginAccount', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await axios.post(
+        'http://localhost:8080/accounts/loginAccount',
+        {
+          Email: email,
+          Password: password,
         },
-        body: JSON.stringify({ 
-          Email: email, 
-          Password: password, 
-          RememberMe: rememberMe 
-        }),
-        credentials: 'include', // Ensure cookies are sent back
-      });
+        {
+          withCredentials: true, // Include cookies in the request
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      const data = await response.json();
-
-      if (response.ok && data.successful) {
-        navigate('/homePage'); // Redirect on successful login
+      if (response.data.successful) {
+        navigate('/homePage'); // Redirect on successful and verified login
       } else {
-        setError(data.message || 'Login failed. Please try again.');
+        if (response.data.message === "Account not verified. OTP sent to email.") {
+          navigate(`/otpVerification?email=${email}`); // Redirect to OTP verification page
+        } else {
+          setError(response.data.message || 'Login failed. Please try again.');
+        }
       }
     } catch (err) {
-      setError('An error occurred. Please try again later.');
+      if (err.response?.data?.message === 'Account not verified. OTP sent to email.') {
+        navigate(`/otpVerification?email=${email}`); // Redirect to OTP verification page
+      } else {
+        setError(
+          err.response?.data?.message || 'An error occurred. Please try again later.'
+        );
+      }
     }
   };
 
@@ -58,7 +67,10 @@ const LoginPage = () => {
           onSubmit={handleSubmit}
         >
           <div>
-            <label htmlFor="email" className="text-start block mb-2 text-sm font-medium text-gray-100">
+            <label
+              htmlFor="email"
+              className="text-start block mb-2 text-sm font-medium text-gray-100"
+            >
               Email
             </label>
             <input
@@ -73,7 +85,10 @@ const LoginPage = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="text-start block mb-2 text-sm font-medium text-gray-100">
+            <label
+              htmlFor="password"
+              className="text-start block mb-2 text-sm font-medium text-gray-100"
+            >
               Password
             </label>
             <input
@@ -87,17 +102,7 @@ const LoginPage = () => {
             />
           </div>
 
-          <div className="flex items-center justify-between w-full">
-            <label className="flex items-center text-gray-100">
-              <input
-                type="checkbox"
-                className="mr-2"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              Remember Me
-            </label>
-
+          <div className="flex items-center justify-end w-full">
             <button
               type="button"
               className="text-blue-300 hover:underline"

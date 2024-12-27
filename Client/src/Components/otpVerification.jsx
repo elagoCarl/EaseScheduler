@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import Background from './Img/4.jpg';
-import { useNavigate } from 'react-router-dom';
 import Sidebar from './callComponents/sideBar.jsx';
 import TopMenu from "./callComponents/topMenu.jsx";
 
 const OTPVerification = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [otp, setOtp] = useState(new Array(6).fill(''));
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const email = new URLSearchParams(location.search).get('email');
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
@@ -25,13 +29,34 @@ const OTPVerification = () => {
     }
   };
 
-  const handleOTPSubmit = (e) => {
+  const handleOTPSubmit = async (e) => {
     e.preventDefault();
     const otpValue = otp.join('');
     if (otpValue.length === 6) {
-      alert(`OTP Submitted: ${otpValue}`);
+      try {
+        const response = await axios.post(
+          'http://localhost:8080/accounts/verifyAccountOTP',
+          {
+            email: email,
+            otp: otpValue,
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.data.successful) {
+          navigate('/loginPage'); // Redirect on successful OTP verification
+        } else {
+          setError(response.data.message || 'OTP verification failed. Please try again.');
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || 'An error occurred. Please try again later.');
+      }
     } else {
-      alert('Please enter a 6-digit OTP');
+      setError('Please enter a 6-digit OTP');
     }
   };
 
@@ -46,7 +71,6 @@ const OTPVerification = () => {
       <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Main Content */}
-      
       <div className="h-screen flex justify-center items-center">
         <div className="relative bg-customBlue1 p-10 xl:mb-180 xs:mb-80 mb-180 rounded-lg shadow-lg w-11/12 max-w-lg">
           <button
@@ -82,6 +106,8 @@ const OTPVerification = () => {
                 ))}
               </div>
             </div>
+
+            {error && <p className="text-red-500">{error}</p>}
 
             <div className="flex justify-end mt-20 space-x-8 mr-auto">
               <div>
