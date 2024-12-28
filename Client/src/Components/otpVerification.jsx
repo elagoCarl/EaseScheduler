@@ -2,20 +2,13 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Background from './Img/4.jpg';
-import Sidebar from './callComponents/sideBar.jsx';
-import TopMenu from "./callComponents/topMenu.jsx";
 
 const OTPVerification = () => {
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [otp, setOtp] = useState(new Array(6).fill(''));
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const email = new URLSearchParams(location.search).get('email');
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!isSidebarOpen);
-  };
+  const email = new URLSearchParams(location.search).get('email');//galing sa params ng url
 
   const handleChange = (element, index) => {
     if (isNaN(element.value)) return;
@@ -65,10 +58,6 @@ const OTPVerification = () => {
       id="bgImg"
       className="bg-cover bg-center bg-no-repeat h-screen w-screen"
       style={{ backgroundImage: `url(${Background})` }}>
-      {/* Sidebar */}
-      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-      {/* Top Menu */}
-      <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Main Content */}
       <div className="h-screen flex justify-center items-center">

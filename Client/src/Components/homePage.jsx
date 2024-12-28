@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import image5 from './Img/5.jpg';
 import calendar from './Img/Calendar.png';
 import vector from './Img/Vector.png';
@@ -64,14 +64,6 @@ const HomePage = () => {
     };
   }, []);
 
-  const Buttons = (props) => {
-    return (
-      <button className="flex flex-col items-center bg-blue-100 hover:bg-blue-200 rounded-lg p-6">
-        <img src={props.imgg} alt="Schedule" className="w-auto h-auto xl:w-40 xl:h-40 mb-0 md:w-auto sm:bottom-200 sm:h-100 md:h-auto" />
-        <span className="text-blue-600 font-semibold">{props.name}</span>
-      </button>
-    );
-  };
 
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
