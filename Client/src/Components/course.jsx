@@ -10,6 +10,8 @@ import Book from "./Img/Book.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
+import Axios from 'axios';
+
 
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -28,6 +30,28 @@ const Course = () => {
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
+
+  const [courses, setCourses] = useState([]);
+
+  const fetchCourse = async () => {
+    try {
+      const response = await Axios.get('http://localhost:8080/course/getAllCourses');
+      if (response.data.successful) {
+        setCourses(response.data.data);
+        console.log("response.data.data: ", response.data.data)
+      } else {
+        setError(response.data.message);
+      }
+    } catch (err) {
+      setError("Error fetching history logs: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourse();
+  }, []);
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;

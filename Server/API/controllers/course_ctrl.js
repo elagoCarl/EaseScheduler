@@ -94,10 +94,6 @@ const addCourse = async (req, res) => {
 };
 
 
-
-
-
-
 const getAllCourses = async (req, res) => {
     try {
         const courses = await Course.findAll();
