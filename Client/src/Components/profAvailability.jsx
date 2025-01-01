@@ -6,8 +6,8 @@ import Sidebar from './callComponents/sideBar.jsx';
 const ProfAvailability = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({
-    professor: "",
     day: "",
+    professor: "",
     timeIn: "",
     timeOut: "",
   });
@@ -26,14 +26,9 @@ const ProfAvailability = () => {
   };
 
   const handleAdd = () => {
-
-
     console.log("Added:", formData);
     resetForm();
   };
-
-
-
   return (
     <div
       className="main bg-cover bg-no-repeat min-h-screen flex justify-center items-center xs:h-full"
@@ -43,11 +38,10 @@ const ProfAvailability = () => {
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       </div>
 
-
       <TopMenu toggleSidebar={toggleSidebar} />
 
       <div className="flex flex-col items-center text-center w-full">
-        <h1 className=" font-bold text-white md:text-3xl xs:text-3xl xs:mt-30 mb-8 text-center">Professor Availability</h1>
+        <h1 className=" font-bold text-white text-xl md:text-3xl mt-45 mb-10 text-center">Professor Availability</h1>
 
         {/* Main container with left and right sections */}
         <div className="flex flex-wrap md:flex-nowrap gap-5 w-full max-w-6xl justify-center items-start px-5 xs:px-15 mt-10">

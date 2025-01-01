@@ -1,6 +1,7 @@
 const { ProgYrSec, Program } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 // Add ProgYrSec (Single or Bulk)
 const addProgYrSec = async (req, res, next) => {
@@ -45,6 +46,14 @@ const addProgYrSec = async (req, res, next) => {
 
             // Create ProgYrSec record
             await ProgYrSec.create({ Year, Section, ProgramId });
+
+            // Log the archive action
+            const accountId = '1'; // Example account ID for testing
+            const page = 'Schedule ba??? IDK';
+            const details = `Added Program: ${program.Code}${Year}${Section}`;
+
+            await addHistoryLog(accountId, page, details);
+
         }
 
         return res.status(200).json({
@@ -151,7 +160,24 @@ const updateProgYrSec = async (req, res, next) => {
             });
         }
 
+        // Save old values for logging
+        const oldProgram = await Program.findByPk(progYrSec.ProgramId);
+        const oldValues = {
+            Year: progYrSec.Year,
+            Section: progYrSec.Section,
+            ProgramName: oldProgram ? oldProgram.Name : "Unknown"
+        };
+
         await progYrSec.update({ Year, Section, ProgramId });
+
+        const newProgram = await Program.findByPk(ProgramId);
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'ProgYrSec';
+        const details = `Updated ProgYrSec: Old; Year: ${oldValues.Year}, Section: ${oldValues.Section}, Program: ${oldValues.ProgramName};;; New; Year: ${Year}, Section: ${Section}, Program: ${newProgram ? newProgram.Name : "Unknown"}`;
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(200).json({
             successful: true,
@@ -166,6 +192,7 @@ const updateProgYrSec = async (req, res, next) => {
     }
 };
 
+
 // Delete ProgYrSec by ID
 const deleteProgYrSec = async (req, res, next) => {
     try {
@@ -179,7 +206,19 @@ const deleteProgYrSec = async (req, res, next) => {
             });
         }
 
+        const oldProgram = await Program.findByPk(progYrSec.ProgramId);
+        const oldprog= {
+            ProgramName: oldProgram ? oldProgram.Name : "Unknown"
+        };
+
         await progYrSec.destroy();
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Schedules?';
+        const details = `Deleted ProgYrSec record for: ${oldprog.ProgramName}${progYrSec.Year}${progYrSec.Section}`; // Include professor's name or other info
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(200).json({
             successful: true,

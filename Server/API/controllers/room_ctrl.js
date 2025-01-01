@@ -1,5 +1,6 @@
 const { Room, Department } = require('../models')
 const util = require('../../utils')
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addRoom = async (req, res, next) => {
     try {
@@ -50,6 +51,14 @@ const addRoom = async (req, res, next) => {
                 Type: Type
             })
             const newDeptRoom = await newRoom.addRoomDepts(Dept_id)
+
+            // Log the archive action
+            const accountId = '1'; // Example account ID for testing
+            const page = 'Room';
+            const details = `Added Room: ${Building}${Code} floor: ${Floor}`;
+
+            await addHistoryLog(accountId, page, details);
+
         }
 
         return res.status(201).json({
@@ -121,11 +130,33 @@ const getRoom = async (req, res, next) => {
 
 const deleteRoom = async (req, res, next) => {
     try {
-        const deleteRoom = await Room.destroy({
+        // Find the professor before deletion (to log the professor's name)
+        const room = await Room.findOne({
             where: {
                 id: req.params.id, // Replace with the ID of the record you want to delete
             },
-        })
+        });
+
+        if (!room) {
+            return res.status(400).send({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Room';
+        const details = `Deleted Room for: ${room.Building} ${room.Code}`; // Include professor's name or other info
+
+        await addHistoryLog(accountId, page, details);
+
+        // Delete the professor record
+        const deleteProf = await Professor.destroy({
+            where: {
+                id: req.params.id, // Replace with the ID of the record you want to delete
+            },
+        });
         if (deleteRoom) {
             res.status(200).send({
                 successful: true,
@@ -195,6 +226,12 @@ const updateRoom = async (req, res, next) => {
             Building: Building,
             Type: Type
         })
+        // Log the archive action
+        const accountId = '1'; // Example account ID for testing
+        const page = 'Professor';
+        const details = `Updated Room: Old; Code: ${room.Code}, Floor: ${room.Floor}, Building: ${room.Building}, Type: ${room.Type};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Type: ${Type}`;
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,
