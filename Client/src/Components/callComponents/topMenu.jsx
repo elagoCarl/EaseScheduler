@@ -1,6 +1,6 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Menu from "../Img/menu.png";
+import PropTypes from 'prop-types';
 
 // Make sure the component name starts with an uppercase letter (TopMenu instead of topMenu)
 const TopMenu = ({ toggleSidebar }) => {
@@ -23,5 +23,8 @@ const TopMenu = ({ toggleSidebar }) => {
     </div>
   );
 }
+TopMenu.propTypes = {
+  toggleSidebar: PropTypes.func.isRequired,
+};
 
 export default TopMenu;

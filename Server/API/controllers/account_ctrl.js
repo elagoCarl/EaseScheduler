@@ -504,22 +504,33 @@ const changePassword = async (req, res, next) => {
 
 
 
-const sendTempPass = async (req, res, next) => {
+const forgotPass = async (req, res) => {
     try {
-        const { Email } = req.body;
+        const { email } = req.body; // Use lowercase 'email' to match the frontend
         console.log("Received payload: ", req.body);
 
-        if (!Email) {
+        if (!email) {
             return res.status(400).json({
                 status: 'Failed',
                 message: "Email address is not provided."
             });
         }
 
+        // Find account by email using Sequelize
+        const account = await Account.findOne({ where: { email } });
+
+        if (!account) {
+            return res.status(404).json({
+                successful: false,
+                message: "The email address you provided does not exist in our system. Please check and try again."
+            });
+        }
+        
+
         // Generate a random temporary password
         const randomNumber = Math.floor(100000 + Math.random() * 900000);
-        let tempPassword = `Ceu!${randomNumber}!Admin`;  // Use 'let' instead of 'const'
-        
+        const tempPassword = `Ceu!${randomNumber}!Admin`;
+
         // Hash the generated temporary password
         const salt = await bcrypt.genSalt();
         const hashedTempPassword = await bcrypt.hash(tempPassword, salt);
@@ -530,44 +541,27 @@ const sendTempPass = async (req, res, next) => {
                 name: 'EaseScheduler',
                 address: process.env.USER
             },
-            to: Email,
+            to: email,
             subject: 'Forgot Password in EaseScheduler Account.',
             text: 'Temporary Password:',
             html: `<p>Your temporary password is <b>${tempPassword}</b>. Use this to log in.</p>`
         };
 
-        // Find account by email using Sequelize
-        const account = await Account.findOne({ where: { Email } });
-
-        if (!account) {
-            return res.status(404).json({
-                successful: false,
-                message: "No account found."
-            });
-        }
-
         // Update password with hashed password in Sequelize
         await Account.update(
             { Password: hashedTempPassword },
-            { where: { Email } }
+            { where: { email } }
         );
 
         // Send email with temporary password
-        await transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.log("Error occurred while sending email:", error);
-                throw new Error("Failed to send temporary password.");
-            } else {
-                console.log("Email sent successfully:", info.response);
-            }
-        });
+        await transporter.sendMail(mailOptions);
 
         res.status(201).json({
             status: 'Pending',
             successful: true,
             message: 'Temporary password sent.',
             data: {
-                email: Email
+                email
             }
         });
     } catch (error) {
@@ -581,6 +575,7 @@ const sendTempPass = async (req, res, next) => {
 
 
 
+
 module.exports = {
     addAccount,
     getAccountById,
@@ -589,5 +584,5 @@ module.exports = {
     generateAccessToken,
     verifyAccountOTP,
     changePassword,
-    sendTempPass
+    forgotPass
 };

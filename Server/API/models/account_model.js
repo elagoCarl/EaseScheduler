@@ -80,7 +80,7 @@ module.exports = (sequelize, DataTypes) => {
             }
             throw new Error('Invalid Password');
         }
-        throw new Error('Invalid Email');
+        throw new Error('Email does not exist');
     };
 
     return Account;

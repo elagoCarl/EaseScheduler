@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import TopMenu from './callComponents/topMenu';
 import Sidebar from './callComponents/sideBar.jsx';
 import Image2 from './Img/2.jpg';
@@ -7,6 +8,7 @@ import AddBulk from './Img/AddBulk.png';
 const AssignSubjToProf = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [subjects, setSubjects] = useState([""]); // State to manage dynamically added subjects
+  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);

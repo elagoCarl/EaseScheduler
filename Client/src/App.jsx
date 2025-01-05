@@ -13,6 +13,7 @@ import Professor from "./Components/professor";
 import AssignSubjToProf from "./Components/assignSubjtoProf";
 import AddConfigSchedule from "./Components/addConfigSchedule";
 import OTPVerification from "./Components/otpVerification";
+import ForgotPass from "./Components/forgotPass";
 
 const App = () => {
   return (
@@ -34,6 +35,7 @@ const App = () => {
         <Route path="/assignSubjtoProf" element={<AssignSubjToProf />} />
         <Route path="/addConfigSchedule" element={<AddConfigSchedule />} />
         <Route path="/otpVerification" element={<OTPVerification />} />
+        <Route path="/forgotPassPage" element={<ForgotPass />} />
       </Routes>
     </Router>
   );

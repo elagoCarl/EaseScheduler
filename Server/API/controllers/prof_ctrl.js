@@ -194,7 +194,9 @@ const deleteProf = async (req, res, next) => {
 const updateProf = async (req, res, next) => {
     try {
         let prof = await Professor.findByPk(req.params.id)
-        const { Name, Email, Status } = req.body
+        const { name, email, status } = req.body
+        console.log("req.body:", name, email, status)
+        console.log("req.body:",req.body)
 
         if (!prof) {
             res.status(404).send({
@@ -203,7 +205,7 @@ const updateProf = async (req, res, next) => {
             });
         }
 
-        if (!util.checkMandatoryFields([Name, Email, Status])) {
+        if (!util.checkMandatoryFields([name, email, status])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -211,22 +213,22 @@ const updateProf = async (req, res, next) => {
         }
 
         // Validate email format
-        if (!util.validateEmail(Email)) {
+        if (!util.validateEmail(email)) {
             return res.status(406).json({
                 successful: false,
                 message: "Invalid email format."
             });
         }
 
-        if (!['Full-time', 'Part-time', 'Fixed-term'].includes(Status)) {
+        if (!['Full-time', 'Part-time', 'Fixed-term'].includes(status)) {
             return res.status(406).json({
                 successful: false,
                 message: "Invalid status. Allowed values are: Full-time, Part-time, Fixed-term."
             });
         }
 
-        if (Email !== prof.Email) {
-            const emailConflict = await Professor.findOne({ where: { Email: Email } })
+        if (email !== prof.Email) {
+            const emailConflict = await Professor.findOne({ where: { email: email } })
             if (emailConflict) {
                 return res.status(406).json({
                     successful: false,
@@ -236,18 +238,19 @@ const updateProf = async (req, res, next) => {
         }
 
 
-        const updateProf = await prof.update({
-            Name: Name,
-            Email: Email,
-            Status: Status
-        })
 
         // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Professor';
-        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${Name}, Email: ${Email}, Status: ${Status}`;
+        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${name}, Email: ${email}, Status: ${status}`;
 
         await addHistoryLog(accountId, page, details);
+
+        const updateProf = await prof.update({
+            Name: name,
+            Email: email,
+            Status: status
+        })
 
         return res.status(201).json({
             successful: true,

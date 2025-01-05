@@ -106,7 +106,7 @@ const LoginPage = () => {
             <button
               type="button"
               className="text-blue-300 hover:underline"
-              onClick={() => navigate('/forgotPassword')}
+              onClick={() => navigate('/forgotPassPage')}
             >
               Forgot Password?
             </button>

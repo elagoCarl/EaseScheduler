@@ -1,7 +1,55 @@
-import React from "react";
+import { useState } from "react";
+import PropTypes from "prop-types";
 
 const AddProfModal = ({ isOpen, onClose }) => {
+  const [formData, setFormData] = useState({
+    Name: "",
+    Email: "",
+    Status: "",
+  });
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   if (!isOpen) return null; // Prevent rendering if the modal is not open
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch("http://localhost:8080/prof/addProf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(result.message || "Failed to add professor.");
+        return;
+      }
+
+      setSuccessMessage("Professor added successfully! Reloading page...");
+      setTimeout(() => {
+        onClose(); // Close the modal after a short delay
+        window.location.reload(); // Reload the page to reflect the changes
+      }, 1000); // Wait 1 seconds before closing the modal and reloading the page
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
@@ -15,20 +63,26 @@ const AddProfModal = ({ isOpen, onClose }) => {
             &times;
           </button>
         </div>
-        <form className="space-y-10 px-20">
+        <form className="space-y-10 px-20" onSubmit={handleSubmit}>
           <label className="block font-semibold text-white">Name</label>
           <input
             type="text"
+            name="Name"
             placeholder="Name"
             className="w-full p-8 border rounded bg-customWhite"
+            value={formData.Name}
+            onChange={handleInputChange}
             required
           />
 
           <label className="block font-semibold text-white">Email</label>
           <input
             type="text"
+            name="Email"
             placeholder="Email"
             className="w-full p-8 border rounded bg-customWhite"
+            value={formData.Email}
+            onChange={handleInputChange}
             required
           />
 
@@ -40,14 +94,29 @@ const AddProfModal = ({ isOpen, onClose }) => {
             disabled
           />
 
-
           <label className="block font-semibold text-white">Teaching Status</label>
-          <select className="w-full p-8 border rounded bg-customWhite" required>
-            <option disabled>Select Teaching Status</option>
-            <option>Full Time</option>
-            <option>Part Time</option>
-            <option>Lecturer</option>
+          <select
+            name="Status"
+            className="w-full p-8 border rounded bg-customWhite"
+            value={formData.Status}
+            onChange={handleInputChange}
+            required
+          >
+            <option value="" disabled>
+              Select Teaching Status
+            </option>
+            <option value="Full-time">Full Time</option>
+            <option value="Part-time">Part Time</option>
+            <option value="Fixed-term">Lecturer</option>
           </select>
+
+          {errorMessage && (
+            <p className="text-red-500 text-center">{errorMessage}</p>
+          )}
+
+          {successMessage && (
+            <p className="text-green-500 text-center">{successMessage}</p>
+          )}
 
           <div className="flex justify-center mt-4 gap-4">
             <button
@@ -68,6 +137,11 @@ const AddProfModal = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
+};
+
+AddProfModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default AddProfModal;

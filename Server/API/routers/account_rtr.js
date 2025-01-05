@@ -8,7 +8,7 @@ router.get('/getAccountById/:id', account_ctrl.getAccountById)
 router.post('/sendOTPverification', account_ctrl.sendOTPVerificationEmail)
 router.post('/verifyAccountOTP', account_ctrl.verifyAccountOTP);
 router.put('/changePassword', account_ctrl.changePassword)
-router.put('/sendTempPass', account_ctrl.sendTempPass)
+router.post('/forgotPass', account_ctrl.forgotPass)
 router.get('/test', (req, res) => res.status(200).json({ message: "Test endpoint works" }));
 
 
