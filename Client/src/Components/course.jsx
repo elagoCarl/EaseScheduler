@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Background from "./Img/5.jpg";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "./callComponents/sideBar.jsx";
@@ -32,10 +32,14 @@ const Course = () => {
   };
 
   const [courses, setCourses] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
 
   const fetchCourse = async () => {
     try {
       const response = await Axios.get('http://localhost:8080/course/getAllCourses');
+      console.log('API Response:', response.data)
       if (response.data.successful) {
         setCourses(response.data.data);
         console.log("response.data.data: ", response.data.data)
@@ -43,7 +47,7 @@ const Course = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError("Error fetching history logs: " + err.message);
+      setError(`Error fetching courses: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,9 @@ const Course = () => {
 
   useEffect(() => {
     fetchCourse();
+    console.log("Fetching courses...");
   }, []);
+
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
@@ -95,6 +101,7 @@ const Course = () => {
     console.log("Course deleted");
     setIsDeleteWarningOpen(false); // Close the warning after deletion
   };
+
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
@@ -163,30 +170,30 @@ const Course = () => {
                 </tr>
               </thead>
               <tbody>
-                {checkboxes.map((isChecked, index) => (
+                {courses.map((course, index) => (
                   <tr
                     key={index}
                     className="hover:bg-customLightBlue2 border-t border-gray-300"
                   >
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      {selectedCampus}
+                      {course.Code}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Description}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Duration}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Units}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Type}
                     </td>
                     <td className="py-2 border border-gray-300">
                       <input
                         type="checkbox"
-                        checked={isChecked}
+                        checked={checkboxes[index]}
                         onChange={() => handleCheckboxChange(index)} />
                     </td>
                     <td className="py-2 border border-gray-300">
