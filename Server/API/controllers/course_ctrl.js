@@ -45,7 +45,7 @@ const addCourse = async (req, res) => {
                 // Check if the course already exists
             const existingCourse = await Course.findOne({ where: { Code } });
             if (existingCourse) {
-                return res.status(406).json({
+                return res.status(400).json({
                     successful: false,
                     message: `Course with code ${Code} already exists.`
                 });

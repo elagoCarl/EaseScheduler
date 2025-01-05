@@ -55,6 +55,24 @@ const Course = () => {
     console.log("Fetching courses...");
   }, []);
 
+  const handleDeleteCourse = async (courseId) => {
+    try {
+      const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${courseId}`);
+      if (response.data.successful) {
+        alert("Course deleted successfully!");
+        // Optionally update the course list here
+      } else {
+        alert("Failed to delete course: " + response.data.message);
+      }
+    } catch (error) {
+      console.error("Error deleting course:", error.message);
+      alert("An error occurred while deleting the course.");
+    }
+  };
+
+  const [courseToDelete, setCourseToDelete] = useState(null);
+
+
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
@@ -85,19 +103,24 @@ const Course = () => {
     setIsEditCourseModalOpen(false); // Close the add course modal
   };
   // Del warning
-  const handleDeleteClick = () => {
-    setIsDeleteWarningOpen(true); // Open the delete warning modal
+  const handleDeleteClick = (courseId) => {
+    setCourseToDelete(courseId); // Set the course ID to be deleted
+    setIsDeleteWarningOpen(true); // Open the delete modal
   };
 
   const handleCloseDelWarning = () => {
     setIsDeleteWarningOpen(false); // Close the delete warning modal
   };
 
-  const handleConfirmDelete = () => {
-    // Handle the actual delete logic here
-    console.log("Course deleted");
-    setIsDeleteWarningOpen(false); // Close the warning after deletion
+  const handleConfirmDelete = async () => {
+    if (courseToDelete) {
+      await handleDeleteCourse(courseToDelete);
+      console.log("Course Deleted Successfully!") // Call the delete function
+      fetchCourse(); // Refresh the courses list
+    }
+    setIsDeleteWarningOpen(false); // Close the modal
   };
+
 
   return (
     <div
@@ -224,7 +247,7 @@ const Course = () => {
           />
         </button>
         <button className="py-2 px-4 text-white rounded "
-          onClick={handleDeleteClick}
+          onClick={() => handleDeleteClick(course.id)}
         >
           <img
             src={delBtn}
