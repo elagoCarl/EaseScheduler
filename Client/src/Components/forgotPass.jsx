@@ -21,8 +21,8 @@ const ForgotPass = () => {
                 setMessage('An email has been sent to reset your password. Please check your inbox.');
                 setIsRedirecting(true); // Show redirect message
                 setTimeout(() => {
-                    navigate('/loginPage'); // Redirect to login page after 4 seconds
-                }, 4000);
+                    navigate('/loginPage'); // Redirect to login page after n seconds
+                }, 3000);
             } else {
                 setMessage(response.data.message || 'No account found with this email.'); // Show backend message
             }

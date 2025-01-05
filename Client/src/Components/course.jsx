@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import Background from "./Img/5.jpg";
-import { useNavigate } from "react-router-dom";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
 import AddCourseModal from "./callComponents/addCourseModal.jsx";
@@ -16,14 +15,12 @@ const Course = () => {
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
   const [isAllChecked, setAllChecked] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
-  const [selectedFloor, setSelectedFloor] = useState("Select Floor");
 
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const campuses = ["Campus A", "Campus B", "Campus C"];
 
-  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);

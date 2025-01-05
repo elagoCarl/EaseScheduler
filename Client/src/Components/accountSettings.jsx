@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Background from './Img/4.jpg';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './callComponents/sideBar.jsx';

@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Axios from 'axios';
 import Background from './Img/1.jpg';
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
+import { useNavigate } from 'react-router-dom';
 
 const HistoryLogs = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
@@ -16,7 +18,7 @@ const HistoryLogs = () => {
 
   const fetchHistoryLogs = async () => {
     try {
-      const response = await Axios.get('http://localhost:8080/historyLogs/getAllCourses');
+      const response = await Axios.get('http://localhost:8080/historyLogs/getAllHistoryLogs');
       if (response.data.successful) {
         setLogs(response.data.data);
         console.log("response.data.data: ", response.data.data)
@@ -57,11 +59,11 @@ const HistoryLogs = () => {
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
 
-      <div className="bg-white bg-opacity-90 shadow-lg rounded-lg w-11/12 max-w-6xl p-8 overflow-hidden">
+      <div className="bg-white bg-opacity-90 shadow-lg rounded-lg w-11/12 max-w-8xl p-8 overflow-hidden">
         <h1 className="text-3xl font-extrabold text-gray-800 text-center mb-6">History Logs</h1>
         {/* table div */}
         <div className="hidden md:block overflow-hidden rounded-lg">
-          <div className="overflow-auto max-h-380">
+          <div className="overflow-auto max-h-650">
             <table className="w-full text-left border-collapse">
               <thead className="bg-blue-600 text-white text-sm uppercase">
                 <tr>
@@ -85,7 +87,7 @@ const HistoryLogs = () => {
           </div>
         </div>
         {/* cards div */}
-        <div className="block md:hidden space-y-4 max-h-350 overflow-auto">
+        <div className="block md:hidden space-y-4 max-h-450 overflow-auto">
           {logs.map((log, index) => (
             <div key={index} className="bg-white p-4 rounded-lg shadow-lg hover:shadow-xl transition-shadow">
               <p className="text-sm text-gray-500 font-medium">

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import Background from './Img/4.jpg';
+import { useState } from 'react';
+import Background from './Img/1.jpg';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
