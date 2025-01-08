@@ -37,10 +37,6 @@ const AddCourseModal = ({ isOpen, onClose }) => {
       // Handle successful response
       if (response.data.successful) {
         setSuccessMessage("Course Added Successfully! Reloading page...");
-        setTimeout(() => {
-          onClose(); // Close the modal
-          window.location.reload(); // Reload the page to reflect the changes
-        }, 3000); // Wait for 3 seconds
       }
 
       else {
