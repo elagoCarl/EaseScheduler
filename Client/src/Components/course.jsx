@@ -11,10 +11,7 @@ import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import Axios from 'axios';
 
-
 const Course = () => {
-
-
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
   const [isAllChecked, setAllChecked] = useState(false);
@@ -23,27 +20,24 @@ const Course = () => {
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
+  const [courseToEdit, setCourseToEdit] = useState(null); // Course to edit state
   const campuses = ["Campus A", "Campus B", "Campus C"];
 
   const [successMessage, setSuccessMessage] = useState("");
-
   const [courseToDelete, setCourseToDelete] = useState(null);
-
+  const [courses, setCourses] = useState([]); // Initialize as an empty array
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
-  const [courses, setCourses] = useState([]);
-
-
   const fetchCourse = async () => {
     try {
       const response = await Axios.get('http://localhost:8080/course/getAllCourses');
-      console.log('API Response:', response.data)
+      console.log('API Response:', response.data);
       if (response.data.successful) {
         setCourses(response.data.data);
-        console.log("response.data.data: ", response.data.data)
+        console.log("response.data.data: ", response.data.data);
       } else {
         setError(response.data.message);
       }
@@ -58,7 +52,9 @@ const Course = () => {
   }, []);
 
   useEffect(() => {
-    setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes on courses update
+    if (courses.length > 0) {
+      setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes when courses are fetched
+    }
     setSuccessMessage("Course Added Successfully! Reloading page...");
   }, [courses]);
 
@@ -85,7 +81,6 @@ const Course = () => {
     }
   };
 
-
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
     setAllChecked(newState);
@@ -106,13 +101,14 @@ const Course = () => {
   const handleAddCourseCloseModal = () => {
     setIsAddCourseModalOpen(false); // Close the add course modal
   };
-  // setIsEditCourseModalOpen
-  const handleEditCourseClick = () => {
-    setIsEditCourseModalOpen(true); // Open the add course modal when add button is clicked
+
+  const handleEditCourseClick = (course) => {
+    setCourseToEdit(course);
+    setIsEditCourseModalOpen(true);
   };
 
   const handleEditCourseCloseModal = () => {
-    setIsEditCourseModalOpen(false); // Close the add course modal
+    setIsEditCourseModalOpen(false); // Close the edit course modal
   };
 
   const handleDeleteClick = (courseId) => {
@@ -170,8 +166,6 @@ const Course = () => {
       alert("An error occurred while deleting the selected courses.");
     }
   };
-
-
 
   return (
     <div
@@ -269,7 +263,7 @@ const Course = () => {
                     </td>
                     <td className="py-2 border border-gray-300">
                       <button className=" text-white rounded "
-                        onClick={handleEditCourseClick}
+                        onClick={() => handleEditCourseClick(course)}
                       >
                         <img
                           src={editBtn}
@@ -286,29 +280,27 @@ const Course = () => {
         </div>
       </div>
       {/* Vertical Buttons Container */}
-      {courses.map((course) => (
-        <div key={course.id} className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
-          <button
-            className="py-2 px-4 text-white rounded"
-            onClick={handleAddCourseClick}
-          >
-            <img
-              src={addBtn}
-              className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-              alt="Add Course"
-            />
-          </button>
-          <button className="py-2 px-4 text-white rounded "
-            onClick={() => handleDeleteClick(course.id)}
-          >
-            <img
-              src={delBtn}
-              className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-              alt="Delete Course"
-            />
-          </button>
-        </div>
-      ))}
+      <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
+        <button
+          className="py-2 px-4 text-white rounded"
+          onClick={handleAddCourseClick}
+        >
+          <img
+            src={addBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Add Course"
+          />
+        </button>
+        <button className="py-2 px-4 text-white rounded "
+          onClick={() => handleDeleteClick(courseToDelete)}
+        >
+          <img
+            src={delBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Delete Course"
+          />
+        </button>
+      </div>
 
       {/* Add Course Modal */}
       <AddCourseModal
@@ -319,6 +311,7 @@ const Course = () => {
       <EditCourseModal
         isOpen={isEditCourseModalOpen}
         onClose={handleEditCourseCloseModal}
+        course={courseToEdit} // Pass the course to edit
       />
       {/* Delete Warning Modal */}
       <DelCourseWarn

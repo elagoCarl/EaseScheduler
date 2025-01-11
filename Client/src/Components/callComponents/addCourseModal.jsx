@@ -59,7 +59,7 @@ const AddCourseModal = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl text-white font-bold mx-auto">Add Course</h2>
+          <h2 className="text-xl text-white font-semibold mx-auto">Add Course</h2>
           <button
             className="text-xl text-white hover:text-black"
             onClick={onClose}
@@ -68,7 +68,7 @@ const AddCourseModal = ({ isOpen, onClose }) => {
           </button>
         </div>
         <form className="space-y-10 px-20" onSubmit={handleSubmit}>
-          <label className="block font-bold text-white">Course Code</label>
+          <label className="block font-semibold text-white">Course Code</label>
           <input
             type="text"
             placeholder="Course Code"
@@ -78,7 +78,7 @@ const AddCourseModal = ({ isOpen, onClose }) => {
             required
           />
 
-          <label className="block font-bold text-white">Course Description</label>
+          <label className="block font-semibold text-white">Course Description</label>
           <input
             type="text"
             placeholder="Course Description"
@@ -88,7 +88,7 @@ const AddCourseModal = ({ isOpen, onClose }) => {
             required
           />
 
-          <label className="block font-bold text-white">Course Duration</label>
+          <label className="block font-semibold text-white">Course Duration</label>
           <input
             type="number"
             placeholder="Course Duration"
@@ -98,7 +98,7 @@ const AddCourseModal = ({ isOpen, onClose }) => {
             required
           />
 
-          <label className="block font-bold text-white">No. of Units</label>
+          <label className="block font-semibold text-white">No. of Units</label>
           <input
             type="number"
             placeholder="No. of Units"
@@ -108,7 +108,7 @@ const AddCourseModal = ({ isOpen, onClose }) => {
             required
           />
 
-          <label className="block font-bold text-white">Course Type</label>
+          <label className="block font-semibold text-white">Course Type</label>
           <select
             className="w-full p-10 border rounded bg-customWhite"
             required
