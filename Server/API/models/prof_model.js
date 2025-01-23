@@ -21,13 +21,6 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             min: 0,
             defaultValue: 0
-        },
-        Status: {
-            type: DataTypes.STRING,
-            allowNull: false,
-            validate: {
-                notEmpty: { msg: "Status is required." }
-            }
         }
     }, {
         timestamps: true
@@ -46,6 +39,7 @@ module.exports = (sequelize, DataTypes) => {
         Professor.belongsToMany(models.Course, { through: 'Assignation' }),
         Professor.belongsToMany(models.Department, { through: 'Assignation' }),
         Professor.hasMany(models.Assignation);
+        Professor.belongsTo(models.ProfStatus)
     }
     return Professor
 }
