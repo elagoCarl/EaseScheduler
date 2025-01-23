@@ -3,15 +3,15 @@ const util = require('../../utils');
 
 const addSettings = async (req, res, next) => {
     try {
-        const { FullTimeMax, PartTimeMax, FixTermMax, MaxCourseDuration, MaxBreakDuration } = req.body;
+        const { MaxCourseDuration, MaxBreakDuration } = req.body;
 
-        if (!util.checkMandatoryFields([FullTimeMax, PartTimeMax, FixTermMax, MaxCourseDuration, MaxBreakDuration])) {
+        if (!util.checkMandatoryFields([MaxCourseDuration, MaxBreakDuration])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing.",
             })
         }
-        await Settings.create({ FullTimeMax, PartTimeMax, FixTermMax, MaxCourseDuration, MaxBreakDuration });
+        await Settings.create({ MaxCourseDuration, MaxBreakDuration });
 
         return res.status(201).json({
             successful: true,
@@ -51,7 +51,7 @@ const getSettings = async (req, res, next) => {
 
 const updateSettings = async (req, res, next) => {
     try {
-        const { FullTimeMax, PartTimeMax, FixTermMax, MaxCourseDuration, MaxBreakDuration } = req.body
+        const { MaxCourseDuration, MaxBreakDuration } = req.body
 
         const settings = await Settings.findByPk(1);
         if (!settings) {
@@ -61,7 +61,7 @@ const updateSettings = async (req, res, next) => {
             });
         }
 
-        await settings.update({ FullTimeMax, PartTimeMax, FixTermMax, MaxCourseDuration, MaxBreakDuration });
+        await settings.update({MaxCourseDuration, MaxBreakDuration });
         return res.status(200).json({
             successful: true,
             message: 'Settings updated successfully.',
