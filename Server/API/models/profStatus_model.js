@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
         Max_units: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            min: 0,
+            min: 1,
             defaultValue: 0
         }
     }, {

@@ -1,6 +1,7 @@
 const { ProfStatus } = require('../models')
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+const { Op } = require('sequelize');
 
 const addStatus = async (req, res, next) => {
     try {
@@ -22,7 +23,7 @@ const addStatus = async (req, res, next) => {
                 })
             }
 
-            const existingStatus = await ProfStatus.findOne({ where: { Status } });
+            const existingStatus = await ProfStatus.findOne({ where: { Status: { [Op.like]: Status } } });
             if (existingStatus) {
                 return res.status(406).json({
                     successful: false,
@@ -139,7 +140,7 @@ const deleteStatus = async (req, res, next) => {
 
         res.status(200).send({
             successful: true,
-            message: "Successfully deleted course."
+            message: "Successfully deleted professor status."
         });
     } catch (err) {
         res.status(500).send({
@@ -169,7 +170,7 @@ const updateStatus = async (req, res, next) => {
         }
 
         if (Status !== status.Status) {
-            const statConflict = await ProfStatus.findOne({ where: { Status: Status } })
+            const statConflict = await ProfStatus.findOne({ where: { Status: { [Op.like]: Status } } })
             if (statConflict) {
                 return res.status(406).json({
                     successful: false,
@@ -178,10 +179,7 @@ const updateStatus = async (req, res, next) => {
             }
         }
 
-        const updateStatus = await status.update({
-            Status: Status,
-            Max_units: Max_units
-        })
+        const updateStatus = await status.update({ Status, Max_units })
         // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'ProfStatus';
@@ -202,4 +200,4 @@ const updateStatus = async (req, res, next) => {
     }
 }
 
-module.exports = {addStatus, getAllStatus, getStatus, deleteStatus, updateStatus}
+module.exports = { addStatus, getAllStatus, getStatus, deleteStatus, updateStatus }
