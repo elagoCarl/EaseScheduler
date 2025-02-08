@@ -102,10 +102,16 @@ const Course = () => {
     setIsAddCourseModalOpen(false); // Close the add course modal
   };
 
-  const handleEditCourseClick = (course) => {
-    setCourseToEdit(course);
-    setIsEditCourseModalOpen(true);
-  };
+const handleEditCourseClick = (course) => {
+  if (!course) {
+    console.error("No course selected for editing.");
+    return;
+  }
+  
+  setCourseToEdit(course); // ✅ Store the selected course
+  setIsEditCourseModalOpen(true); // ✅ Open edit modal
+};
+
 
   const handleEditCourseCloseModal = () => {
     setIsEditCourseModalOpen(false); // Close the edit course modal
@@ -135,37 +141,37 @@ const Course = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!courseToDelete || courseToDelete.length === 0) {
-      console.error("No courses selected for deletion.");
-      return;
-    }
+  if (!courseToDelete || courseToDelete.length === 0) {
+    console.error("No courses selected for deletion.");
+    return;
+  }
 
-    try {
-      console.log("Courses to delete:", courseToDelete);
+  try {
+    console.log("Deleting courses:", courseToDelete);
 
-      await Promise.all(
-        courseToDelete.map((course) =>
-          Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
-        )
-      );
+    await Promise.all(
+      courseToDelete.map((course) =>
+        Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
+      )
+    );
 
-      alert("Selected courses deleted successfully!");
+    alert("Selected courses deleted successfully!");
 
-      // ✅ Update state to remove deleted courses without reloading
-      setCourses((prevCourses) =>
-        prevCourses.filter(course => !courseToDelete.some(deleted => deleted.id === course.id))
-      );
+    // ✅ Remove deleted courses from state without reloading
+    setCourses((prevCourses) =>
+      prevCourses.filter(course => !courseToDelete.some(deleted => deleted.id === course.id))
+    );
 
-      // ✅ Clear selection
-      setCheckboxes(Array(courses.length).fill(false));
-      setCourseToDelete(null);
-      setIsDeleteWarningOpen(false);
+    // ✅ Clear selection
+    setCheckboxes(Array(courses.length).fill(false));
+    setCourseToDelete(null);
+    setIsDeleteWarningOpen(false);
 
-    } catch (error) {
-      console.error("Error deleting courses:", error.message);
-      alert("An error occurred while deleting the selected courses.");
-    }
-  };
+  } catch (error) {
+    console.error("Error deleting courses:", error.message);
+    alert("An error occurred while deleting the selected courses.");
+  }
+};
 
   return (
     <div
@@ -312,6 +318,7 @@ const Course = () => {
         isOpen={isEditCourseModalOpen}
         onClose={handleEditCourseCloseModal}
         course={courseToEdit} // Pass the course to edit
+        fetchCourse={fetchCourse} // Refresh courses after editing
       />
       {/* Delete Warning Modal */}
       <DelCourseWarn
