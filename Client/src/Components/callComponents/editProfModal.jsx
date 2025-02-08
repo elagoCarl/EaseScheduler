@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 
@@ -6,11 +6,29 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
     name: professor.Name,
     email: professor.Email,
-    status: professor.Status,
+    ProfStatusId: professor.StatusId,
   });
+  const [statuses, setStatuses] = useState([]);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch statuses from the backend
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/profStatus/getAllProfStatus');
+        console.log("Fetched data:", response.data);
+        setStatuses(response.data.data);
+      } catch (error) {
+        console.error('Error fetching statuses:', error);
+        setError('Failed to load teaching statuses.');
+      }
+    };
+
+    fetchStatuses();
+  }, [professor]); // Depend on professor to trigger the effect
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,8 +37,10 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("formData:", formData);
+    console.log("statuses:", statuses)
 
-    if (!formData.name || !formData.email || !formData.status) {
+    if (!formData.name || !formData.email || !formData.ProfStatusId) {
       setError('Please fill out all fields.');
       return;
     }
@@ -51,12 +71,14 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Edit Professor</h2>
-        <form onSubmit={handleSubmit}>
+    <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl text-white font-semibold mx-auto">Edit Professor</h2>
+        </div>
+        <form className="space-y-10 px-20" onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="name">
+            <label className="block font-semibold text-white" htmlFor="name">
               Name
             </label>
             <input
@@ -65,11 +87,11 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-8 border rounded bg-customWhite"
             />
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="email">
+            <label className="block font-semibold text-white" htmlFor="email">
               Email
             </label>
             <input
@@ -78,23 +100,26 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-8 border rounded bg-customWhite"
             />
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="status">
+            <label className="block font-semibold text-white" htmlFor="status">
               Status
             </label>
             <select
               id="status"
-              name="status"
-              value={formData.status}
+              name="ProfStatusId"
+              value={formData.ProfStatusId}
               onChange={handleChange}
-              className="w-full border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-8 border rounded bg-customWhite"
             >
-              <option value="Full-time">Full-time</option>
-              <option value="Part-time">Part-time</option>
-              <option value="Fixed-term">Fixed-term</option>
+              <option value="">Select a status</option>
+              {statuses.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.Status}
+                </option>
+              ))}
             </select>
           </div>
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
@@ -103,14 +128,15 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-300 rounded text-sm"
+              className="bg-gray-500 text-white px-6 py-2 rounded-lg"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-500 text-white rounded text-sm"
+              className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+
             >
               {isLoading ? 'Saving...' : 'Save'}
             </button>
@@ -125,7 +151,7 @@ EditProfModal.propTypes = {
   professor: PropTypes.shape({
     Name: PropTypes.string.isRequired,
     Email: PropTypes.string.isRequired,
-    Status: PropTypes.string.isRequired,
+    StatusId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   }).isRequired,
   onClose: PropTypes.func.isRequired,
