@@ -1,23 +1,23 @@
-import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import axios from 'axios';
+import { useState, useEffect } from "react";
+import PropTypes from "prop-types";
+import axios from "axios";
 
 const EditCourseModal = ({ course, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
-    code: '',
-    description: '',
-    type: '',
+    code: "",
+    description: "",
+    type: "",
   });
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (course) {
       setFormData({
-        code: course.Code || '',
-        description: course.Description || '',
-        type: course.Type || '',
+        code: course.Code || "",
+        description: course.Description || "",
+        type: course.Type || "",
       });
     }
   }, [course]);
@@ -27,92 +27,108 @@ const EditCourseModal = ({ course, onClose, onUpdate }) => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!formData.code || !formData.description || !formData.type) {
-      setError('Please fill out all fields.');
-      return;
-    }
+  if (!formData.code || !formData.description || !formData.type) {
+    setError("Please fill out all fields.");
+    return;
+  }
 
-    try {
-      setSuccessMessage('Updating course... Please wait.');
-      setError('');
-      setIsLoading(true);
+  console.log("Submitting update for course:", course); // Debugging course object
+  console.log("Course ID being sent:", course?.id); // Check if ID exists
 
-      const response = await axios.put(
-        `http://localhost:8080/course/updateCourse/${course.id}`,
-        formData,
-        {
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+  try {
+    setSuccessMessage("Updating course... Please wait.");
+    setError("");
+    setIsLoading(true);
 
-      onUpdate(response.data);
+    const response = await axios.put(
+  "http://localhost:8080/course/updateCourse",
+  {
+    id: course.id, // 🔍 Ensure ID is sent properly
+    ...formData,   // Spread formData so its properties are included directly
+  },
+  {
+    headers: { "Content-Type": "application/json" },
+  }
+);
 
-      setSuccessMessage('Course updated successfully! Reloading page...');
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (error) {
-      setError(error.response?.data?.message || 'An error occurred');
-      setSuccessMessage('');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    console.log("Update successful:", response.data);
+    onUpdate(response.data);
+    setSuccessMessage("Course updated successfully! Reloading page...");
 
-  const handleClose = (e) => {
+    setTimeout(() => window.location.reload(), 1000);
+  } catch (error) {
+    console.error("Error updating course:", error.response?.data || error.message);
+    setError(error.response?.data?.message || "An error occurred");
+  } finally {
+    setIsLoading(false);
+    onClose(); // Ensures modal closes
+  }
+};
+
+
+  const handleOutsideClick = (e) => {
     if (e.target === e.currentTarget) {
+      console.log("Clicked outside, closing modal...");
       onClose();
     }
   };
 
-  if (!course) {
-    return null; // Don't render the modal if no course is selected
-  }
+  if (!course) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={handleClose}>
-      <div className="bg-white p-6 rounded shadow-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Edit Course</h2>
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={handleOutsideClick}
+    >
+      <div
+        className="bg-customBlue1 p-6 rounded shadow-lg w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex justify-between items-center text-white mb-4">
+          <h2 className="text-xl font-semibold mx-auto">Edit Course</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="code">
+          <div className="mb-2 px-4">
+            <label className="block text-md font-medium mb-1 text-white" htmlFor="code">
               Code
             </label>
             <input
-              type="text"
-              id="code"
               name="code"
               value={formData.code}
               onChange={handleChange}
-              className="w-full border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="description">
+          <div className="mb-2 px-4">
+            <label className="block text-md font-medium mb-1 text-white" htmlFor="description">
               Description
             </label>
-            <textarea
-              id="description"
+            <input
               name="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1" htmlFor="type">
+          <div className="mb-8 px-4">
+            <label className="block text-md font-medium mb-1 text-white" htmlFor="type">
               Type
             </label>
             <select
-              id="type"
               name="type"
               value={formData.type}
               onChange={handleChange}
@@ -127,17 +143,20 @@ const EditCourseModal = ({ course, onClose, onUpdate }) => {
           <div className="flex justify-end space-x-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-300 rounded text-sm"
+              className="px-6 py-2 bg-blue-500 hover:bg-blue-700 duration-300 rounded-md text-sm font-semibold text-white"
+              onClick={() => {
+                console.log("Cancel button clicked");
+                onClose();
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-500 text-white rounded text-sm"
+              className="px-6 py-2 bg-gray-500 hover:bg-gray-700 duration-300 text-white rounded-md text-sm font-semibold"
             >
-              {isLoading ? 'Saving...' : 'Save'}
+              {isLoading ? "Saving..." : "Save"}
             </button>
           </div>
         </form>
