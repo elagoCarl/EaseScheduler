@@ -48,12 +48,12 @@ const addProgram = async (req, res, next) => {
             // Create the new program
             await Program.create({ Code, Name, DepartmentId });
 
-              // Log the archive action
-        const accountId = '1'; // Example account ID for testing
-        const page = 'Program';
-        const details = `Added Program${Code, Name}`;
+            // Log the archive action
+            const accountId = '1'; // Example account ID for testing
+            const page = 'Program';
+            const details = `Added Program${Code, Name}`;
 
-        await addHistoryLog(accountId, page, details);
+            await addHistoryLog(accountId, page, details);
 
         }
 
@@ -71,11 +71,13 @@ const addProgram = async (req, res, next) => {
 
 const getProgram = async (req, res, next) => {
     try {
-        const programId = req.params.id; // Retrieve id from request parameters
+        const programId = req.params.id
         const program = await Program.findByPk(programId, {
-            include: Department, // Include associated department details
-        });
-
+            include: {
+                model: Department,
+                attributes: ['Name']
+            }
+        })
         if (!program) {
             return res.status(404).json({
                 successful: false,
@@ -99,8 +101,11 @@ const getProgram = async (req, res, next) => {
 const getAllProgram = async (req, res, next) => {
     try {
         const programs = await Program.findAll({
-            include: Department, // Include associated department details
-        });
+            include: {
+                model: Department,
+                attributes: ['Name']
+            }
+        })
 
         if (!programs || programs.length === 0) {
             return res.status(200).json({
@@ -130,7 +135,12 @@ const updateProgram = async (req, res, next) => {
         const programId = req.params.id; // Retrieve id from request parameters
         const { Code, Name, DepartmentId } = req.body; // Fields to update
 
-        // Check if the program exists
+        if (!util.checkMandatoryFields([Code, Name, DepartmentId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing.",
+            });
+        }
         const program = await Program.findByPk(programId);
         if (!program) {
             return res.status(404).json({
@@ -200,7 +210,7 @@ const deleteProgram = async (req, res, next) => {
                 message: `Program with ID ${programId} not found.`,
             });
         }
-        
+
         // Delete the program
         await program.destroy();
 
@@ -209,7 +219,7 @@ const deleteProgram = async (req, res, next) => {
         const details = `Program Deleted${program.Code, program.Name}`;
 
         await addHistoryLog(accountId, page, details);
-        
+
         return res.status(200).json({
             successful: true,
             message: `Program with Program Code ${program.Code} deleted successfully.`,
@@ -228,7 +238,7 @@ const getAllProgramByDept = async (req, res, next) => {
         const programs = await Program.findAll({ where: { DepartmentId } })
         if (!programs || programs.length === 0) {
             return res.status(200).json({
-                successful: true,
+                successful: false,
                 message: "No programs found.",
                 count: 0,
                 data: [],
@@ -249,4 +259,4 @@ const getAllProgramByDept = async (req, res, next) => {
     }
 };
 
-module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByDept};
+module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByDept };

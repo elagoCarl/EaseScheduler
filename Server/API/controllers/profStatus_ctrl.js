@@ -63,8 +63,8 @@ const getAllStatus = async (req, res, next) => {
     try {
         let status = await ProfStatus.findAll()
         if (!status || status.length === 0) {
-            res.status(200).send({
-                successful: true,
+            res.status(400).send({
+                successful: false,
                 message: "No status found",
                 count: 0,
                 data: []
