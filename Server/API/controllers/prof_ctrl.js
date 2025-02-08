@@ -10,22 +10,22 @@ const addProf = async (req, res, next) => {
     try {
         let professorsToAdd = req.body;
 
-        // Check if the request body contains an array of professors
+        // Convert single object to array if not already an array
         if (!Array.isArray(professorsToAdd)) {
-            // If not an array, convert the single professor to an array
             professorsToAdd = [professorsToAdd];
         }
 
         const addedProfs = [];
 
         for (const professorData of professorsToAdd) {
-            const { Name, Email, ProfStatusId } = professorData;
+            const { Name, Email, Status } = professorData;
+            console.log("Professor Data:", { Name, Email, Status });
 
-            if (!util.checkMandatoryFields([Name, Email, ProfStatusId])) {
+            if (!util.checkMandatoryFields([Name, Email, Status])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
-                })
+                });
             }
 
             // Validate email format
@@ -36,12 +36,13 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            const status = await ProfStatus.findByPk(ProfStatusId);
+            // Check if the status exists
+            const status = await ProfStatus.findByPk(Status);
             if (!status) {
                 return res.status(406).json({
                     successful: false,
                     message: "Professor status not found."
-                })
+                });
             }
 
             // Check if the email already exists
@@ -50,93 +51,118 @@ const addProf = async (req, res, next) => {
                 return res.status(406).json({
                     successful: false,
                     message: "Email already exists. Please use a different email."
-                })
+                });
             }
 
+            // Create professor
             const newProf = await Professor.create({
-                Name: Name,
-                Email: Email,
-                ProfStatusId: ProfStatusId,
+                Name,
+                Email,
                 Total_units: 0
-            })
-            addedProfs.push(Name);
+            });
 
+            // Associate the professor with the status
+            await newProf.setProfStatus(status);
+
+            addedProfs.push(Name);
         }
 
-        // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        // Log the action
+        const accountId = '1'; // Example account ID
         const page = 'Professor';
         const details = `Added Professor${addedProfs.length > 1 ? 's' : ''}: ${addedProfs.join(', ')}`;
-
         await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,
-            message: "Successfully added new professor."
-        })
+            message: `Successfully added ${addedProfs.length} professor(s).`
+        });
 
-    }
-    catch (err) {
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
+
 
 const getAllProf = async (req, res, next) => {
     try {
-        let professor = await Professor.findAll()
-        if (!professor || professor.length === 0) {
-            res.status(200).send({
+        let professors = await Professor.findAll({
+            include: {
+                model: ProfStatus,  // Include ProfStatus relation
+                attributes: ['Status'] // Fetch only the Status column
+            }
+        });
+
+        if (!professors || professors.length === 0) {
+            return res.status(200).send({
                 successful: true,
                 message: "No professor found",
                 count: 0,
                 data: []
-            })
+            });
         }
-        else {
-            res.status(200).send({
-                successful: true,
-                message: "Retrieved all professors",
-                count: professor.length,
-                data: professor
-            })
-        }
-    }
+
+        // Format response to include status directly
+        const formattedProfessors = professors.map(prof => ({
+            id: prof.id,
+            Name: prof.Name,
+            Email: prof.Email,
+            Total_units: prof.Total_units,
+            Status: prof.ProfStatus ? prof.ProfStatus.Status : "Unknown" // Handle missing status
+        }));
+
+        return res.status(200).send({
+            successful: true,
+            message: "Retrieved all professors",
+            count: formattedProfessors.length,
+            data: formattedProfessors
+        });
+    } 
     catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
 
-const getProf = async (req, res, next) => {
+
+const getProf = async (req, res) => {
     try {
-        let prof = await Professor.findByPk(req.params.id)
-
-
-        if (!prof) {
-            res.status(404).send({
-                successful: false,
-                message: "Professor not found"
-            });
-        } else {
-            res.status(200).send({
-                successful: true,
-                message: "Successfully retrieved professor.",
-                data: prof
-            });
-        }
+      const professor = await Professor.findByPk(req.params.id, {
+        include: [
+          {
+            model: ProfStatus,
+            attributes: ['id', 'Status'], // Include the status ID and name
+          },
+        ],
+      });
+  
+      if (!professor) {
+        return res.status(404).json({ message: "Professor not found" });
+      }
+  
+      res.status(200).json({
+        message: "Professor retrieved successfully",
+        data: {
+          id: professor.id,
+          Name: professor.Name,
+          Email: professor.Email,
+          Total_units: professor.Total_units,
+          Status: professor.ProfStatus ? professor.ProfStatus.Status : null,
+          StatusId: professor.ProfStatus ? professor.ProfStatus.id : null, // Add Status ID
+        },
+      });
+    } catch (error) {
+      console.error("Error retrieving professor:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
-    catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        })
-    }
-}
+  };
+  
+
 
 const deleteProf = async (req, res, next) => {
     try {
@@ -192,7 +218,7 @@ const updateProf = async (req, res, next) => {
         let prof = await Professor.findByPk(req.params.id)
         const { name, email, ProfStatusId } = req.body
         console.log("req.body:", name, email, ProfStatusId)
-        console.log("req.body:",req.body)
+        console.log("req.body: ",req.body)
 
         if (!prof) {
             res.status(404).send({

@@ -200,4 +200,9 @@ const updateStatus = async (req, res, next) => {
     }
 }
 
-module.exports = { addStatus, getAllStatus, getStatus, deleteStatus, updateStatus }
+module.exports = {addStatus, 
+    getAllStatus, 
+    getStatus, 
+    deleteStatus, 
+    updateStatus
+}
