@@ -228,7 +228,7 @@ const addAccount = async (req, res, next) => {
 const getAccountById = async (req, res, next) => {
     try {
         // Find account by primary key (id) using Sequelize
-        const acc = await accountModel.findByPk(req.params.id);
+        const acc = await Account.findByPk(req.params.id);
 
         if (!acc) {
             res.status(404).send({
@@ -256,66 +256,76 @@ const getAccountById = async (req, res, next) => {
 
 
 
-const loginAccount = async (req, res, next) => {
+const loginAccount = async (req, res) => {
     const { Email, Password } = req.body;
-    console.log("email:", Email);
+    console.log("Login attempt with email:", Email);
 
     if (!util.checkMandatoryFields([Email, Password])) {
-        // STATUS IS 400 SINCE THIS IS A CLIENT FAULT
-        res.status(400).json({
+        return res.status(400).json({
             successful: false,
             message: "Required fields are empty."
         });
-    } else {
-        try {
-            // Find user with Sequelize
-            const user = await Account.login(Email, Password);
+    }
 
-            if (!user) {
-                res.status(401).json({
-                    successful: false,
-                    message: "Invalid credentials."
-                });
-                return;
-            }
+    try {
+        // Find user
+        const user = await Account.login(Email, Password);
 
-            if (!user.verified) {
-                // Send OTP verification email
-                await sendOTPVerificationEmail(user.id, user.Email);
-                res.status(401).json({
-                    successful: false,
-                    message: "Account not verified. OTP sent to email."
-                });
-                return;
-            }
-
-            const accessToken = createAccessToken(user.id);
-            const refreshToken = createRefreshToken(user.id);
-
-            // Save tokens in the database
-            await Session.create({
-                Token: refreshToken,
-                AccountId: user.id
-            });
-
-            console.log("LOGGED IN, Tokens saved successfully");
-
-            res.cookie('jwt', accessToken, { httpOnly: true, maxAge: maxAge * 1000 });
-            res.cookie('refreshToken', refreshToken, { httpOnly: true, maxAge: (60 * 60 * 24 * 30) * 1000 });
-            res.status(201).json({
-                successful: true,
-                message: "Successfully logged in."
-            });
-        } catch (err) {
-            console.error("NOT LOGGED IN, Error saving tokens:", err);
-            res.status(500).json({
+        if (!user) {
+            return res.status(401).json({
                 successful: false,
-                message: err.message
+                message: "Invalid credentials."
             });
         }
+
+        // Check if user is verified
+        if (!user.verified) {
+            await sendOTPVerificationEmail(user.id, user.Email);
+            return res.status(401).json({
+                successful: false,
+                message: "Account not verified. OTP sent to email."
+            });
+        }
+
+        // Generate tokens
+        const accessToken = createAccessToken(user.id);
+        const refreshToken = createRefreshToken(user.id);
+
+        // Store hashed refresh token in DB
+        await Session.create({
+            Token: refreshToken,  // Consider hashing before storing
+            AccountId: user.id
+        });
+
+        console.log("User logged in. Tokens saved successfully.");
+
+        // Set cookies securely
+        res.cookie('jwt', accessToken, {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: maxAge * 1000
+        });
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: 60 * 60 * 24 * 30 * 1000
+        });
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully logged in."
+        });
+
+    } catch (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({
+            successful: false,
+            message: "Internal server error."
+        });
     }
 };
-
 
 
 
@@ -525,7 +535,7 @@ const forgotPass = async (req, res) => {
                 message: "The email address you provided does not exist in our system. Please check and try again."
             });
         }
-        
+
 
         // Generate a random temporary password
         const randomNumber = Math.floor(100000 + Math.random() * 900000);
