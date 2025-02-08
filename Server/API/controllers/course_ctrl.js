@@ -1,5 +1,6 @@
 const { Course, Professor, Department, Settings } = require('../models');
 const util = require('../../utils');
+const { Op } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addCourse = async (req, res) => {
@@ -14,7 +15,6 @@ const addCourse = async (req, res) => {
             })
         }
 
-
         // Ensure the request body is an array
         if (!Array.isArray(courses)) {
             courses = [courses];
@@ -26,8 +26,6 @@ const addCourse = async (req, res) => {
             const { Code, Description, Duration, Units, Type, Dept_id } = course;
 
             // Validate mandatory fields
-            //TINANGGAL KO MUNA Dept_id sa check mandatory
-            // if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
             if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
                 return res.status(400).json({
                     successful: false,
@@ -35,26 +33,42 @@ const addCourse = async (req, res) => {
                 });
             }
 
-            if (Duration > settings.MaxCourseDuration){
+            const department = await Department.findByPk(Dept_id);
+            if (!department) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Department with ID ${Dept_id} does not exist.`,
+                });
+            }
+
+            if (Duration > settings.MaxCourseDuration) {
                 return res.status(406).json({
                     successful: false,
                     message: 'Duration limit reached.'
                 });
             }
 
-                // Check if the course already exists
-            const existingCourse = await Course.findOne({ where: { Code } });
+            // Check if the course already exists
+            const existingCourse = await Course.findOne({
+                where: {
+                    [Op.or]: [
+                        { Code: { [Op.like]: Code } },
+                        { Description: { [Op.like]: Description } }
+                    ]
+                }
+            });
+
             if (existingCourse) {
                 return res.status(406).json({
                     successful: false,
-                    message: `Course with code ${Code} already exists.`
+                    message: `Course with code or description already exists.`
                 });
             }
 
             if (!['Core', 'Professional'].includes(Type)) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Invalid status. Allowed values are: Core, Professional."
+                    message: "Invalid type. Allowed values are: Core, Professional."
                 });
             }
 
@@ -92,11 +106,6 @@ const addCourse = async (req, res) => {
         });
     }
 };
-
-
-
-
-
 
 const getAllCourses = async (req, res) => {
     try {
@@ -164,7 +173,6 @@ const deleteCourse = async (req, res, next) => {
     }
 };
 
-
 const getCourse = async (req, res, next) => {
     try {
         let prof = await Course.findByPk(req.params.id)
@@ -221,16 +229,30 @@ const updateCourse = async (req, res) => {
             });
         }
 
-        // Check for course code conflicts if it's being updated
-        if (Code !== course.Code) {
-            const codeConflict = await Course.findOne({ where: { Code } });
-            if (codeConflict) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Course code already exists. Please use a different code."
-                });
+        const existingCourse = await Course.findOne({
+            where: {
+                id: { [Op.ne]: req.params.id }, // Exclude the current course by ID
+                [Op.or]: [
+                    { Code: { [Op.like]: Code } },
+                    { Description: { [Op.like]: Description } }
+                ]
             }
+        });
+
+        if (existingCourse) {
+            return res.status(406).json({
+                successful: false,
+                message: `Course with code or description already exists.`
+            });
         }
+
+        if (!['Core', 'Professional'].includes(Type)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Invalid type. Allowed values are: Core, Professional."
+            });
+        }
+
         const settings = await Settings.findByPk(1);
         if (!settings) {
             return res.status(406).json({
@@ -239,7 +261,7 @@ const updateCourse = async (req, res) => {
             })
         }
 
-        if (Duration > settings.MaxCourseDuration){
+        if (Duration > settings.MaxCourseDuration) {
             return res.status(406).json({
                 successful: false,
                 message: 'Duration limit reached.'
@@ -282,7 +304,6 @@ const updateCourse = async (req, res) => {
         });
     }
 };
-
 
 const getCourseByProf = async (req, res, next) => {
     try {
@@ -352,6 +373,15 @@ const addDeptCourse = async (req, res) => {
                 message: "Department not found."
             });
         }
+
+        const existingPairing = await course.hasCourseDepts(deptId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This course is already associated with this department."
+            });
+        }
+
 
         await course.addCourseDepts(deptId);
 
@@ -505,7 +535,15 @@ const updateDeptCourse = async (req, res, next) => {
         if (!existingAssociation) {
             return res.status(404).json({
                 successful: false,
-                message: "Association between the course and department does not exist."
+                message: "Association between the old course and old department does not exist."
+            });
+        }
+
+        const newExistingPairing = await newCourse.hasCourseDepts(newDeptId);
+        if (newExistingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "New course is already associated with the new department."
             });
         }
 

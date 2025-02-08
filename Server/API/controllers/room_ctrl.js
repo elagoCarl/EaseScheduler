@@ -79,8 +79,8 @@ const getAllRoom = async (req, res, next) => {
     try {
         let room = await Room.findAll()
         if (!room || room.length === 0) {
-            res.status(400).send({
-                successful: false,
+            res.status(200).send({
+                successful: true,
                 message: "No room found",
                 count: 0,
                 data: []
