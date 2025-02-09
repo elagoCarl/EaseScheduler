@@ -46,10 +46,6 @@ const Course = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCourse();
-    console.log("Fetching courses...");
-  }, []);
 
  useEffect(() => {
   fetchCourse();
@@ -158,9 +154,7 @@ const handleEditCourseClick = (course) => {
     console.log("Selected courses deleted successfully!");
 
     // 🔄 Update the state instead of refreshing the page
-    setCourses((prevCourses) =>
-      prevCourses.filter(course => !courseToDelete.some(deleted => deleted.id === course.id))
-    );
+    fetchCourse();
 
     // Reset states
     setCheckboxes(Array(courses.length).fill(false));
