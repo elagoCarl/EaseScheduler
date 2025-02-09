@@ -9,13 +9,13 @@ const ProfTimetable = () => {
 
     const toggleSidebar = () => {
         setSidebarOpen(!isSidebarOpen);
-    }
+    };
 
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const professors = ['Dr. Smith', 'Dr. Johnson', 'Dr. Brown', 'Dr. Taylor', 'Dr. Davis'];
 
     const events = [
-        { id: 1, time: '8:00 - 12:00', course: 'Mathematics 101', professor: 'Dr. Smith', section: 'A1', day: 0, duration: 4, color: 'bg-blue-50' }
+        { id: 1, time: '8:00 - 12:00', course: 'Mathematics 101', professor: 'Dr. Smith', section: 'A1', day: 0, duration: 4, color: 'bg-blue-100 border border-blue-300' }
     ];
 
     const renderEventInCell = (hour, dayIndex) => {
@@ -25,17 +25,12 @@ const ProfTimetable = () => {
                 return (
                     <div
                         key={event.id}
-                        className={`absolute ${event.color} p-2 rounded-md shadow-sm border border-blue-200 left-0 right-0 mx-1`}
-                        style={{
-                            top: '0',
-                            height: `${event.duration * 100}%`,
-                            zIndex: 10
-                        }}
+                        className={`absolute ${event.color} p-2 rounded-md shadow-sm left-0 right-0 mx-1`}
+                        style={{ top: '0', height: `${event.duration * 100}%`, zIndex: 10 }}
                     >
-                        <div className="text-xs font-medium text-blue-700">{event.time}</div>
-                        <div className="text-sm truncate text-blue-600">Course: {event.course}</div>
-                        <div className="text-sm truncate text-blue-600">Professor: {event.professor}</div>
-                        <div className="text-sm truncate text-blue-600">Section: {event.section}</div>
+                        <div className="text-xs font-medium text-blue-900">{event.time}</div>
+                        <div className="text-sm truncate text-blue-800">{event.course}</div>
+                        <div className="text-sm truncate text-blue-700">{event.section}</div>
                     </div>
                 );
             }
@@ -44,69 +39,52 @@ const ProfTimetable = () => {
     };
 
     return (
-        <div className="main bg-cover bg-no-repeat min-h-screen flex justify-center items-center xs:h-full"
-            style={{ backgroundImage: `url(${Image3})` }}>
-            <div className="fixed top-0 h-full z-50">
-                <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-            </div>
-
+        <body className="min-h-screen flex flex-col items-center bg-cover w-screen h-auto" style={{ backgroundImage: `url(${Image3})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             <TopMenu toggleSidebar={toggleSidebar} />
 
-            <div className="flex flex-col items-center text-center w-full">
-                <div className="flex flex-wrap md:flex-nowrap gap-5 w-full max-w-6xl justify-center items-start px-5 xs:px-15">
-                    <div className="bg-white w-full p-5 rounded-lg shadow-lg overflow-x-auto">
-                        {/* Header section inside the card */}
-                        <div className="relative mb-6 min-w-[800px]">
-                            <h1 className="text-2xl font-bold text-blue-500 text-center mb-4">Professor Timetable</h1>
-                            <div className="absolute right-0 top-0">
-                                <select
-                                    value={selectedProfessor}
-                                    onChange={(e) => setSelectedProfessor(e.target.value)}
-                                    className="border border-blue-500 rounded-md px-3 py-2 bg-white shadow-sm 
-                                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                                        text-blue-500"
-                                >
-                                    {professors.map(professor => (
-                                        <option key={professor} value={professor}>{professor}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+            <div className="w-full xl:max-w-5xl md:max-w-3xl sm:max-w-2xl xs:max-w-sm bg-white p-8 sm:mt-80 md:mt-120 xl:mt-140 xs:mt-60 rounded-lg shadow-lg">
+                <div className="flex flex-col sm:flex-row justify-between items-center mb-4 w-full bg-customBlue1 px-4 py-8 rounded-lg">
+                    <h1 className="text-2xl ml-2 font-bold text-white">Professor Timetable</h1>
+                    <select
+                        value={selectedProfessor}
+                        onChange={(e) => setSelectedProfessor(e.target.value)}
+                        className=" rounded-md px-3 py-2 mr-5 bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                    >
+                        {professors.map(professor => (
+                            <option key={professor} value={professor}>{professor}</option>
+                        ))}
+                    </select>
+                </div>
 
-                        <div className="min-w-[800px]">
-                            <table className="w-full border-collapse">
-                                <thead>
-                                    <tr>
-                                        <th className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-1/7">
-                                            Time
-                                        </th>
-                                        {days.map((day) => (
-                                            <th key={day} className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-1/7">
-                                                {day}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Array.from({ length: 15 }, (_, i) => 7 + i).map((hour) => (
-                                        <tr key={hour}>
-                                            <td className="p-3 border border-gray-300 text-center w-1/7">
-                                                {hour}:00
-                                            </td>
-                                            {days.map((_, dayIndex) => (
-                                                <td key={dayIndex} className="p-3 border border-gray-300 relative h-14 w-1/7">
-                                                    {renderEventInCell(hour, dayIndex)}
-                                                </td>
-                                            ))}
-                                        </tr>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse min-w-[700px]">
+                        <thead>
+                            <tr>
+                                <th className="p-3 border border-gray-300 bg-customLightBlue2 text-black font-semibold">Time</th>
+                                {days.map((day) => (
+                                    <th key={day} className="p-3 border border-gray-300 bg-customLightBlue2 text-black font-semibold">
+                                        {day}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Array.from({ length: 15 }, (_, i) => 7 + i).map((hour) => (
+                                <tr key={hour}>
+                                    <td className="p-3 border border-gray-300 text-center font-semibold">{hour}:00</td>
+                                    {days.map((_, dayIndex) => (
+                                        <td key={dayIndex} className="p-3 border border-gray-300 relative h-14">
+                                            {renderEventInCell(hour, dayIndex)}
+                                        </td>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
+        </body>
     );
 };
 
