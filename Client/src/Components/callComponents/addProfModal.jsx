@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
 const AddProfModal = ({ isOpen, onClose }) => {
@@ -9,6 +9,28 @@ const AddProfModal = ({ isOpen, onClose }) => {
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [statuses, setStatuses] = useState([]); // Added to store the fetched statuses
+
+  // Fetch statuses from the backend when the modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      const fetchStatuses = async () => {
+        try {
+          const response = await fetch("http://localhost:8080/profStatus/getAllProfStatus");
+          const result = await response.json();
+          if (response.ok) {
+            setStatuses(result.data); // Assuming 'data' contains the status records
+          } else {
+            setErrorMessage(result.message || "Failed to fetch statuses.");
+          }
+        } catch (error) {
+          setErrorMessage(error.message || "An error occurred while fetching statuses.");
+        }
+      };
+
+      fetchStatuses();
+    }
+  }, [isOpen]); // Re-run when `isOpen` changes
 
   if (!isOpen) return null; // Prevent rendering if the modal is not open
 
@@ -24,6 +46,8 @@ const AddProfModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
+    console.log("formData:", formData);
+    console.log("statuses:", statuses)
 
     try {
       const response = await fetch("http://localhost:8080/prof/addProf", {
@@ -105,9 +129,11 @@ const AddProfModal = ({ isOpen, onClose }) => {
             <option value="" disabled>
               Select Teaching Status
             </option>
-            <option value="Full-time">Full Time</option>
-            <option value="Part-time">Part Time</option>
-            <option value="Fixed-term">Lecturer</option>
+            {statuses.map((status) => (
+              <option key={status.id} value={status.id}>
+                {status.Status}
+              </option>
+            ))}
           </select>
 
           {errorMessage && (

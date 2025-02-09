@@ -48,8 +48,11 @@ const Professor = () => {
       const professorData = response.data.data;
 
       if (professorData && professorData.Name && professorData.Email) {
-        setSelectedProf(professorData);
-        setIsEditModalOpen(true); // Open the modal after the state has been set
+        setSelectedProf({
+          ...professorData,
+          StatusId: professorData.StatusId, // Store Status ID for editing
+        });
+        setIsEditModalOpen(true);
       } else {
         console.error("Invalid professor data:", professorData);
       }
@@ -57,6 +60,7 @@ const Professor = () => {
       console.error('Error fetching professor details:', error);
     }
   };
+
 
   // Log selectedProf after it has been updated
   useEffect(() => {

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios"; // Import Axios
 import Background from "./Img/bg.jpg";
 import { useNavigate } from "react-router-dom";
 import Menu from "./Img/menu.png";
@@ -10,13 +11,15 @@ import delBtn from "./Img/delBtn.png";
 
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
+  const [checkboxes, setCheckboxes] = useState([]);
   const [isAllChecked, setAllChecked] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
   const [selectedFloor, setSelectedFloor] = useState("Select Floor");
+  const [rooms, setRooms] = useState([]); // State for all room data
+  const [filteredRooms, setFilteredRooms] = useState([]); // State for filtered room data
+  const [availableFloors, setAvailableFloors] = useState([]); // Dynamic floors from the database
 
-  const campuses = ["Campus A", "Campus B", "Campus C"];
-  const floors = ["1st Floor", "2nd Floor", "3rd Floor"];
+  const campuses = ["LV", "GP"]; // Campus options
 
   const navigate = useNavigate();
 
@@ -36,6 +39,46 @@ const Room = () => {
     setCheckboxes(updatedCheckboxes);
     setAllChecked(updatedCheckboxes.every((isChecked) => isChecked));
   };
+
+  // Fetch Room Data from API
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const response = await axios.get("http://localhost:8080/room/getAllRoom");
+        if (response.data.successful) {
+          const roomData = response.data.data;
+
+          setRooms(roomData);
+          setFilteredRooms(roomData); // Initially show all rooms
+          setCheckboxes(Array(roomData.length).fill(false));
+
+          // Extract unique floor values from room data
+          const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
+          setAvailableFloors(uniqueFloors); // Set dynamic floors
+        }
+      } catch (error) {
+        console.error("Error fetching rooms:", error.message);
+      }
+    };
+
+    fetchRooms();
+  }, []);
+
+  // Filter Rooms by Campus and Floor
+  useEffect(() => {
+    let filtered = rooms;
+
+    if (selectedCampus !== "Select Campus") {
+      filtered = filtered.filter((room) => room.Building === selectedCampus);
+    }
+
+    if (selectedFloor !== "Select Floor") {
+      filtered = filtered.filter((room) => room.Floor === selectedFloor);
+    }
+
+    setFilteredRooms(filtered);
+    setCheckboxes(Array(filtered.length).fill(false)); // Reset checkboxes for filtered rooms
+  }, [selectedCampus, selectedFloor, rooms]);
 
   return (
     <div
@@ -73,7 +116,7 @@ const Room = () => {
               onChange={(e) => setSelectedCampus(e.target.value)}
               className="px-4 py-2 border rounded text-sm md:text-base"
             >
-              <option disabled>Select Campus</option>
+              <option>Select Campus</option>
               {campuses.map((campus, index) => (
                 <option key={index} value={campus}>
                   {campus}
@@ -87,8 +130,8 @@ const Room = () => {
               onChange={(e) => setSelectedFloor(e.target.value)}
               className="px-4 py-2 border rounded text-sm md:text-base"
             >
-              <option disabled>Select Floor</option>
-              {floors.map((floor, index) => (
+              <option>Select Floor</option>
+              {availableFloors.map((floor, index) => (
                 <option key={index} value={floor}>
                   {floor}
                 </option>
@@ -130,24 +173,24 @@ const Room = () => {
                 </tr>
               </thead>
               <tbody>
-                {checkboxes.map((isChecked, index) => (
+                {filteredRooms.map((room, index) => (
                   <tr
-                    key={index}
+                    key={room.Code}
                     className="hover:bg-customLightBlue2 border-t border-gray-300"
                   >
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      {selectedCampus}
+                      {room.Building}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {room.Code}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {room.Type}
                     </td>
                     <td className="py-2 border border-gray-300">
                       <input
                         type="checkbox"
-                        checked={isChecked}
+                        checked={checkboxes[index]}
                         onChange={() => handleCheckboxChange(index)}
                       />
                     </td>
