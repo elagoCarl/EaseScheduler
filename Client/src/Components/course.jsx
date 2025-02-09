@@ -51,35 +51,40 @@ const Course = () => {
     console.log("Fetching courses...");
   }, []);
 
-  useEffect(() => {
-    if (courses.length > 0) {
-      setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes when courses are fetched
-    }
-    setSuccessMessage("Course Added Successfully! Reloading page...");
-  }, [courses]);
+ useEffect(() => {
+  fetchCourse();
+  console.log("Fetching courses...");
+}, []);
 
-  const handleDeleteCourse = async (courseId) => {
-    if (!courseId) {
-      console.error("Invalid course ID:", courseId);
-      alert("Invalid course ID. Please try again.");
-      return;
-    }
+useEffect(() => {
+  if (courses.length > 0) {
+    setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes
+  }
+}, [courses]); // 🔹 Removed success message here
 
-    try {
-      console.log("Deleting course with ID:", courseId);
-      const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${courseId}`);
+const handleDeleteCourse = async (courseId) => {
+  if (!courseId) {
+    console.error("Invalid course ID:", courseId);
+    return;
+  }
 
-      if (response.data.successful) {
-        alert("Course deleted successfully!");
-        fetchCourse(); // Refresh courses after deletion
-      } else {
-        alert("Failed to delete course: " + response.data.message);
-      }
-    } catch (error) {
-      console.error("Error deleting course:", error.response ? error.response.data : error.message);
-      alert("An error occurred while deleting the course.");
+  try {
+    console.log("Deleting course with ID:", courseId);
+    const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${courseId}`);
+
+    if (response.data.successful) {
+      console.log("Course deleted successfully!");
+
+      // 🔹 Instead of re-fetching, update state directly
+      setCourses((prevCourses) => prevCourses.filter((c) => c.id !== courseId));
+
+    } else {
+      console.log("Failed to delete course: " + response.data.message);
     }
-  };
+  } catch (error) {
+    console.error("Error deleting course:", error.response ? error.response.data : error.message);
+  }
+};
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
@@ -117,28 +122,23 @@ const handleEditCourseClick = (course) => {
     setIsEditCourseModalOpen(false); // Close the edit course modal
   };
 
-  const handleDeleteClick = (courseId) => {
-    const selectedCourses = courses.filter((_, index) => checkboxes[index]);
+  const [warningMessage, setWarningMessage] = useState("");
 
-    if (selectedCourses.length === 0) {
-      alert("Please select at least one course to delete!");
-      return;
-    }
-    // Check if any checkbox is selected
-    const isAnyChecked = checkboxes.some((isChecked) => isChecked);
+  const handleDeleteClick = () => {
+  const selectedCourses = courses.filter((_, index) => checkboxes[index]);
 
-    if (!isAnyChecked) {
-      alert("Please select at least one checkbox!");
-      return;
-    }
-    if (!courseId) {
-      console.log("No course selected for deletion.");
-      return;
-    }
+  if (selectedCourses.length === 0) {
+    setWarningMessage("Please select at least one course to delete!");
+    setTimeout(() => setWarningMessage(""), 3000); // Hide message after 3 seconds
+    return;
+  }
 
-    setCourseToDelete(selectedCourses); // Set the course ID to be deleted
-    setIsDeleteWarningOpen(true); // Open the delete modal
-  };
+  console.log("Selected courses for deletion:", selectedCourses); // Debugging
+
+  setCourseToDelete(selectedCourses);
+  setIsDeleteWarningOpen(true);
+};
+
 
   const handleConfirmDelete = async () => {
   if (!courseToDelete || courseToDelete.length === 0) {
@@ -155,23 +155,23 @@ const handleEditCourseClick = (course) => {
       )
     );
 
-    alert("Selected courses deleted successfully!");
+    console.log("Selected courses deleted successfully!");
 
-    // ✅ Remove deleted courses from state without reloading
+    // 🔄 Update the state instead of refreshing the page
     setCourses((prevCourses) =>
       prevCourses.filter(course => !courseToDelete.some(deleted => deleted.id === course.id))
     );
 
-    // ✅ Clear selection
+    // Reset states
     setCheckboxes(Array(courses.length).fill(false));
-    setCourseToDelete(null);
+    setCourseToDelete([]);
     setIsDeleteWarningOpen(false);
 
   } catch (error) {
     console.error("Error deleting courses:", error.message);
-    alert("An error occurred while deleting the selected courses.");
   }
 };
+
 
   return (
     <div
@@ -297,15 +297,22 @@ const handleEditCourseClick = (course) => {
             alt="Add Course"
           />
         </button>
-        <button className="py-2 px-4 text-white rounded "
-          onClick={() => handleDeleteClick(courseToDelete)}
-        >
-          <img
-            src={delBtn}
-            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-            alt="Delete Course"
-          />
-        </button>
+        <button
+            className="py-2 px-4 text-white rounded"
+            onClick={() => handleDeleteClick(courseToDelete)}>
+            <img
+              src={delBtn}
+              className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+              alt="Delete Course"
+            />
+          </button>
+
+          {/* Warning Message */}
+          {warningMessage && (
+            <div className="fixed bottom-10 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-md">
+              {warningMessage}
+            </div>
+          )}
       </div>
 
       {/* Add Course Modal */}

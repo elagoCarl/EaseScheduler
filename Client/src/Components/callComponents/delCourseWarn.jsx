@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Axios from "axios";
 
 const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete }) => {
+   console.log("Received coursesToDelete:", coursesToDelete); // ✅ Ensure coursesToDelete is populated
   const [successMessage, setSuccessMessage] = useState("");
 
   if (!isOpen) return null;
@@ -50,14 +51,14 @@ const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete }) => {
 
         <div className="flex justify-center gap-4">
           <button
-            className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700"
+            className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-800 duration-300"
             onClick={confirmDelete}
             disabled={!coursesToDelete || coursesToDelete.length === 0}
           >
             Yes, Delete
           </button>
           <button
-            className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
+            className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-700 duration-300"
             onClick={() => {
               setSuccessMessage("");
               onClose();
