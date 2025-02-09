@@ -1,14 +1,9 @@
-const { Professor, Course, Settings } = require('../models')
+const { Professor, Course, ProfStatus } = require('../models')
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
-const isExceedingUnitLimit = (settings, status, newTotalUnits) => {
-    const limits = {
-        "Full-time": settings.FullTimeMax,
-        "Part-time": settings.PartTimeMax,
-        "Fixed-term": settings.FullTimeMax
-    }
-    return newTotalUnits > (limits[status] || 0);
+const isExceedingUnitLimit = (Max_units, newTotalUnits) => {
+    return newTotalUnits > (Max_units || 0);
 }
 
 const addProf = async (req, res, next) => {
@@ -24,9 +19,9 @@ const addProf = async (req, res, next) => {
         const addedProfs = [];
 
         for (const professorData of professorsToAdd) {
-            const { Name, Email, Status } = professorData;
+            const { Name, Email, ProfStatusId } = professorData;
 
-            if (!util.checkMandatoryFields([Name, Email, Status])) {
+            if (!util.checkMandatoryFields([Name, Email, ProfStatusId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -41,11 +36,12 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            if (!['Full-time', 'Part-time', 'Fixed-term'].includes(Status)) {
+            const status = await ProfStatus.findByPk(ProfStatusId);
+            if (!status) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Invalid status. Allowed values are: Full-time, Part-time, Fixed-term."
-                });
+                    message: "Professor status not found."
+                })
             }
 
             // Check if the email already exists
@@ -60,7 +56,7 @@ const addProf = async (req, res, next) => {
             const newProf = await Professor.create({
                 Name: Name,
                 Email: Email,
-                Status: Status,
+                ProfStatusId: ProfStatusId,
                 Total_units: 0
             })
             addedProfs.push(Name);
@@ -194,8 +190,8 @@ const deleteProf = async (req, res, next) => {
 const updateProf = async (req, res, next) => {
     try {
         let prof = await Professor.findByPk(req.params.id)
-        const { name, email, status } = req.body
-        console.log("req.body:", name, email, status)
+        const { name, email, ProfStatusId } = req.body
+        console.log("req.body:", name, email, ProfStatusId)
         console.log("req.body:",req.body)
 
         if (!prof) {
@@ -205,7 +201,7 @@ const updateProf = async (req, res, next) => {
             });
         }
 
-        if (!util.checkMandatoryFields([name, email, status])) {
+        if (!util.checkMandatoryFields([name, email, ProfStatusId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -220,12 +216,13 @@ const updateProf = async (req, res, next) => {
             });
         }
 
-        if (!['Full-time', 'Part-time', 'Fixed-term'].includes(status)) {
-            return res.status(406).json({
-                successful: false,
-                message: "Invalid status. Allowed values are: Full-time, Part-time, Fixed-term."
-            });
-        }
+        const status = await ProfStatus.findByPk(ProfStatusId);
+            if (!status) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Professor status not found."
+                })
+            }
 
         if (email !== prof.Email) {
             const emailConflict = await Professor.findOne({ where: { email: email } })
@@ -242,14 +239,14 @@ const updateProf = async (req, res, next) => {
         // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Professor';
-        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${name}, Email: ${email}, Status: ${status}`;
+        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${name}, Email: ${email}, Status: ${ProfStatusId}`;
 
         await addHistoryLog(accountId, page, details);
 
         const updateProf = await prof.update({
             Name: name,
             Email: email,
-            Status: status
+            ProfStatusId: ProfStatusId
         })
 
         return res.status(201).json({
@@ -292,16 +289,16 @@ const addCourseProf = async (req, res) => {
             });
         }
 
-        const settings = await Settings.findByPk(1);
-        if (!settings) {
+        const status = await ProfStatus.findByPk(prof.ProfStatusId);
+        if (!status) {
             return res.status(404).json({
                 successful: false,
-                message: "Settings not found."
-            });
+                message: "Professor status not found."
+            })
         }
 
         const newTotalUnits = prof.Total_units + course.Units
-        if (isExceedingUnitLimit(settings, prof.Status, newTotalUnits)) {
+        if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
             return res.status(400).send({
                 successful: false,
                 message: `Professor ${prof.Name} has exceeded the total units limit.`
@@ -476,12 +473,12 @@ const updateCourseProf = async (req, res, next) => {
             });
         }
 
-        const settings = await Settings.findByPk(1);
-        if (!settings) {
+        const status = await ProfStatus.findByPk(newProf.ProfStatusId);
+        if (!status) {
             return res.status(404).json({
                 successful: false,
-                message: "Settings not found."
-            });
+                message: "Professor status not found."
+            })
         }
 
         const decUnits = oldProf.Total_units - oldCourse.Units
@@ -491,7 +488,7 @@ const updateCourseProf = async (req, res, next) => {
         newProf = await Professor.findByPk(newProfId)
 
         const incUnits = newProf.Total_units + newCourse.Units
-        if (isExceedingUnitLimit(settings, newProf.Status, incUnits)) {
+        if (isExceedingUnitLimit(status.Max_units, incUnits)) {
             const prevUnits = decUnits + oldCourse.Units
             await oldProf.update({
                 Total_units: prevUnits

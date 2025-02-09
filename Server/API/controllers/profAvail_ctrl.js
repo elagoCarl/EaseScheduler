@@ -33,6 +33,14 @@ const addProfessorAvail = async (req, res, next) => {
                 });
             }
 
+            if (!util.checkValidDay(Day)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Invalid day. Please provide a valid day of the week (Monday-Sunday)."
+                })
+            }
+
+
             if (End_time <= Start_time) {
                 return res.status(400).json({
                     successful: false,
@@ -57,12 +65,12 @@ const addProfessorAvail = async (req, res, next) => {
                     ]
                 }
             });
-        // Log the archive action
-        const accountId = '1'; // Example account ID for testing
-        const page = 'Professor Availability';
-        const details = `Added Professor Availability${prof.Day, prof.ProfessorId}`;
+            // Log the archive action
+            const accountId = '1'; // Example account ID for testing
+            const page = 'Professor Availability';
+            const details = `Added Professor Availability${prof.Day, prof.ProfessorId}`;
 
-        await addHistoryLog(accountId, page, details);
+            await addHistoryLog(accountId, page, details);
 
             if (overlapping) {
                 return res.status(400).json({
@@ -129,15 +137,33 @@ const getProfessorAvail = async (req, res, next) => {
     }
 }
 
-// Get All Professor Availabilities
-const getAllProfessorAvail = async (req, res, next) => {
+const getProfAvailByProf = async (req, res, next) => {
     try {
-        const professorAvails = await ProfAvail.findAll();
+        const prof = await Professor.findByPk(req.params.id);
+        if (!prof) {
+            return res.status(404).json({
+                successful: false,
+                message: "Professor not found."
+            })
+        }
 
-        return res.status(200).json({
+        const professorAvails = await ProfAvail.findAll({
+            where: { ProfessorId: req.params.id }
+        })
+        
+        if (professorAvails.length === 0) {
+            return res.status(404).json({
+                successful: false,
+                message: "No availabilities found for the given professor."
+            })
+        }
+
+        return res.status(200).send({
             successful: true,
+            message: "Retrieved professor's availabilities",
+            count: professorAvails.length,
             data: professorAvails
-        });
+        })
 
     } catch (error) {
         return res.status(500).json({
@@ -175,6 +201,13 @@ const updateProfessorAvail = async (req, res, next) => {
             });
         }
 
+        if (!util.checkValidDay(Day)) {
+            return res.status(400).json({
+                successful: false,
+                message: "Invalid day. Please provide a valid day of the week (Monday-Sunday)."
+            })
+        }
+
         if (End_time <= Start_time) {
             return res.status(400).json({
                 successful: false,
@@ -201,10 +234,10 @@ const updateProfessorAvail = async (req, res, next) => {
             }
         });
 
-         // Log the archive action
+        // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Professor Availability';
-         const details = `Updated Professor Availability: Old; Day: ${profAvail.Day}, Start Time: ${profAvail.Start_time}, End Time: ${profAvail.End_time}, Professor Id: ${profAvail.ProfessorId};;; New; Day: ${Day}, Start Time: ${Start_time}, End Time: ${End_time}, Professor Id: ${ProfessorId}`;
+        const details = `Updated Professor Availability: Old; Day: ${profAvail.Day}, Start Time: ${profAvail.Start_time}, End Time: ${profAvail.End_time}, Professor Id: ${profAvail.ProfessorId};;; New; Day: ${Day}, Start Time: ${Start_time}, End Time: ${End_time}, Professor Id: ${ProfessorId}`;
 
         await addHistoryLog(accountId, page, details);
 
@@ -243,10 +276,10 @@ const deleteProfessorAvail = async (req, res, next) => {
             });
         }
 
-            // Log the archive action
+        // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Professor Availability';
-        const details = `Deleted Professor Availability${prof.Day, prof.ProfessorId}`;
+        const details = `Deleted Professor Availability${professorAvail.Day, professorAvail.ProfessorId}`;
 
         await addHistoryLog(accountId, page, details);
 
@@ -270,7 +303,7 @@ const deleteProfessorAvail = async (req, res, next) => {
 module.exports = {
     addProfessorAvail,
     getProfessorAvail,
-    getAllProfessorAvail,
+    getProfAvailByProf,
     updateProfessorAvail,
     deleteProfessorAvail
 };

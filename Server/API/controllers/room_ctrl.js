@@ -79,8 +79,8 @@ const getAllRoom = async (req, res, next) => {
     try {
         let room = await Room.findAll()
         if (!room || room.length === 0) {
-            res.status(200).send({
-                successful: true,
+            res.status(400).send({
+                successful: false,
                 message: "No room found",
                 count: 0,
                 data: []
@@ -273,6 +273,14 @@ const addDeptRoom = async (req, res) => {
             });
         }
 
+        const existingPairing = await room.hasRoomDepts(deptId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This room is already associated with this department."
+            });
+        }
+
         await room.addRoomDepts(deptId);
 
         return res.status(200).json({
@@ -354,8 +362,8 @@ const getRoomsByDept = async (req, res, next) => {
             }
         })
         if (!rooms || rooms.length == 0) {
-            res.status(200).send({
-                successful: true,
+            res.status(400).send({
+                successful: false,
                 message: "No rooms found",
                 count: 0,
                 data: []
@@ -429,6 +437,13 @@ const updateDeptRoom = async (req, res, next) => {
             });
         }
 
+        const existingPairing = await newRoom.hasRoomDepts(newDeptId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This room is already associated with this department."
+            })
+        }
 
         await oldDept.removeDeptRooms(oldRoomId)
         await newDept.addDeptRooms(newRoomId)
