@@ -22,7 +22,7 @@ module.exports = (sequelize, DataTypes) => {
             min: 0,
             defaultValue: 0
         },
-        Status: {
+        ProfStatusId: {
             type: DataTypes.STRING,
             allowNull: false,
             validate: {
