@@ -1,23 +1,17 @@
-const { Professor, Course, Settings } = require('../models')
+const { Professor, Course, ProfStatus } = require('../models')
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
-const isExceedingUnitLimit = (settings, status, newTotalUnits) => {
-    const limits = {
-        "Full-time": settings.FullTimeMax,
-        "Part-time": settings.PartTimeMax,
-        "Fixed-term": settings.FullTimeMax
-    }
-    return newTotalUnits > (limits[status] || 0);
+const isExceedingUnitLimit = (Max_units, newTotalUnits) => {
+    return newTotalUnits > (Max_units || 0);
 }
 
 const addProf = async (req, res, next) => {
     try {
         let professorsToAdd = req.body;
 
-        // Check if the request body contains an array of professors
+        // Convert single object to array if not already an array
         if (!Array.isArray(professorsToAdd)) {
-            // If not an array, convert the single professor to an array
             professorsToAdd = [professorsToAdd];
         }
 
@@ -25,12 +19,13 @@ const addProf = async (req, res, next) => {
 
         for (const professorData of professorsToAdd) {
             const { Name, Email, Status } = professorData;
+            console.log("Professor Data:", { Name, Email, Status });
 
             if (!util.checkMandatoryFields([Name, Email, Status])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
-                })
+                });
             }
 
             // Validate email format
@@ -41,10 +36,12 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            if (!['Full-time', 'Part-time', 'Fixed-term'].includes(Status)) {
+            // Check if the status exists
+            const status = await ProfStatus.findByPk(Status);
+            if (!status) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Invalid status. Allowed values are: Full-time, Part-time, Fixed-term."
+                    message: "Professor status not found."
                 });
             }
 
@@ -54,93 +51,118 @@ const addProf = async (req, res, next) => {
                 return res.status(406).json({
                     successful: false,
                     message: "Email already exists. Please use a different email."
-                })
+                });
             }
 
+            // Create professor
             const newProf = await Professor.create({
-                Name: Name,
-                Email: Email,
-                Status: Status,
+                Name,
+                Email,
                 Total_units: 0
-            })
-            addedProfs.push(Name);
+            });
 
+            // Associate the professor with the status
+            await newProf.setProfStatus(status);
+
+            addedProfs.push(Name);
         }
 
-        // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        // Log the action
+        const accountId = '1'; // Example account ID
         const page = 'Professor';
         const details = `Added Professor${addedProfs.length > 1 ? 's' : ''}: ${addedProfs.join(', ')}`;
-
         await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,
-            message: "Successfully added new professor."
-        })
+            message: `Successfully added ${addedProfs.length} professor(s).`
+        });
 
-    }
-    catch (err) {
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
+
 
 const getAllProf = async (req, res, next) => {
     try {
-        let professor = await Professor.findAll()
-        if (!professor || professor.length === 0) {
-            res.status(200).send({
+        let professors = await Professor.findAll({
+            include: {
+                model: ProfStatus,  // Include ProfStatus relation
+                attributes: ['Status'] // Fetch only the Status column
+            }
+        });
+
+        if (!professors || professors.length === 0) {
+            return res.status(200).send({
                 successful: true,
                 message: "No professor found",
                 count: 0,
                 data: []
-            })
+            });
         }
-        else {
-            res.status(200).send({
-                successful: true,
-                message: "Retrieved all professors",
-                count: professor.length,
-                data: professor
-            })
-        }
-    }
+
+        // Format response to include status directly
+        const formattedProfessors = professors.map(prof => ({
+            id: prof.id,
+            Name: prof.Name,
+            Email: prof.Email,
+            Total_units: prof.Total_units,
+            Status: prof.ProfStatus ? prof.ProfStatus.Status : "Unknown" // Handle missing status
+        }));
+
+        return res.status(200).send({
+            successful: true,
+            message: "Retrieved all professors",
+            count: formattedProfessors.length,
+            data: formattedProfessors
+        });
+    } 
     catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
 
-const getProf = async (req, res, next) => {
+
+const getProf = async (req, res) => {
     try {
-        let prof = await Professor.findByPk(req.params.id)
-
-
-        if (!prof) {
-            res.status(404).send({
-                successful: false,
-                message: "Professor not found"
-            });
-        } else {
-            res.status(200).send({
-                successful: true,
-                message: "Successfully retrieved professor.",
-                data: prof
-            });
-        }
+      const professor = await Professor.findByPk(req.params.id, {
+        include: [
+          {
+            model: ProfStatus,
+            attributes: ['id', 'Status'], // Include the status ID and name
+          },
+        ],
+      });
+  
+      if (!professor) {
+        return res.status(404).json({ message: "Professor not found" });
+      }
+  
+      res.status(200).json({
+        message: "Professor retrieved successfully",
+        data: {
+          id: professor.id,
+          Name: professor.Name,
+          Email: professor.Email,
+          Total_units: professor.Total_units,
+          Status: professor.ProfStatus ? professor.ProfStatus.Status : null,
+          StatusId: professor.ProfStatus ? professor.ProfStatus.id : null, // Add Status ID
+        },
+      });
+    } catch (error) {
+      console.error("Error retrieving professor:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
-    catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        })
-    }
-}
+  };
+  
+
 
 const deleteProf = async (req, res, next) => {
     try {
@@ -194,9 +216,9 @@ const deleteProf = async (req, res, next) => {
 const updateProf = async (req, res, next) => {
     try {
         let prof = await Professor.findByPk(req.params.id)
-        const { name, email, status } = req.body
-        console.log("req.body:", name, email, status)
-        console.log("req.body:",req.body)
+        const { name, email, ProfStatusId } = req.body
+        console.log("req.body:", name, email, ProfStatusId)
+        console.log("req.body: ",req.body)
 
         if (!prof) {
             res.status(404).send({
@@ -205,7 +227,7 @@ const updateProf = async (req, res, next) => {
             });
         }
 
-        if (!util.checkMandatoryFields([name, email, status])) {
+        if (!util.checkMandatoryFields([name, email, ProfStatusId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -220,12 +242,13 @@ const updateProf = async (req, res, next) => {
             });
         }
 
-        if (!['Full-time', 'Part-time', 'Fixed-term'].includes(status)) {
-            return res.status(406).json({
-                successful: false,
-                message: "Invalid status. Allowed values are: Full-time, Part-time, Fixed-term."
-            });
-        }
+        const status = await ProfStatus.findByPk(ProfStatusId);
+            if (!status) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Professor status not found."
+                })
+            }
 
         if (email !== prof.Email) {
             const emailConflict = await Professor.findOne({ where: { email: email } })
@@ -242,14 +265,14 @@ const updateProf = async (req, res, next) => {
         // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Professor';
-        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${name}, Email: ${email}, Status: ${status}`;
+        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${name}, Email: ${email}, Status: ${ProfStatusId}`;
 
         await addHistoryLog(accountId, page, details);
 
         const updateProf = await prof.update({
             Name: name,
             Email: email,
-            Status: status
+            ProfStatusId: ProfStatusId
         })
 
         return res.status(201).json({
@@ -292,16 +315,24 @@ const addCourseProf = async (req, res) => {
             });
         }
 
-        const settings = await Settings.findByPk(1);
-        if (!settings) {
+        const status = await ProfStatus.findByPk(prof.ProfStatusId);
+        if (!status) {
             return res.status(404).json({
                 successful: false,
-                message: "Settings not found."
+                message: "Professor status not found."
+            })
+        }
+
+        const existingPairing = await course.hasCourseProfs(profId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This course is already associated with this professor."
             });
         }
 
         const newTotalUnits = prof.Total_units + course.Units
-        if (isExceedingUnitLimit(settings, prof.Status, newTotalUnits)) {
+        if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
             return res.status(400).send({
                 successful: false,
                 message: `Professor ${prof.Name} has exceeded the total units limit.`
@@ -476,12 +507,20 @@ const updateCourseProf = async (req, res, next) => {
             });
         }
 
-        const settings = await Settings.findByPk(1);
-        if (!settings) {
+        const existingPairing = await newCourse.hasCourseProfs(newProfId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This course is already associated with this professor."
+            });
+        }
+
+        const status = await ProfStatus.findByPk(newProf.ProfStatusId);
+        if (!status) {
             return res.status(404).json({
                 successful: false,
-                message: "Settings not found."
-            });
+                message: "Professor status not found."
+            })
         }
 
         const decUnits = oldProf.Total_units - oldCourse.Units
@@ -491,7 +530,7 @@ const updateCourseProf = async (req, res, next) => {
         newProf = await Professor.findByPk(newProfId)
 
         const incUnits = newProf.Total_units + newCourse.Units
-        if (isExceedingUnitLimit(settings, newProf.Status, incUnits)) {
+        if (isExceedingUnitLimit(status.Max_units, incUnits)) {
             const prevUnits = decUnits + oldCourse.Units
             await oldProf.update({
                 Total_units: prevUnits

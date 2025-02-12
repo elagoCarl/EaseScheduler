@@ -11,6 +11,7 @@ const app = express();
 
 
 //IMPORT ALL ROUTERS NEEDED
+const profStatus_rtr = require('./API/routers/profStatus_rtr')
 const account_rtr = require('./API/routers/account_rtr')
 const prof_rtr = require('./API/routers/prof_rtr')
 const room_rtr = require('./API/routers/room_rtr')
@@ -107,6 +108,7 @@ app.use('/profAvail', profAvail)
 app.use('/schedule', schedule_rtr)
 app.use('/assignation', assignation_rtr)
 app.use('/settings', settings_rtr)
+app.use('/profStatus', profStatus_rtr)
 
 
 //ERROR MIDDLEWARES

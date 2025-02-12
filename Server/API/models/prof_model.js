@@ -46,6 +46,7 @@ module.exports = (sequelize, DataTypes) => {
         Professor.belongsToMany(models.Course, { through: 'Assignation' }),
         Professor.belongsToMany(models.Department, { through: 'Assignation' }),
         Professor.hasMany(models.Assignation);
+        Professor.belongsTo(models.ProfStatus)
     }
     return Professor
 }

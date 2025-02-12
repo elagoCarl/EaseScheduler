@@ -36,7 +36,7 @@ const addProgYrSec = async (req, res, next) => {
             // Ensure Year and Section combination is unique for the same ProgramId
             const existingProgYrSec = await ProgYrSec.findOne({
                 where: { Year, Section, ProgramId }
-            });
+            })
             if (existingProgYrSec) {
                 return res.status(406).json({
                     successful: false,
@@ -49,7 +49,7 @@ const addProgYrSec = async (req, res, next) => {
 
             // Log the archive action
             const accountId = '1'; // Example account ID for testing
-            const page = 'Schedule ba??? IDK';
+            const page = 'ProgYrSec';
             const details = `Added Program: ${program.Code}${Year}${Section}`;
 
             await addHistoryLog(accountId, page, details);
@@ -191,7 +191,6 @@ const updateProgYrSec = async (req, res, next) => {
         });
     }
 };
-
 
 // Delete ProgYrSec by ID
 const deleteProgYrSec = async (req, res, next) => {
