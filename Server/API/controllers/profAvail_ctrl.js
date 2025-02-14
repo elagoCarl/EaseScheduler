@@ -152,8 +152,8 @@ const getProfAvailByProf = async (req, res, next) => {
         })
         
         if (professorAvails.length === 0) {
-            return res.status(404).json({
-                successful: false,
+            return res.status(200).json({
+                successful: true,
                 message: "No availabilities found for the given professor."
             })
         }

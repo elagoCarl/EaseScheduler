@@ -14,6 +14,9 @@ import AssignSubjToProf from "./Components/assignSubjtoProf";
 import AddConfigSchedule from "./Components/addConfigSchedule";
 import OTPVerification from "./Components/otpVerification";
 import ForgotPass from "./Components/forgotPass";
+import RoomTimetable from "./Components/roomTimetable";
+import ProfTimetable from "./Components/profTimetable";
+import SectionTimetable from "./Components/sectionTimetable";
 
 const App = () => {
   return (
@@ -36,6 +39,9 @@ const App = () => {
         <Route path="/addConfigSchedule" element={<AddConfigSchedule />} />
         <Route path="/otpVerification" element={<OTPVerification />} />
         <Route path="/forgotPassPage" element={<ForgotPass />} />
+        <Route path="/roomTimetable" element={<RoomTimetable />} />
+        <Route path="/profTimetable" element={<ProfTimetable />} />
+        <Route path="/sectionTimetable" element={<SectionTimetable />} />
       </Routes>
     </Router>
   );

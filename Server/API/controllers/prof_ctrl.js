@@ -323,6 +323,14 @@ const addCourseProf = async (req, res) => {
             })
         }
 
+        const existingPairing = await course.hasCourseProfs(profId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This course is already associated with this professor."
+            });
+        }
+
         const newTotalUnits = prof.Total_units + course.Units
         if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
             return res.status(400).send({
@@ -496,6 +504,14 @@ const updateCourseProf = async (req, res, next) => {
             return res.status(404).json({
                 successful: false,
                 message: "Association between the course and professor does not exist."
+            });
+        }
+
+        const existingPairing = await newCourse.hasCourseProfs(newProfId);
+        if (existingPairing) {
+            return res.status(400).json({
+                successful: false,
+                message: "This course is already associated with this professor."
             });
         }
 

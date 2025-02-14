@@ -1,6 +1,7 @@
 const { Department, Course, Room } = require('../models')
 const util = require('../../utils')
-const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+const { Op } = require('sequelize')
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl')
 
 const addDept = async (req, res, next) => {
     try {
@@ -22,7 +23,14 @@ const addDept = async (req, res, next) => {
                 })
             }
 
-            const existingDept = await Department.findOne({ where: { Name } });
+            
+            const existingDept = await Department.findOne({
+                where: {
+                    Name: {
+                        [Op.like]: Name
+                    }
+                }
+            })
             if (existingDept) {
                 return res.status(406).json({
                     successful: false,
@@ -30,16 +38,14 @@ const addDept = async (req, res, next) => {
                 })
             }
 
-            const newDept = await Department.create({
-                Name: Name
-            })
+            await Department.create({ Name })
 
-               // Log the archive action
-        const accountId = '1'; // Example account ID for testing
-        const page = 'Department';
-        const details = `Added Department${Name}`;
+            // Log the archive action
+            const accountId = '1'; // Example account ID for testing
+            const page = 'Department';
+            const details = `Added Department${Name}`;
 
-        await addHistoryLog(accountId, page, details);
+            await addHistoryLog(accountId, page, details);
 
         }
 
@@ -117,7 +123,7 @@ const deleteDept = async (req, res, next) => {
             where: { id: req.params.id }
         })
 
-          if (!department) {
+        if (!department) {
             return res.status(400).send({
                 successful: false,
                 message: "Department not found."
@@ -130,7 +136,7 @@ const deleteDept = async (req, res, next) => {
         });
 
 
-          // Log the archive action
+        // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Department';
         const details = `Deleted Department${department.Name}`;
@@ -161,7 +167,7 @@ const updateDept = async (req, res, next) => {
         let dept = await Department.findByPk(req.params.id)
         const { Name } = req.body
 
-          // Log the archive action
+        // Log the archive action
         const accountId = '1'; // Example account ID for testing
         const page = 'Department';
         const details = `Department Updated: Old; Name${dept.Name};;; New; Name:${Name}`;
@@ -172,6 +178,20 @@ const updateDept = async (req, res, next) => {
             res.status(404).send({
                 successful: false,
                 message: "Department not found"
+            });
+        }
+
+        const existingDept = await Department.findOne({
+            where: {
+                Name: {
+                    [Op.like]: Name
+                }
+            }
+        })
+        if (existingDept) {
+            return res.status(406).json({
+                successful: false,
+                message: "Department already exists."
             });
         }
 
@@ -203,7 +223,7 @@ const getDeptsByCourse = async (req, res, next) => {
     try {
         const courseId = req.params.id
         const depts = await Department.findAll({
-            attributes: { exclude: ['DeptCourses'] }, // Exclude ProfCourses field
+            attributes: { exclude: ['DeptCourses'] },
             include: {
                 model: Course,
                 as: 'DeptCourses',
