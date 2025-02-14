@@ -53,18 +53,18 @@ const RoomTimetable = () => {
             <TopMenu toggleSidebar={toggleSidebar} />
 
             <div className="flex flex-col items-center text-center w-full">
-                <div className="flex flex-wrap md:flex-nowrap gap-5 w-full max-w-6xl justify-center items-start px-5 xs:px-15">
+                <div className="flex flex-wrap md:flex-nowrap gap-5 w-full lg:max-w-6xl md:max-w-4xl sm:max-w-2xl justify-center items-start px-5 xs:px-15">
                     <div className="bg-white w-full p-5 rounded-lg shadow-lg overflow-x-auto">
                         {/* Header section inside the card */}
                         <div className="relative mb-6 min-w-[800px]">
-                            <h1 className="text-2xl font-bold text-blue-500 text-center mb-4">Room Timetable</h1>
-                            <div className="absolute right-0 top-0">
+                            <h1 className="text-2xl font-bold text-white text-center mb-4 w-full bg-customBlue1 px-4 py-8 rounded-lg">Room Timetable</h1>
+                            <div className="absolute right-10 top-10">
                                 <select
                                     value={selectedRoom}
                                     onChange={(e) => setSelectedRoom(e.target.value)}
                                     className="border border-blue-500 rounded-md px-3 py-2 bg-white shadow-sm 
-                                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                                        text-blue-500"
+                                        focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-transparent 
+                                        text-black"
                                 >
                                     {rooms.map(room => (
                                         <option key={room} value={room}>{room}</option>

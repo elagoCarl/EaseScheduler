@@ -57,8 +57,8 @@ const ProfTimetable = () => {
                     </select>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse min-w-[700px]">
+                <div className="overflow-x-auto mt-[-2rem]">
+                    <table className="w-full border-collapse min-w-[700px] sm:min-w-[640px] xs:min-w-[480px] xs:mt-40 sm:mt-40">
                         <thead>
                             <tr>
                                 <th className="p-3 border border-gray-300 bg-customLightBlue2 text-black font-semibold">Time</th>
