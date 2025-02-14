@@ -62,7 +62,7 @@ const RoomTimetable = () => {
                                 <select
                                     value={selectedRoom}
                                     onChange={(e) => setSelectedRoom(e.target.value)}
-                                    className="border border-blue-500 rounded-md px-3 py-2 bg-white shadow-sm 
+                                    className="rounded-md px-3 py-2 bg-white shadow-sm 
                                         focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-transparent 
                                         text-black"
                                 >

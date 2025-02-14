@@ -28,7 +28,7 @@ const ProfTimetable = () => {
                         className={`absolute ${event.color} p-2 rounded-md shadow-sm left-0 right-0 mx-1`}
                         style={{ top: '0', height: `${event.duration * 100}%`, zIndex: 10 }}
                     >
-                        <div className="text-xs font-medium text-blue-900">{event.time}</div>
+                        <div className="text-xs font-medium  text-blue-900">{event.time}</div>
                         <div className="text-sm truncate text-blue-800">{event.course}</div>
                         <div className="text-sm truncate text-blue-700">{event.section}</div>
                     </div>
@@ -61,9 +61,9 @@ const ProfTimetable = () => {
                     <table className="w-full border-collapse min-w-[700px] sm:min-w-[640px] xs:min-w-[480px] xs:mt-40 sm:mt-40">
                         <thead>
                             <tr>
-                                <th className="p-3 border border-gray-300 bg-customLightBlue2 text-black font-semibold">Time</th>
+                                <th className="p-3 border border-gray-300 bg-blue-500 text-white font-semibold">Time</th>
                                 {days.map((day) => (
-                                    <th key={day} className="p-3 border border-gray-300 bg-customLightBlue2 text-black font-semibold">
+                                    <th key={day} className="p-3 border border-gray-300 bg-blue-500 text-white font-semibold">
                                         {day}
                                     </th>
                                 ))}
