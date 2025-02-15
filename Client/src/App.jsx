@@ -18,6 +18,7 @@ import RoomTimetable from "./Components/roomTimetable";
 import ProfTimetable from "./Components/profTimetable";
 import SectionTimetable from "./Components/sectionTimetable";
 import AccountList from "./Components/accountList";
+import AddRoomModal from "./Components/callComponents/addRoomModal";
 
 const App = () => {
   return (
@@ -44,6 +45,7 @@ const App = () => {
         <Route path="/profTimetable" element={<ProfTimetable />} />
         <Route path="/sectionTimetable" element={<SectionTimetable />} />
         <Route path="/accountList" element={<AccountList />} />
+        <Route path="/addRoomModal" element={<AddRoomModal />} />
       </Routes>
     </Router>
   );
