@@ -49,7 +49,7 @@ const ProfAvailability = () => {
           {/* Left Container (Form Section) */}
           <div
             id="leftContainer"
-            className="bg-customWhite mr-8 text-gray-900 p-10 rounded-lg shadow-lg w-full max-w-md md:w-3/12"
+            className="bg-customWhite mr-8 text-gray-900 p-10 rounded-lg md:rounded-md shadow-lg w-full max-w-md md:w-3/12 xs:w-4/6"
           >
             <div className="mb-4">
               <label htmlFor="professor" className="block text-md font-medium mb-1 text-start ml-2">

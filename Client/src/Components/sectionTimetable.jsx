@@ -46,25 +46,28 @@ const SectionTimetable = () => {
     return (
         <div className="main bg-cover bg-no-repeat min-h-screen flex justify-center items-center xs:h-full"
             style={{ backgroundImage: `url(${Image3})` }}>
+            
             <div className="fixed top-0 h-full z-50">
                 <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             </div>
 
             <TopMenu toggleSidebar={toggleSidebar} />
 
-            <div className="flex flex-col items-center text-center w-full">
-                <div className="flex flex-wrap md:flex-nowrap gap-5 w-full max-w-6xl justify-center items-start px-5 xs:px-15">
-                    <div className="bg-white w-full p-5 rounded-lg shadow-lg overflow-x-auto">
+            <div className="flex flex-col items-center text-center w-full px-4 sm:px-6">
+                <div className="flex flex-wrap md:flex-nowrap gap-5 w-full max-w-6xl justify-center items-start">
+
+                    <div className="bg-white w-full p-5 rounded-lg shadow-lg overflow-x-auto sm:overflow-hidden">
                         {/* Header section inside the card */}
-                        <div className="relative mb-6 min-w-[800px]">
-                            <h1 className="text-2xl font-bold text-blue-500 text-center mb-4">Section Timetable</h1>
-                            <div className="absolute right-0 top-0">
+                        <div className="relative mb-6">
+                            <h1 className="text-xl sm:text-2xl font-bold text-white text-center bg-customBlue1 px-4 py-6 sm:py-8 rounded-lg">
+                                Section Timetable
+                            </h1>
+                            <div className="absolute right-5 top-6 sm:top-10">
                                 <select
                                     value={selectedSection}
                                     onChange={(e) => setSelectedSection(e.target.value)}
-                                    className="border border-blue-500 rounded-md px-3 py-2 bg-white shadow-sm 
-                                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                                        text-blue-500"
+                                    className="rounded-md px-3 py-2 bg-white shadow-sm 
+                                        focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-transparent text-black"
                                 >
                                     {sections.map(section => (
                                         <option key={section} value={section}>{section}</option>
@@ -73,15 +76,15 @@ const SectionTimetable = () => {
                             </div>
                         </div>
 
-                        <div className="min-w-[800px]">
-                            <table className="w-full border-collapse">
+                        <div className="w-full overflow-x-auto">
+                            <table className="w-full border-collapse min-w-[600px] sm:min-w-[800px]">
                                 <thead>
                                     <tr>
-                                        <th className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-1/7">
+                                        <th className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-[10%]">
                                             Time
                                         </th>
                                         {days.map((day) => (
-                                            <th key={day} className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-1/7">
+                                            <th key={day} className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-[15%]">
                                                 {day}
                                             </th>
                                         ))}
@@ -90,11 +93,11 @@ const SectionTimetable = () => {
                                 <tbody>
                                     {Array.from({ length: 15 }, (_, i) => 7 + i).map((hour) => (
                                         <tr key={hour}>
-                                            <td className="p-3 border border-gray-300 text-center w-1/7">
+                                            <td className="p-3 border border-gray-300 text-center w-[10%]">
                                                 {hour}:00
                                             </td>
                                             {days.map((_, dayIndex) => (
-                                                <td key={dayIndex} className="p-3 border border-gray-300 relative h-14 w-1/7">
+                                                <td key={dayIndex} className="p-3 border border-gray-300 relative h-14 w-[15%]">
                                                     {renderEventInCell(hour, dayIndex)}
                                                 </td>
                                             ))}
@@ -104,6 +107,7 @@ const SectionTimetable = () => {
                             </table>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>

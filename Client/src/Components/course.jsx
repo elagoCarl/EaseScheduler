@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -9,6 +9,7 @@ import Book from "./Img/Book.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
+import Axios from 'axios';
 
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -19,17 +20,72 @@ const Course = () => {
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
+  const [courseToEdit, setCourseToEdit] = useState(null); // Course to edit state
   const campuses = ["Campus A", "Campus B", "Campus C"];
 
+  const [successMessage, setSuccessMessage] = useState("");
+  const [courseToDelete, setCourseToDelete] = useState(null);
+  const [courses, setCourses] = useState([]); // Initialize as an empty array
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
+  const fetchCourse = async () => {
+    try {
+      const response = await Axios.get('http://localhost:8080/course/getAllCourses');
+      console.log('API Response:', response.data);
+      if (response.data.successful) {
+        setCourses(response.data.data);
+        console.log("response.data.data: ", response.data.data);
+      } else {
+        setError(response.data.message);
+      }
+    } catch (err) {
+      setError(`Error fetching courses: ${err.message}`);
+    }
+  };
+
+
+ useEffect(() => {
+  fetchCourse();
+  console.log("Fetching courses...");
+}, []);
+
+useEffect(() => {
+  if (courses.length > 0) {
+    setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes
+  }
+}, [courses]); // 🔹 Removed success message here
+
+const handleDeleteCourse = async (courseId) => {
+  if (!courseId) {
+    console.error("Invalid course ID:", courseId);
+    return;
+  }
+
+  try {
+    console.log("Deleting course with ID:", courseId);
+    const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${courseId}`);
+
+    if (response.data.successful) {
+      console.log("Course deleted successfully!");
+
+      // 🔹 Instead of re-fetching, update state directly
+      setCourses((prevCourses) => prevCourses.filter((c) => c.id !== courseId));
+
+    } else {
+      console.log("Failed to delete course: " + response.data.message);
+    }
+  } catch (error) {
+    console.error("Error deleting course:", error.response ? error.response.data : error.message);
+  }
+};
+
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
     setAllChecked(newState);
-    setCheckboxes(checkboxes.map(() => newState));
+    setCheckboxes(Array(courses.length).fill(newState)); // Adjust to match courses length
   };
 
   const handleCheckboxChange = (index) => {
@@ -46,28 +102,71 @@ const Course = () => {
   const handleAddCourseCloseModal = () => {
     setIsAddCourseModalOpen(false); // Close the add course modal
   };
-  // setIsEditCourseModalOpen
-  const handleEditCourseClick = () => {
-    setIsEditCourseModalOpen(true); // Open the add course modal when add button is clicked
-  };
+
+const handleEditCourseClick = (course) => {
+  if (!course) {
+    console.error("No course selected for editing.");
+    return;
+  }
+  
+  setCourseToEdit(course); // ✅ Store the selected course
+  setIsEditCourseModalOpen(true); // ✅ Open edit modal
+};
+
 
   const handleEditCourseCloseModal = () => {
-    setIsEditCourseModalOpen(false); // Close the add course modal
+    setIsEditCourseModalOpen(false); // Close the edit course modal
   };
-  // Del warning
+
+  const [warningMessage, setWarningMessage] = useState("");
+
   const handleDeleteClick = () => {
-    setIsDeleteWarningOpen(true); // Open the delete warning modal
-  };
+  const selectedCourses = courses.filter((_, index) => checkboxes[index]);
 
-  const handleCloseDelWarning = () => {
-    setIsDeleteWarningOpen(false); // Close the delete warning modal
-  };
+  if (selectedCourses.length === 0) {
+    setWarningMessage("Please select at least one course to delete!");
+    setTimeout(() => setWarningMessage(""), 3000); // Hide message after 3 seconds
+    return;
+  }
 
-  const handleConfirmDelete = () => {
-    // Handle the actual delete logic here
-    console.log("Course deleted");
-    setIsDeleteWarningOpen(false); // Close the warning after deletion
-  };
+  console.log("Selected courses for deletion:", selectedCourses); // Debugging
+
+  setCourseToDelete(selectedCourses);
+  setIsDeleteWarningOpen(true);
+};
+
+
+  const handleConfirmDelete = async () => {
+  if (!courseToDelete || courseToDelete.length === 0) {
+    console.error("No courses selected for deletion.");
+    return;
+  }
+
+  try {
+    console.log("Deleting courses:", courseToDelete);
+
+    await Promise.all(
+      courseToDelete.map((course) =>
+        Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
+      )
+    );
+
+    console.log("Selected courses deleted successfully!");
+
+    // 🔄 Update the state instead of refreshing the page
+    fetchCourse();
+
+    // Reset states
+    setCheckboxes(Array(courses.length).fill(false));
+    setCourseToDelete([]);
+    setIsDeleteWarningOpen(false);
+
+  } catch (error) {
+    console.error("Error deleting courses:", error.message);
+  }
+};
+
+
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
@@ -136,35 +235,35 @@ const Course = () => {
                 </tr>
               </thead>
               <tbody>
-                {checkboxes.map((isChecked, index) => (
+                {courses.map((course, index) => (
                   <tr
-                    key={index}
+                    key={course.id}
                     className="hover:bg-customLightBlue2 border-t border-gray-300"
                   >
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      {selectedCampus}
+                      {course.Code}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Description}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Duration}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Units}
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                      TEST
+                      {course.Type}
                     </td>
                     <td className="py-2 border border-gray-300">
                       <input
                         type="checkbox"
-                        checked={isChecked}
+                        checked={checkboxes[index]}
                         onChange={() => handleCheckboxChange(index)} />
                     </td>
                     <td className="py-2 border border-gray-300">
                       <button className=" text-white rounded "
-                        onClick={handleEditCourseClick}
+                        onClick={() => handleEditCourseClick(course)}
                       >
                         <img
                           src={editBtn}
@@ -192,16 +291,24 @@ const Course = () => {
             alt="Add Course"
           />
         </button>
-        <button className="py-2 px-4 text-white rounded "
-          onClick={handleDeleteClick}
-        >
-          <img
-            src={delBtn}
-            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-            alt="Delete Course"
-          />
-        </button>
+        <button
+            className="py-2 px-4 text-white rounded"
+            onClick={() => handleDeleteClick(courseToDelete)}>
+            <img
+              src={delBtn}
+              className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+              alt="Delete Course"
+            />
+          </button>
+
+          {/* Warning Message */}
+          {warningMessage && (
+            <div className="fixed bottom-10 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-md">
+              {warningMessage}
+            </div>
+          )}
       </div>
+
       {/* Add Course Modal */}
       <AddCourseModal
         isOpen={isAddCourseModalOpen}
@@ -211,12 +318,15 @@ const Course = () => {
       <EditCourseModal
         isOpen={isEditCourseModalOpen}
         onClose={handleEditCourseCloseModal}
+        course={courseToEdit} // Pass the course to edit
+        fetchCourse={fetchCourse} // Refresh courses after editing
       />
       {/* Delete Warning Modal */}
       <DelCourseWarn
         isOpen={isDeleteWarningOpen}
-        onClose={handleCloseDelWarning}
+        onClose={() => setIsDeleteWarningOpen(false)}
         onConfirm={handleConfirmDelete}
+        coursesToDelete={courseToDelete} // Pass selected courses for context
       />
     </div>
   );
