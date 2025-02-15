@@ -137,6 +137,7 @@ const handleEditCourseClick = (course) => {
 
 
   const handleConfirmDelete = async () => {
+    await handleDeleteCourse(courseToDelete);
   if (!courseToDelete || courseToDelete.length === 0) {
     console.error("No courses selected for deletion.");
     return;

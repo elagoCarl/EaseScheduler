@@ -1,19 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Axios from "axios";
 
-const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete }) => {
-   console.log("Received coursesToDelete:", coursesToDelete); // ✅ Ensure coursesToDelete is populated
+const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete = [] }) => {
+  console.log("Received coursesToDelete:", coursesToDelete); // ✅ Debugging
+
   const [successMessage, setSuccessMessage] = useState("");
+
+  // 🔍 Track `coursesToDelete` changes
+  useEffect(() => {
+    console.log("Updated coursesToDelete:", coursesToDelete);
+  }, [coursesToDelete]);
 
   if (!isOpen) return null;
 
   const confirmDelete = async () => {
-    if (!coursesToDelete || coursesToDelete.length === 0) {
+    if (!coursesToDelete.length) {
       setSuccessMessage("No course selected for deletion.");
       return;
     }
 
     try {
+      console.log("Deleting courses:", coursesToDelete);
+
       await Promise.all(
         coursesToDelete.map((course) =>
           Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
@@ -21,13 +29,12 @@ const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete }) => {
       );
 
       setSuccessMessage("Selected courses deleted successfully!");
-      onConfirm(coursesToDelete);
+      onConfirm();
 
-      // Optional: Close the modal after a delay
       setTimeout(() => {
         setSuccessMessage("");
         onClose();
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error("Error deleting courses:", error.message);
     }
@@ -37,12 +44,12 @@ const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete }) => {
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white p-8 rounded-lg shadow-lg w-8/12 md:w-1/3">
         <h2 className="text-xl font-bold text-gray-800 text-center mb-4">
-          {coursesToDelete?.length > 0
+          {coursesToDelete.length > 0
             ? `Are you sure you want to delete ${coursesToDelete.length} course(s)?`
             : "No course selected."}
         </h2>
 
-        {/* Display success message */}
+        {/* ✅ Display success message */}
         {successMessage && (
           <p className="text-green-600 text-center font-semibold mb-4">
             {successMessage}
@@ -53,7 +60,7 @@ const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete }) => {
           <button
             className="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-800 duration-300"
             onClick={confirmDelete}
-            disabled={!coursesToDelete || coursesToDelete.length === 0}
+            disabled={coursesToDelete.length === 0}
           >
             Yes, Delete
           </button>
