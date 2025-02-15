@@ -1,16 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Background from './Img/4.jpg';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './callComponents/sideBar.jsx';
 import TopMenu from "./callComponents/topMenu.jsx";
+import Cookies from 'js-cookie';
+import axios from 'axios';
+import { jwtDecode } from "jwt-decode";
 
 const AccountSettings = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState({ fullName: '', email: '' });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = Cookies.get('refreshToken'); // Get JWT from cookies
+        if (!token) {
+          console.error('No token found');
+          return;
+        }
+
+        const decoded = jwtDecode(token); // Decode JWT to get user ID
+        const userId = decoded.id;
+
+        console.log("Fetching user data for ID:", userId); // Debug log
+
+        const response = await axios.get(`http://localhost:8080/accounts/getAccountById/${userId}`);
+        console.log("User data received:", response.data); // Debug log
+
+        // Ensure the correct mapping of properties
+        setUser({
+          fullName: response.data.data.Name, // API returns "Name", but state expects "fullName"
+          email: response.data.data.Email // API returns "Email", which matches state
+        });
+      } catch (error) {
+        console.error('Error fetching user data:', error.response?.data || error.message);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
+
   return (
     <div
       id="bgImg"
@@ -45,7 +80,9 @@ const AccountSettings = () => {
                 className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 id="fullName"
                 type="text"
-                placeholder="amestrabela@ceu.edu.ph"
+                value={user.fullName ?? ''} // Ensuring controlled input
+                onChange={(e) => setUser({ ...user, fullName: e.target.value })}
+                disabled
               />
             </div>
 
@@ -60,7 +97,9 @@ const AccountSettings = () => {
                 className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 id="email"
                 type="email"
-                placeholder="Anna Rose Estrabela"
+                value={user.email ?? ''} // Ensuring controlled input
+                onChange={(e) => setUser({ ...user, email: e.target.value })}
+                disabled
               />
             </div>
 

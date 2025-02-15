@@ -17,6 +17,7 @@ import ForgotPass from "./Components/forgotPass";
 import RoomTimetable from "./Components/roomTimetable";
 import ProfTimetable from "./Components/profTimetable";
 import SectionTimetable from "./Components/sectionTimetable";
+import AccountList from "./Components/accountList";
 
 const App = () => {
   return (
@@ -42,6 +43,7 @@ const App = () => {
         <Route path="/roomTimetable" element={<RoomTimetable />} />
         <Route path="/profTimetable" element={<ProfTimetable />} />
         <Route path="/sectionTimetable" element={<SectionTimetable />} />
+        <Route path="/accountList" element={<AccountList />} />
       </Routes>
     </Router>
   );
