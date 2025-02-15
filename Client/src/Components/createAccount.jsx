@@ -54,7 +54,7 @@ const CreateAccount = () => {
                 -- Select Role --
               </option>
               <option value="Program Head">Program Head</option>
-              <option value="Dept. Secretary">Dept. Secretary</option>
+              <option value="Dept. Secretary">Department Secretary</option>
             </select>
           </div>
 

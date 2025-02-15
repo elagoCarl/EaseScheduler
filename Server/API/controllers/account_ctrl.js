@@ -269,9 +269,19 @@ const loginAccount = async (req, res) => {
 
     try {
         // Find user
-        const user = await Account.login(Email, Password);
+        const user = await Account.findOne({ where: { Email } });
 
+        // Check if user exists
         if (!user) {
+            return res.status(401).json({
+                successful: false,
+                message: "Invalid credentials."
+            });
+        }
+
+        // Compare password
+        const auth = await bcrypt.compare(Password, user.Password);
+        if (!auth) {
             return res.status(401).json({
                 successful: false,
                 message: "Invalid credentials."
@@ -293,7 +303,7 @@ const loginAccount = async (req, res) => {
 
         // Store hashed refresh token in DB
         await Session.create({
-            Token: refreshToken,  // Consider hashing before storing
+            Token: refreshToken, // Consider hashing before storing
             AccountId: user.id
         });
 
@@ -326,6 +336,7 @@ const loginAccount = async (req, res) => {
         });
     }
 };
+
 
 
 
@@ -389,7 +400,7 @@ const loginAccount = async (req, res) => {
 const verifyAccountOTP = async (req, res, next) => {
     try {
         const { email, otp } = req.body;
-
+        console.log("Received payload: ", req.body);
         if (!email || !otp) {
             throw new Error("Empty OTP details are not allowed");
         }
@@ -585,6 +596,21 @@ const forgotPass = async (req, res) => {
 
 
 
+const getAllAccounts = async (req, res) => {
+    try {
+        const accounts = await Account.findAll({
+            attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'createdAt', 'updatedAt'] // Excluding password for security
+        });
+        if (!accounts || accounts.length === 0) {
+            return res.status(404).json({ error: "No accounts found" });
+        }
+        res.status(200).json(accounts);
+    } catch (error) {
+        console.error("Error retrieving accounts:", error);
+        res.status(500).json({ error: "Failed to retrieve accounts", details: error.message });
+    }
+};
+
 
 module.exports = {
     addAccount,
@@ -594,5 +620,6 @@ module.exports = {
     generateAccessToken,
     verifyAccountOTP,
     changePassword,
-    forgotPass
+    forgotPass,
+    getAllAccounts
 };
