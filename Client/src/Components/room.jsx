@@ -1,70 +1,111 @@
 import { useState, useEffect } from "react";
-import axios from "axios"; // Import Axios
+import axios from "axios";
 import Background from "./Img/bg.jpg";
-import { useNavigate } from "react-router-dom";
-import Menu from "./Img/menu.png";
 import Sidebar from "./callComponents/sideBar.jsx";
+import TopMenu from "./callComponents/topMenu.jsx";
 import Door from "./Img/Vector4.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
+import LoadingSpinner from './callComponents/loadingSpinner.jsx';
+import ErrorDisplay from './callComponents/errDisplay.jsx';
+import AddRoomModal from "./callComponents/addRoomModal.jsx";
+import EditRoomModal from "./callComponents/editRoomModal.jsx";
+import DelCourseWarn from "./callComponents/delCourseWarn.jsx";
 
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState([]);
   const [isAllChecked, setAllChecked] = useState(false);
+  const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
   const [selectedFloor, setSelectedFloor] = useState("Select Floor");
-  const [rooms, setRooms] = useState([]); // State for all room data
-  const [filteredRooms, setFilteredRooms] = useState([]); // State for filtered room data
-  const [availableFloors, setAvailableFloors] = useState([]); // Dynamic floors from the database
+  const [rooms, setRooms] = useState([]);
+  const [filteredRooms, setFilteredRooms] = useState([]);
+  const [availableFloors, setAvailableFloors] = useState([]);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
+  const [isDeleteBtnDisabled, setDeleteBtnDisabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const campuses = ["LV", "GP"]; // Campus options
+  const campuses = ["LV", "GP"];
 
-  const navigate = useNavigate();
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!isSidebarOpen);
-  };
-
-  const handleMasterCheckboxChange = () => {
-    const newState = !isAllChecked;
-    setAllChecked(newState);
-    setCheckboxes(checkboxes.map(() => newState));
-  };
-
-  const handleCheckboxChange = (index) => {
-    const updatedCheckboxes = [...checkboxes];
-    updatedCheckboxes[index] = !updatedCheckboxes[index];
-    setCheckboxes(updatedCheckboxes);
-    setAllChecked(updatedCheckboxes.every((isChecked) => isChecked));
-  };
-
-  // Fetch Room Data from API
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const response = await axios.get("http://localhost:8080/room/getAllRoom");
-        if (response.data.successful) {
-          const roomData = response.data.data;
-
-          setRooms(roomData);
-          setFilteredRooms(roomData); // Initially show all rooms
-          setCheckboxes(Array(roomData.length).fill(false));
-
-          // Extract unique floor values from room data
-          const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
-          setAvailableFloors(uniqueFloors); // Set dynamic floors
-        }
-      } catch (error) {
-        console.error("Error fetching rooms:", error.message);
+  const fetchRooms = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get("http://localhost:8080/room/getAllRoom");
+      if (response.data.successful) {
+        const roomData = response.data.data;
+        setRooms(roomData);
+        setFilteredRooms(roomData);
+        setCheckboxes(Array(roomData.length).fill(false));
+        const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
+        setAvailableFloors(uniqueFloors);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching rooms:", error.message);
+      setError("Error fetching rooms: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleEditClick = async (roomId) => {
+    try {
+      const response = await axios.get(`http://localhost:8080/room/getRoom/${roomId}`);
+      const roomData = response.data.data;
+
+      if (roomData) {
+        setSelectedRoom(roomData);
+        setIsEditModalOpen(true);
+      } else {
+        console.error("Invalid room data:", roomData);
+      }
+    } catch (error) {
+      console.error('Error fetching room details:', error);
+    }
+  };
+
+  const handleUpdateRoom = (updatedRoom) => {
+    setRooms((prev) =>
+      prev.map((room) => (room.id === updatedRoom.id ? updatedRoom : room))
+    );
+    setIsEditModalOpen(false);
+    fetchRooms(); // Refresh the room list
+  };
+
+  const handleConfirmDelete = async () => {
+    const idsToDelete = rooms
+      .filter((_, index) => checkboxes[index])
+      .map((room) => room.id);
+
+    if (idsToDelete.length === 0) {
+      console.error("No rooms selected for deletion.");
+      return;
+    }
+
+    try {
+      for (const id of idsToDelete) {
+        await axios.delete(`http://localhost:8080/room/deleteRoom/${id}`);
+      }
+
+      setRooms((prev) => prev.filter((room) => !idsToDelete.includes(room.id)));
+      setCheckboxes(new Array(rooms.length).fill(false));
+      setAllChecked(false);
+      setDeleteBtnDisabled(true);
+      setIsDeleteWarningOpen(false);
+      fetchRooms(); // Refresh the room list
+    } catch (error) {
+      console.error("Error deleting rooms:", error.message);
+    }
+  };
+
+  useEffect(() => {
     fetchRooms();
   }, []);
 
-  // Filter Rooms by Campus and Floor
   useEffect(() => {
     let filtered = rooms;
 
@@ -77,40 +118,61 @@ const Room = () => {
     }
 
     setFilteredRooms(filtered);
-    setCheckboxes(Array(filtered.length).fill(false)); // Reset checkboxes for filtered rooms
+    setCheckboxes(Array(filtered.length).fill(false));
   }, [selectedCampus, selectedFloor, rooms]);
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorDisplay error={error} />;
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleMasterCheckboxChange = () => {
+    const newState = !isAllChecked;
+    setAllChecked(newState);
+    setCheckboxes(checkboxes.map(() => newState));
+    setDeleteBtnDisabled(!newState);
+  };
+
+  const handleCheckboxChange = (index) => {
+    const updatedCheckboxes = [...checkboxes];
+    updatedCheckboxes[index] = !updatedCheckboxes[index];
+    setCheckboxes(updatedCheckboxes);
+    setAllChecked(updatedCheckboxes.every((isChecked) => isChecked));
+
+    const anyChecked = updatedCheckboxes.some((isChecked) => isChecked);
+    setDeleteBtnDisabled(!anyChecked);
+  };
+
+  const handleAddRoomClick = () => {
+    setIsAddRoomModalOpen(true);
+  };
+
+  const handleAddRoomCloseModal = () => {
+    setIsAddRoomModalOpen(false);
+    fetchRooms(); // Refresh the room list after adding
+  };
+
+  const handleDeleteClick = () => {
+    setIsDeleteWarningOpen(true);
+  };
+
+  const handleCloseDelWarning = () => {
+    setIsDeleteWarningOpen(false);
+  };
 
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
       style={{ backgroundImage: `url(${Background})` }}
     >
-      {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      <TopMenu toggleSidebar={toggleSidebar} />
 
-      {/* Top Menu */}
-      <div className="absolute top-0 left-0 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
-        <button
-          id="logoBtn"
-          className="text-lg md:text-3xl font-bold text-blue-500"
-          onClick={() => navigate("/")}
-        >
-          EASE<span className="text-white">SCHEDULER</span>
-        </button>
-        <img
-          src={Menu}
-          className="w-15 h-15 md:w-40 md:h-40 hover:bg-customLightBlue2 cursor-pointer rounded"
-          alt="menu button"
-          onClick={toggleSidebar}
-        />
-      </div>
-
-      {/* Main Content */}
       <div className="flex flex-col justify-center items-center h-screen w-full px-8">
-        {/* Filters */}
         <div className="flex justify-end w-10/12 mb-4">
           <div className="flex gap-4">
-            {/* Campus Dropdown */}
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
@@ -124,7 +186,6 @@ const Room = () => {
               ))}
             </select>
 
-            {/* Floor Dropdown */}
             <select
               value={selectedFloor}
               onChange={(e) => setSelectedFloor(e.target.value)}
@@ -140,7 +201,6 @@ const Room = () => {
           </div>
         </div>
 
-        {/* Table Container */}
         <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
             <img src={Door} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Room img" />
@@ -149,7 +209,6 @@ const Room = () => {
             </h2>
           </div>
 
-          {/* Scrollable Table */}
           <div className="overflow-auto w-full h-full flex-grow">
             <table className="text-center w-full border-collapse">
               <thead>
@@ -170,6 +229,7 @@ const Room = () => {
                       onChange={handleMasterCheckboxChange}
                     />
                   </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300"></th>
                 </tr>
               </thead>
               <tbody>
@@ -194,6 +254,11 @@ const Room = () => {
                         onChange={() => handleCheckboxChange(index)}
                       />
                     </td>
+                    <td className="py-2 border border-gray-300">
+                      <button className="text-white rounded" onClick={() => handleEditClick(room.id)}>
+                        <img src={editBtn} className="w-9 h-9 md:w-15 md:h-15 hover:scale-110" alt="Edit Room" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -202,18 +267,32 @@ const Room = () => {
         </div>
       </div>
 
-      {/* Vertical Buttons Container */}
       <div className="fixed top-1/4 right-4 border border-gray-900 bg-white rounded p-4 flex flex-col gap-4">
-        <button className="py-2 px-4 text-white rounded ">
-          <img src={addBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
+        <button className="py-2 px-4 text-white rounded" onClick={handleAddRoomClick}>
+          <img src={addBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Add Room" />
         </button>
-        <button className="py-2 px-4 text-white rounded ">
-          <img src={editBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
-        </button>
-        <button className="py-2 px-4 text-white rounded ">
-          <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="addBtn img" />
+        <button
+          className="py-2 px-4 text-white rounded"
+          onClick={handleDeleteClick}
+          disabled={isDeleteBtnDisabled}
+        >
+          <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Delete Room" />
         </button>
       </div>
+
+      <AddRoomModal isOpen={isAddRoomModalOpen} onClose={handleAddRoomCloseModal} />
+      {isEditModalOpen && selectedRoom && (
+        <EditRoomModal
+          room={selectedRoom}
+          onClose={() => setIsEditModalOpen(false)}
+          onUpdate={handleUpdateRoom}
+        />
+      )}
+      <DelCourseWarn
+        isOpen={isDeleteWarningOpen}
+        onClose={handleCloseDelWarning}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 };
