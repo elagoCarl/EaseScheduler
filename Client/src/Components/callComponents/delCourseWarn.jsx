@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Axios from "axios";
 
-const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete = [] }) => {
+const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete, fetchCourse }) => {
+
   console.log("Received coursesToDelete:", coursesToDelete); // ✅ Debugging
 
   const [successMessage, setSuccessMessage] = useState("");
@@ -14,31 +15,42 @@ const DelCourseWarn = ({ isOpen, onClose, onConfirm, coursesToDelete = [] }) => 
   if (!isOpen) return null;
 
   const confirmDelete = async () => {
-    if (!coursesToDelete.length) {
-      setSuccessMessage("No course selected for deletion.");
-      return;
+  if (!coursesToDelete.length) {
+    setSuccessMessage("No course selected for deletion.");
+    return;
+  }
+
+  try {
+    console.log("Deleting courses:", coursesToDelete.map(course => course.id)); // ✅ Debugging log
+
+    await Promise.all(
+      coursesToDelete.map((course) => {
+        if (!course.id) {
+          console.error("Missing course ID:", course);
+          return Promise.reject("Missing course ID");
+        }
+        return Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`);
+      })
+    );
+
+    if (fetchCourse) { // ✅ Check if function exists before calling
+      fetchCourse();
+    } else {
+      console.error("fetchCourse is undefined in DelCourseWarn");
     }
 
-    try {
-      console.log("Deleting courses:", coursesToDelete);
+    setSuccessMessage("Selected courses deleted successfully!");
+    onConfirm();
 
-      await Promise.all(
-        coursesToDelete.map((course) =>
-          Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
-        )
-      );
+    setTimeout(() => {
+      setSuccessMessage("");
+      onClose();
+    }, 2000);
+  } catch (error) {
+    console.error("Error deleting courses:", error.response ? error.response.data : error);
+  }
+};
 
-      setSuccessMessage("Selected courses deleted successfully!");
-      onConfirm();
-
-      setTimeout(() => {
-        setSuccessMessage("");
-        onClose();
-      }, 2000);
-    } catch (error) {
-      console.error("Error deleting courses:", error.message);
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
