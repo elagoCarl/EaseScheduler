@@ -6,6 +6,7 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
   const [courseDescription, setCourseDescription] = useState("");
   const [courseType, setCourseType] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [courseID, setCourseID] = useState(""); // ✅ Ensure this is the correct field name
 
   // ✅ Ensure modal updates when a new course is selected
   useEffect(() => {
@@ -13,37 +14,49 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
       setCourseCode(course.Code || "");
       setCourseDescription(course.Description || "");
       setCourseType(course.Type || "");
+      setCourseID(course.id || ""); // ✅ Ensure this is the correct field name
     }
   }, [course]); // ✅ Runs when `course` changes
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await Axios.put(
-        "http://localhost:8080/course/updateCourse",
-        {
-          id: course.id,
-          Code: courseCode,
-          Description: courseDescription,
-          Type: courseType,
-        },
-        {
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+  console.log("Updating Course:", course);
 
-      if (response.status === 200) {
-        setSuccessMessage("Course updated successfully!");
-        setTimeout(onClose, 1500);
-      } else {
-        console.error("Failed to update course:", response.data);
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!course || !course.id) {
+    console.error("Course data is missing or has no Id.");
+    return;
+  }
+
+  console.log("Updating course with ID:", course.id); // ✅ Correct logging
+
+  try {
+    const response = await Axios.put(
+      `http://localhost:8080/course/updateCourse/${courseID}`, // ✅ Ensure backend matches this URL
+      {
+        Code: courseCode,
+        Description: courseDescription,
+        Type: courseType,
+      },
+      {
+        headers: { "Content-Type": "application/json" },
       }
-    } catch (error) {
-      console.error("Unexpected error:", error.message);
+    );
+
+    if (response.status === 200) {
+      setSuccessMessage("Course updated successfully!");
+      setTimeout(onClose, 1500);
+    } else {
+      console.error("Failed to update course:", response.data);
     }
-  };
+  } catch (error) {
+    console.error("Unexpected error:", error.message);
+  }
+};
+
+
 
   return (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
