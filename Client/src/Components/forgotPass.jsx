@@ -96,12 +96,12 @@ const ForgotPass = () => {
                                             >
                                                 Email address
                                             </label>
-                                            <div className="relative">
+                                            <div className="relative mb-3">
                                                 <input
                                                     type="email"
                                                     id="email"
                                                     name="email"
-                                                    className="py-3 px-4 block w-full border-2 border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 shadow-sm"
+                                                    className="py-8 px-4 block w-full border-2 border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 shadow-sm"
                                                     required
                                                     aria-describedby="email-error"
                                                     value={email}
@@ -111,7 +111,7 @@ const ForgotPass = () => {
                                         </div>
                                         <button
                                             type="submit"
-                                            className="py-3 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold text-white bg-blue-700 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
+                                            className="py-8 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold text-white bg-blue-700 hover:bg-blue-900 duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
                                         >
                                             Reset password
                                         </button>
