@@ -4,7 +4,7 @@ import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
 import AddCourseModal from "./callComponents/addCourseModal.jsx";
 import EditCourseModal from "./callComponents/editCourseModal.jsx";
-import DelCourseWarn from "./callComponents/delCourseWarn.jsx";
+import DelCourseWarn from "./callComponents/deleteWarning.jsx";
 import Book from "./Img/Book.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";

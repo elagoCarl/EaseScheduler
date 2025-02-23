@@ -5,7 +5,7 @@ import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
 import AddProfModal from "./callComponents/addProfModal.jsx";
 import EditProfModal from "./callComponents/editProfModal.jsx";
-import DelCourseWarn from "./callComponents/delCourseWarn.jsx";
+import DeleteWarning from "./callComponents/deleteWarning.jsx";
 import profV from "./Img/profV.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
@@ -25,7 +25,6 @@ const Professor = () => {
   const [isDeleteBtnDisabled, setDeleteBtnDisabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const fetchProfessors = async () => {
     try {
       const response = await axios.get("http://localhost:8080/prof/getAllProf");
@@ -230,7 +229,7 @@ const Professor = () => {
       </div>
 
       <AddProfModal isOpen={isAddProfModalOpen} onClose={handleAddProfCloseModal} />
-      <DelCourseWarn
+      <DeleteWarning
         isOpen={isDeleteWarningOpen}
         onClose={handleCloseDelWarning}
         onConfirm={handleConfirmDelete}
