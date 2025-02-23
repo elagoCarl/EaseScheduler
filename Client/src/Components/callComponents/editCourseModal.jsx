@@ -5,57 +5,79 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
   const [courseCode, setCourseCode] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseType, setCourseType] = useState("");
+  const [courseDuration, setCourseDuration] = useState(""); // ✅ Added Duration state
+  const [courseUnits, setCourseUnits] = useState(""); // ✅ Added Units state
   const [successMessage, setSuccessMessage] = useState("");
-  const [courseID, setCourseID] = useState(""); // ✅ Ensure this is the correct field name
+  const [courseID, setCourseID] = useState(""); 
+  const [onUpdate, setOnUpdate] = useState(null);
 
-  // ✅ Ensure modal updates when a new course is selected
+  //modal updates when a new course is selected
   useEffect(() => {
     if (course) {
       setCourseCode(course.Code || "");
       setCourseDescription(course.Description || "");
       setCourseType(course.Type || "");
-      setCourseID(course.id || ""); // ✅ Ensure this is the correct field name
+      setCourseDuration(course.Duration || ""); // ✅ Initialize Duration
+      setCourseUnits(course.Units || ""); // ✅ Initialize Units
+      setCourseID(course.id || "");
     }
-  }, [course]); // ✅ Runs when `course` changes
+  }, [course]); 
 
   if (!isOpen) return null;
 
   console.log("Updating Course:", course);
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!course || !course.id) {
-    console.error("Course data is missing or has no Id.");
-    return;
-  }
+    if (!course || !courseID) {
+      console.error("Course data is missing or has no Id.");
+      return;
+    }
 
-  console.log("Updating course with ID:", course.id); // ✅ Correct logging
+    console.log("Updating course with ID:", courseID);
 
-  try {
-    const response = await Axios.put(
-      `http://localhost:8080/course/updateCourse/${courseID}`, // ✅ Ensure backend matches this URL
-      {
-        Code: courseCode,
-        Description: courseDescription,
-        Type: courseType,
-      },
-      {
-        headers: { "Content-Type": "application/json" },
+    try {
+      const response = await Axios.put(
+        `http://localhost:8080/course/updateCourse/${courseID}`, 
+        {
+          Code: courseCode,
+          Description: courseDescription,
+          Duration: courseDuration, // ✅ Include Duration
+          Units: courseUnits, // ✅ Include Units
+          Type: courseType,
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (response.status === 200) {
+        setSuccessMessage("Course updated successfully!");
+        setTimeout(onClose, 1500);
+
+        if(onUpdate) {
+          onUpdate()
+        }
+      } else {
+        console.error("Failed to update course:", response.data);
       }
-    );
+    } catch (error) {
+      console.error("Unexpected error:", error.message);
+    }
+  };
 
-    if (response.status === 200) {
-      setSuccessMessage("Course updated successfully!");
-      setTimeout(onClose, 1500);
-    } else {
-      console.error("Failed to update course:", response.data);
+  const handleEditCourse = async () => {
+  try {
+    const response = await Axios.put(`http://localhost:8080/course/updateCourse/${course.id}`, updatedCourse);
+    if (response.data.successful) {
+      onUpdateSuccess(); // ✅ Trigger parent update
+      onClose(); // ✅ Close modal
     }
   } catch (error) {
-    console.error("Unexpected error:", error.message);
+    console.error("Error updating course:", error);
   }
 };
-
 
 
   return (
@@ -67,11 +89,11 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
             &times;
           </button>
         </div>
-        <form className="space-y-10 px-20" onSubmit={handleSubmit}>
+        <form className="space-y-4 px-6" onSubmit={handleSubmit}>
           <label className="block font-semibold text-white">Course Code</label>
           <input
             type="text"
-            className="w-full p-8 border rounded bg-customWhite"
+            className="w-full p-5 border rounded bg-customWhite"
             value={courseCode}
             onChange={(e) => setCourseCode(e.target.value)}
             required
@@ -80,15 +102,33 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
           <label className="block font-semibold text-white">Course Description</label>
           <input
             type="text"
-            className="w-full p-8 border rounded bg-customWhite"
+            className="w-full p-5 rounded bg-customWhite"
             value={courseDescription}
             onChange={(e) => setCourseDescription(e.target.value)}
             required
           />
 
+          <label className="block font-semibold text-white">Duration</label> 
+          <input
+            type="number"
+            className="w-full p-5 border rounded bg-customWhite"
+            value={courseDuration}
+            onChange={(e) => setCourseDuration(e.target.value)}
+            required
+          />
+
+          <label className="block font-semibold text-white">Units</label> 
+          <input
+            type="number"
+            className="w-full p-5 border rounded bg-customWhite"
+            value={courseUnits}
+            onChange={(e) => setCourseUnits(e.target.value)}
+            required
+          />
+
           <label className="block font-semibold text-white">Course Type</label>
           <select
-            className="w-full p-10 border rounded bg-customWhite"
+            className="w-full p-5 border rounded bg-customWhite"
             value={courseType}
             onChange={(e) => setCourseType(e.target.value)}
             required
@@ -103,10 +143,10 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
           {successMessage && <div className="text-green-600 mb-4">{successMessage}</div>}
 
           <div className="flex justify-center gap-6 py-6">
-            <button type="submit" className="bg-blue-500 text-white hover:bg-blue-700 duration-300 px-18 font-semibold py-2 rounded-lg">
+            <button type="submit" className="bg-blue-500 text-white hover:bg-blue-700 duration-300 px-6 font-semibold py-2 rounded-lg">
               Save
             </button>
-            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-700 duration-300 px-8 py-2 rounded-lg" onClick={onClose}>
+            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-700 duration-300 px-6 py-2 rounded-lg" onClick={onClose}>
               Cancel
             </button>
           </div>

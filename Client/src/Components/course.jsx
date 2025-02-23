@@ -51,7 +51,8 @@ const Course = () => {
  useEffect(() => {
   fetchCourse();
   console.log("Fetching courses...");
-}, []);
+}, [updateTrigger]);
+
 
 useEffect(() => {
   if (courses.length > 0) {

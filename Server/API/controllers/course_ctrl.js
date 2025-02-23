@@ -303,7 +303,7 @@ const updateCourse = async (req, res) => {
 
     await addHistoryLog(accountId, page, details);
 
-    return res.status(201).json({
+    return res.status(200).json({
       successful: true,
       message: "Successfully updated course.",
     });
