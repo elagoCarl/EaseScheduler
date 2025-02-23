@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react'
 import axios from 'axios';
 
 const EditRoomModal = ({ room, onClose, onUpdate }) => {
@@ -12,22 +11,6 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-
-    // Fetch statuses from the backend
-    //   useEffect(() => {
-    //     const fetchStatuses = async () => {
-    //       try {
-    //         const response = await axios.get('http://localhost:8080/profStatus/getAllProfStatus');
-    //         console.log("Fetched data:", response.data);
-    //         setStatuses(response.data.data);
-    //       } catch (error) {
-    //         console.error('Error fetching statuses:', error);
-    //         setError('Failed to load teaching statuses.');
-    //       }
-    //     };
-
-    //     fetchStatuses();
-    //   }, [professor]); // Depend on professor to trigger the effect
 
 
     const handleChange = (e) => {
@@ -156,17 +139,6 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
             </div>
         </div>
     );
-};
-
-EditRoomModal.propTypes = {
-    professor: PropTypes.shape({
-        Name: PropTypes.string.isRequired,
-        Email: PropTypes.string.isRequired,
-        StatusId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    }).isRequired,
-    onClose: PropTypes.func.isRequired,
-    onUpdate: PropTypes.func.isRequired,
-};
+}
 
 export default EditRoomModal;

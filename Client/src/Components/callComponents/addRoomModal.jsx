@@ -1,5 +1,4 @@
 import { useState } from "react";
-import PropTypes from "prop-types";
 
 const AddRoomModal = ({ isOpen, onClose }) => {
     const [formData, setFormData] = useState({
@@ -7,6 +6,7 @@ const AddRoomModal = ({ isOpen, onClose }) => {
         Floor: "",
         Building: "",
         Type: "",
+        Dept_id: 1,
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
@@ -136,11 +136,6 @@ const AddRoomModal = ({ isOpen, onClose }) => {
             </div>
         </div>
     );
-};
-
-AddRoomModal.propTypes = {
-    isOpen: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired,
 };
 
 export default AddRoomModal;
