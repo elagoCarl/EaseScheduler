@@ -17,6 +17,9 @@ import ForgotPass from "./Components/forgotPass";
 import RoomTimetable from "./Components/roomTimetable";
 import ProfTimetable from "./Components/profTimetable";
 import SectionTimetable from "./Components/sectionTimetable";
+import AccountList from "./Components/accountList";
+import AddRoomModal from "./Components/callComponents/addRoomModal";
+import AssignedCoursesProf from "./Components/assignedCoursesProf";
 
 const App = () => {
   return (
@@ -42,6 +45,9 @@ const App = () => {
         <Route path="/roomTimetable" element={<RoomTimetable />} />
         <Route path="/profTimetable" element={<ProfTimetable />} />
         <Route path="/sectionTimetable" element={<SectionTimetable />} />
+        <Route path="/accountList" element={<AccountList />} />
+        <Route path="/addRoomModal" element={<AddRoomModal />} />
+        <Route path="/assignedCoursesProf" element={<AssignedCoursesProf />} />
       </Routes>
     </Router>
   );
