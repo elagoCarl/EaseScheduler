@@ -1,6 +1,4 @@
-
-
-const delCourseWarn = ({ isOpen, onClose, onConfirm }) => {
+const DeleteWarning = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
 
   return (
@@ -32,4 +30,4 @@ const delCourseWarn = ({ isOpen, onClose, onConfirm }) => {
   );
 };
 
-export default delCourseWarn;
+export default DeleteWarning;

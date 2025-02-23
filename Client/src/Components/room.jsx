@@ -11,7 +11,7 @@ import LoadingSpinner from './callComponents/loadingSpinner.jsx';
 import ErrorDisplay from './callComponents/errDisplay.jsx';
 import AddRoomModal from "./callComponents/addRoomModal.jsx";
 import EditRoomModal from "./callComponents/editRoomModal.jsx";
-import DelCourseWarn from "./callComponents/deleteWarning.jsx";
+import DeleteWarning from "./callComponents/deleteWarning.jsx";
 
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -150,8 +150,7 @@ const Room = () => {
   };
 
   const handleAddRoomCloseModal = () => {
-    setIsAddRoomModalOpen(false);
-    fetchRooms(); // Refresh the room list after adding
+    setIsAddRoomModalOpen(false)
   };
 
   const handleDeleteClick = () => {
@@ -288,7 +287,7 @@ const Room = () => {
           onUpdate={handleUpdateRoom}
         />
       )}
-      <DelCourseWarn
+      <DeleteWarning
         isOpen={isDeleteWarningOpen}
         onClose={handleCloseDelWarning}
         onConfirm={handleConfirmDelete}
