@@ -1,7 +1,8 @@
-const { Program, Department } = require('../models');
+const { Program, Department, Course } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+const { updateCourse } = require('./course_ctrl');
 
 const addProgram = async (req, res, next) => {
     try {
@@ -232,10 +233,10 @@ const deleteProgram = async (req, res, next) => {
     }
 };
 
-const getAllProgramByDept = async (req, res, next) => {
+const getAllProgramByCourse = async (req, res, next) => {
     try {
-        const DepartmentId = req.params.id
-        const programs = await Program.findAll({ where: { DepartmentId } })
+        const CourseId = req.params.id
+        const programs = await Program.findAll({ where: { CourseId } })
         if (!programs || programs.length === 0) {
             return res.status(200).json({
                 successful: false,
@@ -259,4 +260,225 @@ const getAllProgramByDept = async (req, res, next) => {
     }
 };
 
-module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByDept };
+const addCourseProg = async (req, res) => {
+  try {
+    const { courseId, programId } = req.body;
+
+    if (!util.checkMandatoryFields([courseId, programId])) {
+      return res.status(400).json({
+        successful: false,
+        message: "A mandatory field is missing.",
+      });
+    }
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        successful: false,
+        message: "Course not found.",
+      });
+    }
+
+    const prog = await Program.findByPk(programId);
+    if (!prog) {
+      return res.status(404).json({
+        successful: false,
+        message: "Program not found.",
+      });
+    }
+
+    const existingPairing = await course.hasCourseProgs(programId);
+    if (existingPairing) {
+      return res.status(400).json({
+        successful: false,
+        message: "This course is already associated with this program.",
+      });
+    }
+
+    await course.addCourseProgs(programId);
+
+    return res.status(200).json({
+      successful: true,
+      message: "Successfully associated course with program.",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      successful: false,
+      message: err.message || "An unexpected error occurred.",
+    });
+  }
+};
+
+const deleteCourseProg = async (req, res) => {
+  try {
+    const { courseId, progId } = req.body;
+
+    if (!util.checkMandatoryFields([courseId, progId])) {
+      return res.status(400).json({
+        successful: false,
+        message: "A mandatory field is missing.",
+      });
+    }
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({
+        successful: false,
+        message: "Course not found.",
+      });
+    }
+
+    const prog = await Program.findByPk(progId);
+    if (!prog) {
+      return res.status(404).json({
+        successful: false,
+        message: "Program not found.",
+      });
+    }
+
+    const existingAssociation = await course.hasCourseProgs(progId);
+    if (!existingAssociation) {
+      return res.status(404).json({
+        successful: false,
+        message:
+          "Association between the course and program does not exist.",
+      });
+    }
+
+    await course.removeCourseProgs(progId);
+
+    return res.status(200).json({
+      successful: true,
+      message: "Successfully deleted association.",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      successful: false,
+      message: err.message || "An unexpected error occurred.",
+    });
+  }
+};
+
+const getCoursesByProg = async (req, res, next) => {
+  try {
+    const progId = req.params.id;
+    const courses = await Course.findAll({
+      attributes: { exclude: ["CourseProgs"] },
+      include: {
+        model: Program,
+        as: "CourseProgs",
+        where: {
+          id: progId,
+        },
+        attributes: [],
+        through: {
+          attributes: [],
+        },
+      },
+    });
+    if (!courses || courses.length === 0) {
+      res.status(200).send({
+        successful: true,
+        message: "No courses found",
+        count: 0,
+        data: [],
+      });
+    } else {
+      res.status(200).send({
+        successful: true,
+        message: "Retrieved all courses",
+        count: courses.length,
+        data: courses,
+      });
+    }
+  } catch (err) {
+    return res.status(500).json({
+      successful: false,
+      message: err.message || "An unexpected error occurred.",
+    });
+  }
+};
+
+const updateCourseProg = async (req, res, next) => {
+  try {
+    const { oldCourseId, oldProgId, newCourseId, newProgId } = req.body;
+
+    if (
+      !util.checkMandatoryFields([
+        oldCourseId,
+        oldProgId,
+        newCourseId,
+        newProgId,
+      ])
+    ) {
+      return res.status(400).json({
+        successful: false,
+        message: "A mandatory field is missing.",
+      });
+    }
+
+    const oldCourse = await Course.findByPk(oldCourseId);
+    if (!oldCourse) {
+      return res.status(404).json({
+        successful: false,
+        message: "Course not found.",
+      });
+    }
+
+    const oldProg = await Department.findByPk(oldProgId);
+    if (!oldProg) {
+      return res.status(404).json({
+        successful: false,
+        message: "Department not found.",
+      });
+    }
+
+    const newCourse = await Course.findByPk(newCourseId);
+    if (!newCourse) {
+      return res.status(404).json({
+        successful: false,
+        message: "Course not found.",
+      });
+    }
+
+    const newProg = await Department.findByPk(newProgId);
+    if (!newProg) {
+      return res.status(404).json({
+        successful: false,
+        message: "Department not found.",
+      });
+    }
+
+    const existingAssociation = await oldCourse.hasCourseProgs(oldProgId);
+    if (!existingAssociation) {
+      return res.status(404).json({
+        successful: false,
+        message:
+          "Association between the old course and old program does not exist.",
+      });
+    }
+
+    const newExistingPairing = await newCourse.hasCourseProgs(newProgId);
+    if (newExistingPairing) {
+      return res.status(400).json({
+        successful: false,
+        message: "New course is already associated with the new program.",
+      });
+    }
+
+    await oldProg.removeProgCourses(oldCourseId);
+    await newProg.addProgCourses(newCourseId);
+
+    return res.status(200).json({
+      successful: true,
+      message: "Association updated successfully.",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      successful: false,
+      message: err.message || "An unexpected error occurred.",
+    });
+  }
+};
+
+module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByCourse, addCourseProg, deleteCourseProg, getCoursesByProg, updateCourseProg };
