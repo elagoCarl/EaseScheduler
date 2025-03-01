@@ -21,6 +21,13 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             min: 0,
             defaultValue: 0
+        },
+        ProfStatusId: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            validate: {
+                notEmpty: { msg: "Status is required." }
+            }
         }
     }, {
         timestamps: true
