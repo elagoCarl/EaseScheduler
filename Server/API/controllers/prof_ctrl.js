@@ -120,7 +120,7 @@ const getAllProf = async (req, res, next) => {
             count: formattedProfessors.length,
             data: formattedProfessors
         });
-    } 
+    }
     catch (err) {
         return res.status(500).json({
             successful: false,
@@ -132,36 +132,36 @@ const getAllProf = async (req, res, next) => {
 
 const getProf = async (req, res) => {
     try {
-      const professor = await Professor.findByPk(req.params.id, {
-        include: [
-          {
-            model: ProfStatus,
-            attributes: ['id', 'Status'], // Include the status ID and name
-          },
-        ],
-      });
-  
-      if (!professor) {
-        return res.status(404).json({ message: "Professor not found" });
-      }
-  
-      res.status(200).json({
-        message: "Professor retrieved successfully",
-        data: {
-          id: professor.id,
-          Name: professor.Name,
-          Email: professor.Email,
-          Total_units: professor.Total_units,
-          Status: professor.ProfStatus ? professor.ProfStatus.Status : null,
-          StatusId: professor.ProfStatus ? professor.ProfStatus.id : null, // Add Status ID
-        },
-      });
+        const professor = await Professor.findByPk(req.params.id, {
+            include: [
+                {
+                    model: ProfStatus,
+                    attributes: ['id', 'Status'], // Include the status ID and name
+                },
+            ],
+        });
+
+        if (!professor) {
+            return res.status(404).json({ message: "Professor not found" });
+        }
+
+        res.status(200).json({
+            message: "Professor retrieved successfully",
+            data: {
+                id: professor.id,
+                Name: professor.Name,
+                Email: professor.Email,
+                Total_units: professor.Total_units,
+                Status: professor.ProfStatus ? professor.ProfStatus.Status : null,
+                StatusId: professor.ProfStatus ? professor.ProfStatus.id : null, // Add Status ID
+            },
+        });
     } catch (error) {
-      console.error("Error retrieving professor:", error);
-      res.status(500).json({ message: "Internal server error" });
+        console.error("Error retrieving professor:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
-  };
-  
+};
+
 
 
 const deleteProf = async (req, res, next) => {
@@ -218,7 +218,7 @@ const updateProf = async (req, res, next) => {
         let prof = await Professor.findByPk(req.params.id)
         const { name, email, ProfStatusId } = req.body
         console.log("req.body:", name, email, ProfStatusId)
-        console.log("req.body: ",req.body)
+        console.log("req.body: ", req.body)
 
         if (!prof) {
             res.status(404).send({
@@ -243,12 +243,12 @@ const updateProf = async (req, res, next) => {
         }
 
         const status = await ProfStatus.findByPk(ProfStatusId);
-            if (!status) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Professor status not found."
-                })
-            }
+        if (!status) {
+            return res.status(406).json({
+                successful: false,
+                message: "Professor status not found."
+            })
+        }
 
         if (email !== prof.Email) {
             const emailConflict = await Professor.findOne({ where: { email: email } })
@@ -290,23 +290,18 @@ const updateProf = async (req, res, next) => {
 
 const addCourseProf = async (req, res) => {
     try {
-        const { courseId, profId } = req.body;
+        // Expect courseIds as an array and a single professor ID
+        const { courseIds, profId } = req.body;
 
-        if (!util.checkMandatoryFields([courseId, profId])) {
+        // Validate mandatory fields and that courseIds is a non-empty array
+        if (!util.checkMandatoryFields([courseIds, profId]) || !Array.isArray(courseIds) || courseIds.length === 0) {
             return res.status(400).json({
                 successful: false,
-                message: "A mandatory field is missing."
+                message: "Mandatory fields missing or courseIds must be a non-empty array."
             });
         }
 
-        const course = await Course.findByPk(courseId);
-        if (!course) {
-            return res.status(404).json({
-                successful: false,
-                message: "Course not found."
-            });
-        }
-
+        // Check that the professor exists
         const prof = await Professor.findByPk(profId);
         if (!prof) {
             return res.status(404).json({
@@ -315,40 +310,60 @@ const addCourseProf = async (req, res) => {
             });
         }
 
+        // Check that the professor has a valid status
         const status = await ProfStatus.findByPk(prof.ProfStatusId);
         if (!status) {
             return res.status(404).json({
                 successful: false,
                 message: "Professor status not found."
-            })
-        }
-
-        const existingPairing = await course.hasCourseProfs(profId);
-        if (existingPairing) {
-            return res.status(400).json({
-                successful: false,
-                message: "This course is already associated with this professor."
             });
         }
 
-        const newTotalUnits = prof.Total_units + course.Units
-        if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-            return res.status(400).send({
-                successful: false,
-                message: `Professor ${prof.Name} has exceeded the total units limit.`
-            })
+        let totalUnitsToAdd = 0;
+        const coursesToAssociate = [];
+
+        // Validate each course and check if it's already associated
+        for (const courseId of courseIds) {
+            const course = await Course.findByPk(courseId);
+            if (!course) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Course with id ${courseId} not found.`
+                });
+            }
+
+            // Use the singular accessor for a single professor check
+            const alreadyAssociated = await course.hasCourseProf(profId);
+            if (alreadyAssociated) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Course with id ${courseId} is already associated with this professor.`
+                });
+            }
+
+            totalUnitsToAdd += course.Units;
+            coursesToAssociate.push(course);
         }
 
-        await prof.update({
-            Total_units: newTotalUnits
-        })
+        // Check that the total new units will not exceed the limit
+        const newTotalUnits = prof.Total_units + totalUnitsToAdd;
 
-        // Create the association
-        await course.addCourseProfs(profId);
+        // if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
+        //     return res.status(400).json({
+        //         successful: false,
+        //         message: `Professor ${prof.Name} would exceed the total units limit with these courses.`
+        //     });
+        // }
+
+        // Update the professor's total units
+        await prof.update({ Total_units: newTotalUnits });
+
+        // Bulk create the associations.
+        await prof.addProfCourses(coursesToAssociate);
 
         return res.status(200).json({
             successful: true,
-            message: "Successfully associated course with professor."
+            message: "Successfully associated courses with professor."
         });
     } catch (err) {
         return res.status(500).json({
@@ -356,7 +371,9 @@ const addCourseProf = async (req, res) => {
             message: err.message || "An unexpected error occurred."
         });
     }
-}
+};
+
+
 
 const deleteCourseProf = async (req, res) => {
     try {
