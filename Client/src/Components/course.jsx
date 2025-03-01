@@ -11,6 +11,8 @@ import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import Axios from 'axios';
 
+const deptId = 1;
+
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
@@ -229,6 +231,9 @@ const handleConfirmDelete = async () => {
                     Type
                   </th>
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Year Level
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
                     <input
                       type="checkbox"
                       checked={isAllChecked}
@@ -259,6 +264,9 @@ const handleConfirmDelete = async () => {
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
                       {course.Type}
+                    </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      {course.Year}
                     </td>
                     <td className="py-2 border border-gray-300">
                       <input
