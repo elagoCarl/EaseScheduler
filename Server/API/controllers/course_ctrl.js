@@ -23,7 +23,7 @@ const addCourse = async (req, res) => {
     const addedCourses = [];
 
     for (const course of courses) {
-      const { Code, Description, Duration, Units, Type, Dept_id } = course;
+      const { Code, Description, Duration, Units, Type, Dept_id, Year } = course;
 
       // Validate mandatory fields
       if (
@@ -34,6 +34,7 @@ const addCourse = async (req, res) => {
           Units,
           Type,
           Dept_id,
+          Year
         ])
       ) {
         return res.status(400).json({
@@ -88,6 +89,7 @@ const addCourse = async (req, res) => {
         Duration,
         Units,
         Type,
+        Year
       });
 
       if (Type === "Professional") {
@@ -211,7 +213,7 @@ const updateCourse = async (req, res) => {
   try {
     // Find course by primary key
     const course = await Course.findByPk(req.params.id);
-    const { Code, Description, Duration, Units, Type } = req.body;
+    const { Code, Description, Duration, Units, Type, Year } = req.body;
 
     // Check if course exists
     if (!course) {
@@ -223,7 +225,7 @@ const updateCourse = async (req, res) => {
 
     // Validate mandatory fields
     if (
-      !util.checkMandatoryFields([Code, Description, Duration, Units, Type])
+      !util.checkMandatoryFields([Code, Description, Duration, Units, Type, Year])
     ) {
       return res.status(400).json({
         successful: false,
@@ -285,6 +287,7 @@ const updateCourse = async (req, res) => {
       Duration: course.Duration,
       Units: course.Units,
       Type: course.Type,
+      Year: course.Year
     };
 
     // Update course details
@@ -294,6 +297,7 @@ const updateCourse = async (req, res) => {
       Duration,
       Units,
       Type,
+      Year
     });
 
     // Log the archive action

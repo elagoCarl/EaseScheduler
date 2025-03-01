@@ -138,9 +138,9 @@ const AddRoomModal = ({ isOpen, onClose }) => {
     );
 };
 
-AddRoomModal.propTypes = {
-    isOpen: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired,
-};
+// AddRoomModal.propTypes = {
+//     isOpen: PropTypes.bool.isRequired,
+//     onClose: PropTypes.func.isRequired,
+// };
 
 export default AddRoomModal;

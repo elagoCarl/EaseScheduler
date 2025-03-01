@@ -23,6 +23,12 @@ module.exports = (sequelize, DataTypes) => {
         Program.hasMany(models.ProgYrSec, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
+        }),
+        Program.belongsToMany(models.Course, {
+            through: 'CourseProg',
+            as: 'ProgCourses',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
         })
     }
     

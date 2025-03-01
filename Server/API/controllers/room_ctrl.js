@@ -151,12 +151,8 @@ const deleteRoom = async (req, res, next) => {
 
         await addHistoryLog(accountId, page, details);
 
-        // Delete the professor record
-        const deleteProf = await Professor.destroy({
-            where: {
-                id: req.params.id, // Replace with the ID of the record you want to delete
-            },
-        });
+        const deleteRoom = await room.destroy();
+        
         if (deleteRoom) {
             res.status(200).send({
                 successful: true,

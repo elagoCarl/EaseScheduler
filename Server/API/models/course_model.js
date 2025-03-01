@@ -33,7 +33,13 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Course type is required." }
             }
-        }
+        },
+        Year: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            max: 4,
+            min: 1
+        }   
     }, {
         timestamps: true
     });
@@ -41,6 +47,12 @@ module.exports = (sequelize, DataTypes) => {
         Course.belongsToMany(models.Professor, {
             through: 'CourseProf',
             as: 'CourseProfs',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        }),
+        Course.belongsToMany(models.Program, {
+            through: 'CourseProg',
+            as: 'CourseProgs',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         }),

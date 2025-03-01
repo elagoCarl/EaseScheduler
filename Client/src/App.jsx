@@ -10,7 +10,6 @@ import Room from "./Components/room";
 import Course from "./Components/course";
 import ProfAvailability from "./Components/profAvailability";
 import Professor from "./Components/professor";
-import AssignSubjToProf from "./Components/assignSubjtoProf";
 import AddConfigSchedule from "./Components/addConfigSchedule";
 import OTPVerification from "./Components/otpVerification";
 import ForgotPass from "./Components/forgotPass";
@@ -18,7 +17,6 @@ import RoomTimetable from "./Components/roomTimetable";
 import ProfTimetable from "./Components/profTimetable";
 import SectionTimetable from "./Components/sectionTimetable";
 import AccountList from "./Components/accountList";
-import AddRoomModal from "./Components/callComponents/addRoomModal";
 import AssignedCoursesProf from "./Components/assignedCoursesProf";
 
 const App = () => {
@@ -38,7 +36,6 @@ const App = () => {
         <Route path="/profAvailability" element={<ProfAvailability />} />
         <Route path="/course" element={<Course />} />
         <Route path="/professor" element={<Professor />} />
-        <Route path="/assignSubjtoProf" element={<AssignSubjToProf />} />
         <Route path="/addConfigSchedule" element={<AddConfigSchedule />} />
         <Route path="/otpVerification" element={<OTPVerification />} />
         <Route path="/forgotPassPage" element={<ForgotPass />} />
@@ -46,7 +43,6 @@ const App = () => {
         <Route path="/profTimetable" element={<ProfTimetable />} />
         <Route path="/sectionTimetable" element={<SectionTimetable />} />
         <Route path="/accountList" element={<AccountList />} />
-        <Route path="/addRoomModal" element={<AddRoomModal />} />
         <Route path="/assignedCoursesProf" element={<AssignedCoursesProf />} />
       </Routes>
     </Router>
