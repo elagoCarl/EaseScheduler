@@ -13,10 +13,6 @@ module.exports = (sequelize, DataTypes) => {
         Semester: {
             type: DataTypes.STRING,
             allowNull: false
-        },
-        Block: {
-            type: DataTypes.STRING,
-            allowNull: false
         }
     }, {
         timestamps: true

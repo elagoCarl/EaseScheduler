@@ -44,12 +44,6 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true
     });
     Course.associate = (models) => {
-        Course.belongsToMany(models.Professor, {
-            through: 'CourseProf',
-            as: 'CourseProfs',
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
-        }),
         Course.belongsToMany(models.Program, {
             through: 'CourseProg',
             as: 'CourseProgs',
