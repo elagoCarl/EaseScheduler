@@ -39,7 +39,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             max: 4,
             min: 1
-        }   
+        }
     }, {
         timestamps: true
     });
@@ -49,18 +49,29 @@ module.exports = (sequelize, DataTypes) => {
             as: 'CourseProgs',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        }),
-        Course.belongsToMany(models.Professor, { through: 'Assignation' }),
-        Course.belongsToMany(models.Department, { through: 'Assignation' }),
-        Course.hasMany(models.Assignation),
-        Course.belongsToMany(models.Department, { 
+        });
+        // Change this relationship definition
+        Course.belongsToMany(models.Professor, {
+            through: models.Assignation,  // Use the model reference
+            foreignKey: 'CourseId',
+            uniqueKey: false
+        });
+        Course.belongsToMany(models.Department, {
+            through: models.Assignation,  // Use the model reference
+            foreignKey: 'CourseId',
+            uniqueKey: false
+        });
+        Course.belongsToMany(models.Department, {
             through: 'DeptCourse',
             as: 'CourseDepts',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        })
+        });
+        Course.hasMany(models.Assignation, {
+            foreignKey: 'CourseId'
+        });
     }
-    
+
 
     return Course
 }

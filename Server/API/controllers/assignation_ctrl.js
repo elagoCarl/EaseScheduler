@@ -1,14 +1,10 @@
 const { Assignation, Course, Professor, Department, ProfStatus } = require('../models');
-const { Op } = require('sequelize');
+const { Op, ValidationError } = require('sequelize');
 const util = require('../../utils');
 
 const isExceedingUnitLimit = (Max_units, newTotalUnits) => {
     return newTotalUnits > (Max_units || 0);
 }
-
-// Add Assignation
-const { ValidationError } = require('sequelize'); // Import Sequelize's ValidationError
-
 const addAssignation = async (req, res, next) => {
     try {
         let assignations = req.body;
@@ -22,7 +18,7 @@ const addAssignation = async (req, res, next) => {
         for (let assignation of assignations) {
             const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = assignation;
 
-            // Use util to check mandatory fields
+            // Check mandatory fields
             if (!util.checkMandatoryFields([School_Year, Semester, CourseId, ProfessorId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
@@ -32,27 +28,38 @@ const addAssignation = async (req, res, next) => {
 
             // Validate Course
             const course = await Course.findByPk(CourseId);
-            if (!course) continue; // Skip if Course is not found
+            if (!course) {
+                return res.status(404).json({ successful: false, message: "Course not found." });
+            }
 
             // Validate Professor
             const professor = await Professor.findByPk(ProfessorId);
-            if (!professor) continue; // Skip if Professor is not found
+            if (!professor) {
+                return res.status(404).json({ successful: false, message: "Professor not found." });
+            }
 
             // Validate Department
             const department = await Department.findByPk(DepartmentId);
-            if (!department) continue; // Skip if Department is not found
+            if (!department) {
+                return res.status(404).json({ successful: false, message: "Department not found." });
+            }
 
             // Check for duplicate assignation based on schedule
             const existingAssignation = await Assignation.findOne({
                 where: { School_Year, Semester, CourseId, ProfessorId, DepartmentId },
             });
 
-            if (existingAssignation) continue; // Skip if duplicate exists
+            if (existingAssignation) {
+                return res.status(400).json({ 
+                    successful: false, 
+                    message: "An assignation with the same details already exists." 
+                });
+            }
 
             // Get professor's status to check unit limits
             const status = await ProfStatus.findByPk(professor.ProfStatusId);
             if (!status) {
-                continue; // Skip if Professor status not found
+                return res.status(404).json({ successful: false, message: "Professor status not found." });
             }
 
             // Calculate new total units
@@ -61,13 +68,10 @@ const addAssignation = async (req, res, next) => {
 
             // Check that the total new units will not exceed the limit
             if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-                continue; // Skip if this would exceed the professor's unit limit
-            }
-
-            // Ensure CourseProf association exists
-            const courseProfExists = await course.hasCourseProf(professor);
-            if (!courseProfExists) {
-                await course.addCourseProf(professor);
+                return res.status(400).json({
+                    successful: false,
+                    message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
+                });
             }
 
             // Update professor's Total_units with the new calculated value
@@ -100,6 +104,19 @@ const addAssignation = async (req, res, next) => {
         });
 
     } catch (error) {
+        console.error("Error in addAssignation:", error);
+        
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                successful: false,
+                message: "Validation Error: One or more fields failed validation.",
+                errors: error.errors.map(err => ({
+                    field: err.path,
+                    message: err.message
+                })),
+            });
+        }
+        
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while creating assignations.",
