@@ -36,11 +36,22 @@ module.exports = (sequelize, DataTypes) => {
         Professor.hasMany(models.ProfAvail, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        }),
-        Professor.belongsToMany(models.Course, { through: 'Assignation' }),
-        Professor.belongsToMany(models.Department, { through: 'Assignation' }),
-        Professor.hasMany(models.Assignation);
-        Professor.belongsTo(models.ProfStatus)
+        });
+        // Change this relationship definition
+        Professor.belongsToMany(models.Course, {
+            through: models.Assignation,  // Use the model reference
+            foreignKey: 'ProfessorId',
+            uniqueKey: false
+        });
+        Professor.belongsToMany(models.Department, {
+            through: models.Assignation,  // Use the model reference
+            foreignKey: 'ProfessorId',
+            uniqueKey: false
+        });
+        Professor.hasMany(models.Assignation, {
+            foreignKey: 'ProfessorId'
+        });
+        Professor.belongsTo(models.ProfStatus);
     }
     return Professor
 }
