@@ -48,7 +48,7 @@ const App = () => {
         <Route path="/accountList" element={<AccountList />} />
         <Route path="/assignedCoursesProf" element={<AssignedCoursesProf />} />
 
-        {/**ERROR Routes Handling */}
+        {/**ERROR handling routes */}
         <Route path="*" element={<Page404/>} />
         <Route path="/403" element={<Page403/>} />
       </Routes>
