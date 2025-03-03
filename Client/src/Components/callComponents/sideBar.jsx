@@ -5,7 +5,6 @@ import PropTypes from 'prop-types';
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
-
   const [activeSection, setActiveSection] = useState(null);
 
   useEffect(() => {
@@ -28,6 +27,26 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     setActiveSection(activeSection === section ? null : section);
   };
 
+  // Logout handler that calls the logout API endpoint
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/accounts/logoutAccount', {
+        method: 'POST',
+        credentials: 'include', // ensure cookies are sent
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      if (data.successful) {
+        navigate('/loginPage');
+      } else {
+        console.error('Logout failed:', data.message);
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+    toggleSidebar(false);
+  };
+
   return (
     <div ref={sidebarRef}
       className={`fixed right-0 xs:right-0 min-h-screen bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
@@ -37,7 +56,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         className="xl:text-md md:text-lg font-bold text-blue-500 relative"
         onClick={() => navigate('/homePage')}
       >
-        EASE<span className="text-white ">SCHEDULER</span>
+        EASE<span className="text-white">SCHEDULER</span>
       </button>
 
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-4 md:py-15">
@@ -68,11 +87,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             viewBox="0 0 24 24"
             strokeWidth="5"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         <div
@@ -134,11 +149,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             viewBox="0 0 24 24"
             strokeWidth="5"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         <div
@@ -208,11 +219,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             viewBox="0 0 24 24"
             strokeWidth="5"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         <div
@@ -248,10 +255,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </button>
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/');
-              toggleSidebar(false);
-            }}
+            onClick={handleLogout}
           >
             Logout
           </button>
@@ -260,6 +264,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     </div>
   );
 };
+
 Sidebar.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   toggleSidebar: PropTypes.func.isRequired,

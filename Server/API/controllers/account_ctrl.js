@@ -612,6 +612,50 @@ const getAllAccounts = async (req, res) => {
 };
 
 
+const logoutAccount = async (req, res, next) => {
+    try {
+        const refreshToken = req.cookies.refreshToken;
+        if (!refreshToken) {
+            return res.status(400).json({
+                successful: false,
+                message: "Refresh token missing."
+            });
+        }
+
+        // Decode the token without verifying its signature
+        const decodedToken = jwt.decode(refreshToken);
+        if (!decodedToken || !decodedToken.id) {
+            return res.status(400).json({
+                successful: false,
+                message: "Invalid token."
+            });
+        }
+
+        // Extract the user ID from the decoded token
+        const userId = decodedToken.id;
+        console.log(`User ID from refresh token: ${userId}`);
+
+        // Remove all session records associated with the user account
+        await Session.destroy({ where: { AccountId: userId } });
+
+        // Clear the JWT and refreshToken cookies by setting their maxAge to 1 millisecond
+        res.cookie('jwt', '', { maxAge: 1 });
+        res.cookie('refreshToken', '', { maxAge: 1 });
+
+        // Send success response
+        res.status(200).json({
+            successful: true,
+            message: "Successfully logged out."
+        });
+    } catch (error) {
+        console.error("Error logging out:", error);
+        res.status(500).json({
+            successful: false,
+            message: "Internal server error"
+        });
+    }
+};
+
 module.exports = {
     addAccount,
     getAccountById,
@@ -621,5 +665,6 @@ module.exports = {
     verifyAccountOTP,
     changePassword,
     forgotPass,
-    getAllAccounts
+    getAllAccounts,
+    logoutAccount
 };

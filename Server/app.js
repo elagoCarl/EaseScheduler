@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
-// const cookieParser = require('cookie-parser');
+const cookieParser = require('cookie-parser');
 require('dotenv').config()
 
 //INITIALIZE EXPRESS APPLICATION AND STORE TO app
@@ -37,7 +37,7 @@ app.use((req, res, next) => {
 //TO LOG CLIENT REQUEST-RESPONSE DATA IN A DEV ENVIRONMENT
 app.use(morgan('dev'));
 app.use(express.json())
-// app.use(cookieParser());
+app.use(cookieParser());
 
 //PARSE DATA THAT ARE URLENCODED
 //content-type: application/x-www-form-urlencoded
