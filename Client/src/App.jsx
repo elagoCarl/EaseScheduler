@@ -18,6 +18,9 @@ import ProfTimetable from "./Components/profTimetable";
 import SectionTimetable from "./Components/sectionTimetable";
 import AccountList from "./Components/accountList";
 import AssignedCoursesProf from "./Components/assignedCoursesProf";
+import Page404 from "./Components/page404";
+import Page403 from "./Components/page403";
+
 
 const App = () => {
   return (
@@ -44,6 +47,10 @@ const App = () => {
         <Route path="/sectionTimetable" element={<SectionTimetable />} />
         <Route path="/accountList" element={<AccountList />} />
         <Route path="/assignedCoursesProf" element={<AssignedCoursesProf />} />
+
+        {/**ERROR Routes Handling */}
+        <Route path="*" element={<Page404/>} />
+        <Route path="/403" element={<Page403/>} />
       </Routes>
     </Router>
   );
