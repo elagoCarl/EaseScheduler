@@ -1,10 +1,7 @@
-const { Professor, Course, ProfStatus } = require('../models')
+const { Professor, ProfStatus } = require('../models')
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
-const isExceedingUnitLimit = (Max_units, newTotalUnits) => {
-    return newTotalUnits > (Max_units || 0);
-}
 
 const addProf = async (req, res, next) => {
     try {
@@ -146,23 +143,17 @@ const getProf = async (req, res) => {
         }
 
         res.status(200).json({
+            successful: true,
             message: "Professor retrieved successfully",
-            data: {
-                id: professor.id,
-                Name: professor.Name,
-                Email: professor.Email,
-                Total_units: professor.Total_units,
-                Status: professor.ProfStatus ? professor.ProfStatus.Status : null,
-                StatusId: professor.ProfStatus ? professor.ProfStatus.id : null, // Add Status ID
-            },
+            data: professor
         });
     } catch (error) {
-        console.error("Error retrieving professor:", error);
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ 
+            successful: false, 
+            message: error.message 
+        });
     }
 };
-
-
 
 const deleteProf = async (req, res, next) => {
     try {
@@ -288,303 +279,10 @@ const updateProf = async (req, res, next) => {
     }
 }
 
-const addCourseProf = async (req, res) => {
-    try {
-        // Expect courseIds as an array and a single professor ID
-        const { courseIds, profId } = req.body;
-
-        // Validate mandatory fields and that courseIds is a non-empty array
-        if (!util.checkMandatoryFields([courseIds, profId]) || !Array.isArray(courseIds) || courseIds.length === 0) {
-            return res.status(400).json({
-                successful: false,
-                message: "Mandatory fields missing or courseIds must be a non-empty array."
-            });
-        }
-
-        // Check that the professor exists
-        const prof = await Professor.findByPk(profId);
-        if (!prof) {
-            return res.status(404).json({
-                successful: false,
-                message: "Professor not found."
-            });
-        }
-
-        // Check that the professor has a valid status
-        const status = await ProfStatus.findByPk(prof.ProfStatusId);
-        if (!status) {
-            return res.status(404).json({
-                successful: false,
-                message: "Professor status not found."
-            });
-        }
-
-        let totalUnitsToAdd = 0;
-        const coursesToAssociate = [];
-
-        // Validate each course and check if it's already associated
-        for (const courseId of courseIds) {
-            const course = await Course.findByPk(courseId);
-            if (!course) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Course with id ${courseId} not found.`
-                });
-            }
-
-            // Use the singular accessor for a single professor check
-            const alreadyAssociated = await course.hasCourseProf(profId);
-            if (alreadyAssociated) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Course with id ${courseId} is already associated with this professor.`
-                });
-            }
-
-            totalUnitsToAdd += course.Units;
-            coursesToAssociate.push(course);
-        }
-
-        // Check that the total new units will not exceed the limit
-        const newTotalUnits = prof.Total_units + totalUnitsToAdd;
-
-        // if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-        //     return res.status(400).json({
-        //         successful: false,
-        //         message: `Professor ${prof.Name} would exceed the total units limit with these courses.`
-        //     });
-        // }
-
-        // Update the professor's total units
-        await prof.update({ Total_units: newTotalUnits });
-
-        // Bulk create the associations.
-        await prof.addProfCourses(coursesToAssociate);
-
-        return res.status(200).json({
-            successful: true,
-            message: "Successfully associated courses with professor."
-        });
-    } catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        });
-    }
-};
-
-
-
-const deleteCourseProf = async (req, res) => {
-    try {
-        const { courseId, profId } = req.body;
-
-        if (!util.checkMandatoryFields([courseId, profId])) {
-            return res.status(400).json({
-                successful: false,
-                message: "A mandatory field is missing."
-            });
-        }
-
-        const course = await Course.findByPk(courseId);
-        if (!course) {
-            return res.status(404).json({
-                successful: false,
-                message: "Course not found."
-            });
-        }
-
-        const prof = await Professor.findByPk(profId);
-        if (!prof) {
-            return res.status(404).json({
-                successful: false,
-                message: "Professor not found."
-            });
-        }
-
-        const existingAssociation = await course.hasCourseProfs(profId)
-        if (!existingAssociation) {
-            return res.status(404).json({
-                successful: false,
-                message: "Association between the course and professor does not exist."
-            });
-        }
-
-        const newTotalUnits = prof.Total_units - course.Units
-
-        await prof.update({
-            Total_units: newTotalUnits
-        })
-
-        await course.removeCourseProfs(profId);
-
-        return res.status(200).json({
-            successful: true,
-            message: "Successfully deleted association."
-        });
-    } catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        });
-    }
-}
-
-const getProfsByCourse = async (req, res, next) => {
-    try {
-        const courseId = req.params.id
-        const profs = await Professor.findAll({
-            attributes: { exclude: ['ProfCourses'] }, // Exclude ProfCourses field
-            include: {
-                model: Course,
-                as: 'ProfCourses',
-                where: {
-                    id: courseId,
-                },
-                attributes: [],
-                through: {
-                    attributes: []
-                }
-            }
-        })
-        if (!profs || profs.length === 0) {
-            res.status(200).send({
-                successful: true,
-                message: "No professor found",
-                count: 0,
-                data: []
-            })
-        }
-        else {
-            res.status(200).send({
-                successful: true,
-                message: "Retrieved all professors",
-                count: profs.length,
-                data: profs
-            })
-        }
-    }
-    catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        })
-    }
-}
-
-const updateCourseProf = async (req, res, next) => {
-    try {
-        const { oldCourseId, oldProfId, newCourseId, newProfId } = req.body;
-
-        // Validate input
-        if (!util.checkMandatoryFields([oldCourseId, oldProfId, newCourseId, newProfId])) {
-            return res.status(400).json({
-                successful: false,
-                message: "A mandatory field is missing."
-            });
-        }
-
-        const oldCourse = await Course.findByPk(oldCourseId);
-        if (!oldCourse) {
-            return res.status(404).json({
-                successful: false,
-                message: "Course not found."
-            });
-        }
-
-        const oldProf = await Professor.findByPk(oldProfId);
-        if (!oldProf) {
-            return res.status(404).json({
-                successful: false,
-                message: "Professor not found."
-            });
-        }
-
-        const newCourse = await Course.findByPk(newCourseId);
-        if (!newCourse) {
-            return res.status(404).json({
-                successful: false,
-                message: "Course not found."
-            });
-        }
-
-        let newProf = await Professor.findByPk(newProfId);
-        if (!newProf) {
-            return res.status(404).json({
-                successful: false,
-                message: "Professor not found."
-            });
-        }
-
-        const existingAssociation = await oldCourse.hasCourseProfs(oldProfId)
-        if (!existingAssociation) {
-            return res.status(404).json({
-                successful: false,
-                message: "Association between the course and professor does not exist."
-            });
-        }
-
-        const existingPairing = await newCourse.hasCourseProfs(newProfId);
-        if (existingPairing) {
-            return res.status(400).json({
-                successful: false,
-                message: "This course is already associated with this professor."
-            });
-        }
-
-        const status = await ProfStatus.findByPk(newProf.ProfStatusId);
-        if (!status) {
-            return res.status(404).json({
-                successful: false,
-                message: "Professor status not found."
-            })
-        }
-
-        const decUnits = oldProf.Total_units - oldCourse.Units
-        await oldProf.update({
-            Total_units: decUnits
-        })
-        newProf = await Professor.findByPk(newProfId)
-
-        const incUnits = newProf.Total_units + newCourse.Units
-        if (isExceedingUnitLimit(status.Max_units, incUnits)) {
-            const prevUnits = decUnits + oldCourse.Units
-            await oldProf.update({
-                Total_units: prevUnits
-            })
-            return res.status(400).send({
-                successful: false,
-                message: `Professor ${newProf.Name} has exceeded the total units limit.`
-            })
-        }
-        await newProf.update({
-            Total_units: incUnits
-        })
-
-        await oldProf.removeProfCourses(oldCourseId)
-        await newProf.addProfCourses(newCourseId)
-
-        return res.status(200).json({
-            successful: true,
-            message: "Association updated successfully."
-        });
-    } catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        });
-    }
-}
-
-
 module.exports = {
     addProf,
     getAllProf,
     getProf,
     deleteProf,
-    updateProf,
-    addCourseProf,
-    deleteCourseProf,
-    getProfsByCourse,
-    updateCourseProf
+    updateProf
 }

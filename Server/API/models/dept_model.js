@@ -11,25 +11,36 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true
     });
     Department.associate = (models) => {
-        Department.belongsToMany(models.Course, { 
+        Department.belongsToMany(models.Course, {
             through: 'DeptCourse',
             as: 'DeptCourses',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        }),
-        Department.belongsToMany(models.Professor, { through: 'Assignation' }),
-        Department.belongsToMany(models.Course, { through: 'Assignation' }),
-        Department.hasMany(models.Assignation),
+        });
+        // Change this relationship definition
+        Department.belongsToMany(models.Professor, {
+            through: models.Assignation,  // Use the model reference
+            foreignKey: 'DepartmentId',
+            uniqueKey: false
+        });
+        Department.belongsToMany(models.Course, {
+            through: models.Assignation,  // Use the model reference
+            foreignKey: 'DepartmentId',
+            uniqueKey: false
+        });
         Department.hasMany(models.Program, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        }),
+        });
         Department.belongsToMany(models.Room, {
             through: 'DeptRoom',
             as: 'DeptRooms',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        })
+        });
+        Department.hasMany(models.Assignation, {
+            foreignKey: 'DepartmentId'
+        });
     }
 
     return Department

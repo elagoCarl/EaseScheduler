@@ -11,6 +11,8 @@ import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import Axios from 'axios';
 
+const deptId = 1;
+
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
@@ -26,6 +28,7 @@ const Course = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [courses, setCourses] = useState([]); // Initialize as an empty array
+  const [updateTrigger, setUpdateTrigger] = useState(false); // 🔹 Trigger refetch
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
@@ -50,7 +53,8 @@ const Course = () => {
  useEffect(() => {
   fetchCourse();
   console.log("Fetching courses...");
-}, []);
+}, [updateTrigger]);
+
 
 useEffect(() => {
   if (courses.length > 0) {
@@ -59,28 +63,29 @@ useEffect(() => {
 }, [courses]); // 🔹 Removed success message here
 
 const handleDeleteCourse = async (courseId) => {
-  if (!courseId) {
-    console.error("Invalid course ID:", courseId);
-    return;
-  }
+  if (!courseId) return;
 
   try {
-    console.log("Deleting course with ID:", courseId);
     const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${courseId}`);
-
     if (response.data.successful) {
-      console.log("Course deleted successfully!");
-
-      // 🔹 Instead of re-fetching, update state directly
-      setCourses((prevCourses) => prevCourses.filter((c) => c.id !== courseId));
-
-    } else {
-      console.log("Failed to delete course: " + response.data.message);
+      setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
     }
   } catch (error) {
-    console.error("Error deleting course:", error.response ? error.response.data : error.message);
+    console.error("Error deleting course:", error);
   }
 };
+
+  const handleAddCourse = async (newCourse) => {
+  try {
+    const response = await Axios.post("http://localhost:8080/course/addCourse", newCourse);
+    if (response.data.successful) {
+      setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
+    }
+  } catch (error) {
+    console.error("Error adding course:", error);
+  }
+};
+
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
@@ -136,7 +141,7 @@ const handleEditCourseClick = (course) => {
 };
 
 
-  const handleConfirmDelete = async () => {
+const handleConfirmDelete = async () => {
   if (!courseToDelete || courseToDelete.length === 0) {
     console.error("No courses selected for deletion.");
     return;
@@ -153,8 +158,10 @@ const handleEditCourseClick = (course) => {
 
     console.log("Selected courses deleted successfully!");
 
-    // 🔄 Update the state instead of refreshing the page
-    fetchCourse();
+    // ✅ Update state directly without calling fetchCourse()
+    setCourses((prevCourses) =>
+      prevCourses.filter((course) => !courseToDelete.some((del) => del.id === course.id))
+    );
 
     // Reset states
     setCheckboxes(Array(courses.length).fill(false));
@@ -224,6 +231,9 @@ const handleEditCourseClick = (course) => {
                     Type
                   </th>
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                    Year Level
+                  </th>
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
                     <input
                       type="checkbox"
                       checked={isAllChecked}
@@ -254,6 +264,9 @@ const handleEditCourseClick = (course) => {
                     </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
                       {course.Type}
+                    </td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      {course.Year}
                     </td>
                     <td className="py-2 border border-gray-300">
                       <input
@@ -313,6 +326,7 @@ const handleEditCourseClick = (course) => {
       <AddCourseModal
         isOpen={isAddCourseModalOpen}
         onClose={handleAddCourseCloseModal}
+        fetchCourse={fetchCourse} // Refresh courses after adding
       />
       {/* Edit Course Modal */}
       <EditCourseModal
@@ -327,6 +341,7 @@ const handleEditCourseClick = (course) => {
         onClose={() => setIsDeleteWarningOpen(false)}
         onConfirm={handleConfirmDelete}
         coursesToDelete={courseToDelete} // Pass selected courses for context
+        fetchCourse={fetchCourse} // Refresh courses after deleting
       />
     </div>
   );

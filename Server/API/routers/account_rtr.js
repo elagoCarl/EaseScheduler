@@ -10,6 +10,7 @@ router.post('/sendOTPverification', account_ctrl.sendOTPVerificationEmail)
 router.post('/verifyAccountOTP', account_ctrl.verifyAccountOTP);
 router.put('/changePassword', account_ctrl.changePassword)
 router.post('/forgotPass', account_ctrl.forgotPass)
+router.post('/logoutAccount', account_ctrl.logoutAccount)
 router.get('/test', (req, res) => res.status(200).json({ message: "Test endpoint works" }));
 
 

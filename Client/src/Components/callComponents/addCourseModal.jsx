@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Axios from 'axios';
 
-const AddCourseModal = ({ isOpen, onClose }) => {
+const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   const [courseCode, setCourseCode] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseDuration, setCourseDuration] = useState("");
@@ -37,6 +37,8 @@ const AddCourseModal = ({ isOpen, onClose }) => {
       // Handle successful response
       if (response.data.successful) {
         setSuccessMessage("Course Added Successfully! Reloading page...");
+        fetchCourse();
+        onClose();
       }
 
       else {
