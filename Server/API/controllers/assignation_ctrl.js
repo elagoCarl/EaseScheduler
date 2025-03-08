@@ -31,7 +31,7 @@ const addAssignation = async (req, res, next) => {
             // Validate Course
             const course = await Course.findByPk(CourseId);
             if (!course) continue; // Skip if Course is not found
-
+    
             // Validate Professor
             const professor = await Professor.findByPk(ProfessorId);
             if (!professor) continue; // Skip if Professor is not found
@@ -74,7 +74,7 @@ const addAssignation = async (req, res, next) => {
         if (createdAssignations.length === 0) {
             return res.status(400).json({
                 successful: false,
-                message: "No assignations were created. Check for missing fields or duplicates.",
+                message: "No assignations were created. Check for missing fields, duplicates or id does not exist.",
             });
         }
 

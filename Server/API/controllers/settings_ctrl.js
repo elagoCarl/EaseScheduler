@@ -3,15 +3,15 @@ const util = require('../../utils');
 
 const addSettings = async (req, res, next) => {
     try {
-        const { MaxCourseDuration, MaxBreakDuration } = req.body;
+        const { StartHour, EndHour } = req.body;
 
-        if (!util.checkMandatoryFields([MaxCourseDuration, MaxBreakDuration])) {
+        if (!util.checkMandatoryFields([ StartHour, EndHour ])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing.",
             })
         }
-        await Settings.create({ MaxCourseDuration, MaxBreakDuration });
+        await Settings.create({ StartHour, EndHour });
 
         return res.status(201).json({
             successful: true,
@@ -51,7 +51,14 @@ const getSettings = async (req, res, next) => {
 
 const updateSettings = async (req, res, next) => {
     try {
-        const { MaxCourseDuration, MaxBreakDuration } = req.body
+        const { StartHour, EndHour } = req.body
+
+        if (StartHour < 0 || StartHour > 23 || EndHour < 0 || EndHour > 23 || StartHour >= EndHour) {
+            return res.status(400).json({
+                successful: false,
+                message: 'Invalid StartHour or EndHour. Ensure StartHour is before EndHour and within 0-23 range.',
+            });
+        }
 
         const settings = await Settings.findByPk(1);
         if (!settings) {
@@ -61,7 +68,7 @@ const updateSettings = async (req, res, next) => {
             });
         }
 
-        await settings.update({MaxCourseDuration, MaxBreakDuration });
+        await settings.update({StartHour, EndHour});
         return res.status(200).json({
             successful: true,
             message: 'Settings updated successfully.',
