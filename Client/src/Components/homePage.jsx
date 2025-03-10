@@ -85,7 +85,7 @@ const HomePage = () => {
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
       style={{ backgroundImage: `url(${image5})` }}>
-      <div className="absolute top-0 left-0 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
+      <div className="absolute top-15 right-18 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"
           className="text-lg md:text-3xl font-bold block md:hidden text-blue-500"
@@ -149,7 +149,7 @@ const HomePage = () => {
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-4 mt-30'>
+              <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
