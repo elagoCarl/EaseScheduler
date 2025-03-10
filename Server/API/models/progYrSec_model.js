@@ -23,10 +23,14 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     })
+    
     ProgYrSec.associate = (models) => {
-        ProgYrSec.belongsTo(models.Program)
-        ProgYrSec.belongsToMany(models.Schedule, { through: 'SectionSched' })
-    }
+        ProgYrSec.belongsTo(models.Program, { foreignKey: 'ProgramId' }); // Explicit foreignKey
+        ProgYrSec.belongsToMany(models.Schedule, { 
+            through: 'SectionSched', // Auto-generated bridge table
+            foreignKey: 'ProgYrSecId'
+        });
+    };
     
     
     

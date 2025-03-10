@@ -13,8 +13,18 @@ module.exports = (sequelize, DataTypes) => {
         Semester: {
             type: DataTypes.STRING,
             allowNull: false
+        },
+        ProfessorId: {
+            type: DataTypes.INTEGER,
+            allowNull: true, // Ensure NULL values are allowed
+            references: {
+                model: 'Professors',
+                key: 'id'
+            },
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE'
         }
-        // Note: No need to explicitly define foreign keys here if they're set up properly in associations
+        
     }, {
         timestamps: true,
         indexes: [
@@ -23,20 +33,43 @@ module.exports = (sequelize, DataTypes) => {
                 unique: true,
                 fields: ['School_Year', 'Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
             }
-            // No other unique indexes
         ]
     });
-    
+
     Assignation.associate = (models) => {
-        Assignation.belongsTo(models.Professor);
-        Assignation.belongsTo(models.Course);
-        Assignation.belongsTo(models.Department);
-        Assignation.belongsToMany(models.Room, {through: 'Schedule'});
+        Assignation.belongsTo(models.Professor, {
+            foreignKey: {
+                name: 'ProfessorId',
+                allowNull: true, // Ensure that ProfessorId is nullable
+            },
+            onDelete: 'SET NULL', // When a professor is deleted, set ProfessorId to NULL
+            onUpdate: 'CASCADE',
+        });
+        
+        
+        Assignation.belongsTo(models.Course, {
+            foreignKey: {
+                allowNull: false // Ensures CourseId is required
+            },
+            onDelete: 'CASCADE', // Deletes Assignation when the related Course is deleted
+            onUpdate: 'CASCADE'
+        });
+        
+        Assignation.belongsTo(models.Department, {
+            foreignKey: {
+                name: 'DepartmentId',
+                allowNull: true, // Change from false to true
+            },
+            onDelete: 'CASCADE', // When a department is deleted, set DepartmentId to NULL
+            onUpdate: 'CASCADE'
+        });
+        
+        Assignation.belongsToMany(models.Room, { through: 'Schedule' });
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });
     };
-    
+
     return Assignation;
 };

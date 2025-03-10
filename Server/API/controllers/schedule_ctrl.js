@@ -1,6 +1,6 @@
 
 // Change the Course into Course model because it is not being imported properly
-const { Settings, Schedule, Room, Assignation, Program, Professor, Course, ProgYrSec, SectionSched, Department, Course: CourseModel } = require('../models');
+const { Settings, Schedule, Room, Assignation, Program, Professor, Course, ProgYrSec, Department, Course: CourseModel } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
@@ -207,211 +207,211 @@ const deleteSchedule = async (req, res, next) => {
 };
 
 const backtrackSchedule = async (assignations, rooms, professorSchedule, courseSchedules, index, report, startHour, endHour) => {
-  console.log("Entered backtracking");
+    console.log("Entered backtracking");
 
-  // Base case: if all assignations are scheduled, return true.
-  if (index === assignations.length) return true;
+    // Base case: if all assignations are scheduled, return true.
+    if (index === assignations.length) return true;
 
-  const assignation = assignations[index];
-  const { Course, Professor } = assignation;
-  const duration = Course.Duration;
+    const assignation = assignations[index];
+    const { Course, Professor } = assignation;
+    const duration = Course.Duration;
 
-  console.log("Processing Course:", Course.Code, "Type:", Course.Type);
+    console.log("Processing Course:", Course.Code, "Type:", Course.Type);
 
-  let validProgYrSecs = [];
+    let validProgYrSecs = [];
 
-  if (Course.Type === "Core") {
-      console.log("Processing Core Course");
+    if (Course.Type === "Core") {
+        console.log("Processing Core Course");
 
-      validProgYrSecs = await ProgYrSec.findAll({
-          where: { Year: Course.Year }
-      });
+        validProgYrSecs = await ProgYrSec.findAll({
+            where: { Year: Course.Year }
+        });
 
-      if (!validProgYrSecs.length) {
-          console.log(`No sections found for Core Course ${Course.Code} with Year=${Course.Year}`);
-          return false;
-      }
-  } else if (Course.Type === "Professional") {
-      console.log("Processing Professional Course");
-
-      // Fetch allowed programs through the Course-Program association
-      console.log("Courseeeee: ", Course);
-      const courseWithPrograms = await CourseModel.findOne({
-        where: { id: Course.id },
-        include: {
-            model: Program,
-            as: 'CourseProgs',
-            attributes: ['id']
+        if (!validProgYrSecs.length) {
+            console.log(`No sections found for Core Course ${Course.Code} with Year=${Course.Year}`);
+            return false;
         }
+    } else if (Course.Type === "Professional") {
+        console.log("Processing Professional Course");
+
+        const courseWithPrograms = await CourseModel.findOne({
+            where: { id: Course.id },
+            include: {
+                model: Program,
+                as: 'CourseProgs',
+                attributes: ['id']
+            }
+        });
+
+        if (!courseWithPrograms || !courseWithPrograms.CourseProgs.length) {
+            console.log(`No allowed programs for Professional Course ${Course.Code}`);
+            return false;
+        }
+
+        const allowedProgramIds = courseWithPrograms.CourseProgs.map(program => program.id);
+
+        validProgYrSecs = await ProgYrSec.findAll({
+            where: {
+                Year: Course.Year,
+                ProgramId: { [Op.in]: allowedProgramIds }
+            }
+        });
+
+        if (!validProgYrSecs.length) {
+            console.log(`No matching sections for Professional Course ${Course.Code}`);
+            return false;
+        }
+    } else {
+        console.log(`Unknown Course Type: ${Course.Type}`);
+        return false;
+    }
+
+    console.log("Grouping valid sections by Program and Year...");
+    const groups = {};
+    validProgYrSecs.forEach(section => {
+        const key = `${section.ProgramId}-${section.Year}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(section);
     });
-    
 
-      if (!courseWithPrograms || !courseWithPrograms.CourseProgs.length) {
-          console.log(`No allowed programs for Professional Course ${Course.Code}`);
-          return false;
-      }
+    const scheduleGroup = async (sectionGroup, room, day, hour) => {
+        const createdSchedule = await Schedule.create({
+            Day: day,
+            Start_time: `${hour}:00`,
+            End_time: `${hour + duration}:00`,
+            RoomId: room.id,
+            AssignationId: assignation.id
+        });
 
-      const allowedProgramIds = courseWithPrograms.CourseProgs.map(program => program.id);
+        // ✅ Fix: Use Sequelize's auto-generated method to associate ProgYrSec
+        await createdSchedule.addProgYrSecs(sectionGroup);
 
-      validProgYrSecs = await ProgYrSec.findAll({
-          where: {
-              Year: Course.Year,
-              ProgramId: { [Op.in]: allowedProgramIds }
-          }
-      });
+        professorSchedule[Professor.id][day].hours += duration;
+        professorSchedule[Professor.id][day].dailyTimes.push({ start: hour, end: hour + duration });
+        courseSchedules[Course.id][day].push({ start: hour, end: hour + duration });
 
-      if (!validProgYrSecs.length) {
-          console.log(`No matching sections for Professional Course ${Course.Code}`);
-          return false;
-      }
-  } else {
-      console.log(`Unknown Course Type: ${Course.Type}`);
-      return false;
-  }
+        report.push({
+            Professor: Professor.Name,
+            Course: Course.Code,
+            CourseType: Course.Type,
+            Sections: sectionGroup.map(sec => `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`),
+            Room: room.Code,
+            Day: day,
+            Start_time: `${hour}:00`,
+            End_time: `${hour + duration}:00`
+        });
 
-  console.log("Grouping valid sections by Program and Year...");
-  const groups = {};
-  validProgYrSecs.forEach(section => {
-      const key = `${section.ProgramId}-${section.Year}`;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(section);
-  });
+        if (await backtrackSchedule(assignations, rooms, professorSchedule, courseSchedules, index + 1, report, startHour, endHour)) {
+            return true;
+        }
 
-  for (const groupKey in groups) {
-      const group = groups[groupKey];
-      const totalStudents = group.reduce((sum, section) => sum + section.No_Of_Students, 0); 
+        await createdSchedule.destroy();
+        professorSchedule[Professor.id][day].hours -= duration;
+        professorSchedule[Professor.id][day].dailyTimes.pop();
+        courseSchedules[Course.id][day].pop();
+        report.pop();
 
-      const schedulingStrategy = totalStudents <= 50 ? "combined" : "separate";
-      console.log(`Using ${schedulingStrategy} scheduling for ${group.length} sections`);
+        return false;
+    };
 
-      const scheduleGroup = async (sectionGroup, room, day, hour) => {
-          const createdSchedule = await Schedule.create({
-              Day: day,
-              Start_time: `${hour}:00`,
-              End_time: `${hour + duration}:00`,
-              RoomId: room.id,
-              AssignationId: assignation.id
-          });
+    for (const groupKey in groups) {
+        const group = groups[groupKey];
+        const totalStudents = group.reduce((sum, section) => sum + section.No_Of_Students, 0);
+        const schedulingStrategy = totalStudents <= 50 ? "combined" : "separate";
+        console.log(`Using ${schedulingStrategy} scheduling for ${group.length} sections`);
 
-          for (const section of sectionGroup) {
-              await SectionSched.create({
-                  ProgYrSecId: section.id,
-                  ScheduleId: createdSchedule.id
-              });
-          }
+        for (let day = 1; day <= 5; day++) {
+            for (const room of rooms) {
+                for (let hour = startHour; hour + duration <= endHour; hour++) {
+                    if (
+                        canScheduleProfessor(professorSchedule[Professor.id][day], hour, duration) &&
+                        canScheduleStudent(courseSchedules[Course.id][day], hour, duration) &&
+                        (await isRoomAvailable(room.id, day, hour, duration))
+                    ) {
+                        if (await scheduleGroup(group, room, day, hour)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-          professorSchedule[Professor.id][day].hours += duration;
-          professorSchedule[Professor.id][day].dailyTimes.push({ start: hour, end: hour + duration });
-          courseSchedules[Course.id][day].push({ start: hour, end: hour + duration });
-
-          report.push({
-              Professor: Professor.Name,
-              Course: Course.Code,
-              CourseType: Course.Type,
-              Sections: sectionGroup.map(sec => `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`),
-              Room: room.Code,
-              Day: day,
-              Start_time: `${hour}:00`,
-              End_time: `${hour + duration}:00`
-          });
-
-          if (await backtrackSchedule(assignations, rooms, professorSchedule, courseSchedules, index + 1, report, startHour, endHour)) {
-              return true;
-          }
-
-          await createdSchedule.destroy();
-          professorSchedule[Professor.id][day].hours -= duration;
-          professorSchedule[Professor.id][day].dailyTimes.pop();
-          courseSchedules[Course.id][day].pop();
-          report.pop();
-
-          return false;
-      };
-
-      for (const room of rooms) {
-          for (let day = 1; day <= 5; day++) {
-              for (let hour = startHour; hour + duration <= endHour; hour++) {
-                  if (
-                      canScheduleProfessor(professorSchedule[Professor.id][day], hour, duration) &&
-                      canScheduleStudent(courseSchedules[Course.id][day], hour, duration) &&
-                      (await isRoomAvailable(room.id, day, hour, duration))
-                  ) {
-                      if (await scheduleGroup(group, room, day, hour)) {
-                          return true;
-                      }
-                  }
-              }
-          }
-      }
-  }
-
-  return false;
+    return false;
 };
 
-
 const automateSchedule = async (req, res, next) => {
-  try {
-      const { DepartmentId } = req.body;
+    try {
+        const { DepartmentId } = req.body;
 
-      if (!DepartmentId) {
-          return res.status(400).json({ successful: false, message: "Department ID is required." });
-      }
+        if (!DepartmentId) {
+            return res.status(400).json({ successful: false, message: "Department ID is required." });
+        }
 
-      const settings = await Settings.findByPk(1);
-      if (!settings) {
-          return res.status(404).json({ successful: false, message: "Scheduling settings not found." });
-      }
+        const settings = await Settings.findByPk(1);
+        if (!settings) {
+            return res.status(404).json({ successful: false, message: "Scheduling settings not found." });
+        }
 
-      const { StartHour, EndHour } = settings;
+        const { StartHour, EndHour } = settings;
 
-      const department = await Department.findByPk(DepartmentId, {
-          include: [{ model: Assignation, include: [Course, Professor] }]
-      });
+        const department = await Department.findByPk(DepartmentId, {
+            include: [{ model: Assignation, include: [Course, Professor] }]
+        });
 
-      if (!department) {
-          return res.status(404).json({ successful: false, message: "Department not found." });
-      }
+        if (!department) {
+            return res.status(404).json({ successful: false, message: "Department not found." });
+        }
 
-      await Schedule.destroy({
-          where: { AssignationId: { [Op.in]: department.Assignations.map(a => a.id) } }
-      });
+        await Schedule.destroy({
+            where: { AssignationId: { [Op.in]: department.Assignations.map(a => a.id) } }
+        });
 
-      const assignations = department.Assignations;
-      const rooms = await Room.findAll();
-      const professorSchedule = {};
-      const courseSchedules = {};
-      const report = [];
+        const assignations = department.Assignations;
+        const rooms = await Room.findAll();
+        const professorSchedule = {};
+        const courseSchedules = {};
+        const report = [];
 
-      assignations.forEach(assignation => {
-          const { Professor } = assignation;
-          if (!professorSchedule[Professor.id]) {
-              professorSchedule[Professor.id] = {};
-              for (let day = 1; day <= 5; day++) {
-                  professorSchedule[Professor.id][day] = { hours: 0, dailyTimes: [] };
-              }
-          }
-      });
+        // Ensure all professors and courses have their schedule initialized
+        assignations.forEach(assignation => {
+            const { Professor, Course } = assignation;
 
-      const success = await backtrackSchedule(assignations, rooms, professorSchedule, courseSchedules, 0, report, StartHour, EndHour);
+            if (!professorSchedule[Professor.id]) {
+                professorSchedule[Professor.id] = {};
+                for (let day = 1; day <= 5; day++) {
+                    professorSchedule[Professor.id][day] = { hours: 0, dailyTimes: [] };
+                }
+            }
 
-      if (!success) {
-          return res.status(400).json({
-              successful: false,
-              message: "Unable to generate a valid schedule with the given constraints."
-          });
-      }
+            if (!courseSchedules[Course.id]) {
+                courseSchedules[Course.id] = {};
+                for (let day = 1; day <= 5; day++) {
+                    courseSchedules[Course.id][day] = [];
+                }
+            }
+        });
 
-      return res.status(200).json({
-          successful: true,
-          message: "Schedule automated successfully.",
-          scheduleReport: report
-      });
-  } catch (error) {
-      return res.status(500).json({
-          successful: false,
-          message: error.message || "An unexpected error occurred."
-      });
-  }
+        const success = await backtrackSchedule(assignations, rooms, professorSchedule, courseSchedules, 0, report, StartHour, EndHour);
+
+        if (!success) {
+            return res.status(400).json({
+                successful: false,
+                message: "Unable to generate a valid schedule with the given constraints."
+            });
+        }
+
+        return res.status(200).json({
+            successful: true,
+            message: "Schedule automated successfully.",
+            scheduleReport: report
+        });
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred."
+        });
+    }
 };
 
 
@@ -494,7 +494,7 @@ const getAllSchedules = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
-};
+}; 
 
 module.exports = {
     addSchedule,

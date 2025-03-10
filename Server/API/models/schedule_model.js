@@ -21,10 +21,15 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
+
     Schedule.associate = (models) => {
-        Schedule.belongsTo(models.Room),
-        Schedule.belongsTo(models.Assignation),
-        Schedule.belongsToMany(models.ProgYrSec, { through: 'SectionSched' })
-    }
+        Schedule.belongsTo(models.Room, { foreignKey: 'RoomId' });
+        Schedule.belongsTo(models.Assignation, { foreignKey: 'AssignationId' });
+        Schedule.belongsToMany(models.ProgYrSec, { 
+            through: 'SectionSched', // Auto-generated bridge table
+            foreignKey: 'ScheduleId'
+        });
+    };
+    
     return Schedule
 }
