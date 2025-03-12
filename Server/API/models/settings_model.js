@@ -17,7 +17,19 @@ module.exports = (sequelize, DataTypes) => {
                 min: 1,  // End hour should be at least after midnight (1:00)
                 max: 24  // Cannot end after midnight (24:00)
             }
-        }
+        },
+
+        ProfessorMaxHours:{
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 12
+        },
+
+        StudentMaxHours:{
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 12
+        },
     }, {
         timestamps: true
     });
