@@ -14,7 +14,6 @@ const HomePage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [fadeIn, setFadeIn] = useState(false);
-
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);  // State for dropdown visibility
 
   // Create refs for the profile button and the dropdown
@@ -41,7 +40,7 @@ const HomePage = () => {
   }, [isModalOpen]);
 
   const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);  // Toggle the dropdown visibility
+    setIsDropdownOpen(!isDropdownOpen);  // Toggle the dropdown visibility on click
   };
 
   // Close the dropdown if the user clicks outside the profile button or dropdown
@@ -55,15 +54,33 @@ const HomePage = () => {
       }
     };
 
-    // Add event listener on mount
     document.addEventListener('mousedown', handleClickOutside);
-
-    // Cleanup the event listener on unmount
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
+  // Logout handler that integrates with your logout API
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/accounts/logoutAccount', {
+        method: 'POST',
+        credentials: 'include', // Ensures cookies are sent with the request
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (data.successful) {
+        // Optionally navigate to the login page after logout
+        navigate('/loginPage');
+      } else {
+        console.error('Logout failed:', data.message);
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
+  };
 
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
@@ -77,11 +94,11 @@ const HomePage = () => {
         </button>
         {/* Profile Button */}
         <button
-          ref={profileBtnRef}  // Attach the ref to the ProfileBtn
+          ref={profileBtnRef}
           className='absolute top-5 right-5 w-25 h-25 md:w-40 md:h-40 duration-200 hover:scale-105'
-          onClick={toggleDropdown}  // Toggle the dropdown visibility on click
+          onClick={toggleDropdown}
         >
-          <img className='' src={ProfileBtn} alt="ProfileBtn" />
+          <img src={ProfileBtn} alt="ProfileBtn" />
         </button>
       </div>
 
@@ -90,16 +107,27 @@ const HomePage = () => {
         <div ref={dropdownRef} className="absolute top-16 right-5 bg-white shadow-lg rounded-md p-4 z-10">
           <ul className="space-y-4">
             <li>
-              <a href="/accountSettings" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Account Settings</a>
+              <a href="/accountSettings" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
+                Account Settings
+              </a>
             </li>
             <li>
-              <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Create Account</a>
+              <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
+                Create Account
+              </a>
             </li>
             <li>
-              <a href="/historyLogs" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">History Logs</a>
+              <a href="/historyLogs" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
+                History Logs
+              </a>
             </li>
             <li>
-              <a href="#" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">Logout</a>
+              <button
+                onClick={handleLogout}
+                className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md"
+              >
+                Logout
+              </button>
             </li>
           </ul>
         </div>
@@ -124,40 +152,46 @@ const HomePage = () => {
               <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button
-                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => openModal('Add/Configure Timetables')}
                 >
                   <img className='h-70 w-70 md:h-100 md:w-100' src={vector} alt="" />
-                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Timetables</span>
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">
+                    Timetables
+                  </span>
                 </button>
 
                 {/* 2nd Card (Professor) */}
                 <button
-                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => openModal('Professor availability')}
                 >
                   <img className='h-70 w-70 md:h-100 md:w-100' src={vector1} alt="" />
-                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Professor</span>
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">
+                    Professor
+                  </span>
                 </button>
 
                 {/* 3rd Card (Course) */}
-                <button onClick={() => {
-                  navigate('/course');
-                }}
-                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                <button
+                  onClick={() => navigate('/course')}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
                   <img className='h-70 w-70 md:h-100 md:w-100' src={vector2} alt="" />
-                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Course</span>
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">
+                    Course
+                  </span>
                 </button>
 
                 {/* 4th Card (Room) */}
-                <button onClick={() => {
-                  navigate('/room');
-                }}
-                  className='p-12 sm:p-18 md:p-30  shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                <button
+                  onClick={() => navigate('/room')}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-customLightBlue2 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
                   <img className='h-70 w-70 md:h-100 md:w-100' src={vector3} alt="" />
-                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">Room</span>
+                  <span className="text-black text-sm md:text-lg 2xl:text-2xl font-semibold">
+                    Room
+                  </span>
                 </button>
               </div>
 
@@ -170,19 +204,36 @@ const HomePage = () => {
                   >
                     <span className="font-bold m-9">x</span>
                   </button>
-                  <h2 className="whitespace-nowrap text-3xl font-semibold text-ceuViolet text-center my-10">{modalContent}</h2>
+                  <h2 className="whitespace-nowrap text-3xl font-semibold text-ceuViolet text-center my-10">
+                    {modalContent}
+                  </h2>
                   <ul className="space-y-20 m-20 text-center">
-                    {/* Display links based on modal content */}
                     {modalContent === 'Add/Configure Timetables' && (
                       <>
-                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">View Timetables</a></li>
-                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">Configure Timetables</a></li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">
+                            View Timetables
+                          </a>
+                        </li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">
+                            Configure Timetables
+                          </a>
+                        </li>
                       </>
                     )}
                     {modalContent === 'Professor availability' && (
                       <>
-                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">View Availability</a></li>
-                        <li><a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">Set Availability</a></li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">
+                            View Availability
+                          </a>
+                        </li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white">
+                            Set Availability
+                          </a>
+                        </li>
                       </>
                     )}
                   </ul>
