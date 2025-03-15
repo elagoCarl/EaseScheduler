@@ -50,9 +50,9 @@ const addAssignation = async (req, res, next) => {
             });
 
             if (existingAssignation) {
-                return res.status(400).json({ 
-                    successful: false, 
-                    message: "An assignation with the same details already exists." 
+                return res.status(400).json({
+                    successful: false,
+                    message: "An assignation with the same details already exists."
                 });
             }
 
@@ -105,7 +105,7 @@ const addAssignation = async (req, res, next) => {
 
     } catch (error) {
         console.error("Error in addAssignation:", error);
-        
+
         if (error instanceof ValidationError) {
             return res.status(400).json({
                 successful: false,
@@ -116,7 +116,7 @@ const addAssignation = async (req, res, next) => {
                 })),
             });
         }
-        
+
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while creating assignations.",
@@ -154,19 +154,19 @@ const updateAssignation = async (req, res, next) => {
 
         // Check if the assignation already exists
         const existingAssignation = await Assignation.findOne({
-            where: { 
-                School_Year, 
+            where: {
+                School_Year,
                 Semester,
-                CourseId, 
+                CourseId,
                 ProfessorId,
                 id: { [Op.ne]: id } // Exclude current assignation
             }
         });
 
         if (existingAssignation) {
-            return res.status(400).json({ 
-                successful: false, 
-                message: "An assignation with the same details already exists." 
+            return res.status(400).json({
+                successful: false,
+                message: "An assignation with the same details already exists."
             });
         }
 
@@ -184,14 +184,14 @@ const updateAssignation = async (req, res, next) => {
 
         // Calculate unit changes
         let currentProfessorUnitChange = 0;
-        
+
         // If changing to a new professor
         if (assignation.ProfessorId !== ProfessorId) {
             // New professor gets additional units
             currentProfessorUnitChange = course.Units;
-            
+
             // Handle old professor's units (will be done later in the code)
-        } 
+        }
         // If same professor but different course
         else if (assignation.CourseId !== CourseId && oldCourse) {
             // Remove old course units and add new course units
@@ -215,40 +215,22 @@ const updateAssignation = async (req, res, next) => {
             if (oldProfessor) {
                 // Get old course
                 const oldCourseForUnitCalc = oldCourse || course;
-                
+
                 // Update old professor's units
                 const oldProfNewUnits = oldProfessor.Total_units - oldCourseForUnitCalc.Units;
                 await oldProfessor.update({ Total_units: Math.max(0, oldProfNewUnits) });
-                
-                // Check if we need to remove Course-Professor association
-                const otherAssignations = await Assignation.findAll({
-                    where: { 
-                        ProfessorId: assignation.ProfessorId, 
-                        CourseId: assignation.CourseId 
-                    }
-                });
-                
-                if (otherAssignations.length === 1) { // Only the current one exists
-                    await oldCourseForUnitCalc.removeCourseProf(oldProfessor);
-                }
             }
-        } 
+        }
         // Handle unit update if same professor but course changed
         else if (assignation.CourseId !== CourseId && oldCourse) {
             // Units adjustment will be handled in the update below
-        }
-
-        // Ensure CourseProf association for the new professor and course
-        const courseProfExists = await course.hasCourseProf(professor);
-        if (!courseProfExists) {
-            await course.addCourseProf(professor);
         }
 
         // Update current professor's total units if needed
         if (currentProfessorUnitChange !== 0) {
             await professor.update({ Total_units: newTotalUnits });
         }
-        
+
         // Update Assignation
         await assignation.update({
             School_Year,
@@ -265,7 +247,7 @@ const updateAssignation = async (req, res, next) => {
         });
     } catch (error) {
         console.error("Error in updateAssignation:", error);
-        
+
         if (error instanceof ValidationError) {
             return res.status(400).json({
                 successful: false,
@@ -276,7 +258,7 @@ const updateAssignation = async (req, res, next) => {
                 })),
             });
         }
-        
+
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while updating the assignation.",
@@ -331,6 +313,35 @@ const getAllAssignations = async (req, res, next) => {
     }
 };
 
+const getAllAssignationsByDept = async (req, res, next) => {
+    try {
+        const departmentId = req.params.id;
+        if (!departmentId) {
+            return res.status(400).json({
+                successful: false,
+                message: "Department id is required.",
+            });
+        }
+
+        const assignations = await Assignation.findAll({
+            where: { DepartmentId: departmentId },
+            // Optionally, include associated models if needed:
+            // include: [models.Professor, models.Course, models.Departmet, models.Schedule]
+        });
+
+        return res.status(200).json({
+            successful: true,
+            data: assignations,
+        });
+    } catch (error) {
+        n
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred.",
+        });
+    }
+};
+
 // Delete Assignation by ID
 const deleteAssignation = async (req, res, next) => {
     try {
@@ -347,7 +358,7 @@ const deleteAssignation = async (req, res, next) => {
         }
 
         const { CourseId, ProfessorId } = assignation;
-        
+
         // Get Course and Professor
         const course = await Course.findByPk(CourseId);
         const professor = await Professor.findByPk(ProfessorId);
@@ -355,25 +366,23 @@ const deleteAssignation = async (req, res, next) => {
         // Delete the Assignation
         await assignation.destroy();
 
-        // Update professor's Total_units
-        const decrementedUnit  = professor.Total_units - course.Units;
-        await professor.update({ Total_units: decrementedUnit });
-        
-        // Check if CourseProf association needs to be removed
-        const otherAssignations = await Assignation.findAll({
-            where: { ProfessorId, CourseId },
-        });
-        if (otherAssignations.length === 0) {
-            const course = await Course.findByPk(CourseId);
-            const professor = await Professor.findByPk(ProfessorId);
-            await course.removeCourseProf(professor);
+        // Update professor's Total_units if professor exists
+        if (professor) {
+            const decrementedUnit = professor.Total_units - course.Units;
+            await professor.update({ Total_units: Math.max(0, decrementedUnit) });
         }
+
         return res.status(200).json({
             successful: true,
             message: "Assignation deleted successfully.",
         });
     } catch (error) {
-        next(error);
+        console.error("Error in deleteAssignation:", error);
+        return res.status(500).json({
+            successful: false,
+            message: "An unexpected error occurred while deleting the assignation.",
+            error: error.message,
+        });
     }
 };
 
@@ -383,6 +392,7 @@ module.exports = {
     getAssignation,
     getAllAssignations,
     deleteAssignation,
+    getAllAssignationsByDept
 };
 
 

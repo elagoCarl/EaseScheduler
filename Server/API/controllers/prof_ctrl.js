@@ -55,11 +55,9 @@ const addProf = async (req, res, next) => {
             const newProf = await Professor.create({
                 Name,
                 Email,
-                Total_units: 0
+                Total_units: 0,
+                ProfStatusId: Status // Ensure the status is linked correctly
             });
-
-            // Associate the professor with the status
-            await newProf.setProfStatus(status);
 
             addedProfs.push(Name);
         }
@@ -148,9 +146,9 @@ const getProf = async (req, res) => {
             data: professor
         });
     } catch (error) {
-        res.status(500).json({ 
-            successful: false, 
-            message: error.message 
+        res.status(500).json({
+            successful: false,
+            message: error.message
         });
     }
 };
