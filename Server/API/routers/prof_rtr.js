@@ -7,5 +7,6 @@ router.get('/getAllProf', prof_ctrl.getAllProf)
 router.get('/getProf/:id', prof_ctrl.getProf)
 router.delete('/deleteProf/:id', prof_ctrl.deleteProf)
 router.put('/updateProf/:id', prof_ctrl.updateProf)
+router.get('/getProfByDept/:id', prof_ctrl.getProfByDept)
 
 module.exports = router;
