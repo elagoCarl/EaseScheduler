@@ -5,9 +5,17 @@ const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 require('dotenv').config()
+const cors = require('cors');
 
 //INITIALIZE EXPRESS APPLICATION AND STORE TO app
 const app = express();
+
+// Update CORS configuration to allow 'Cache-Control' header
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
+}));
 
 
 //IMPORT ALL ROUTERS NEEDED

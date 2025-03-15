@@ -25,7 +25,7 @@ const transporter = nodemailer.createTransport({
 
 
 // Create access token
-const maxAge = 60; // 1 minute in seconds
+const maxAge = 1200; // 1 minute in seconds
 const createAccessToken = (id) => {
     return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
         expiresIn: maxAge,
@@ -656,6 +656,51 @@ const logoutAccount = async (req, res, next) => {
     }
 };
 
+
+
+const getCurrentAccount = async (req, res, next) => {
+    // Set header to prevent caching
+    res.set('Cache-Control', 'no-store');
+
+    // Retrieve the access token from cookies
+    const token = req.cookies.jwt;
+    if (!token) {
+        return res.status(401).json({
+            successful: false,
+            message: 'Not authenticated'
+        });
+    }
+
+    try {
+        // Verify token
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+
+        // Query the account by primary key and return non-sensitive fields
+        const account = await Account.findByPk(decoded.id, {
+            attributes: ['id', 'Name', 'Email', 'Roles', 'verified']
+        });
+
+        if (!account) {
+            return res.status(404).json({
+                successful: false,
+                message: 'Account not found'
+            });
+        }
+
+        return res.status(200).json({
+            successful: true,
+            account
+        });
+    } catch (error) {
+        console.error("Error in getCurrentAccount:", error);
+        return res.status(401).json({
+            successful: false,
+            message: 'Invalid or expired token'
+        });
+    }
+};
+
+
 module.exports = {
     addAccount,
     getAccountById,
@@ -666,5 +711,6 @@ module.exports = {
     changePassword,
     forgotPass,
     getAllAccounts,
-    logoutAccount
+    logoutAccount,
+    getCurrentAccount
 };
