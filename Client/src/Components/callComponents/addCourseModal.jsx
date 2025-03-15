@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Axios from 'axios';
 
 const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
@@ -7,14 +7,22 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   const [courseDuration, setCourseDuration] = useState("");
   const [courseUnits, setCourseUnits] = useState("");
   const [courseType, setCourseType] = useState("");
+  const [courseYear, setCourseYear] = useState("")
   const [statusCode, setStatusCode] = useState("")
+  const [isShaking, setIsShaking] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   if (!isOpen) return null; // Prevent rendering if the modal is not open
 
+  const shakeForm = () => {
+    setIsShaking(true)
+    setTimeout(() => setIsShaking(false), 500)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault(); // Prevent form refresh
+    setErrorMessage("") //pang clear error kung nagkaroon man
 
     console.log({
       Code: courseCode,
@@ -22,6 +30,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
       Duration: courseDuration,
       Units: courseUnits,
       Type: courseType, // Ensure this is populated
+      Year: courseYear
     });
 
     try {
@@ -31,6 +40,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
         Duration: courseDuration,
         Units: courseUnits,
         Type: courseType,
+        Year: courseYear,
         Dept_id: 1 // Temporary
       });
 
@@ -48,7 +58,9 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
     } catch (error) {
       // Handle Axios errors
       if (error.response && error.response.status === 400) {
-        alert("Course Already Exists!");
+        console.log("Course Already Exists!");
+        setErrorMessage("Course Already Exists!")
+        shakeForm();
       } else {
         console.error("An unexpected error occurred:", error.message);
         alert("An unexpected error occurred. Please try again.");
@@ -69,7 +81,15 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
             &times;
           </button>
         </div>
-        <form className="space-y-10 px-20" onSubmit={handleSubmit}>
+        <form
+          className={`space-y-10 px-20 ${ isShaking ? 'animate-shake' : '' }`}
+          onSubmit={handleSubmit}
+        > {errorMessage && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">
+            <p className="font-bold">Error</p>
+            <p>{errorMessage}</p>
+          </div> //para maidentify if mali o duplicate di siya mag poproceed
+        )}
           <label className="block font-semibold text-white">Course Code</label>
           <input
             type="text"
@@ -123,6 +143,16 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
             <option value="Core">Core</option>
             <option value="Professional">Professional</option>
           </select>
+
+          <label className="block font-semibold text-white">Year Level</label>
+          <input
+            type="number"
+            placeholder="Year Level"
+            className="w-full p-8 border rounded bg-customWhite"
+            value={courseYear}
+            onChange={(e) => setCourseYear(e.target.value)}
+            required
+          />
 
           {/* Display the success message */}
           {successMessage && (
