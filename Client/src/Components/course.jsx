@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -27,7 +27,6 @@ const Course = () => {
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const [courseToEdit, setCourseToEdit] = useState(null); // Course to edit state
-  const campuses = ["LV", "GP"];
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [courseToDelete, setCourseToDelete] = useState(null);
@@ -53,22 +52,19 @@ const Course = () => {
     return ["All", ...uniqueSet];
   }, [courses]);
 
-  // Use useMemo for filtered courses as well
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
-      // Search term filter
       const matchesSearch = !searchTerm ||
         (course.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           course.Description?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      // Year filter
       const matchesYear =
         yearFilter === "All" ||
         parseInt(course.Year) === parseInt(yearFilter);
 
       const matchesType =
         typeFilter === "All" ||
-        course.Type?.trim() === typeFilter.trim();
+      course.Type?.trim() === typeFilter.trim();
 
 
       return matchesSearch && matchesYear && matchesType;
@@ -101,9 +97,10 @@ const Course = () => {
 
   useEffect(() => {
     if (courses.length > 0) {
-      setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes
+      const allTypes = new Set(courses.map(c => c.Type));
+      console.log("Available course types:", [...allTypes]);
     }
-  }, [courses]); // 🔹 Removed success message here
+  }, [courses]);
 
   const handleDeleteCourse = async (courseId) => {
     if (!courseId) return;
@@ -275,19 +272,6 @@ const Course = () => {
               {uniqueTypes.map((type, index) => (
                 <option key={index} value={type}>
                   {type === "All" ? "Select Type" : type}
-                </option>
-              ))}
-            </select>
-
-            {/* Campus Dropdown - Your existing code */}
-            <select
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base">
-              <option disabled>Select Campus</option>
-              {campuses.map((campus, index) => (
-                <option key={index} value={campus}>
-                  {campus}
                 </option>
               ))}
             </select>
