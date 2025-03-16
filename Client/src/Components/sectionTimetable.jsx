@@ -99,7 +99,38 @@ const SectionTimetable = () => {
     return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
-  // Render event for both desktop and mobile views
+  // New component that expands on hover (similar to the other timetable pages)
+  const SectionScheduleEvent = ({ schedule }) => {
+    const [hovered, setHovered] = useState(false);
+    const pos = calculateEventPosition(schedule);
+    const sectionsStr = schedule.ProgYrSecs
+      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+      .join(', ');
+
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sectionsStr}</span>
+        </div>
+        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+          {schedule.Assignation.Course.Description}
+        </div>
+        <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
+        <div className="text-xs italic">
+          Room {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Code} - {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Building}
+        </div>
+      </div>
+    );
+  };
+
+  // Render event for both desktop and mobile views using SectionScheduleEvent
   const renderEvent = (hour, dayIndex) => {
     const apiDayIndex = dayIndex + 1;
     return filteredSchedules
@@ -114,30 +145,7 @@ const SectionTimetable = () => {
       })
       .map(schedule => {
         if (parseInt(schedule.Start_time.split(':')[0]) !== hour) return null;
-        const pos = calculateEventPosition(schedule);
-        const sectionsStr = schedule.ProgYrSecs
-          .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-          .join(', ');
-        return (
-          <div
-            key={schedule.id}
-            className="absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all hover:shadow-md hover:scale-[1.02] text-blue-700 overflow-y-auto scrollbar-hide"
-            style={{ top: pos.top, height: pos.height, zIndex: 10 }}
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-medium">
-                {formatTimeRange(schedule.Start_time, schedule.End_time)}
-              </span>
-              <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sectionsStr}</span>
-            </div>
-            <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
-            <div className="text-xs truncate">{schedule.Assignation.Course.Description}</div>
-            <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
-            <div className="text-xs italic">
-              Room {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Code} - {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Building}
-            </div>
-          </div>
-        );
+        return <SectionScheduleEvent key={schedule.id} schedule={schedule} />;
       });
   };
 
@@ -296,20 +304,22 @@ const SectionTimetable = () => {
                       <span className="text-gray-500 font-medium text-sm">No schedules found for the selected filters</span>
                     </div>
                   ) : (
-                    <table className="w-full border-collapse">
-                      <tbody>
-                        {timeSlots.map(hour => (
-                          <tr key={hour} className="hover:bg-gray-50">
-                            <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
-                              {`${hour.toString().padStart(2, '0')}:00`}
-                            </td>
-                            <td className="p-0 border-b border-gray-200 relative h-24">
-                              {renderMobileEvent(hour, selectedDay)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="relative">
+                      <table className="w-full border-collapse">
+                        <tbody>
+                          {timeSlots.map(hour => (
+                            <tr key={hour} className="hover:bg-gray-50">
+                              <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
+                                {`${hour.toString().padStart(2, '0')}:00`}
+                              </td>
+                              <td className="p-0 border-b border-gray-200 relative h-24">
+                                {renderMobileEvent(hour, selectedDay)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )
                 )}
               </div>

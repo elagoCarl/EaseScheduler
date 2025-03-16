@@ -67,9 +67,35 @@ const RoomTimetable = () => {
     return { top: `${(sMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
-  // Combined render function for desktop and mobile events.
+  // New component similar to ScheduleEvent in AddConfigSchedule
+  const RoomScheduleEvent = ({ schedule }) => {
+    const [hovered, setHovered] = useState(false);
+    const pos = calculateEventPosition(schedule);
+    const sections = schedule.ProgYrSecs
+      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+      .join(', ');
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+        </div>
+        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+          {schedule.Assignation.Course.Description}
+        </div>
+        <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
+      </div>
+    );
+  };
+
+  // Modified render function to use RoomScheduleEvent
   const renderEvent = (hour, dayIndex, isMobile = false) => {
-    // In mobile view, only render for the selected day.
     if (isMobile && dayIndex !== selectedDay) return null;
     const apiDayIndex = dayIndex + 1;
     return schedules
@@ -83,28 +109,9 @@ const RoomTimetable = () => {
         );
       })
       .map(schedule => {
-        if (parseInt(schedule.Start_time.split(':')[0]) !== hour) return null;
-        const pos = calculateEventPosition(schedule);
-        const sections = schedule.ProgYrSecs
-          .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-          .join(', ');
-        return (
-          <div
-            key={schedule.id}
-            className="absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all hover:shadow-md hover:scale-[1.02] text-blue-700 overflow-y-auto scrollbar-hide"
-            style={{ top: pos.top, height: pos.height, zIndex: 10 }}
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-medium">
-                {formatTimeRange(schedule.Start_time, schedule.End_time)}
-              </span>
-              <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-            </div>
-            <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
-            <div className="text-xs truncate">{schedule.Assignation.Course.Description}</div>
-            <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
-          </div>
-        );
+        // Only render event component when the start hour equals the cell hour
+        if (parseInt(schedule.Start_time.split(':')[0], 10) !== hour) return null;
+        return <RoomScheduleEvent key={schedule.id} schedule={schedule} />;
       });
   };
 
