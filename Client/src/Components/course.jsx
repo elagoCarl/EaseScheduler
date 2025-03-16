@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -11,7 +11,7 @@ import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import Axios from 'axios';
 
-// const deptId = 1;
+const deptId = 1;
 
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -19,24 +19,69 @@ const Course = () => {
   const [isAllChecked, setAllChecked] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
 
+  const [searchTerm, setSearchTerm] = useState(""); // Search term state
+  const [yearFilter, setYearFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
+
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const [courseToEdit, setCourseToEdit] = useState(null); // Course to edit state
-  const campuses = ["Campus A", "Campus B", "Campus C"];
-
+  const campuses = ["LV", "GP"];
+  const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [courses, setCourses] = useState([]); // Initialize as an empty array
   const [updateTrigger, setUpdateTrigger] = useState(false); // 🔹 Trigger refetch
 
+  // Move these inside the component and use useMemo for performance
+  const uniqueYears = useMemo(() => {
+    const yearsArray = [...new Set(courses.map(c => c.Year).filter(Boolean))];
+    yearsArray.sort((a, b) => parseInt(a) - parseInt(b));
+    return ["All", ...yearsArray];
+  }, [courses]);
+
+  const uniqueTypes = useMemo(() => {
+    // Normalize all type strings
+    const typesArray = courses
+      .map(c => c.Type && c.Type.trim())  // => 'core' or 'professional'
+      .filter(Boolean);
+
+    // Make them unique
+    const uniqueSet = new Set(typesArray); // => { 'core', 'professional' }
+
+    return ["All", ...uniqueSet];
+  }, [courses]);
+
+  // Use useMemo for filtered courses as well
+  const filteredCourses = useMemo(() => {
+    return courses.filter(course => {
+      // Search term filter
+      const matchesSearch = !searchTerm ||
+        (course.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.Description?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      // Year filter
+      const matchesYear =
+        yearFilter === "All" ||
+        parseInt(course.Year) === parseInt(yearFilter);
+
+      const matchesType =
+        typeFilter === "All" ||
+        course.Type?.trim() === typeFilter.trim();
+
+
+      return matchesSearch && matchesYear && matchesType;
+    });
+  }, [courses, searchTerm, yearFilter, typeFilter]);
+
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
-  const fetchCourse = async () => {
+  const fetchCourse = async (deptId) => {
     try {
-      const response = await Axios.get('http://localhost:8080/course/getAllCourses');
+      const response = await Axios.get(`http://localhost:8080/course/getCoursesByDept/${ deptId }`);
       console.log('API Response:', response.data);
       if (response.data.successful) {
         setCourses(response.data.data);
@@ -49,12 +94,10 @@ const Course = () => {
     }
   };
 
-
   useEffect(() => {
-    fetchCourse();
+    fetchCourse(deptId);
     console.log("Fetching courses...");
-  }, [updateTrigger]);
-
+  }, [updateTrigger,]);
 
   useEffect(() => {
     if (courses.length > 0) {
@@ -75,17 +118,19 @@ const Course = () => {
     }
   };
 
-  const handleAddCourse = async (newCourse) => {
+  const handleAddCourse = async (newCourseData) => {
     try {
-      const response = await Axios.post("http://localhost:8080/course/addCourse", newCourse);
-      if (response.data.successful) {
-        setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
-      }
-    } catch (error) {
-      console.error("Error adding course:", error);
+      await Axios.post("http://localhost:8080/course/addCourse", newCourseData);
+      // Re-fetch for department 1 (or whichever dept):
+      fetchCourse(1);
+    } catch (err) {
+      console.error("Error adding course:", err);
     }
   };
 
+  useEffect(() => {
+    console.log("Courses after adding new one:", courses);
+  }, [courses]);
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
@@ -172,7 +217,6 @@ const Course = () => {
 
       console.log("Selected courses deleted successfully!");
 
-      // ✅ Update state directly without calling fetchCourse()
       setCourses((prevCourses) =>
         prevCourses.filter((course) => !courseToDelete.some((del) => del.id === course.id))
       );
@@ -187,7 +231,6 @@ const Course = () => {
     }
   };
 
-
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
@@ -200,9 +243,43 @@ const Course = () => {
       {/* Main Content */}
       <div className="flex flex-col justify-center items-center h-screen w-full px-20">
         {/* Filters */}
+
         <div className="flex justify-end w-10/12 mb-4">
-          <div className="flex gap-4">
-            {/* Campus Dropdown */}
+          <div className="flex gap-4 flex-wrap">
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Search by code or description"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base"
+            />
+
+            {/* Year Filter */}
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base">
+              {uniqueYears.map((year, index) => (
+                <option key={index} value={year}>
+                  {year === "All" ? "Year Level" : year}
+                </option>
+              ))}
+            </select>
+
+            {/* Type Filter */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base">
+              {uniqueTypes.map((type, index) => (
+                <option key={index} value={type}>
+                  {type === "All" ? "Select Type" : type}
+                </option>
+              ))}
+            </select>
+
+            {/* Campus Dropdown - Your existing code */}
             <select
               value={selectedCampus}
               onChange={(e) => setSelectedCampus(e.target.value)}
@@ -216,6 +293,7 @@ const Course = () => {
             </select>
           </div>
         </div>
+
         {/* Table Container */}
         <div className="bg-white p-4 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
@@ -259,7 +337,7 @@ const Course = () => {
                 </tr>
               </thead>
               <tbody>
-                {courses.map((course, index) => (
+                {filteredCourses.map((course, index) => (
                   <tr
                     key={course.id}
                     className="hover:bg-customLightBlue2 border-t border-gray-300"
