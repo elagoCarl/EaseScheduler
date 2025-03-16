@@ -31,7 +31,7 @@ const Room = () => {
   const [error, setError] = useState(null);
 
   // Temporary department id; will later be derived from the logged in user.
-  const temporaryDeptId = "5";
+  const temporaryDeptId = "1";
 
   const campuses = ["LV", "GP"];
 
