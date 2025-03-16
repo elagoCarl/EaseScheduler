@@ -342,6 +342,35 @@ const getAllAssignationsByDept = async (req, res, next) => {
     }
 };
 
+const getAllAssignationsByDeptInclude = async (req, res, next) => {
+    try {
+        const departmentId = req.params.id;
+        if (!departmentId) {
+            return res.status(400).json({
+                successful: false,
+                message: "Department id is required.",
+            });
+        }
+
+        const assignations = await Assignation.findAll({
+            where: { DepartmentId: departmentId },
+            include: [
+                { model: Course, attributes: ['Code', 'Description', 'Units'] },
+                { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
+                { model: Department, attributes: ['Name'] },
+            ],
+        });
+
+        return res.status(200).json({
+            successful: true,
+            data: assignations,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 // Delete Assignation by ID
 const deleteAssignation = async (req, res, next) => {
     try {
@@ -392,7 +421,8 @@ module.exports = {
     getAssignation,
     getAllAssignations,
     deleteAssignation,
-    getAllAssignationsByDept
+    getAllAssignationsByDept,
+    getAllAssignationsByDeptInclude
 };
 
 
