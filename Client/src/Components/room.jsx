@@ -30,12 +30,15 @@ const Room = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Temporary department id; will later be derived from the logged in user.
+  const temporaryDeptId = "1";
+
   const campuses = ["LV", "GP"];
 
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await axios.get("http://localhost:8080/room/getAllRoom");
+      const response = await axios.get(`http://localhost:8080/room/getRoomsByDept/${temporaryDeptId}`);
       if (response.data.successful) {
         const roomData = response.data.data;
         setRooms(roomData);
@@ -150,7 +153,7 @@ const Room = () => {
   };
 
   const handleAddRoomCloseModal = () => {
-    setIsAddRoomModalOpen(false)
+    setIsAddRoomModalOpen(false);
   };
 
   const handleDeleteClick = () => {

@@ -7,7 +7,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
         },
         Day: {
-            type: DataTypes.STRING,
+            type: DataTypes.INTEGER,
             allowNull: false
         },
         Start_time: {
