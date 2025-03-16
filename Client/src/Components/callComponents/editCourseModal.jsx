@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from "react";
 import Axios from "axios";
 
-const EditCourseModal = ({ isOpen, onClose, course }) => {
+const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
   const [courseCode, setCourseCode] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseType, setCourseType] = useState("");
   const [courseDuration, setCourseDuration] = useState(""); // ✅ Added Duration state
   const [courseUnits, setCourseUnits] = useState(""); // ✅ Added Units state
+  const [courseYear, setCourseYear] = useState("")
   const [successMessage, setSuccessMessage] = useState("");
-  const [courseID, setCourseID] = useState(""); 
-  const [onUpdate, setOnUpdate] = useState(null);
+  const [courseID, setCourseID] = useState("");
 
   //modal updates when a new course is selected
   useEffect(() => {
-    if (course) {
+    if (isOpen && course) {
       setCourseCode(course.Code || "");
       setCourseDescription(course.Description || "");
       setCourseType(course.Type || "");
       setCourseDuration(course.Duration || ""); // ✅ Initialize Duration
       setCourseUnits(course.Units || ""); // ✅ Initialize Units
       setCourseID(course.id || "");
+      setCourseYear(course.Year || "")
+
+      setSuccessMessage("")
     }
-  }, [course]); 
+  }, [isOpen, course]);
 
   if (!isOpen) return null;
 
@@ -39,13 +42,15 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
 
     try {
       const response = await Axios.put(
-        `http://localhost:8080/course/updateCourse/${courseID}`, 
+        `http://localhost:8080/course/updateCourse/${ courseID }`,
         {
           Code: courseCode,
           Description: courseDescription,
           Duration: courseDuration, // ✅ Include Duration
           Units: courseUnits, // ✅ Include Units
           Type: courseType,
+          Year: courseYear,
+          Dept_id: 1
         },
         {
           headers: { "Content-Type": "application/json" },
@@ -56,9 +61,16 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
         setSuccessMessage("Course updated successfully!");
         setTimeout(onClose, 1500);
 
-        if(onUpdate) {
-          onUpdate()
+        if (onUpdateSuccess) {
+          onUpdateSuccess()
         }
+
+        setTimeout(() => {
+          onClose()
+
+          setSuccessMessage("")
+        }, 1500)
+
       } else {
         console.error("Failed to update course:", response.data);
       }
@@ -68,16 +80,16 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
   };
 
   const handleEditCourse = async () => {
-  try {
-    const response = await Axios.put(`http://localhost:8080/course/updateCourse/${course.id}`, updatedCourse);
-    if (response.data.successful) {
-      onUpdateSuccess(); // ✅ Trigger parent update
-      onClose(); // ✅ Close modal
+    try {
+      const response = await Axios.put(`http://localhost:8080/course/updateCourse/${ course.id }`, updatedCourse);
+      if (response.data.successful) {
+        onUpdateSuccess(); // ✅ Trigger parent update
+        onClose(); // ✅ Close modal
+      }
+    } catch (error) {
+      console.error("Error updating course:", error);
     }
-  } catch (error) {
-    console.error("Error updating course:", error);
-  }
-};
+  };
 
 
   return (
@@ -85,7 +97,11 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
       <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl text-white font-semibold mx-auto">Edit Course</h2>
-          <button className="text-xl text-white hover:text-black" onClick={onClose}>
+          <button className="text-xl text-white hover:text-black" onClick={() => {
+            setSuccessMessage(""); // Clear message on close
+            onClose();
+          }}
+          >
             &times;
           </button>
         </div>
@@ -108,7 +124,7 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
             required
           />
 
-          <label className="block font-semibold text-white">Duration</label> 
+          <label className="block font-semibold text-white">Duration</label>
           <input
             type="number"
             className="w-full p-5 border rounded bg-customWhite"
@@ -117,7 +133,7 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
             required
           />
 
-          <label className="block font-semibold text-white">Units</label> 
+          <label className="block font-semibold text-white">Units</label>
           <input
             type="number"
             className="w-full p-5 border rounded bg-customWhite"
@@ -140,13 +156,30 @@ const EditCourseModal = ({ isOpen, onClose, course }) => {
             <option value="Professional">Professional</option>
           </select>
 
-          {successMessage && <div className="text-green-600 mb-4">{successMessage}</div>}
+          <label className="block font-semibold text-white">Year Level</label>
+          <input
+            type="number"
+            className="w-full p-5 border rounded bg-customWhite"
+            value={courseYear}
+            onChange={(e) => setCourseYear(e.target.value)}
+            required
+          />
+
+          {successMessage && (
+            <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded">
+              <p>{successMessage}</p>
+            </div>
+          )}
 
           <div className="flex justify-center gap-6 py-6">
             <button type="submit" className="bg-blue-500 text-white hover:bg-blue-700 duration-300 px-6 font-semibold py-2 rounded-lg">
               Save
             </button>
-            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-700 duration-300 px-6 py-2 rounded-lg" onClick={onClose}>
+            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-700 duration-300 px-6 py-2 rounded-lg" onClick={() => {
+              setSuccessMessage(""); // Clear message on cancel
+              onClose();
+            }}
+            >
               Cancel
             </button>
           </div>
