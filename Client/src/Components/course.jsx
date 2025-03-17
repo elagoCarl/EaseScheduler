@@ -11,7 +11,7 @@ import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import Axios from 'axios';
 
-const deptId = 1;
+// const deptId = 1;
 
 const Course = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -45,46 +45,46 @@ const Course = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError(`Error fetching courses: ${err.message}`);
+      setError(`Error fetching courses: ${ err.message }`);
     }
   };
 
 
- useEffect(() => {
-  fetchCourse();
-  console.log("Fetching courses...");
-}, [updateTrigger]);
+  useEffect(() => {
+    fetchCourse();
+    console.log("Fetching courses...");
+  }, [updateTrigger]);
 
 
-useEffect(() => {
-  if (courses.length > 0) {
-    setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes
-  }
-}, [courses]); // 🔹 Removed success message here
-
-const handleDeleteCourse = async (courseId) => {
-  if (!courseId) return;
-
-  try {
-    const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${courseId}`);
-    if (response.data.successful) {
-      setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
+  useEffect(() => {
+    if (courses.length > 0) {
+      setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes
     }
-  } catch (error) {
-    console.error("Error deleting course:", error);
-  }
-};
+  }, [courses]); // 🔹 Removed success message here
+
+  const handleDeleteCourse = async (courseId) => {
+    if (!courseId) return;
+
+    try {
+      const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${ courseId }`);
+      if (response.data.successful) {
+        setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
+      }
+    } catch (error) {
+      console.error("Error deleting course:", error);
+    }
+  };
 
   const handleAddCourse = async (newCourse) => {
-  try {
-    const response = await Axios.post("http://localhost:8080/course/addCourse", newCourse);
-    if (response.data.successful) {
-      setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
+    try {
+      const response = await Axios.post("http://localhost:8080/course/addCourse", newCourse);
+      if (response.data.successful) {
+        setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
+      }
+    } catch (error) {
+      console.error("Error adding course:", error);
     }
-  } catch (error) {
-    console.error("Error adding course:", error);
-  }
-};
+  };
 
 
   const handleMasterCheckboxChange = () => {
@@ -108,15 +108,29 @@ const handleDeleteCourse = async (courseId) => {
     setIsAddCourseModalOpen(false); // Close the add course modal
   };
 
-const handleEditCourseClick = (course) => {
-  if (!course) {
-    console.error("No course selected for editing.");
-    return;
-  }
-  
-  setCourseToEdit(course); // ✅ Store the selected course
-  setIsEditCourseModalOpen(true); // ✅ Open edit modal
-};
+  const handleEditCourse = (course) => {
+    setIsEditCourseModalOpen(true);
+    if (!course) {
+      console.error("No course selected for editing.");
+      return;
+    }
+
+    setCourseToEdit(course); // ✅ Store the selected course
+    setIsEditCourseModalOpen(true); // ✅ Open edit modal
+  };
+
+  const handleEditClick = (course) => {
+    setCourseToEdit(course);
+    setIsEditCourseModalOpen(true);
+  };
+
+  const handleUpdateSuccess = () => {
+    setSuccessMessage("Course updated successfully!");
+    setTimeout(() => {
+      setSuccessMessage("");
+    }, 3000);
+    setUpdateTrigger(!updateTrigger);
+  };
 
 
   const handleEditCourseCloseModal = () => {
@@ -126,58 +140,58 @@ const handleEditCourseClick = (course) => {
   const [warningMessage, setWarningMessage] = useState("");
 
   const handleDeleteClick = () => {
-  const selectedCourses = courses.filter((_, index) => checkboxes[index]);
+    const selectedCourses = courses.filter((_, index) => checkboxes[index]);
 
-  if (selectedCourses.length === 0) {
-    setWarningMessage("Please select at least one course to delete!");
-    setTimeout(() => setWarningMessage(""), 3000); // Hide message after 3 seconds
-    return;
-  }
+    if (selectedCourses.length === 0) {
+      setWarningMessage("Please select at least one course to delete!");
+      setTimeout(() => setWarningMessage(""), 3000); // Hide message after 3 seconds
+      return;
+    }
 
-  console.log("Selected courses for deletion:", selectedCourses); // Debugging
+    console.log("Selected courses for deletion:", selectedCourses); // Debugging
 
-  setCourseToDelete(selectedCourses);
-  setIsDeleteWarningOpen(true);
-};
+    setCourseToDelete(selectedCourses);
+    setIsDeleteWarningOpen(true);
+  };
 
 
-const handleConfirmDelete = async () => {
-  if (!courseToDelete || courseToDelete.length === 0) {
-    console.error("No courses selected for deletion.");
-    return;
-  }
+  const handleConfirmDelete = async () => {
+    if (!courseToDelete || courseToDelete.length === 0) {
+      console.error("No courses selected for deletion.");
+      return;
+    }
 
-  try {
-    console.log("Deleting courses:", courseToDelete);
+    try {
+      console.log("Deleting courses:", courseToDelete);
 
-    await Promise.all(
-      courseToDelete.map((course) =>
-        Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
-      )
-    );
+      await Promise.all(
+        courseToDelete.map((course) =>
+          Axios.delete(`http://localhost:8080/course/deleteCourse/${ course.id }`)
+        )
+      );
 
-    console.log("Selected courses deleted successfully!");
+      console.log("Selected courses deleted successfully!");
 
-    // ✅ Update state directly without calling fetchCourse()
-    setCourses((prevCourses) =>
-      prevCourses.filter((course) => !courseToDelete.some((del) => del.id === course.id))
-    );
+      // ✅ Update state directly without calling fetchCourse()
+      setCourses((prevCourses) =>
+        prevCourses.filter((course) => !courseToDelete.some((del) => del.id === course.id))
+      );
 
-    // Reset states
-    setCheckboxes(Array(courses.length).fill(false));
-    setCourseToDelete([]);
-    setIsDeleteWarningOpen(false);
+      // Reset states
+      setCheckboxes(Array(courses.length).fill(false));
+      setCourseToDelete([]);
+      setIsDeleteWarningOpen(false);
 
-  } catch (error) {
-    console.error("Error deleting courses:", error.message);
-  }
-};
+    } catch (error) {
+      console.error("Error deleting courses:", error.message);
+    }
+  };
 
 
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}>
+      style={{ backgroundImage: `url(${ Background })` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
@@ -276,7 +290,7 @@ const handleConfirmDelete = async () => {
                     </td>
                     <td className="py-2 border border-gray-300">
                       <button className=" text-white rounded "
-                        onClick={() => handleEditCourseClick(course)}
+                        onClick={() => handleEditCourse(course)}
                       >
                         <img
                           src={editBtn}
@@ -305,21 +319,21 @@ const handleConfirmDelete = async () => {
           />
         </button>
         <button
-            className="py-2 px-4 text-white rounded"
-            onClick={() => handleDeleteClick(courseToDelete)}>
-            <img
-              src={delBtn}
-              className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-              alt="Delete Course"
-            />
-          </button>
+          className="py-2 px-4 text-white rounded"
+          onClick={() => handleDeleteClick(courseToDelete)}>
+          <img
+            src={delBtn}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+            alt="Delete Course"
+          />
+        </button>
 
-          {/* Warning Message */}
-          {warningMessage && (
-            <div className="fixed bottom-10 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-md">
-              {warningMessage}
-            </div>
-          )}
+        {/* Warning Message */}
+        {warningMessage && (
+          <div className="fixed bottom-10 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-md">
+            {warningMessage}
+          </div>
+        )}
       </div>
 
       {/* Add Course Modal */}
@@ -331,9 +345,13 @@ const handleConfirmDelete = async () => {
       {/* Edit Course Modal */}
       <EditCourseModal
         isOpen={isEditCourseModalOpen}
-        onClose={handleEditCourseCloseModal}
+        onClose={() => {
+          setIsEditCourseModalOpen(false);
+          setCourseToEdit(null);
+        }}
         course={courseToEdit} // Pass the course to edit
         fetchCourse={fetchCourse} // Refresh courses after editing
+        onUpdateSuccess={fetchCourse}
       />
       {/* Delete Warning Modal */}
       <DelCourseWarn

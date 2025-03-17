@@ -8,5 +8,6 @@ router.get('/getProgYrSec/:id', progYrSec_ctrl.getProgYrSec)
 router.put('/updateProgYrSec/:id', progYrSec_ctrl.updateProgYrSec);
 router.delete('/deleteProgYrSec/:id', progYrSec_ctrl.deleteProgYrSec);
 router.get('/getAllProgYrSecByProgram/:id', progYrSec_ctrl.getAllProgYrSecByProgram)
+router.get('/getProgYrSecByDept/:id', progYrSec_ctrl.getProgYrSecByDept)
 
 module.exports = router;

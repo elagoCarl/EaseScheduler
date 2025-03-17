@@ -1,4 +1,4 @@
-const { ProgYrSec, Program } = require('../models');
+const { ProgYrSec, Program ,Department } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -78,7 +78,6 @@ const getProgYrSec = async (req, res, next) => {
             include: { model: Program, attributes: ['id', 'Name', 'Code'] }
         });
 
-        console.log("TNAGIN::::: :ASD:AD: A:SD :A:: ", progYrSec)
         if (!progYrSec) {
             return res.status(404).json({
                 successful: false,
@@ -258,12 +257,50 @@ const getAllProgYrSecByProgram = async (req, res, next) => {
         });
     }
 };
-// Export the functions
+
+const getProgYrSecByDept = async (req, res, next) => {
+    try {
+        const pys = await ProgYrSec.findAll({
+            attributes: ['Year', 'Section', 'ProgramId'],
+            include: [
+                {
+                    model: Program,
+                    attributes: ['id', 'Code'],
+                    where: { DepartmentId: req.params.id }
+                }
+            ]
+        });
+
+        if (!pys || pys.length === 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No ProgYrSec found",
+                count: 0,
+                data: []
+            });
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all ProgYrSec",
+                count: pys.length,
+                data: pys
+            });
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
 module.exports = {
     addProgYrSec,
     getProgYrSec,
     getAllProgYrSec,
     updateProgYrSec,
     deleteProgYrSec,
-    getAllProgYrSecByProgram
+    getAllProgYrSecByProgram,
+    getProgYrSecByDept
 };

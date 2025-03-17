@@ -49,7 +49,7 @@ const ForgotPass = () => {
     return (
         <div
             className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-center items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${image5})` }}
+            style={{ backgroundImage: `url(${ image5 })` }}
         >
             {isLoading || isRedirecting ? (
                 // Show loading spinner or redirecting message
@@ -111,7 +111,7 @@ const ForgotPass = () => {
                                         </div>
                                         <button
                                             type="submit"
-                                            className="py-8 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold text-white bg-blue-700 hover:bg-blue-900 duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
+                                            className="py-8 px-4 mt-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold text-white bg-blue-700 hover:bg-blue-900 duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
                                         >
                                             Reset password
                                         </button>

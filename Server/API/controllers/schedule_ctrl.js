@@ -54,18 +54,18 @@ const addSchedule = async (req, res, next) => {
             // Validate Room existence
             const room = await Room.findByPk(RoomId);
             if (!room) {
-                return res.status(404).json({ 
-                    successful: false, 
-                    message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.` 
+                return res.status(404).json({
+                    successful: false,
+                    message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
                 });
             }
 
             // Validate Assignation existence
             const assignation = await Assignation.findByPk(AssignationId);
             if (!assignation) {
-                return res.status(404).json({ 
-                    successful: false, 
-                    message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.` 
+                return res.status(404).json({
+                    successful: false,
+                    message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.`
                 });
             }
 
@@ -76,9 +76,9 @@ const addSchedule = async (req, res, next) => {
 
             const isConflict = existingSchedules.some(existing => {
                 return (
-                    (Start_time >= existing.Start_time && Start_time < existing.End_time) ||  
-                    (End_time > existing.Start_time && End_time <= existing.End_time) ||     
-                    (Start_time <= existing.Start_time && End_time >= existing.End_time)      
+                    (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
+                    (End_time > existing.Start_time && End_time <= existing.End_time) ||
+                    (Start_time <= existing.Start_time && End_time >= existing.End_time)
                 );
             });
 
@@ -94,8 +94,8 @@ const addSchedule = async (req, res, next) => {
             createdSchedules.push(newSchedule);
         }
 
-        return res.status(201).json({ 
-            successful: true, 
+        return res.status(201).json({
+            successful: true,
             message: "Successfully created schedules.",
             schedules: createdSchedules
         });
@@ -129,18 +129,18 @@ const updateSchedule = async (req, res, next) => {
         // Validate Room existence
         const room = await Room.findByPk(RoomId);
         if (!room) {
-            return res.status(404).json({ 
-                successful: false, 
-                message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.` 
+            return res.status(404).json({
+                successful: false,
+                message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
             });
         }
 
         // Validate Assignation existence
         const assignation = await Assignation.findByPk(AssignationId);
         if (!assignation) {
-            return res.status(404).json({ 
-                successful: false, 
-                message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.` 
+            return res.status(404).json({
+                successful: false,
+                message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.`
             });
         }
 
@@ -155,9 +155,9 @@ const updateSchedule = async (req, res, next) => {
 
         const isConflict = existingSchedules.some(existing => {
             return (
-                (Start_time >= existing.Start_time && Start_time < existing.End_time) ||  
-                (End_time > existing.Start_time && End_time <= existing.End_time) ||     
-                (Start_time <= existing.Start_time && End_time >= existing.End_time)      
+                (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
+                (End_time > existing.Start_time && End_time <= existing.End_time) ||
+                (Start_time <= existing.Start_time && End_time >= existing.End_time)
             );
         });
 
@@ -556,7 +556,191 @@ const getAllSchedules = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
-}; 
+}
+
+const getSchedsByRoom = async (req, res, next) => {
+    try {
+        const sched = await Schedule.findAll({
+            where: { RoomId: req.params.id },
+            attributes: { exclude: ['createdAt', 'updatedAt'] },
+            include: [
+                {
+                    model: Assignation,
+                    attributes: ['id', 'School_Year', 'Semester'],
+                    include: [
+                        {
+                            model: Course,
+                            attributes: ['Code', 'Description']
+                        },
+                        {
+                            model: Professor,
+                            attributes: ['Name']
+                        }
+                    ]
+                },
+                {
+                    model: ProgYrSec,
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code']
+                        }
+                    ],
+                    through: { attributes: [] },
+                    attributes: ['Year', 'Section']
+                }
+            ]
+        });
+
+        if (!sched || sched.length === 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No schedule found",
+                count: 0,
+                data: []
+            });
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all schedules",
+                count: sched.length,
+                data: sched
+            });
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const getSchedsByProf = async (req, res, next) => {
+    try {
+        const sched = await Schedule.findAll({
+            attributes: { exclude: ['createdAt', 'updatedAt'] },
+            include: [
+                {
+                    model: Assignation,
+                    where: { ProfessorId: req.params.id },
+                    attributes: ['id', 'School_Year', 'Semester'],
+                    include: [
+                        {
+                            model: Course,
+                            attributes: ['Code', 'Description']
+                        },
+                        {
+                            model: Room,
+                            attributes: ['Code', 'Floor', 'Building', 'Type'],
+                            through: { attributes: [] }
+                        }
+                    ]
+                },
+                {
+                    model: ProgYrSec,
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code']
+                        }
+                    ],
+                    through: { attributes: [] },
+                    attributes: ['Year', 'Section']
+                }
+            ]
+        });
+
+        if (!sched || sched.length === 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No schedule found",
+                count: 0,
+                data: []
+            });
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all schedules",
+                count: sched.length,
+                data: sched
+            });
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const getSchedsByDept = async (req, res, next) => {
+    try {
+        const sched = await Schedule.findAll({
+            attributes: { exclude: ['createdAt', 'updatedAt'] },
+            include: [
+                {
+                    model: Assignation,
+                    where: { DepartmentId: req.params.id },
+                    attributes: ['id', 'School_Year', 'Semester'],
+                    include: [
+                        {
+                            model: Course,
+                            attributes: ['Code', 'Description']
+                        },
+                        {
+                            model: Professor,
+                            attributes: ['id','Name']
+                        },
+                        {
+                            model: Room,
+                            attributes: ['Code', 'Floor', 'Building', 'Type'],
+                            through: { attributes: [] }
+                        }
+                    ]
+                },
+                {
+                    model: ProgYrSec,
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['id', 'Code']
+                        }
+                    ],
+                    through: { attributes: [] },
+                    attributes: ['Year', 'Section']
+                }
+            ]
+        });
+
+        if (!sched || sched.length === 0) {
+            res.status(200).send({
+                successful: true,
+                message: "No schedule found",
+                count: 0,
+                data: []
+            });
+        }
+        else {
+            res.status(200).send({
+                successful: true,
+                message: "Retrieved all schedules",
+                count: sched.length,
+                data: sched
+            });
+        }
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
 
 module.exports = {
     addSchedule,
@@ -564,5 +748,8 @@ module.exports = {
     getSchedule,
     getAllSchedules,
     updateSchedule,
-    deleteSchedule
+    deleteSchedule,
+    getSchedsByRoom,
+    getSchedsByProf,
+    getSchedsByDept
 };

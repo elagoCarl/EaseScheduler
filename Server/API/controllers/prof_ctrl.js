@@ -1,4 +1,4 @@
-const { Professor, ProfStatus } = require('../models')
+const { Professor, ProfStatus, Assignation } = require('../models')
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
@@ -55,11 +55,9 @@ const addProf = async (req, res, next) => {
             const newProf = await Professor.create({
                 Name,
                 Email,
-                Total_units: 0
+                Total_units: 0,
+                ProfStatusId: Status // Ensure the status is linked correctly
             });
-
-            // Associate the professor with the status
-            await newProf.setProfStatus(status);
 
             addedProfs.push(Name);
         }
@@ -148,9 +146,9 @@ const getProf = async (req, res) => {
             data: professor
         });
     } catch (error) {
-        res.status(500).json({ 
-            successful: false, 
-            message: error.message 
+        res.status(500).json({
+            successful: false,
+            message: error.message
         });
     }
 };
@@ -279,10 +277,46 @@ const updateProf = async (req, res, next) => {
     }
 }
 
+const getProfByDept = async (req, res, next) => {
+    try {
+        const professors = await Professor.findAll({
+            attributes: ['id', 'Name'],
+            include: [{
+                model: Assignation,
+                where: { DepartmentId: req.params.id },
+                attributes: [],
+                required: true
+            }]
+        });
+        if (!professors || professors.length === 0) {
+            return res.status(200).send({
+                successful: true,
+                message: "No professors found for this department",
+                count: 0,
+                data: []
+            });
+        }
+
+        return res.status(200).send({
+            successful: true,
+            message: "Retrieved professors by department",
+            count: professors.length,
+            data: professors
+        });
+    }
+    catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+};
+
 module.exports = {
     addProf,
     getAllProf,
     getProf,
     deleteProf,
-    updateProf
+    updateProf,
+    getProfByDept
 }

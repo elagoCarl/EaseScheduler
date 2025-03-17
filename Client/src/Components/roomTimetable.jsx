@@ -1,113 +1,255 @@
-import  { useState } from 'react';
-import Image3 from './Img/3.jpg';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
+import Image3 from './Img/3.jpg';
 
 const RoomTimetable = () => {
-    const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const [selectedRoom, setSelectedRoom] = useState('Room 101');
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(0);
 
-    const toggleSidebar = () => {
-        setSidebarOpen(!isSidebarOpen);
-    }
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const rooms = ['Room 101', 'Room 102', 'Room 103', 'Room 104', 'Room 105'];
-
-    const events = [
-        { id: 1, time: '8:00 - 12:00', course: 'Life and Works of Pacman', professor: 'Dr. Pacquiao', section: 'CS4A', day: 2, duration: 4, color: 'bg-blue-50' }
-    ];
-
-    const renderEventInCell = (hour, dayIndex) => {
-        return events.map(event => {
-            const eventStartHour = parseInt(event.time.split(':')[0]);
-            if (event.day === dayIndex && eventStartHour === hour) {
-                return (
-                    <div
-                        key={event.id}
-                        className={`absolute ${event.color} p-2 rounded-md shadow-sm border border-blue-200 left-0 right-0 mx-1`}
-                        style={{
-                            top: '0',
-                            height: `${event.duration * 100}%`,
-                            zIndex: 10
-                        }}
-                    >
-                        <div className="text-xs font-medium text-blue-700">{event.time}</div>
-                        <div className="text-sm truncate text-blue-600">{event.course}</div>
-                        <div className="text-sm truncate text-blue-600">{event.professor}</div>
-                        <div className="text-sm truncate text-blue-600">{event.section}</div>
-                    </div>
-                );
-            }
-            return null;
-        });
+  // Fetch rooms
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const { data } = await axios.get(`http://localhost:8080/room/getRoomsByDept/1`);
+        if (data.successful && data.data.length) {
+          setRooms(data.data);
+          setSelectedRoom(data.data[0]);
+        } else {
+          console.error('No rooms found or API error');
+        }
+      } catch (error) {
+        console.error('Error fetching rooms:', error);
+      }
     };
+    fetchRooms();
+  }, []);
 
+  // Fetch schedules when selectedRoom changes
+  useEffect(() => {
+    if (!selectedRoom) return;
+    const fetchSchedules = async () => {
+      setLoadingSchedules(true);
+      try {
+        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${selectedRoom.id}`);
+        if (data.successful) {
+          setSchedules(data.data);
+        } else {
+          console.error('Error fetching schedules:', data.message);
+          setSchedules([]);
+        }
+      } catch (error) {
+        console.error('Error fetching schedules:', error);
+        setSchedules([]);
+      } finally {
+        setLoadingSchedules(false);
+      }
+    };
+    fetchSchedules();
+  }, [selectedRoom]);
+
+  const toggleSidebar = () => setSidebarOpen(prev => !prev);
+
+  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+
+  const calculateEventPosition = (event) => {
+    const [sHour, sMin] = event.Start_time.split(':').map(Number);
+    const [eHour, eMin] = event.End_time.split(':').map(Number);
+    const duration = (eHour - sHour) + ((eMin - sMin) / 60);
+    return { top: `${(sMin / 60) * 100}%`, height: `${duration * 100}%` };
+  };
+
+  // New component similar to ScheduleEvent in AddConfigSchedule
+  const RoomScheduleEvent = ({ schedule }) => {
+    const [hovered, setHovered] = useState(false);
+    const pos = calculateEventPosition(schedule);
+    const sections = schedule.ProgYrSecs
+      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+      .join(', ');
     return (
-        <div className="main bg-cover bg-no-repeat min-h-screen flex justify-center items-center xs:h-full"
-            style={{ backgroundImage: `url(${Image3})` }}>
-            <div className="fixed top-0 h-full z-50">
-                <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-            </div>
-
-            <TopMenu toggleSidebar={toggleSidebar} />
-
-            <div className="flex flex-col items-center text-center w-full">
-                <div className="flex flex-wrap md:flex-nowrap gap-5 w-full lg:max-w-6xl md:max-w-4xl sm:max-w-2xl justify-center items-start px-5 xs:px-15">
-                    <div className="bg-white w-full p-5 rounded-lg shadow-lg overflow-x-auto">
-                        {/* Header section inside the card */}
-                        <div className="relative mb-6 min-w-[800px]">
-                            <h1 className="text-2xl font-bold text-white text-center mb-4 w-full bg-customBlue1 px-4 py-8 rounded-lg">Room Timetable</h1>
-                            <div className="absolute right-10 top-10">
-                                <select
-                                    value={selectedRoom}
-                                    onChange={(e) => setSelectedRoom(e.target.value)}
-                                    className="rounded-md px-3 py-2 bg-white shadow-sm 
-                                        focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-transparent 
-                                        text-black"
-                                >
-                                    {rooms.map(room => (
-                                        <option key={room} value={room}>{room}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="min-w-[800px]">
-                            <table className="w-full border-collapse">
-                                <thead>
-                                    <tr>
-                                        <th className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-1/7">
-                                            Time
-                                        </th>
-                                        {days.map((day) => (
-                                            <th key={day} className="p-3 border border-gray-300 bg-blue-500 text-white font-medium w-1/7">
-                                                {day}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Array.from({ length: 15 }, (_, i) => 7 + i).map((hour) => (
-                                        <tr key={hour}>
-                                            <td className="p-3 border border-gray-300 text-center w-1/7">
-                                                {hour}:00
-                                            </td>
-                                            {days.map((_, dayIndex) => (
-                                                <td key={dayIndex} className="p-3 border border-gray-300 relative h-14 w-1/7">
-                                                    {renderEventInCell(hour, dayIndex)}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
+        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+          {schedule.Assignation.Course.Description}
+        </div>
+        <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
+      </div>
     );
+  };
+
+  // Modified render function to use RoomScheduleEvent
+  const renderEvent = (hour, dayIndex, isMobile = false) => {
+    if (isMobile && dayIndex !== selectedDay) return null;
+    const apiDayIndex = dayIndex + 1;
+    return schedules
+      .filter(schedule => {
+        const [sHour, sMin] = schedule.Start_time.split(':').map(Number);
+        const [eHour, eMin] = schedule.End_time.split(':').map(Number);
+        return (
+          schedule.Day === apiDayIndex &&
+          sHour <= hour &&
+          (eHour > hour || (eHour === hour && eMin > 0))
+        );
+      })
+      .map(schedule => {
+        // Only render event component when the start hour equals the cell hour
+        if (parseInt(schedule.Start_time.split(':')[0], 10) !== hour) return null;
+        return <RoomScheduleEvent key={schedule.id} schedule={schedule} />;
+      });
+  };
+
+  return (
+    <div
+      className="min-h-screen flex flex-col"
+      style={{
+        backgroundImage: `url(${Image3})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      <div className="fixed top-0 h-full z-50">
+        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      </div>
+      <TopMenu toggleSidebar={toggleSidebar} />
+      <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
+          {/* Header */}
+          <div className="relative bg-blue-600 p-4 sm:p-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
+            {selectedRoom ? (
+              <div className="text-blue-100 mt-1">
+                <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
+                <div className="flex flex-col gap-x-4 text-sm mt-1">
+                  <span>{selectedRoom.Floor} Floor</span>
+                  <span>{selectedRoom.Building} Building</span>
+                  <span>{selectedRoom.Type}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-blue-100 mt-1">Loading room details...</p>
+            )}
+            <div className="flex items-center gap-2 mt-4">
+              <select
+                value={selectedRoom?.id || ''}
+                onChange={e =>
+                  setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
+                }
+                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+              >
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>
+                    Room {room.Code} - {room.Building}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {/* Timetable */}
+          <div className="overflow-x-auto">
+            <div className="p-2 sm:p-4 min-w-[600px]">
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                {loadingSchedules ? (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600" />
+                    <span className="ml-3 text-blue-600 font-medium">Loading schedule...</span>
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="p-2 sm:p-3 border-b-2 border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm text-left w-16 sm:w-20">
+                          Time
+                        </th>
+                        {days.map(day => (
+                          <th
+                            key={day}
+                            className="p-2 sm:p-3 border-b-2 border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm text-left"
+                          >
+                            {day}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeSlots.map(hour => (
+                        <tr key={hour} className="hover:bg-gray-50">
+                          <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
+                            {`${hour.toString().padStart(2, '0')}:00`}
+                          </td>
+                          {days.map((_, dayIndex) => (
+                            <td key={dayIndex} className="p-0 border-b border-gray-200 relative h-24 sm:h-28">
+                              {renderEvent(hour, dayIndex)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              {/* Mobile View */}
+              <div className="md:hidden">
+                <div className="flex justify-start bg-gray-50 border-b-2 border-gray-200 p-2 gap-8">
+                  <span className="text-gray-700 font-medium text-sm">Time</span>
+                  <select
+                    className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
+                    value={selectedDay}
+                    onChange={e => setSelectedDay(parseInt(e.target.value))}
+                  >
+                    {days.map((day, idx) => (
+                      <option key={day} value={idx}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {loadingSchedules ? (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600" />
+                    <span className="ml-3 text-blue-600 font-medium text-sm">Loading schedule...</span>
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse">
+                    <tbody>
+                      {timeSlots.map(hour => (
+                        <tr key={hour} className="hover:bg-gray-50">
+                          <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
+                            {`${hour.toString().padStart(2, '0')}:00`}
+                          </td>
+                          <td className="p-0 border-b border-gray-200 relative h-24">
+                            {renderEvent(hour, selectedDay, true)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default RoomTimetable;
