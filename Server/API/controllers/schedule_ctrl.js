@@ -10,9 +10,17 @@ const professorMaxLimit = 12; // Max hours a professor can stay at school per da
 const professorInterval = { shortBreak: 0.5, longBreak: 1, maxHours: 6 }; // Break intervals for professors
 const studentInterval = { shortBreak: 0.5, longBreak: 1, maxHours: 6 }; // Break intervals for students per section
 
-
+// Helper function to convert a time string (e.g., "19:00" or "7:00") into seconds since midnight
+const timeToSeconds = (timeStr) => {
+    const parts = timeStr.split(':');
+    // Ensure hours are padded for consistency (optional but useful)
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    return hours * 3600 + minutes * 60;
+};
 
 const isValidTime = (startTime, endTime, res) => {
+    // Accept times with one or two digits for hours as per your regex.
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
     // Validate format
@@ -23,11 +31,11 @@ const isValidTime = (startTime, endTime, res) => {
         });
     }
 
-    // Ensure start time is earlier than end time
-    const [startHours, startMinutes] = startTime.split(":").map(Number);
-    const [endHours, endMinutes] = endTime.split(":").map(Number);
+    // Ensure start time is earlier than end time by comparing numeric values.
+    const startSeconds = timeToSeconds(startTime);
+    const endSeconds = timeToSeconds(endTime);
 
-    if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) {
+    if (startSeconds >= endSeconds) {
         return res.status(400).json({
             successful: false,
             message: "Start time must be earlier than end time."
@@ -53,7 +61,10 @@ const addSchedule = async (req, res, next) => {
 
             // Validate mandatory fields
             if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
-                return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
+                return res.status(400).json({
+                    successful: false,
+                    message: "A mandatory field is missing."
+                });
             }
 
             // Validate time format and sequence
@@ -82,18 +93,23 @@ const addSchedule = async (req, res, next) => {
                 where: { Day, RoomId }
             });
 
+            // Convert new schedule times to seconds
+            const newStart = timeToSeconds(Start_time);
+            const newEnd = timeToSeconds(End_time);
+
+            // Updated conflict logic that allows back-to-back scheduling.
+            // Two intervals [newStart, newEnd) and [existingStart, existingEnd) conflict if:
+            // newStart < existingEnd && newEnd > existingStart
             const isConflict = existingSchedules.some(existing => {
-                return (
-                    (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
-                    (End_time > existing.Start_time && End_time <= existing.End_time) ||
-                    (Start_time <= existing.Start_time && End_time >= existing.End_time)
-                );
+                const existingStart = timeToSeconds(existing.Start_time);
+                const existingEnd = timeToSeconds(existing.End_time);
+                return (newStart < existingEnd && newEnd > existingStart);
             });
 
             if (isConflict) {
                 return res.status(400).json({
                     successful: false,
-                    message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`,
+                    message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
                 });
             }
 
@@ -109,8 +125,10 @@ const addSchedule = async (req, res, next) => {
         });
 
     } catch (error) {
-        console.error(error);
-        next(error.message);
+        return res.status(500).json({
+            successful: false,
+            message: error
+        });
     }
 };
 
@@ -122,7 +140,10 @@ const updateSchedule = async (req, res, next) => {
 
         // Validate mandatory fields
         if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
-            return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
+            return res.status(400).json({ 
+                successful: false, 
+                message: "A mandatory field is missing." 
+            });
         }
 
         // Validate time format and sequence
@@ -131,7 +152,10 @@ const updateSchedule = async (req, res, next) => {
         // Validate if the schedule exists
         const schedule = await Schedule.findByPk(id);
         if (!schedule) {
-            return res.status(404).json({ successful: false, message: "Schedule not found." });
+            return res.status(404).json({ 
+                successful: false, 
+                message: "Schedule not found." 
+            });
         }
 
         // Validate Room existence
@@ -161,30 +185,40 @@ const updateSchedule = async (req, res, next) => {
             }
         });
 
+        // Convert new schedule times to seconds
+        const newStart = timeToSeconds(Start_time);
+        const newEnd = timeToSeconds(End_time);
+
+        // Updated conflict logic that allows back-to-back scheduling
         const isConflict = existingSchedules.some(existing => {
-            return (
-                (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
-                (End_time > existing.Start_time && End_time <= existing.End_time) ||
-                (Start_time <= existing.Start_time && End_time >= existing.End_time)
-            );
+            const existingStart = timeToSeconds(existing.Start_time);
+            const existingEnd = timeToSeconds(existing.End_time);
+            console.log("newStart:", newStart, "existingEnd:", existingEnd, "newEnd:", newEnd, "existingStart:", existingStart);
+            return (newStart < existingEnd && newEnd > existingStart);
         });
 
         if (isConflict) {
             return res.status(400).json({
                 successful: false,
-                message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`,
+                message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
             });
         }
 
         // Update schedule
         await schedule.update({ Day, Start_time, End_time, RoomId, AssignationId });
 
-        return res.status(200).json({ successful: true, message: "Schedule updated successfully." });
+        return res.status(200).json({ 
+            successful: true, 
+            message: "Schedule updated successfully." 
+        });
     } catch (error) {
-        console.error(error);
-        next(error);
+        return res.status(500).json({
+            successful: false,
+            message: error.message
+        });
     }
 };
+
 
 
 
@@ -202,7 +236,10 @@ const deleteSchedule = async (req, res, next) => {
 
         return res.status(200).json({ successful: true, message: "Schedule deleted successfully." });
     } catch (error) {
-        next(error);
+        return res.status(500).json({
+            successful: false,
+            message: error.message
+        });
     }
 };
 
@@ -631,7 +668,7 @@ const getSchedsByDept = async (req, res, next) => {
                         },
                         {
                             model: Professor,
-                            attributes: ['id','Name']
+                            attributes: ['id', 'Name']
                         },
                         {
                             model: Room,

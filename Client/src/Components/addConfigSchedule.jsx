@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import bg from './Img/bg.jpg';
+import delBtn from './Img/delBtn.png';
+import editBtn from './Img/editBtn.png';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
+import DeleteWarning from './callComponents/deleteWarning.jsx';
+import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx'; // New modal import
 
 const AddConfigSchedule = () => {
   const deptId = 1;
@@ -15,8 +19,27 @@ const AddConfigSchedule = () => {
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   const [customStartTime, setCustomStartTime] = useState("");
   const [customEndTime, setCustomEndTime] = useState("");
+  const [notification, setNotification] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Delete modal state
+  const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState(null);
+
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
+
+  // Auto-dismiss notifications after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,23 +64,27 @@ const AddConfigSchedule = () => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (name === "room_id" && value) {
-      axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${value}`)
-        .then(({ data }) => setSchedules(data.successful ? data.data : []))
-        .catch(err => {
-          console.error("Error fetching schedules:", err);
-          setSchedules([]);
-        });
+      fetchSchedulesForRoom(value);
     }
+  };
+
+  const fetchSchedulesForRoom = (roomId) => {
+    axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${roomId}`)
+      .then(({ data }) => setSchedules(data.successful ? data.data : []))
+      .catch(err => {
+        console.error("Error fetching schedules:", err);
+        setSchedules([]);
+      });
   };
 
   const handleTimeChange = e => {
     const { name, value } = e.target;
     if (name === "custom_start_time") {
       setCustomStartTime(value);
-      setFormData(prev => ({ ...prev, start_time: `${value}:00` }));
+      setFormData(prev => ({ ...prev, start_time: value }));
     } else if (name === "custom_end_time") {
       setCustomEndTime(value);
-      setFormData(prev => ({ ...prev, end_time: `${value}:00` }));
+      setFormData(prev => ({ ...prev, end_time: value }));
     }
   };
 
@@ -76,19 +103,40 @@ const AddConfigSchedule = () => {
     return { top: `${(sM / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
+  const deleteSchedule = async (scheduleId) => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const response = await axios.delete(`http://localhost:8080/schedule/deleteSchedule/${scheduleId}`);
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: "Schedule deleted successfully!" });
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({ type: 'error', message: response.data.message });
+      }
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+      setNotification({ type: 'error', message: error.response?.data?.message || "An error occurred while deleting the schedule." });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
-  // New component that expands on hover
+  // ScheduleEvent now includes both edit and delete buttons.
   const ScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
     const sections = schedule.ProgYrSecs.map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`).join(', ');
+
     return (
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'
-          }`}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -102,9 +150,39 @@ const AddConfigSchedule = () => {
         <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
         {hovered && (
           <div className="mt-2 text-xs">
-            <div>School Year: {schedule.Assignation.School_Year}</div>
-            <div>Semester: {schedule.Assignation.Semester}</div>
-            {/* Add any additional details here */}
+            <div className="flex justify-between items-center">
+              <div>
+                <div>School Year: {schedule.Assignation.School_Year}</div>
+                <div>Semester: {schedule.Assignation.Semester}</div>
+              </div>
+              <div className="flex">
+                {/* Edit Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedSchedule(schedule);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
+                  title="Edit schedule"
+                >
+                  <img src={editBtn} alt="Edit" className="w-10 h-10" />
+                </button>
+                {/* Delete Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedScheduleId(schedule.id);
+                    setIsDeleteWarningOpen(true);
+                  }}
+                  disabled={isDeleting}
+                  className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors"
+                  title="Delete schedule"
+                >
+                  <img src={delBtn} alt="Delete" className="w-10 h-10" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -125,6 +203,86 @@ const AddConfigSchedule = () => {
       });
   };
 
+  const handleAddSchedule = async () => {
+    if (!formData.assignation_id || !formData.room_id || !formData.day || !formData.start_time || !formData.end_time) {
+      setNotification({ type: 'error', message: "Please fill in all mandatory fields." });
+      return;
+    }
+    const payload = {
+      Day: parseInt(formData.day),
+      Start_time: formData.start_time,
+      End_time: formData.end_time,
+      RoomId: parseInt(formData.room_id),
+      AssignationId: parseInt(formData.assignation_id)
+    };
+
+    try {
+      const response = await axios.post("http://localhost:8080/schedule/addSchedule", payload);
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: "Schedule added successfully!" });
+        resetForm();
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({ type: 'error', message: response.data.message });
+      }
+    } catch (error) {
+      console.error("Error adding schedule", error);
+      setNotification({ type: 'error', message: error.response?.data?.message || "An error occurred while adding the schedule." });
+    }
+  };
+
+  const renderMobileSchedule = (event) => {
+    return (
+      <div key={event.id} className="mb-3 relative">
+        <div className="bg-blue-200 text-xs text-blue-800 p-2 m-1 rounded shadow">
+          <div className="flex justify-between items-center">
+            <div className="font-bold">
+              {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setSelectedSchedule(event); setIsEditModalOpen(true); }}
+                className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+                title="Edit schedule"
+              >
+                <img src={editBtn} alt="Edit" className="w-10 h-10" />
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedScheduleId(event.id);
+                  setIsDeleteWarningOpen(true);
+                }}
+                disabled={isDeleting}
+                className="p-1 hover:bg-red-100 rounded-full transition-colors"
+                title="Delete schedule"
+              >
+                <img src={delBtn} alt="Delete" className="w-10 h-10" />
+              </button>
+            </div>
+          </div>
+          <div className="text-blue-700">
+            {event.Start_time.substring(0, 5)} - {event.End_time.substring(0, 5)}
+          </div>
+          <div>{event.Assignation?.Professor?.Name}</div>
+          <div>
+            {event.Assignation?.School_Year} / Semester {event.Assignation?.Semester}
+          </div>
+          {event.ProgYrSecs?.length > 0 && (
+            <div className="mt-1">
+              {event.ProgYrSecs.map((sec, sIdx) => (
+                <span key={sIdx} className="mr-1">
+                  {sec.Year}-{sec.Section}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -140,24 +298,14 @@ const AddConfigSchedule = () => {
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Add/Configure Schedule</h1>
             <p className="text-blue-100 mt-1 text-xs sm:text-sm">Create and manage class schedules</p>
           </div>
+          {notification && (
+            <div className={`mx-4 my-4 p-3 rounded-lg text-sm font-medium border ${notification.type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
+              {notification.message}
+            </div>
+          )}
           <div className="flex flex-col lg:flex-row">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
-                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Assignation:</label>
-                <select
-                  name="assignation_id"
-                  value={formData.assignation_id}
-                  onChange={handleInputChange}
-                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Assignation</option>
-                  {assignations.map(a => (
-                    <option key={a.id} value={a.id}>
-                      {a.Course?.Code} - {a.Course?.Description} ({a.Course?.Units} units) | {a.Professor?.Name} - Total: {a.Professor?.Total_units} units | Dept: {a.Department?.Name}
-                    </option>
-                  ))}
-                </select>
-
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
                 <select
                   name="room_id"
@@ -169,6 +317,20 @@ const AddConfigSchedule = () => {
                   {rooms.map(r => (
                     <option key={r.id} value={r.id}>
                       {r.Code} - {r.Building} {r.Floor} (Type: {r.Type})
+                    </option>
+                  ))}
+                </select>
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Assignation:</label>
+                <select
+                  name="assignation_id"
+                  value={formData.assignation_id}
+                  onChange={handleInputChange}
+                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Assignation</option>
+                  {assignations.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.Course?.Code} - {a.Course?.Description} ({a.Course?.Units} units) | {a.Professor?.Name} - Total: {a.Professor?.Total_units} units | Dept: {a.Department?.Name}
                     </option>
                   ))}
                 </select>
@@ -219,13 +381,10 @@ const AddConfigSchedule = () => {
                     Reset
                   </button>
                   <button
-                    onClick={() => {
-                      console.log("Added:", formData);
-                      resetForm();
-                    }}
+                    onClick={handleAddSchedule}
                     className="bg-blue-600 text-white px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    Add
+                    Save
                   </button>
                 </div>
               </div>
@@ -252,31 +411,7 @@ const AddConfigSchedule = () => {
                       {!schedules.length ? (
                         <div className="text-center py-8 text-gray-500">No schedules available</div>
                       ) : (
-                        schedules.map((event, idx) => (
-                          <div key={idx} className="mb-3">
-                            <div className="bg-blue-200 text-xs text-blue-800 p-2 m-1 rounded shadow">
-                              <div className="font-bold">
-                                {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
-                              </div>
-                              <div className="text-blue-700">
-                                {event.Start_time.substring(0, 5)} - {event.End_time.substring(0, 5)}
-                              </div>
-                              <div>{event.Assignation?.Professor?.Name}</div>
-                              <div>
-                                {event.Assignation?.School_Year} / Semester {event.Assignation?.Semester}
-                              </div>
-                              {event.ProgYrSecs?.length > 0 && (
-                                <div className="mt-1">
-                                  {event.ProgYrSecs.map((sec, sIdx) => (
-                                    <span key={sIdx} className="mr-1">
-                                      {sec.Year}-{sec.Section}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))
+                        schedules.filter(event => event.Day === selectedDay + 1).map(event => renderMobileSchedule(event))
                       )}
                     </div>
                   </>
@@ -320,6 +455,35 @@ const AddConfigSchedule = () => {
           </div>
         </div>
       </div>
+      {/* DeleteWarning Modal for schedule deletion */}
+      <DeleteWarning
+        isOpen={isDeleteWarningOpen}
+        onClose={() => {
+          setIsDeleteWarningOpen(false);
+          setSelectedScheduleId(null);
+        }}
+        onConfirm={() => {
+          deleteSchedule(selectedScheduleId);
+          setIsDeleteWarningOpen(false);
+          setSelectedScheduleId(null);
+        }}
+      />
+      {/* EditSchedRecordModal for schedule editing */}
+      <EditSchedRecordModal
+        isOpen={isEditModalOpen}
+        schedule={selectedSchedule}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedSchedule(null);
+        }}
+        onUpdate={(updatedSchedule) => {
+          setSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
+        }}
+        rooms={rooms}
+        assignations={assignations}
+      />
+
+
     </div>
   );
 };
