@@ -18,29 +18,52 @@ module.exports = (sequelize, DataTypes) => {
                 max: 24  // Cannot end after midnight (24:00)
             }
         },
-
-        ProfessorMaxHours:{
+        ProfessorMaxHours: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 12
         },
-
-        StudentMaxHours:{
+        StudentMaxHours: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 12
         },
+        ProfessorBreak: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 1
+        },
+        StudentBreak: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 1
+        }
     }, {
         timestamps: true
     });
     
-// Hook to prevent multiple records
-Settings.beforeCreate(async (settings, options) => {
-    const count = await Settings.count();
-    if (count > 0) {
-        throw new Error("Only one settings record is allowed.");
-    }
-});
+    // Hook to prevent multiple records
+    Settings.beforeCreate(async (settings, options) => {
+        const count = await Settings.count();
+        if (count > 0) {
+            throw new Error("Only one settings record is allowed.");
+        }
+    });
+
+    // Auto-create a single settings record if none exists after sync
+    Settings.afterSync(async () => {
+        const count = await Settings.count();
+        if (count === 0) {
+            await Settings.create({
+                StartHour: 7,
+                EndHour: 19,
+                ProfessorMaxHours: 12,
+                StudentMaxHours: 12,
+                ProfessorBreak: 1,
+                StudentBreak: 1
+            });
+        }
+    });
 
     return Settings;
 };

@@ -210,55 +210,121 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
     );
   };
   
-  // Consolidated constraint check
-const isSchedulePossible = (
+  const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
+    const requiredBreak = settings.ProfessorBreak || 1; // break duration in hours (default 1 hour)
+    
+    // Check maximum allowed hours
+    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
+    
+    // Check for overlapping times
+    for (const time of profSchedule.dailyTimes) {
+      if (
+        (startHour >= time.start && startHour < time.end) ||
+        (startHour + duration > time.start && startHour + duration <= time.end)
+      ) {
+        return false;
+      }
+    }
+    
+    // Enforce a gap after 5 consecutive hours:
+    // Determine if the new course would be scheduled immediately after an existing block.
+    // (We assume courses are scheduled in whole hours and contiguous if new start equals an existing interval’s end.)
+    const intervals = [...profSchedule.dailyTimes].sort((a, b) => a.start - b.start);
+    let contiguousBlockStart = null;
+    
+    // Look for an interval that ends exactly at the candidate start time.
+    for (let i = 0; i < intervals.length; i++) {
+      if (intervals[i].end === startHour) {
+        // Found an interval that is immediately before the new course.
+        // Now determine the start of this contiguous block.
+        contiguousBlockStart = intervals[i].start;
+        // Walk backwards to see if earlier intervals attach continuously.
+        for (let j = i - 1; j >= 0; j--) {
+          if (intervals[j].end === contiguousBlockStart) {
+            contiguousBlockStart = intervals[j].start;
+          } else {
+            break;
+          }
+        }
+        break;
+      }
+    }
+    
+    // If there is a contiguous block ending at the candidate start, check its total duration.
+    if (contiguousBlockStart !== null) {
+      const blockDuration = startHour - contiguousBlockStart;
+      if (blockDuration >= 5) {
+        // The professor has already worked 5 consecutive hours.
+        // Therefore, the next course cannot start immediately—it must start only after the break.
+        return false;
+      }
+    }
+    
+    return true;
+  };
+  
+  const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
+    const requiredBreak = settings.StudentBreak || 1; // break duration in hours (default 1 hour)
+    
+    // Check maximum allowed hours for students
+    if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
+    
+    // Check for overlapping scheduled courses
+    for (const time of secSchedule.dailyTimes) {
+      if (
+        (startHour >= time.start && startHour < time.end) ||
+        (startHour + duration > time.start && startHour + duration <= time.end)
+      ) {
+        return false;
+      }
+    }
+    
+    // Enforce gap after 5 consecutive hours:
+    const intervals = [...secSchedule.dailyTimes].sort((a, b) => a.start - b.start);
+    let contiguousBlockStart = null;
+    
+    for (let i = 0; i < intervals.length; i++) {
+      if (intervals[i].end === startHour) {
+        contiguousBlockStart = intervals[i].start;
+        for (let j = i - 1; j >= 0; j--) {
+          if (intervals[j].end === contiguousBlockStart) {
+            contiguousBlockStart = intervals[j].start;
+          } else {
+            break;
+          }
+        }
+        break;
+      }
+    }
+    
+    if (contiguousBlockStart !== null) {
+      const blockDuration = startHour - contiguousBlockStart;
+      if (blockDuration >= 5) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
+  
+  const isSchedulePossible = (
     roomSchedules, professorSchedule, progYrSecSchedules,
     roomId, professorId, sectionIds, day, startHour, duration,
     settings
-) => {
-    // Check room availability
+  ) => {
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) return false;
     
-    // Validate professor constraints using the helper function
+    // Check professor's schedule constraints (including the required break)
     if (!canScheduleProfessor(professorSchedule[professorId][day], startHour, duration, settings)) return false;
     
-    // Validate each section constraint using the helper function
+    // Check each progYrSec's schedule constraints
     for (const sectionId of sectionIds) {
-        if (!canScheduleStudents(progYrSecSchedules[sectionId][day], startHour, duration, settings)) return false;
+      if (!canScheduleStudents(progYrSecSchedules[sectionId][day], startHour, duration, settings)) return false;
     }
     
     return true;
-};
-
-/**
- * Helper function to check professor constraints.
- */
-const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
-    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
-    for (const time of profSchedule.dailyTimes) {
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end)
-        ) {
-            return false;
-        }
-    }
-    return true;
-};
-
-const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
-    if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
-    for (const time of secSchedule.dailyTimes) {
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end)
-        ) {
-            return false;
-        }
-    }
-    return true;
-};
-
+  };
+  
 
 /**
  * Backtracking function to automate schedule generation.
