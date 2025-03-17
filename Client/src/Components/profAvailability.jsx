@@ -17,6 +17,12 @@ const ProfAvailability = () => {
   const hours = Array.from({ length: 15 }, (_, i) => 7 + i);
   const apiBase = 'http://localhost:8080';
 
+  // Color mapping for professors - consistent colors
+  const professorColors = [
+    'bg-blue-300', 'bg-green-300', 'bg-purple-300', 'bg-yellow-300',
+    'bg-red-300', 'bg-indigo-300', 'bg-pink-300', 'bg-teal-300'
+  ];
+
   // Fetch professors
   useEffect(() => {
     const fetchProfessors = async () => {
@@ -26,7 +32,7 @@ const ProfAvailability = () => {
         if (response.data.successful) {
           setProfessors(response.data.data);
         } else {
-          setErrorMessage("Failed to load professors. Please try again later.");
+          setErrorMessage("Failed to load professors.");
         }
       } catch (error) {
         setErrorMessage("Network error. Please check your connection.");
@@ -75,8 +81,7 @@ const ProfAvailability = () => {
         }
       } catch (error) {
         if (!(error.response && error.response.status === 404)) {
-          setErrorMessage("Failed to load professor availability. Please try again.");
-          console.error("Error fetching availability:", error);
+          setErrorMessage("Failed to load professor availability.");
         }
       } finally {
         setFetchingAvailability(false);
@@ -87,8 +92,7 @@ const ProfAvailability = () => {
   }, [formData.professor, professors]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     setErrorMessage("");
   };
 
@@ -153,27 +157,15 @@ const ProfAvailability = () => {
       setLoading(true);
       const response = await axios.post(`${apiBase}/profAvail/addProfAvail`, availabilityData);
 
-      // Debug the response structure
-      console.log("Server response:", response.data);
-
       if (response.data.successful) {
-        // Try to extract ID from the response, with fallbacks
-        let newId;
-
-        if (response.data.data && typeof response.data.data === 'object' && response.data.data.id) {
-          // Case 1: ID is in data.id
-          newId = `existing-${response.data.data.id}`;
-        } else if (response.data.id) {
-          // Case 2: ID might be directly in response.data.id
-          newId = `existing-${response.data.id}`;
-        } else if (typeof response.data.data === 'number') {
-          // Case 3: The data itself might be the ID
-          newId = `existing-${response.data.data}`;
-        } else {
-          // Fallback: Use timestamp if no ID available
-          console.warn("No ID format found in server response:", response.data);
-          newId = `existing-temp-${Date.now()}`;
-        }
+        // Create ID with fallbacks
+        let newId = response.data.data?.id
+          ? `existing-${response.data.data.id}`
+          : (response.data.id
+            ? `existing-${response.data.id}`
+            : (typeof response.data.data === 'number'
+              ? `existing-${response.data.data}`
+              : `existing-temp-${Date.now()}`));
 
         // Create new schedule entry
         const newSchedule = {
@@ -188,53 +180,14 @@ const ProfAvailability = () => {
 
         setScheduleData([...scheduleData, newSchedule]);
         resetForm();
-
-        // After adding, refresh the professor's availability data to ensure sync
-        fetchProfessorAvailability(formData.professor);
       } else {
         setErrorMessage(`Failed to add: ${response.data.message || "Unknown error"}`);
       }
     } catch (error) {
       console.error("Error adding availability:", error);
-      const errorMsg = error.response?.data?.message || "Failed to add availability. Please try again.";
-      setErrorMessage(errorMsg);
+      setErrorMessage(error.response?.data?.message || "Failed to add availability.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Helper function to fetch a specific professor's availability
-  const fetchProfessorAvailability = async (professorId) => {
-    try {
-      const response = await axios.get(`${apiBase}/profAvail/getProfAvailByProf/${professorId}`);
-      if (response.data.successful) {
-        const availabilityData = response.data.data;
-
-        // Clear existing schedule data for this professor
-        setScheduleData(prevData => prevData.filter(item =>
-          item.professorId !== professorId || !item.isExisting
-        ));
-
-        if (availabilityData) {
-          const processedData = Array.isArray(availabilityData) ? availabilityData : [availabilityData];
-          const formattedAvailability = processedData.map(avail => {
-            const selectedProfessor = professors.find(prof => prof.id === parseInt(professorId));
-            return {
-              id: `existing-${avail.id}`,
-              professorId: professorId,
-              professorName: selectedProfessor?.Name || "Unknown Professor",
-              day: avail.Day,
-              timeIn: avail.Start_time.split(':')[0],
-              timeOut: avail.End_time.split(':')[0],
-              isExisting: true
-            };
-          });
-
-          setScheduleData(prev => [...prev, ...formattedAvailability]);
-        }
-      }
-    } catch (error) {
-      console.error("Error refreshing availability:", error);
     }
   };
 
@@ -243,9 +196,7 @@ const ProfAvailability = () => {
       if (!window.confirm("Are you sure you want to delete this existing availability?")) return;
 
       // Extract the actual ID from the format "existing-{id}"
-      // Check if it's a temporary ID first (for newly added items that might not have a server ID yet)
       if (id.includes('existing-temp-')) {
-        // This is a temporary ID, just remove from UI
         setScheduleData(scheduleData.filter(item => item.id !== id));
         return;
       }
@@ -256,27 +207,22 @@ const ProfAvailability = () => {
         setLoading(true);
         const response = await axios.delete(`${apiBase}/profAvail/deleteProfAvail/${actualId}`);
         if (response.data.successful) {
-          // Update local state on success
           setScheduleData(scheduleData.filter(item => item.id !== id));
         } else {
           setErrorMessage(`Failed to delete: ${response.data.message || "Unknown error"}`);
         }
       } catch (error) {
-        console.error("Delete error:", error);
-
-        // Special handling for 404 errors (item not found)
         if (error.response && error.response.status === 404) {
-          // Item not found in database - update UI anyway to keep in sync
           setScheduleData(scheduleData.filter(item => item.id !== id));
-          setErrorMessage("Item was already deleted on the server or could not be found. UI has been updated.");
+          setErrorMessage("Item was already deleted on the server.");
         } else {
-          setErrorMessage(error.response?.data?.message || "Failed to delete availability. Please try again.");
+          setErrorMessage(error.response?.data?.message || "Failed to delete availability.");
         }
       } finally {
         setLoading(false);
       }
     } else {
-      // Non-existing items (local only) - just remove from state
+      // Remove non-existing (local only) items
       setScheduleData(scheduleData.filter(item => item.id !== id));
     }
   };
@@ -289,11 +235,10 @@ const ProfAvailability = () => {
     );
   };
 
-  const getProfessorColor = (profId, isExisting) => {
-    const colors = ['blue', 'green', 'purple', 'yellow', 'red', 'indigo', 'pink', 'teal'];
-    const index = profId % colors.length;
-    const shade = isExisting ? '300' : '200';
-    return `bg-${colors[index]}-${shade}`;
+  const getProfessorColor = (profId) => {
+    // Consistent color mapping for each professor
+    const index = (parseInt(profId) - 1) % professorColors.length;
+    return professorColors[index];
   };
 
   return (
@@ -426,9 +371,9 @@ const ProfAvailability = () => {
                               {schedules.map(schedule => (
                                 <div
                                   key={schedule.id}
-                                  className={`absolute inset-0 m-px flex items-center justify-center ${getProfessorColor(parseInt(schedule.professorId), schedule.isExisting)}`}
+                                  className={`absolute inset-0 m-px flex items-center justify-center ${getProfessorColor(schedule.professorId)}`}
                                   onClick={() => handleDelete(schedule.id, schedule.isExisting)}
-                                  title={`${schedule.professorName} (${schedule.isExisting ? 'Existing' : 'New'}) - Click to remove`}
+                                  title={`${schedule.professorName} - Click to remove`}
                                 >
                                   <span className="text-xs font-medium overflow-hidden text-ellipsis whitespace-nowrap px-1">
                                     {schedule.professorName}
@@ -451,24 +396,11 @@ const ProfAvailability = () => {
                 <div className="flex flex-wrap gap-2">
                   {Array.from(new Set(scheduleData.map(item => item.professorId))).map(profId => {
                     const prof = professors.find(p => p.id === parseInt(profId));
-                    const hasExisting = scheduleData.some(s => s.professorId === profId && s.isExisting);
-                    const hasNew = scheduleData.some(s => s.professorId === profId && !s.isExisting);
 
                     return prof ? (
-                      <div key={profId} className="flex flex-col">
-                        <span className="text-xs font-medium mb-1">{prof.Name}:</span>
-                        <div className="flex gap-1">
-                          {hasExisting && (
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs ${getProfessorColor(parseInt(profId), true)}`}>
-                              Existing
-                            </span>
-                          )}
-                          {hasNew && (
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs ${getProfessorColor(parseInt(profId), false)}`}>
-                              New
-                            </span>
-                          )}
-                        </div>
+                      <div key={profId} className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full ${getProfessorColor(profId)}`}></div>
+                        <span className="text-xs font-medium">{prof.Name}</span>
                       </div>
                     ) : null;
                   })}

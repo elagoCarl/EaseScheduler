@@ -463,18 +463,25 @@ const getCoursesByDept = async (req, res, next) => {
     const deptId = req.params.id;
     const courses = await Course.findAll({
       attributes: { exclude: ["CourseDepts"] },
+      where: {
+        [Op.or]: [
+          { type: "Core" },
+          {
+            "$CourseDepts.id$": deptId
+          }
+        ]
+      },
       include: {
         model: Department,
         as: "CourseDepts",
-        where: {
-          id: deptId,
-        },
         attributes: [],
+        required: false,
         through: {
           attributes: [],
         },
       },
     });
+    
     if (!courses || courses.length === 0) {
       res.status(200).send({
         successful: true,
@@ -491,6 +498,7 @@ const getCoursesByDept = async (req, res, next) => {
       });
     }
   } catch (err) {
+    console.log(err)
     return res.status(500).json({
       successful: false,
       message: err.message || "An unexpected error occurred.",

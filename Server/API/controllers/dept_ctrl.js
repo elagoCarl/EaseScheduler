@@ -23,7 +23,7 @@ const addDept = async (req, res, next) => {
                 })
             }
 
-            
+
             const existingDept = await Department.findOne({
                 where: {
                     Name: {
@@ -302,4 +302,12 @@ const getDeptsByRoom = async (req, res, next) => {
         })
     }
 }
-module.exports = { addDept, getAllDept, getDept, deleteDept, updateDept, getDeptsByCourse, getDeptsByRoom };
+module.exports = {
+    addDept,
+    getAllDept,
+    getDept,
+    deleteDept,
+    updateDept,
+    getDeptsByCourse,
+    getDeptsByRoom
+};
