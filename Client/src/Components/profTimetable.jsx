@@ -71,7 +71,37 @@ const ProfTimetable = () => {
     return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
-  // Render event for desktop view
+  // New component to expand on hover (similar to RoomScheduleEvent)
+  const ProfScheduleEvent = ({ schedule }) => {
+    const [hovered, setHovered] = useState(false);
+    const pos = calculateEventPosition(schedule);
+    const sections = schedule.ProgYrSecs
+      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+      .join(', ');
+      
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+        </div>
+        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+          {schedule.Assignation.Course.Description}
+        </div>
+        <div className="text-xs">
+          Room: {schedule.Assignation.Rooms[0].Code} ({schedule.Assignation.Rooms[0].Building})
+        </div>
+      </div>
+    );
+  };
+
+  // Render event for desktop view using the ProfScheduleEvent component
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedProf) return null;
     const apiDayIndex = dayIndex + 1;
@@ -87,30 +117,8 @@ const ProfTimetable = () => {
       })
       .map(schedule => {
         // Only render event in its starting hour cell
-        if (parseInt(schedule.Start_time.split(':')[0]) !== hour) return null;
-        const pos = calculateEventPosition(schedule);
-        const sections = schedule.ProgYrSecs
-          .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-          .join(', ');
-        return (
-          <div
-            key={schedule.id}
-            className="absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all hover:shadow-md hover:scale-[1.02] text-blue-700 overflow-y-auto scrollbar-hide"
-            style={{ top: pos.top, height: pos.height, zIndex: 10 }}
-          >
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-medium">
-                {formatTimeRange(schedule.Start_time, schedule.End_time)}
-              </span>
-              <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-            </div>
-            <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
-            <div className="text-xs truncate">{schedule.Assignation.Course.Description}</div>
-            <div className="text-xs">
-              Room: {schedule.Assignation.Rooms[0].Code} ({schedule.Assignation.Rooms[0].Building})
-            </div>
-          </div>
-        );
+        if (parseInt(schedule.Start_time.split(':')[0], 10) !== hour) return null;
+        return <ProfScheduleEvent key={schedule.id} schedule={schedule} />;
       });
   };
 
