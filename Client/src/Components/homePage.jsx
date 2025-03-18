@@ -84,7 +84,7 @@ const HomePage = () => {
 
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
-      style={{ backgroundImage: `url(${image5})` }}>
+      style={{ backgroundImage: `url(${ image5 })` }}>
       <div className="absolute top-15 right-18 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"
@@ -137,7 +137,7 @@ const HomePage = () => {
       <div className="hidden md:block w-1/2 mx-auto">
         {/* EASESCHEDULER LOGO */}
         <div className='pb-4 flex justify-center'>
-          <button id="logoBtn" className="text-xl md:text-3xl font-bold text-blue-500" onClick={() => navigate("/")}>
+          <button id="logoBtn" className="md:text-4xl sm:text-2xl font-bold text-blue-500" onClick={() => navigate("/")}>
             EASE<span className="text-white">SCHEDULER</span>
           </button>
         </div>
@@ -197,7 +197,7 @@ const HomePage = () => {
 
               {/* Modal */}
               {isModalOpen && (
-                <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+                <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${ fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95' }`}>
                   <button
                     className="absolute top-0 right-0 text-xl font-bold text-red-500"
                     onClick={closeModal}

@@ -64,7 +64,7 @@ const Course = () => {
 
       const matchesType =
         typeFilter === "All" ||
-      course.Type?.trim() === typeFilter.trim();
+        course.Type?.trim() === typeFilter.trim();
 
 
       return matchesSearch && matchesYear && matchesType;
