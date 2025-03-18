@@ -6,7 +6,7 @@ import editBtn from './Img/editBtn.png';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
-import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx'; // New modal import
+import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 
 const AddConfigSchedule = () => {
   const deptId = 1;
@@ -21,6 +21,7 @@ const AddConfigSchedule = () => {
   const [customEndTime, setCustomEndTime] = useState("");
   const [notification, setNotification] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAutomating, setIsAutomating] = useState(false);
 
   // Delete modal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
@@ -32,6 +33,21 @@ const AddConfigSchedule = () => {
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
+
+  // Helper function to transform error messages
+  const transformErrorMessage = (message) => {
+    if (!message) return message;
+    let newMessage = message;
+    newMessage = newMessage.replace(/Room\s+(\d+)\b/, (match, roomId) => {
+      const room = rooms.find(r => r.id.toString() === roomId);
+      return room && room.Code ? `Room ${room.Code}` : match;
+    });
+    newMessage = newMessage.replace(/on\s+(\d+)\b/, (match, dayNum) => {
+      const dayIndex = parseInt(dayNum, 10) - 1;
+      return days[dayIndex] ? `on ${days[dayIndex]}` : match;
+    });
+    return newMessage;
+  };
 
   // Auto-dismiss notifications after 5 seconds
   useEffect(() => {
@@ -114,11 +130,11 @@ const AddConfigSchedule = () => {
           fetchSchedulesForRoom(formData.room_id);
         }
       } else {
-        setNotification({ type: 'error', message: response.data.message });
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
       }
     } catch (error) {
       console.error("Error deleting schedule:", error);
-      setNotification({ type: 'error', message: error.response?.data?.message || "An error occurred while deleting the schedule." });
+      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred while deleting the schedule.") });
     } finally {
       setIsDeleting(false);
     }
@@ -126,7 +142,7 @@ const AddConfigSchedule = () => {
 
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
-  // ScheduleEvent now includes both edit and delete buttons.
+  // ScheduleEvent with edit and delete buttons
   const ScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
@@ -156,7 +172,6 @@ const AddConfigSchedule = () => {
                 <div>Semester: {schedule.Assignation.Semester}</div>
               </div>
               <div className="flex">
-                {/* Edit Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -168,7 +183,6 @@ const AddConfigSchedule = () => {
                 >
                   <img src={editBtn} alt="Edit" className="w-10 h-10" />
                 </button>
-                {/* Delete Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -225,11 +239,33 @@ const AddConfigSchedule = () => {
           fetchSchedulesForRoom(formData.room_id);
         }
       } else {
-        setNotification({ type: 'error', message: response.data.message });
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
       }
     } catch (error) {
       console.error("Error adding schedule", error);
-      setNotification({ type: 'error', message: error.response?.data?.message || "An error occurred while adding the schedule." });
+      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred while adding the schedule.") });
+    }
+  };
+
+  // New function for automation
+  const handleAutomateSchedule = async () => {
+    if (!formData.room_id) {
+      setNotification({ type: 'error', message: "Please select a room first before automating." });
+      return;
+    }
+    setIsAutomating(true);
+    try {
+      const response = await axios.post(`http://localhost:8080/schedule/automate`, { roomId: formData.room_id });
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: "Schedule automation initiated!" });
+        fetchSchedulesForRoom(formData.room_id);
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred during schedule automation.") });
+    } finally {
+      setIsAutomating(false);
     }
   };
 
@@ -306,6 +342,7 @@ const AddConfigSchedule = () => {
           <div className="flex flex-col lg:flex-row">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
+                {/* Form fields */}
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
                 <select
                   name="room_id"
@@ -334,7 +371,6 @@ const AddConfigSchedule = () => {
                     </option>
                   ))}
                 </select>
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Day:</label>
@@ -385,6 +421,17 @@ const AddConfigSchedule = () => {
                     className="bg-blue-600 text-white px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Save
+                  </button>
+                </div>
+                {/* New section for automation */}
+                <div className="mt-4 border-t pt-4">
+                  <p className="text-sm font-medium text-gray-700">Would you like to automate schedule?</p>
+                  <button
+                    onClick={handleAutomateSchedule}
+                    disabled={isAutomating}
+                    className="mt-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    {isAutomating ? "Automating..." : "Automate Schedule"}
                   </button>
                 </div>
               </div>
@@ -455,7 +502,6 @@ const AddConfigSchedule = () => {
           </div>
         </div>
       </div>
-      {/* DeleteWarning Modal for schedule deletion */}
       <DeleteWarning
         isOpen={isDeleteWarningOpen}
         onClose={() => {
@@ -468,7 +514,6 @@ const AddConfigSchedule = () => {
           setSelectedScheduleId(null);
         }}
       />
-      {/* EditSchedRecordModal for schedule editing */}
       <EditSchedRecordModal
         isOpen={isEditModalOpen}
         schedule={selectedSchedule}
@@ -482,8 +527,6 @@ const AddConfigSchedule = () => {
         rooms={rooms}
         assignations={assignations}
       />
-
-
     </div>
   );
 };

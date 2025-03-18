@@ -14,6 +14,21 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    // Helper function to transform error messages
+    const transformErrorMessage = (message) => {
+        if (!message) return message;
+        let newMessage = message;
+        newMessage = newMessage.replace(/Room\s+(\d+)\b/, (match, roomId) => {
+            const room = rooms.find(r => r.id.toString() === roomId);
+            return room && room.Code ? `Room ${room.Code}` : match;
+        });
+        newMessage = newMessage.replace(/on\s+(\d+)\b/, (match, dayNum) => {
+            const dayIndex = parseInt(dayNum, 10) - 1;
+            return days[dayIndex] ? `on ${days[dayIndex]}` : match;
+        });
+        return newMessage;
+    };
+
     // Populate form data when the schedule prop changes, trimming seconds if necessary.
     useEffect(() => {
         if (schedule) {
@@ -40,8 +55,8 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
             // Ensure time strings are in HH:mm format (they should be now, thanks to useEffect)
             const payload = {
                 Day: formData.day,
-                Start_time: formData.start_time, // already trimmed to HH:mm
-                End_time: formData.end_time,       // already trimmed to HH:mm
+                Start_time: formData.start_time,
+                End_time: formData.end_time,
                 RoomId: formData.room_id,
                 AssignationId: formData.assignation_id
             };
@@ -51,11 +66,11 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 onUpdate(updatedSchedule);
                 onClose();
             } else {
-                setError(response.data.message || "Failed to update schedule.");
+                setError(transformErrorMessage(response.data.message || "Failed to update schedule."));
             }
         } catch (err) {
             console.error("Error updating schedule:", err);
-            setError(err.response?.data?.message || err.message || "An error occurred.");
+            setError(transformErrorMessage(err.response?.data?.message || err.message || "An error occurred."));
         } finally {
             setLoading(false);
         }
