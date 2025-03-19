@@ -409,16 +409,16 @@ const AddConfigSchedule = () => {
                     />
                   </div>
                 </div>
-                <div className="flex justify-between pt-3 sm:pt-4">
+                <div className="flex pt-3 sm:pt-4 gap-10">
                   <button
                     onClick={resetForm}
-                    className="bg-red-500 text-white px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors"
+                    className="flex flex-1 justify-center bg-red-500 text-white px-10 sm:px-40 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors"
                   >
                     Reset
                   </button>
                   <button
                     onClick={handleAddSchedule}
-                    className="bg-blue-600 text-white px-4 sm:px-6 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex flex-1 justify-center bg-blue-600 text-white px-10 sm:px-40 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Save
                   </button>
