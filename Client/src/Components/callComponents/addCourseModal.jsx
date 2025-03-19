@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Axios from 'axios';
 
 const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {

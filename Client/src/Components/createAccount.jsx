@@ -54,7 +54,7 @@ const CreateAccount = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center"
-      style={{ backgroundImage: `url(${Background})` }}
+      style={{ backgroundImage: `url(${ Background })` }}
     >
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
@@ -78,7 +78,7 @@ const CreateAccount = () => {
         {/* Display Message */}
         {message && (
           <p
-            className={`mt-4 p-3 text-center rounded ${message.type === "success" ? "bg-green-500" : "bg-red-500"
+            className={`mt-4 p-3 text-center rounded ${ message.type === "success" ? "bg-green-500" : "bg-red-500"
               } text-white`}
           >
             {message.text}
@@ -96,7 +96,7 @@ const CreateAccount = () => {
               name="Role"
               value={formData.Role}
               onChange={handleChange}
-              className="border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="border rounded w-full py-9 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               required
             >
               <option value="" disabled>
@@ -113,7 +113,7 @@ const CreateAccount = () => {
               Full Name:
             </label>
             <input
-              className="border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="border rounded w-full py-10 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               id="Name"
               name="Name"
               type="text"
@@ -130,7 +130,7 @@ const CreateAccount = () => {
               Email Address:
             </label>
             <input
-              className="border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="border rounded w-full py-10 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               id="Email"
               name="Email"
               type="email"
@@ -144,7 +144,7 @@ const CreateAccount = () => {
           {/* Buttons */}
           <div className="flex justify-end mt-6 space-x-4">
             <button
-              className="bg-customLightBlue2 hover:bg-blue-300 text-gray-600 font-bold py-2 px-6 rounded"
+              className="bg-customLightBlue2 hover:bg-blue-300 text-gray-700 font-bold py-4 px-8 rounded duration-300"
               type="submit"
               disabled={loading}
             >
