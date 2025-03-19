@@ -39,6 +39,14 @@ module.exports = (sequelize, DataTypes) => {
         verified: {
             type: DataTypes.BOOLEAN,
             defaultValue: false
+        },
+        DepartmentId: {  // Foreign key linking Account to Department
+            type: DataTypes.INTEGER,
+            references: {
+                model: 'Departments', // Table name
+                key: 'id'
+            },
+            allowNull: true // Set NULL if the account is not linked to any department
         }
     }, {
         timestamps: true,
@@ -56,7 +64,11 @@ module.exports = (sequelize, DataTypes) => {
         }
     });
 
+
     Account.associate = (models) => {
+        Account.belongsTo(models.Department, {
+            foreignKey: 'DepartmentId'
+        });
         Account.hasMany(models.HistoryLog, {
             onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'

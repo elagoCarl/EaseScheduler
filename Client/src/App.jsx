@@ -19,16 +19,16 @@ import AccountList from "./Components/accountList";
 import AssignationsCourseProf from "./Components/assignationsCourseProf";
 import Page404 from "./Components/page404";
 import Page403 from "./Components/page403";
+import Department from "./Components/department";
 import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
-import AdminRoute from "./Components/adminRoute"; // import AdminRoute
 
 const App = () => {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
-          {/* Public routes */}
+          {/* Pubic routes */}
           <Route path="/" element={<MainPage />} />
           <Route path="/loginPage" element={<LoginPage />} />
           <Route path="/forgotPassPage" element={<ForgotPass />} />
@@ -36,18 +36,10 @@ const App = () => {
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
+            <Route path="/departments" element={<Department />} />
             <Route path="/homepage" element={<Homepage />} />
             <Route path="/accountSettings" element={<AccountSettings />} />
-
-            {/* Wrap createAccount route with AdminRoute */}
-            <Route
-              path="/createAccount"
-              element={
-                <AdminRoute>
-                  <CreateAccount />
-                </AdminRoute>
-              }
-            />
+            <Route path="/createAccount" element={<CreateAccount />} />
             <Route path="/historyLogs" element={<HistoryLogs />} />
             <Route path="/room" element={<Room />} />
             <Route path="/profAvailability" element={<ProfAvailability />} />
@@ -60,13 +52,13 @@ const App = () => {
             <Route path="/accountList" element={<AccountList />} />
             <Route path="/assignationsCourseProf" element={<AssignationsCourseProf />} />
 
-            {/** ERROR handling routes */}
+            {/* ERROR handling routes */}
             <Route path="*" element={<Page404 />} />
             <Route path="/403" element={<Page403 />} />
           </Route>
         </Routes>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 };
 

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios'; // Import axios
+import { useAuth } from './authContext'; // ✅ Import AuthContext
+import axios from 'axios';
 import image2 from './Img/2.jpg';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { setUser } = useAuth(); // ✅ Set user manually after login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +22,7 @@ const LoginPage = () => {
           Password: password,
         },
         {
-          withCredentials: true, // Include cookies in the request
+          withCredentials: true, // ✅ Include credentials
           headers: {
             'Content-Type': 'application/json',
           },
@@ -28,17 +30,19 @@ const LoginPage = () => {
       );
 
       if (response.data.successful) {
-        navigate('/homePage'); // Redirect on successful and verified login
+        console.log('Login successful. Redirecting to homepage...');
+        setUser(response.data.account); // ✅ Set user manually after login
+        navigate('/homePage'); // ✅ Redirect after successful login
       } else {
         if (response.data.message === "Account not verified. OTP sent to email.") {
-          navigate(`/otpVerification?email=${email}`); // Redirect to OTP verification page
+          navigate(`/otpVerification?email=${email}`); // ✅ Redirect to OTP verification
         } else {
           setError(response.data.message || 'Login failed. Please try again.');
         }
       }
     } catch (err) {
       if (err.response?.data?.message === 'Account not verified. OTP sent to email.') {
-        navigate(`/otpVerification?email=${email}`); // Redirect to OTP verification page
+        navigate(`/otpVerification?email=${email}`);
       } else {
         setError(
           err.response?.data?.message || 'An error occurred. Please try again later.'

@@ -8,9 +8,9 @@ const addDept = async (req, res, next) => {
         let depts = req.body;
 
         // Check if the request body contains an array of professors
-        if (!Array.isArray(depts)) {
-            // If not an array, convert the single professor to an array
-            depts = [depts];
+        if (!Array.isArray(depts)) { 
+            // If not an array, convert the single professor to an array 
+            depts = [depts]; 
         }
 
         for (const dept of depts) {
