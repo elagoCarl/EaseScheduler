@@ -59,7 +59,7 @@ const addSchedule = async (req, res, next) => {
         for (const sched of schedule) {
             const { Day, Start_time, End_time, RoomId, AssignationId, Sections } = sched;
             console.log(Sections);
-            
+
             if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections])) {
                 return res.status(400).json({
                     successful: false,
@@ -147,7 +147,7 @@ const addSchedule = async (req, res, next) => {
                         }
                     ]
                 });
-                
+
                 // Calculate total scheduled hours for this section with this course
                 let scheduledHours = 0;
                 existingSchedules.forEach(schedule => {
@@ -155,15 +155,15 @@ const addSchedule = async (req, res, next) => {
                     const end = timeToSeconds(schedule.End_time);
                     scheduledHours += (end - start) / 3600; // Convert seconds to hours
                 });
-                
+
                 // Check if adding current schedule would exceed course duration
                 if (scheduledHours + currentScheduleDuration > courseTotalDuration) {
                     const remainingHours = courseTotalDuration - scheduledHours;
                     return res.status(400).json({
                         successful: false,
                         message: `A section already has ${scheduledHours} hours scheduled for this course. ` +
-                                 `Adding ${currentScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
-                                 `Remaining balance: ${remainingHours} hours.`
+                            `Adding ${currentScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
+                            `Remaining balance: ${remainingHours} hours.`
                     });
                 }
             }
@@ -202,14 +202,14 @@ const addSchedule = async (req, res, next) => {
             }
 
             // All validations passed, create schedule
-            const newSchedule = await Schedule.create({ 
-                Day, 
-                Start_time, 
-                End_time, 
-                RoomId, 
-                AssignationId 
+            const newSchedule = await Schedule.create({
+                Day,
+                Start_time,
+                End_time,
+                RoomId,
+                AssignationId
             });
-            
+
             // Associate sections with the schedule
             await newSchedule.addProgYrSecs(Sections);
 
@@ -217,7 +217,7 @@ const addSchedule = async (req, res, next) => {
             const createdScheduleWithSections = await Schedule.findByPk(newSchedule.id, {
                 include: [ProgYrSec]
             });
-            
+
             createdSchedules.push(createdScheduleWithSections);
         }
 
@@ -245,9 +245,9 @@ const updateSchedule = async (req, res, next) => {
 
         // Validate mandatory fields
         if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections])) {
-            return res.status(400).json({ 
-                successful: false, 
-                message: "A mandatory field is missing." 
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
             });
         }
 
@@ -270,9 +270,9 @@ const updateSchedule = async (req, res, next) => {
         // Validate if the schedule exists
         const schedule = await Schedule.findByPk(id);
         if (!schedule) {
-            return res.status(404).json({ 
-                successful: false, 
-                message: "Schedule not found." 
+            return res.status(404).json({
+                successful: false,
+                message: "Schedule not found."
             });
         }
 
@@ -353,7 +353,7 @@ const updateSchedule = async (req, res, next) => {
                     id: { [Op.ne]: id } // Exclude current schedule
                 }
             });
-            
+
             // Calculate total scheduled hours for this section with this course
             let scheduledHours = 0;
             existingSchedules.forEach(schedule => {
@@ -361,15 +361,15 @@ const updateSchedule = async (req, res, next) => {
                 const end = timeToSeconds(schedule.End_time);
                 scheduledHours += (end - start) / 3600; // Convert seconds to hours
             });
-            
+
             // Check if updating current schedule would exceed course duration
             if (scheduledHours + updatedScheduleDuration > courseTotalDuration) {
                 const remainingHours = courseTotalDuration - scheduledHours;
                 return res.status(400).json({
                     successful: false,
                     message: `A section already has ${scheduledHours} hours scheduled for this course. ` +
-                             `Adding ${updatedScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
-                             `Remaining balance: ${remainingHours} hours.`
+                        `Adding ${updatedScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
+                        `Remaining balance: ${remainingHours} hours.`
                 });
             }
         }
@@ -383,7 +383,7 @@ const updateSchedule = async (req, res, next) => {
                     id: { [Op.in]: Sections }
                 }
             }],
-            where: { 
+            where: {
                 Day,
                 id: { [Op.ne]: id } // Exclude current schedule
             }
@@ -412,7 +412,7 @@ const updateSchedule = async (req, res, next) => {
 
         // Update schedule
         await schedule.update({ Day, Start_time, End_time, RoomId, AssignationId });
-        
+
         // Update section associations
         await schedule.setProgYrSecs(Sections);
 
@@ -421,8 +421,8 @@ const updateSchedule = async (req, res, next) => {
             include: [ProgYrSec]
         });
 
-        return res.status(200).json({ 
-            successful: true, 
+        return res.status(200).json({
+            successful: true,
             message: "Schedule updated successfully.",
             schedule: updatedScheduleWithSections
         });
@@ -729,13 +729,12 @@ const getSchedule = async (req, res, next) => {
                         {
                             model: Professor,
                             attributes: ['id', 'Name']
-                        },
-                        {
-                            model: Room,
-                            attributes: ['Code', 'Floor', 'Building', 'Type'],
-                            through: { attributes: [] }
                         }
                     ]
+                },
+                {
+                    model: Room,
+                    attributes: ['Code', 'Floor', 'Building', 'Type'],
                 },
                 {
                     model: ProgYrSec,
@@ -757,7 +756,7 @@ const getSchedule = async (req, res, next) => {
 
         return res.status(200).json({ successful: true, data: schedule });
     } catch (error) {
-        return json.status(500).json({ successful: false, message: error.message || "An unexpected error; occurred." });
+        return res.status(500).json({ successful: false, message: error.message || "An unexpected error; occurred." });
     }
 };
 
@@ -846,13 +845,12 @@ const getSchedsByProf = async (req, res, next) => {
                         {
                             model: Course,
                             attributes: ['Code', 'Description']
-                        },
-                        {
-                            model: Room,
-                            attributes: ['Code', 'Floor', 'Building', 'Type'],
-                            through: { attributes: [] }
                         }
                     ]
+                },
+                {
+                    model: Room,
+                    attributes: ['Code', 'Floor', 'Building', 'Type'],
                 },
                 {
                     model: ProgYrSec,
@@ -911,12 +909,12 @@ const getSchedsByDept = async (req, res, next) => {
                             model: Professor,
                             attributes: ['id', 'Name']
                         },
-                        {
-                            model: Room,
-                            attributes: ['Code', 'Floor', 'Building', 'Type'],
-                            through: { attributes: [] }
-                        }
+
                     ]
+                },
+                {
+                    model: Room,
+                    attributes: ['Code', 'Floor', 'Building', 'Type'],
                 },
                 {
                     model: ProgYrSec,

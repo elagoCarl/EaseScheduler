@@ -124,7 +124,7 @@ const SectionTimetable = () => {
         </div>
         <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
         <div className="text-xs italic">
-          Room {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Code} - {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Building}
+          Room: {schedule.Room.Code} - { schedule.Room.Building}
         </div>
       </div>
     );
