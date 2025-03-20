@@ -237,21 +237,35 @@ const addSchedule = async (req, res, next) => {
 };
 
 // Update Schedule
+// Update Schedule
 const updateSchedule = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Day, Start_time, End_time, RoomId, AssignationId } = req.body;
+        const { Day, Start_time, End_time, RoomId, AssignationId, Sections } = req.body;
 
         // Validate mandatory fields
-        if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
+        if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections])) {
             return res.status(400).json({ 
                 successful: false, 
                 message: "A mandatory field is missing." 
             });
         }
 
+        // Validate Sections is a non-empty array
+        if (!Array.isArray(Sections) || Sections.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: "Sections must be a non-empty array of section IDs."
+            });
+        }
+
         // Validate time format and sequence
         if (isValidTime(Start_time, End_time, res) !== true) return;
+
+        // Calculate duration of updated schedule in hours
+        const newStart = timeToSeconds(Start_time);
+        const newEnd = timeToSeconds(End_time);
+        const updatedScheduleDuration = (newEnd - newStart) / 3600; // Convert seconds to hours
 
         // Validate if the schedule exists
         const schedule = await Schedule.findByPk(id);
@@ -271,12 +285,30 @@ const updateSchedule = async (req, res, next) => {
             });
         }
 
-        // Validate Assignation existence
-        const assignation = await Assignation.findByPk(AssignationId);
+        // Validate Assignation existence with course info
+        const assignation = await Assignation.findByPk(AssignationId, {
+            include: [{ model: Course }]
+        });
         if (!assignation) {
             return res.status(404).json({
                 successful: false,
                 message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.`
+            });
+        }
+
+        // Get course total duration
+        const courseTotalDuration = assignation.Course.Duration;
+
+        // Validate all sections exist
+        const sections = await ProgYrSec.findAll({
+            where: {
+                id: { [Op.in]: Sections }
+            }
+        });
+        if (sections.length !== Sections.length) {
+            return res.status(404).json({
+                successful: false,
+                message: "One or more sections not found. Please provide valid section IDs."
             });
         }
 
@@ -289,15 +321,10 @@ const updateSchedule = async (req, res, next) => {
             }
         });
 
-        // Convert new schedule times to seconds
-        const newStart = timeToSeconds(Start_time);
-        const newEnd = timeToSeconds(End_time);
-
         // Updated conflict logic that allows back-to-back scheduling
         const isConflict = existingSchedules.some(existing => {
             const existingStart = timeToSeconds(existing.Start_time);
             const existingEnd = timeToSeconds(existing.End_time);
-            console.log("newStart:", newStart, "existingEnd:", existingEnd, "newEnd:", newEnd, "existingStart:", existingStart);
             return (newStart < existingEnd && newEnd > existingStart);
         });
 
@@ -308,23 +335,104 @@ const updateSchedule = async (req, res, next) => {
             });
         }
 
+        // Check duration balance for each section with this course
+        for (const sectionId of Sections) {
+            // Get all existing schedules for this section with the same course (via assignation)
+            const existingSchedules = await Schedule.findAll({
+                include: [
+                    {
+                        model: ProgYrSec,
+                        where: { id: sectionId }
+                    },
+                    {
+                        model: Assignation,
+                        where: { CourseId: assignation.Course.id }
+                    }
+                ],
+                where: {
+                    id: { [Op.ne]: id } // Exclude current schedule
+                }
+            });
+            
+            // Calculate total scheduled hours for this section with this course
+            let scheduledHours = 0;
+            existingSchedules.forEach(schedule => {
+                const start = timeToSeconds(schedule.Start_time);
+                const end = timeToSeconds(schedule.End_time);
+                scheduledHours += (end - start) / 3600; // Convert seconds to hours
+            });
+            
+            // Check if updating current schedule would exceed course duration
+            if (scheduledHours + updatedScheduleDuration > courseTotalDuration) {
+                const remainingHours = courseTotalDuration - scheduledHours;
+                return res.status(400).json({
+                    successful: false,
+                    message: `A section already has ${scheduledHours} hours scheduled for this course. ` +
+                             `Adding ${updatedScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
+                             `Remaining balance: ${remainingHours} hours.`
+                });
+            }
+        }
+
+        // Check for time conflicts for each section
+        // Get all schedules associated with the sections (excluding current schedule)
+        const sectionSchedules = await Schedule.findAll({
+            include: [{
+                model: ProgYrSec,
+                where: {
+                    id: { [Op.in]: Sections }
+                }
+            }],
+            where: { 
+                Day,
+                id: { [Op.ne]: id } // Exclude current schedule
+            }
+        });
+
+        // Check for conflicts
+        for (const section of Sections) {
+            const conflictingSchedules = sectionSchedules.filter(schedule => {
+                // Check if this schedule is associated with the current section
+                const hasSection = schedule.ProgYrSecs.some(s => s.id === section);
+                if (!hasSection) return false;
+
+                // Check for time overlap
+                const existingStart = timeToSeconds(schedule.Start_time);
+                const existingEnd = timeToSeconds(schedule.End_time);
+                return (newStart < existingEnd && newEnd > existingStart);
+            });
+
+            if (conflictingSchedules.length > 0) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Schedule conflict detected: Section with ID ${section} already has a schedule on ${Day} within ${Start_time} - ${End_time}.`
+                });
+            }
+        }
+
         // Update schedule
         await schedule.update({ Day, Start_time, End_time, RoomId, AssignationId });
+        
+        // Update section associations
+        await schedule.setProgYrSecs(Sections);
+
+        // Fetch the updated schedule with its associated sections
+        const updatedScheduleWithSections = await Schedule.findByPk(id, {
+            include: [ProgYrSec]
+        });
 
         return res.status(200).json({ 
             successful: true, 
-            message: "Schedule updated successfully." 
+            message: "Schedule updated successfully.",
+            schedule: updatedScheduleWithSections
         });
     } catch (error) {
         return res.status(500).json({
             successful: false,
-            message: error.message
+            message: error.message || "An error occurred while updating the schedule."
         });
     }
 };
-
-
-
 
 // Delete a Schedule by ID
 const deleteSchedule = async (req, res, next) => {
