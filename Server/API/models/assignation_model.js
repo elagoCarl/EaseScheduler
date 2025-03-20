@@ -64,7 +64,10 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE'
         });
         
-        Assignation.belongsToMany(models.Room, { through: 'Schedule' });
+        Assignation.belongsToMany(models.Room, { 
+            through: 'Schedule',
+            uniqueKey: false
+        });
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'

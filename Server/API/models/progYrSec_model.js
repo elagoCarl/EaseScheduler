@@ -3,7 +3,6 @@ module.exports = (sequelize, DataTypes) => {
         Year: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            max: 4,
             min: 1
         },
         Section: {
@@ -25,9 +24,9 @@ module.exports = (sequelize, DataTypes) => {
     })
     
     ProgYrSec.associate = (models) => {
-        ProgYrSec.belongsTo(models.Program, { foreignKey: 'ProgramId' }); // Explicit foreignKey
+        ProgYrSec.belongsTo(models.Program, { foreignKey: 'ProgramId' });
         ProgYrSec.belongsToMany(models.Schedule, { 
-            through: 'SectionSched', // Auto-generated bridge table
+            through: 'SectionSched', 
             foreignKey: 'ProgYrSecId'
         });
     };

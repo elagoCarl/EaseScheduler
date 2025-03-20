@@ -57,20 +57,30 @@ const addSchedule = async (req, res, next) => {
         const createdSchedules = [];
 
         for (const sched of schedule) {
-            const { Day, Start_time, End_time, RoomId, AssignationId } = sched;
-
-            // Validate mandatory fields
-            if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
+            const { Day, Start_time, End_time, RoomId, AssignationId, Sections } = sched;
+            console.log(Sections);
+            
+            if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
                 });
             }
 
-            // Validate time format and sequence
+            if (!Array.isArray(Sections) || Sections.length === 0) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Sections must be a non-empty array of section IDs."
+                });
+            }
+
             if (isValidTime(Start_time, End_time, res) !== true) return;
 
-            // Validate Room existence
+            // Calculate duration of current schedule in hours
+            const newStart = timeToSeconds(Start_time);
+            const newEnd = timeToSeconds(End_time);
+            const currentScheduleDuration = (newEnd - newStart) / 3600; // Convert seconds to hours
+
             const room = await Room.findByPk(RoomId);
             if (!room) {
                 return res.status(404).json({
@@ -79,8 +89,9 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
-            // Validate Assignation existence
-            const assignation = await Assignation.findByPk(AssignationId);
+            const assignation = await Assignation.findByPk(AssignationId, {
+                include: [{ model: Course }]
+            });
             if (!assignation) {
                 return res.status(404).json({
                     successful: false,
@@ -88,34 +99,126 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
+            const courseTotalDuration = assignation.Course.Duration;
+
+            const sections = await ProgYrSec.findAll({
+                where: {
+                    id: { [Op.in]: Sections }
+                }
+            });
+            if (sections.length !== Sections.length) {
+                return res.status(404).json({
+                    successful: false,
+                    message: "One or more sections not found. Please provide valid section IDs."
+                });
+            }
+
             // Check for conflicting schedules in the same room on the same day
-            const existingSchedules = await Schedule.findAll({
+            const existingRoomSchedules = await Schedule.findAll({
                 where: { Day, RoomId }
             });
 
-            // Convert new schedule times to seconds
-            const newStart = timeToSeconds(Start_time);
-            const newEnd = timeToSeconds(End_time);
-
             // Updated conflict logic that allows back-to-back scheduling.
-            // Two intervals [newStart, newEnd) and [existingStart, existingEnd) conflict if:
-            // newStart < existingEnd && newEnd > existingStart
-            const isConflict = existingSchedules.some(existing => {
+            const isRoomConflict = existingRoomSchedules.some(existing => {
                 const existingStart = timeToSeconds(existing.Start_time);
                 const existingEnd = timeToSeconds(existing.End_time);
                 return (newStart < existingEnd && newEnd > existingStart);
             });
 
-            if (isConflict) {
+            if (isRoomConflict) {
                 return res.status(400).json({
                     successful: false,
                     message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
                 });
             }
 
-            // Create schedule
-            const newSchedule = await Schedule.create({ Day, Start_time, End_time, RoomId, AssignationId });
-            createdSchedules.push(newSchedule);
+            // Check duration balance for each section with this course
+            for (const sectionId of Sections) {
+                // Get all existing schedules for this section with the same course (via assignation)
+                const existingSchedules = await Schedule.findAll({
+                    include: [
+                        {
+                            model: ProgYrSec,
+                            where: { id: sectionId }
+                        },
+                        {
+                            model: Assignation,
+                            where: { CourseId: assignation.Course.id }
+                        }
+                    ]
+                });
+                
+                // Calculate total scheduled hours for this section with this course
+                let scheduledHours = 0;
+                existingSchedules.forEach(schedule => {
+                    const start = timeToSeconds(schedule.Start_time);
+                    const end = timeToSeconds(schedule.End_time);
+                    scheduledHours += (end - start) / 3600; // Convert seconds to hours
+                });
+                
+                // Check if adding current schedule would exceed course duration
+                if (scheduledHours + currentScheduleDuration > courseTotalDuration) {
+                    const remainingHours = courseTotalDuration - scheduledHours;
+                    return res.status(400).json({
+                        successful: false,
+                        message: `A section already has ${scheduledHours} hours scheduled for this course. ` +
+                                 `Adding ${currentScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
+                                 `Remaining balance: ${remainingHours} hours.`
+                    });
+                }
+            }
+
+            // Check for time conflicts for each section
+            // Get all schedules associated with the sections
+            const sectionSchedules = await Schedule.findAll({
+                include: [{
+                    model: ProgYrSec,
+                    where: {
+                        id: { [Op.in]: Sections }
+                    }
+                }],
+                where: { Day }
+            });
+
+            // Check for conflicts
+            for (const section of Sections) {
+                const conflictingSchedules = sectionSchedules.filter(schedule => {
+                    // Check if this schedule is associated with the current section
+                    const hasSection = schedule.ProgYrSecs.some(s => s.id === section);
+                    if (!hasSection) return false;
+
+                    // Check for time overlap
+                    const existingStart = timeToSeconds(schedule.Start_time);
+                    const existingEnd = timeToSeconds(schedule.End_time);
+                    return (newStart < existingEnd && newEnd > existingStart);
+                });
+
+                if (conflictingSchedules.length > 0) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Schedule conflict detected: Section with ID ${section} already has a schedule on ${Day} within ${Start_time} - ${End_time}.`
+                    });
+                }
+            }
+
+            // All validations passed, create schedule
+            const newSchedule = await Schedule.create({ 
+                Day, 
+                Start_time, 
+                End_time, 
+                RoomId, 
+                AssignationId 
+            });
+            
+            // Associate sections with the schedule
+            await newSchedule.addProgYrSecs(Sections);
+
+            // Fetch the newly created schedule with its associated sections
+            const createdScheduleWithSections = await Schedule.findByPk(newSchedule.id, {
+                include: [ProgYrSec]
+            });
+            
+            createdSchedules.push(createdScheduleWithSections);
         }
 
         return res.status(201).json({
@@ -125,9 +228,10 @@ const addSchedule = async (req, res, next) => {
         });
 
     } catch (error) {
+        console.error("Error creating schedule:", error);
         return res.status(500).json({
             successful: false,
-            message: error
+            message: error.message || "An error occurred while creating schedules."
         });
     }
 };
@@ -319,8 +423,6 @@ const backtrackSchedule = async (assignations, rooms, professorSchedule, courseS
             RoomId: room.id,
             AssignationId: assignation.id
         });
-
-        // ✅ Fix: Use Sequelize's auto-generated method to associate ProgYrSec
         await createdSchedule.addProgYrSecs(sectionGroup);
 
         professorSchedule[Professor.id][day].hours += duration;
