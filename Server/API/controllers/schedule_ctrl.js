@@ -60,8 +60,6 @@ const addSchedule = async (req, res, next) => {
             const { Day, Start_time, End_time, RoomId, AssignationId, Sections } = sched;
             console.log(Sections);
             
-
-            // Validate mandatory fields
             if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections])) {
                 return res.status(400).json({
                     successful: false,
@@ -69,7 +67,6 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
-            // Validate Sections is an array
             if (!Array.isArray(Sections) || Sections.length === 0) {
                 return res.status(400).json({
                     successful: false,
@@ -79,7 +76,11 @@ const addSchedule = async (req, res, next) => {
 
             if (isValidTime(Start_time, End_time, res) !== true) return;
 
-            // Validate Room existence
+            // Calculate duration of current schedule in hours
+            const newStart = timeToSeconds(Start_time);
+            const newEnd = timeToSeconds(End_time);
+            const currentScheduleDuration = (newEnd - newStart) / 3600; // Convert seconds to hours
+
             const room = await Room.findByPk(RoomId);
             if (!room) {
                 return res.status(404).json({
@@ -88,8 +89,9 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
-            // Validate Assignation existence
-            const assignation = await Assignation.findByPk(AssignationId);
+            const assignation = await Assignation.findByPk(AssignationId, {
+                include: [{ model: Course }]
+            });
             if (!assignation) {
                 return res.status(404).json({
                     successful: false,
@@ -97,23 +99,19 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
-            // Validate all sections exist
+            const courseTotalDuration = assignation.Course.Duration;
+
             const sections = await ProgYrSec.findAll({
                 where: {
                     id: { [Op.in]: Sections }
                 }
             });
-
             if (sections.length !== Sections.length) {
                 return res.status(404).json({
                     successful: false,
                     message: "One or more sections not found. Please provide valid section IDs."
                 });
             }
-
-            // Convert new schedule times to seconds
-            const newStart = timeToSeconds(Start_time);
-            const newEnd = timeToSeconds(End_time);
 
             // Check for conflicting schedules in the same room on the same day
             const existingRoomSchedules = await Schedule.findAll({
@@ -134,7 +132,43 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
-            // Check for conflicting schedules for each section
+            // Check duration balance for each section with this course
+            for (const sectionId of Sections) {
+                // Get all existing schedules for this section with the same course (via assignation)
+                const existingSchedules = await Schedule.findAll({
+                    include: [
+                        {
+                            model: ProgYrSec,
+                            where: { id: sectionId }
+                        },
+                        {
+                            model: Assignation,
+                            where: { CourseId: assignation.Course.id }
+                        }
+                    ]
+                });
+                
+                // Calculate total scheduled hours for this section with this course
+                let scheduledHours = 0;
+                existingSchedules.forEach(schedule => {
+                    const start = timeToSeconds(schedule.Start_time);
+                    const end = timeToSeconds(schedule.End_time);
+                    scheduledHours += (end - start) / 3600; // Convert seconds to hours
+                });
+                
+                // Check if adding current schedule would exceed course duration
+                if (scheduledHours + currentScheduleDuration > courseTotalDuration) {
+                    const remainingHours = courseTotalDuration - scheduledHours;
+                    return res.status(400).json({
+                        successful: false,
+                        message: `A section already has ${scheduledHours} hours scheduled for this course. ` +
+                                 `Adding ${currentScheduleDuration} more hours would exceed the course duration of ${courseTotalDuration} hours. ` +
+                                 `Remaining balance: ${remainingHours} hours.`
+                    });
+                }
+            }
+
+            // Check for time conflicts for each section
             // Get all schedules associated with the sections
             const sectionSchedules = await Schedule.findAll({
                 include: [{
