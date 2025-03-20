@@ -714,10 +714,41 @@ const canScheduleStudent = (courseSchedules, courseId, day, startHour, duration)
 // Get a specific Schedule by ID
 const getSchedule = async (req, res, next) => {
     try {
-        const { id } = req.params;
 
-        const schedule = await Schedule.findByPk(id, {
-            include: [Room, Assignation],
+        const schedule = await Schedule.findByPk(req.params.id, {
+            attributes: { exclude: ['createdAt', 'updatedAt'] },
+            include: [
+                {
+                    model: Assignation,
+                    attributes: ['id', 'School_Year', 'Semester'],
+                    include: [
+                        {
+                            model: Course,
+                            attributes: ['Code', 'Description']
+                        },
+                        {
+                            model: Professor,
+                            attributes: ['id', 'Name']
+                        },
+                        {
+                            model: Room,
+                            attributes: ['Code', 'Floor', 'Building', 'Type'],
+                            through: { attributes: [] }
+                        }
+                    ]
+                },
+                {
+                    model: ProgYrSec,
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['id', 'Code']
+                        }
+                    ],
+                    through: { attributes: [] },
+                    attributes: ['id', 'Year', 'Section']
+                }
+            ]
         });
 
         if (!schedule) {
@@ -772,7 +803,7 @@ const getSchedsByRoom = async (req, res, next) => {
                         }
                     ],
                     through: { attributes: [] },
-                    attributes: ['Year', 'Section']
+                    attributes: ['id', 'Year', 'Section']
                 }
             ]
         });
@@ -832,7 +863,7 @@ const getSchedsByProf = async (req, res, next) => {
                         }
                     ],
                     through: { attributes: [] },
-                    attributes: ['Year', 'Section']
+                    attributes: ['id', 'Year', 'Section']
                 }
             ]
         });
@@ -896,7 +927,7 @@ const getSchedsByDept = async (req, res, next) => {
                         }
                     ],
                     through: { attributes: [] },
-                    attributes: ['Year', 'Section']
+                    attributes: ['id', 'Year', 'Section']
                 }
             ]
         });
