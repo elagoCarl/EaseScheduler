@@ -95,7 +95,7 @@ const ProfTimetable = () => {
           {schedule.Assignation.Course.Description}
         </div>
         <div className="text-xs">
-          Room: {schedule.Assignation.Rooms[0].Code} ({schedule.Assignation.Rooms[0].Building})
+        Room: {schedule.Room.Code} - { schedule.Room.Building}
         </div>
       </div>
     );
