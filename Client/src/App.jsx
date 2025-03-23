@@ -20,6 +20,7 @@ import AccountList from "./Components/accountList";
 import AssignationsCourseProf from "./Components/assignationsCourseProf";
 import Page404 from "./Components/page404";
 import Page403 from "./Components/page403";
+import DeptProg from "./Components/deptProg";
 
 
 const App = () => {
@@ -47,6 +48,7 @@ const App = () => {
         <Route path="/sectionTimetable" element={<SectionTimetable />} />
         <Route path="/accountList" element={<AccountList />} />
         <Route path="/assignationsCourseProf" element={<AssignationsCourseProf />} />
+        <Route path="/deptProg" element={<DeptProg />} />
 
         {/**ERROR handling routes */}
         <Route path="*" element={<Page404/>} />
