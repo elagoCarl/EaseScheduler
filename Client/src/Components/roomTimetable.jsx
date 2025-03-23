@@ -39,7 +39,7 @@ const RoomTimetable = () => {
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${selectedRoom.id}`);
+        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${ selectedRoom.id }`);
         if (data.successful) {
           setSchedules(data.data);
         } else {
@@ -58,13 +58,13 @@ const RoomTimetable = () => {
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
-  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+  const formatTimeRange = (start, end) => `${ start.slice(0, 5) } - ${ end.slice(0, 5) }`;
 
   const calculateEventPosition = (event) => {
     const [sHour, sMin] = event.Start_time.split(':').map(Number);
     const [eHour, eMin] = event.End_time.split(':').map(Number);
     const duration = (eHour - sHour) + ((eMin - sMin) / 60);
-    return { top: `${(sMin / 60) * 100}%`, height: `${duration * 100}%` };
+    return { top: `${ (sMin / 60) * 100 }%`, height: `${ duration * 100 }%` };
   };
 
   // New component similar to ScheduleEvent in AddConfigSchedule
@@ -72,13 +72,13 @@ const RoomTimetable = () => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
     const sections = schedule.ProgYrSecs
-      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+      .map(sec => `${ sec.Program.Code } ${ sec.Year }-${ sec.Section }`)
       .join(', ');
     return (
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${ hovered ? 'z-[9999] scale-110' : 'z-10' }`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -86,7 +86,7 @@ const RoomTimetable = () => {
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
         <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+        <div className={`text-xs ${ hovered ? '' : 'truncate' }`}>
           {schedule.Assignation.Course.Description}
         </div>
         <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
@@ -119,7 +119,7 @@ const RoomTimetable = () => {
     <div
       className="min-h-screen flex flex-col"
       style={{
-        backgroundImage: `url(${Image3})`,
+        backgroundImage: `url(${ Image3 })`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -132,34 +132,41 @@ const RoomTimetable = () => {
       <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header */}
-          <div className="relative bg-blue-600 p-4 sm:p-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
-            {selectedRoom ? (
-              <div className="text-blue-100 mt-1">
-                <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
-                <div className="flex flex-col gap-x-4 text-sm mt-1">
-                  <span>{selectedRoom.Floor} Floor</span>
-                  <span>{selectedRoom.Building} Building</span>
-                  <span>{selectedRoom.Type}</span>
-                </div>
+          {/* Header */}
+          <div className="bg-blue-600 p-4 sm:p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
+                {selectedRoom ? (
+                  <div className="text-blue-100 mt-1">
+                    <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
+                    <div className="flex flex-row gap-x-4 text-sm mt-1">
+                      <span>{selectedRoom.Floor} Floor</span>
+                      <span>•</span>
+                      <span>{selectedRoom.Building} Building</span>
+                      <span>•</span>
+                      <span>{selectedRoom.Type}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-blue-100 mt-1">Loading room details...</p>
+                )}
               </div>
-            ) : (
-              <p className="text-blue-100 mt-1">Loading room details...</p>
-            )}
-            <div className="flex items-center gap-2 mt-4">
-              <select
-                value={selectedRoom?.id || ''}
-                onChange={e =>
-                  setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
-                }
-                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-              >
-                {rooms.map(room => (
-                  <option key={room.id} value={room.id}>
-                    Room {room.Code} - {room.Building}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <select
+                  value={selectedRoom?.id || ''}
+                  onChange={e =>
+                    setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
+                  }
+                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                >
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      Room {room.Code} - {room.Building}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           {/* Timetable */}
@@ -193,7 +200,7 @@ const RoomTimetable = () => {
                       {timeSlots.map(hour => (
                         <tr key={hour} className="hover:bg-gray-50">
                           <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                            {`${hour.toString().padStart(2, '0')}:00`}
+                            {`${ hour.toString().padStart(2, '0') }:00`}
                           </td>
                           {days.map((_, dayIndex) => (
                             <td key={dayIndex} className="p-0 border-b border-gray-200 relative h-24 sm:h-28">
@@ -233,7 +240,7 @@ const RoomTimetable = () => {
                       {timeSlots.map(hour => (
                         <tr key={hour} className="hover:bg-gray-50">
                           <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
-                            {`${hour.toString().padStart(2, '0')}:00`}
+                            {`${ hour.toString().padStart(2, '0') }:00`}
                           </td>
                           <td className="p-0 border-b border-gray-200 relative h-24">
                             {renderEvent(hour, selectedDay, true)}
