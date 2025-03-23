@@ -63,8 +63,6 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'CASCADE', // When a department is deleted, set DepartmentId to NULL
             onUpdate: 'CASCADE'
         });
-        
-        Assignation.belongsToMany(models.Room, { through: 'Schedule' });
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
