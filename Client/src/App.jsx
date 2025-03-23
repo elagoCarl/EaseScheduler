@@ -22,6 +22,8 @@ import Page403 from "./Components/page403";
 import Department from "./Components/department";
 import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
+import DeptProg from "./Components/deptProg";
+
 
 const App = () => {
   return (
@@ -51,6 +53,7 @@ const App = () => {
             <Route path="/sectionTimetable" element={<SectionTimetable />} />
             <Route path="/accountList" element={<AccountList />} />
             <Route path="/assignationsCourseProf" element={<AssignationsCourseProf />} />
+            <Route path="/deptProg" element={<DeptProg />} />
 
             {/* ERROR handling routes */}
             <Route path="*" element={<Page404 />} />
