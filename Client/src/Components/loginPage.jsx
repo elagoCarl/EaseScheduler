@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './authContext'; // ✅ Import AuthContext
 import axios from 'axios';
 import image2 from './Img/2.jpg';
+import { Eye, EyeOff } from 'lucide-react'; // Import eye icons from lucide-react
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // State to track password visibility
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +51,11 @@ const LoginPage = () => {
         );
       }
     }
+  };
+
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -95,15 +102,29 @@ const LoginPage = () => {
             >
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              className="text-gray-700 rounded-lg w-full p-8 md:p-15 bg-gray-100"
-              placeholder="*********"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                className="text-gray-700 rounded-lg w-full p-8 md:p-15 bg-gray-100"
+                placeholder="*********"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={togglePasswordVisibility}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-20 w-20 mx-15 text-gray-500" />
+                ) : (
+                  <Eye className="h-20 w-20 mx-15 text-gray-500" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-end w-full">
