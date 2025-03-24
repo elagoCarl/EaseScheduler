@@ -31,6 +31,7 @@ const DeptProg = () => {
 
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
+    // eslint-disable-next-line no-unused-vars
     const navigate = useNavigate();
 
     // Toggle Sidebar
