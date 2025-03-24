@@ -12,7 +12,7 @@ const TopMenu = ({ toggleSidebar }) => {
         id="logoBtn"
         className="text-lg ml-12 md:text-3xl sm:text-3xl xs:text-2xl font-bold text-blue-500"
         onClick={() => navigate("/homePage")}>
-        EASE<span className="text-white">SCHEDULER</span>
+        EASE<span className="text-white hover:text-gray-500 duration-300">SCHEDULER</span>
       </button>
       <img
         src={Menu}
