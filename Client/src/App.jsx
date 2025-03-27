@@ -30,7 +30,7 @@ const App = () => {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Pubic routes */}
+          {/* Public routes */}
           <Route path="/" element={<MainPage />} />
           <Route path="/loginPage" element={<LoginPage />} />
           <Route path="/forgotPassPage" element={<ForgotPass />} />

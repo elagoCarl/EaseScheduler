@@ -25,7 +25,7 @@ const transporter = nodemailer.createTransport({
 
 
 // Create access token
-const maxAge = 12000; // 1 minute in seconds
+const maxAge = 60; // 1 minute in seconds
 const createAccessToken = (id) => {
     return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
         expiresIn: maxAge,
@@ -308,13 +308,13 @@ const loginAccount = async (req, res) => {
 
         // Set cookies securely
         res.cookie('jwt', accessToken, {
-            httpOnly: false,
+            httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Strict',
             maxAge: maxAge * 1000,
         });
         res.cookie('refreshToken', refreshToken, {
-            httpOnly: false,
+            httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Strict',
             maxAge: 60 * 60 * 24 * 30 * 1000,

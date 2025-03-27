@@ -83,7 +83,7 @@ const AccountSettings = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:8080/accounts/changePassword', {
+      const response = await axios.put('http://localhost:8080/accounts/changePassword', {
         Email: user.email,
         oldPassword: passwords.currentPassword,
         newPassword: passwords.newPassword
