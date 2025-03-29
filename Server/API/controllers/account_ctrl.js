@@ -25,7 +25,7 @@ const transporter = nodemailer.createTransport({
 
 
 // Create access token
-const maxAge = 60; // 1 minute in seconds
+const maxAge = 60 * 60; // 1 minute in seconds
 const createAccessToken = (id) => {
     return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
         expiresIn: maxAge,
@@ -495,7 +495,7 @@ const changePassword = async (req, res, next) => {
         if (!util.validatePassword(newPassword)) {
             return res.status(406).json({
                 successful: false,
-                message: "Invalid password. It must contain at least eight characters, one uppercase letter, one lowercase letter, one number, and one special character."
+                message: "Invalid password. It must contain at least eight characters, one uppercase letter, one lowercase letter, and one number."
             });
         }
 
@@ -680,7 +680,7 @@ const getCurrentAccount = async (req, res, next) => {
 
         // Query the account by primary key and return non-sensitive fields
         const account = await Account.findByPk(decoded.id, {
-            attributes: ['id', 'Name', 'Email', 'Roles', 'verified']
+            attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
         });
 
         if (!account) {

@@ -7,12 +7,14 @@ import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
 import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
+import { useAuth } from '../Components/authContext.jsx';
 
 const AddConfigSchedule = () => {
+  const { user } = useAuth();
+  console.log("userid: ", user.id);
   const deptId = 1;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
-
   // State management
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });

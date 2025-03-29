@@ -19,7 +19,6 @@ import AccountList from "./Components/accountList";
 import AssignationsCourseProf from "./Components/assignationsCourseProf";
 import Page404 from "./Components/page404";
 import Page403 from "./Components/page403";
-import Department from "./Components/department";
 import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
 import DeptProg from "./Components/deptProg";
@@ -38,7 +37,6 @@ const App = () => {
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
-            <Route path="/departments" element={<Department />} />
             <Route path="/homepage" element={<Homepage />} />
             <Route path="/accountSettings" element={<AccountSettings />} />
             <Route path="/createAccount" element={<CreateAccount />} />

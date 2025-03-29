@@ -279,7 +279,7 @@ const AssignationsCourseProf = () => {
 
             <div className="flex flex-col justify-center items-center h-screen w-full px-8">
                 {/* Display the current department */}
-                <div className="mb-4 text-lg font-semibold">
+                <div className="mb-4 text-lg font-semibold text-white">
                     Current Department: {department ? department.Name : "Loading..."}
                 </div>
 

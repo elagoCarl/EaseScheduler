@@ -10,14 +10,17 @@ import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import Axios from 'axios';
+import { useAuth } from '../Components/authContext.jsx';
 
-const deptId = 1;
 
 const Course = () => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+  const deptId = user.DepartmentId;
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
   const [isAllChecked, setAllChecked] = useState(false);
-  const [selectedCampus, setSelectedCampus] = useState("Select Campus");
 
   const [searchTerm, setSearchTerm] = useState(""); // Search term state
   const [yearFilter, setYearFilter] = useState("All");
@@ -28,7 +31,6 @@ const Course = () => {
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const [courseToEdit, setCourseToEdit] = useState(null); // Course to edit state
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState("");
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [courses, setCourses] = useState([]); // Initialize as an empty array
   const [updateTrigger, setUpdateTrigger] = useState(false); // 🔹 Trigger refetch
@@ -77,7 +79,7 @@ const Course = () => {
 
   const fetchCourse = async (deptId) => {
     try {
-      const response = await Axios.get(`http://localhost:8080/course/getCoursesByDept/${ deptId }`);
+      const response = await Axios.get(`http://localhost:8080/course/getCoursesByDept/${deptId}`);
       console.log('API Response:', response.data);
       if (response.data.successful) {
         setCourses(response.data.data);
@@ -86,14 +88,14 @@ const Course = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError(`Error fetching courses: ${ err.message }`);
+      setError(`Error fetching courses: ${err.message}`);
     }
   };
 
   useEffect(() => {
     fetchCourse(deptId);
     console.log("Fetching courses...");
-  }, [updateTrigger,]);
+  }, [deptId, updateTrigger]);
 
   useEffect(() => {
     if (courses.length > 0) {
@@ -101,29 +103,6 @@ const Course = () => {
       console.log("Available course types:", [...allTypes]);
     }
   }, [courses]);
-
-  const handleDeleteCourse = async (courseId) => {
-    if (!courseId) return;
-
-    try {
-      const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${ courseId }`);
-      if (response.data.successful) {
-        setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
-      }
-    } catch (error) {
-      console.error("Error deleting course:", error);
-    }
-  };
-
-  const handleAddCourse = async (newCourseData) => {
-    try {
-      await Axios.post("http://localhost:8080/course/addCourse", newCourseData);
-      // Re-fetch for department 1 (or whichever dept):
-      fetchCourse(1);
-    } catch (err) {
-      console.error("Error adding course:", err);
-    }
-  };
 
   useEffect(() => {
     console.log("Courses after adding new one:", courses);
@@ -161,24 +140,6 @@ const Course = () => {
     setIsEditCourseModalOpen(true); // ✅ Open edit modal
   };
 
-  const handleEditClick = (course) => {
-    setCourseToEdit(course);
-    setIsEditCourseModalOpen(true);
-  };
-
-  const handleUpdateSuccess = () => {
-    setSuccessMessage("Course updated successfully!");
-    setTimeout(() => {
-      setSuccessMessage("");
-    }, 3000);
-    setUpdateTrigger(!updateTrigger);
-  };
-
-
-  const handleEditCourseCloseModal = () => {
-    setIsEditCourseModalOpen(false); // Close the edit course modal
-  };
-
   const [warningMessage, setWarningMessage] = useState("");
 
   const handleDeleteClick = () => {
@@ -208,7 +169,7 @@ const Course = () => {
 
       await Promise.all(
         courseToDelete.map((course) =>
-          Axios.delete(`http://localhost:8080/course/deleteCourse/${ course.id }`)
+          Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
         )
       );
 
@@ -231,7 +192,7 @@ const Course = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}>
+      style={{ backgroundImage: `url(${Background})` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
