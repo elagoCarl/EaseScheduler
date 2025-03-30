@@ -1,57 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Background from './Img/4.jpg';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './callComponents/sideBar.jsx';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Cookies from 'js-cookie';
 import axios from 'axios';
-import { jwtDecode } from "jwt-decode";
 import { Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../Components/authContext.jsx';
 
 const AccountSettings = () => {
+  const { user } = useAuth(); // Use the user object from useAuth hook just like in Course component
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState({ fullName: '', email: '', id: '' });
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '' });
   const [message, setMessage] = useState({ text: '', type: '' });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = Cookies.get('refreshToken'); // Get JWT from cookies
-        if (!token) {
-          console.error('No token found');
-          return;
-        }
-
-        const decoded = jwtDecode(token); // Decode JWT to get user ID
-        const userId = decoded.id;
-
-        console.log("Fetching user data for ID:", userId); // Debug log
-
-        const response = await axios.get(`http://localhost:8080/accounts/getAccountById/${userId}`);
-        console.log("User data received:", response.data); // Debug log
-
-        // Ensure the correct mapping of properties
-        setUser({
-          fullName: response.data.data.Name, // API returns "Name", but state expects "fullName"
-          email: response.data.data.Email, // API returns "Email", which matches state
-          id: userId // Store the user ID for archive functionality
-        });
-      } catch (error) {
-        console.error('Error fetching user data:', error.response?.data || error.message);
-        setMessage({
-          text: 'Error loading account information',
-          type: 'error'
-        });
-      }
-    };
-
-    fetchUserData();
-  }, []);
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
@@ -84,7 +49,7 @@ const AccountSettings = () => {
 
     try {
       const response = await axios.put('http://localhost:8080/accounts/changePassword', {
-        Email: user.email,
+        Email: user.Email, // Use Email from the auth context
         oldPassword: passwords.currentPassword,
         newPassword: passwords.newPassword
       });
@@ -215,8 +180,7 @@ const AccountSettings = () => {
                 className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 id="fullName"
                 type="text"
-                value={user.fullName ?? ''} // Ensuring controlled input
-                onChange={(e) => setUser({ ...user, fullName: e.target.value })}
+                value={user?.Name || ''} // Use Name from auth context
                 disabled
               />
             </div>
@@ -232,8 +196,7 @@ const AccountSettings = () => {
                 className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 id="email"
                 type="email"
-                value={user.email ?? ''} // Ensuring controlled input
-                onChange={(e) => setUser({ ...user, email: e.target.value })}
+                value={user?.Email || ''} // Use Email from auth context
                 disabled
               />
             </div>

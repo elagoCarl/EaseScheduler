@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken')
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
+const { requireAuth } = require('./authMiddleware');
 const { USER,
     APP_PASSWORD,
     ACCESS_TOKEN_SECRET,
@@ -666,39 +667,71 @@ const getCurrentAccount = async (req, res, next) => {
     res.set('Cache-Control', 'no-store');
 
     // Retrieve the access token from cookies
-    const token = req.cookies.jwt;
-    if (!token) {
+    const AToken = req.cookies.jwt;
+    const RToken = req.cookies.refreshToken;
+    if (!AToken && !RToken) {
         return res.status(401).json({
             successful: false,
             message: 'Not authenticated'
         });
     }
+    if (AToken) {
+        try {
+            // Verify token
+            const decoded = jwt.verify(AToken, ACCESS_TOKEN_SECRET);
 
-    try {
-        // Verify token
-        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+            // Query the account by primary key and return non-sensitive fields
+            const account = await Account.findByPk(decoded.id, {
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+            });
 
-        // Query the account by primary key and return non-sensitive fields
-        const account = await Account.findByPk(decoded.id, {
-            attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
-        });
+            if (!account) {
+                return res.status(404).json({
+                    successful: false,
+                    message: 'Account not found'
+                });
+            }
 
-        if (!account) {
-            return res.status(404).json({
+            return res.status(200).json({
+                successful: true,
+                account
+            });
+        } catch (error) {
+            console.error("Error in getCurrentAccount:", error);
+            return res.status(401).json({
                 successful: false,
-                message: 'Account not found'
+                message: 'Invalid or expired token'
             });
         }
+    }
 
-        return res.status(200).json({
-            successful: true,
-            account
-        });
-    } catch (error) {
-        console.error("Error in getCurrentAccount:", error);
-        return res.status(401).json({
-            successful: false,
-            message: 'Invalid or expired token'
+    if (RToken && !AToken) {
+        // Call the requireAuth middleware
+        return requireAuth(req, res, async () => {
+            try {
+                // After requireAuth has refreshed the tokens and added decodedToken to req
+                const account = await Account.findByPk(req.decodedToken.id, {
+                    attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                });
+
+                if (!account) {
+                    return res.status(404).json({
+                        successful: false,
+                        message: 'Account not found'
+                    });
+                }
+
+                return res.status(200).json({
+                    successful: true,
+                    account
+                });
+            } catch (error) {
+                console.error("Error getting account after token refresh:", error);
+                return res.status(500).json({
+                    successful: false,
+                    message: 'Server error'
+                });
+            }
         });
     }
 };
