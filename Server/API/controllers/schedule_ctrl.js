@@ -1,5 +1,4 @@
 // Changed the Course into Course model because it is not being imported properly
-// Changed the Course into Course model because it is not being imported properly
 const { Settings, Schedule, Room, Assignation, Program, Professor, Course, ProgYrSec, Department, Course: CourseModel } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
@@ -55,18 +54,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
     const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
     const maxContinuousHours = 5; // Max hours before break is required
 
-};
-
-/**
- * Check if a professor can be scheduled based on hours, conflicts, and break enforcement.
- */
-const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
-    const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
-    const maxContinuousHours = 5; // Max hours before break is required
-
     if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
-
-    // Check for overlapping schedules
 
     // Check for overlapping schedules
     for (const time of profSchedule.dailyTimes) {
@@ -77,13 +65,6 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
         ) {
             return false;
         }
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end) ||
-            (startHour <= time.start && startHour + duration >= time.end)
-        ) {
-            return false;
-        }
     }
 
     // Sort schedules by start time to find contiguous blocks
@@ -105,39 +86,9 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
             contiguousStart = intervals[i].start;
             contiguousEnd = intervals[i].end;
         }
-
-    // Sort schedules by start time to find contiguous blocks
-    const intervals = [...profSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
-        .sort((a, b) => a.start - b.start);
-
-    let contiguousStart = intervals[0].start;
-    let contiguousEnd = intervals[0].end;
-
-    for (let i = 1; i < intervals.length; i++) {
-        if (intervals[i].start === contiguousEnd) {
-            contiguousEnd = intervals[i].end;
-        } else {
-            // If a contiguous block exceeds the max hours, enforce a break
-            if (contiguousEnd - contiguousStart >= maxContinuousHours) {
-                let requiredBreakEnd = contiguousEnd + requiredBreak;
-                if (startHour < requiredBreakEnd) return false;
-            }
-            contiguousStart = intervals[i].start;
-            contiguousEnd = intervals[i].end;
-        }
     }
-
 
     return true;
-};
-
-/**
- * Check if students in a section can be scheduled based on hours, conflicts, and break enforcement.
- */
-const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
-    const requiredBreak = settings.StudentBreak || 1; // Default break duration: 1 hour
-    const maxContinuousHours = 5; // Max hours before break is required
-
 };
 
 /**
@@ -150,8 +101,6 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
     if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
 
     // Check for overlapping schedules
-
-    // Check for overlapping schedules
     for (const time of secSchedule.dailyTimes) {
         if (
             (startHour >= time.start && startHour < time.end) ||
@@ -160,13 +109,6 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
         ) {
             return false;
         }
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end) ||
-            (startHour <= time.start && startHour + duration >= time.end)
-        ) {
-            return false;
-        }
     }
 
     // Sort schedules by start time to find contiguous blocks
@@ -188,36 +130,9 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
             contiguousStart = intervals[i].start;
             contiguousEnd = intervals[i].end;
         }
-
-    // Sort schedules by start time to find contiguous blocks
-    const intervals = [...secSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
-        .sort((a, b) => a.start - b.start);
-
-    let contiguousStart = intervals[0].start;
-    let contiguousEnd = intervals[0].end;
-
-    for (let i = 1; i < intervals.length; i++) {
-        if (intervals[i].start === contiguousEnd) {
-            contiguousEnd = intervals[i].end;
-        } else {
-            // If a contiguous block exceeds the max hours, enforce a break
-            if (contiguousEnd - contiguousStart >= maxContinuousHours) {
-                let requiredBreakEnd = contiguousEnd + requiredBreak;
-                if (startHour < requiredBreakEnd) return false;
-            }
-            contiguousStart = intervals[i].start;
-            contiguousEnd = intervals[i].end;
-        }
     }
-
 
     return true;
-};
-
-/**
- * Check if a schedule is possible based on room, professor, and student availability.
- */
-const isSchedulePossible = (
 };
 
 /**
@@ -228,23 +143,18 @@ const isSchedulePossible = (
     roomId, professorId, sectionIds, day, startHour, duration,
     settings
 ) => {
-) => {
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) return false;
-
 
     // Check professor's schedule constraints (including the required break)
     if (!canScheduleProfessor(professorSchedule[professorId][day], startHour, duration, settings)) return false;
-
 
     // Check each progYrSec's schedule constraints
     for (const sectionId of sectionIds) {
         if (!canScheduleStudents(progYrSecSchedules[sectionId][day], startHour, duration, settings)) return false;
     }
 
-
     return true;
-  };
-  
+};
 
 
 
@@ -816,173 +726,6 @@ const getSchedsByDept = async (req, res, next) => {
         });
     }
 }
-
-// Add Schedule
-const addSchedule = async (req, res, next) => {
-    try {
-        let schedule = req.body;
-
-        if (!Array.isArray(schedule)) {
-            schedule = [schedule];
-        }
-
-        const createdSchedules = [];
-
-        for (const sched of schedule) {
-            const { Day, Start_time, End_time, RoomId, AssignationId } = sched;
-
-            // Validate mandatory fields
-            if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
-                return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
-            }
-
-            // Validate time format and sequence
-            if (isValidTime(Start_time, End_time, res) !== true) return;
-
-            // Validate Room existence
-            const room = await Room.findByPk(RoomId);
-            if (!room) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
-                });
-            }
-
-            // Validate Assignation existence
-            const assignation = await Assignation.findByPk(AssignationId);
-            if (!assignation) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.`
-                });
-            }
-
-            // Check for conflicting schedules in the same room on the same day
-            const existingSchedules = await Schedule.findAll({
-                where: { Day, RoomId }
-            });
-
-            const isConflict = existingSchedules.some(existing => {
-                return (
-                    (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
-                    (End_time > existing.Start_time && End_time <= existing.End_time) ||
-                    (Start_time <= existing.Start_time && End_time >= existing.End_time)
-                );
-            });
-
-            if (isConflict) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`,
-                });
-            }
-
-            // Create schedule
-            const newSchedule = await Schedule.create({ Day, Start_time, End_time, RoomId, AssignationId });
-            createdSchedules.push(newSchedule);
-        }
-
-        return res.status(201).json({
-            successful: true,
-            message: "Successfully created schedules.",
-            schedules: createdSchedules
-        });
-
-    } catch (error) {
-        console.error(error);
-        next(error.message);
-    }
-};
-
-// Update Schedule
-const updateSchedule = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { Day, Start_time, End_time, RoomId, AssignationId } = req.body;
-
-        // Validate mandatory fields
-        if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
-            return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
-        }
-
-        // Validate time format and sequence
-        if (isValidTime(Start_time, End_time, res) !== true) return;
-
-        // Validate if the schedule exists
-        const schedule = await Schedule.findByPk(id);
-        if (!schedule) {
-            return res.status(404).json({ successful: false, message: "Schedule not found." });
-        }
-
-        // Validate Room existence
-        const room = await Room.findByPk(RoomId);
-        if (!room) {
-            return res.status(404).json({
-                successful: false,
-                message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
-            });
-        }
-
-        // Validate Assignation existence
-        const assignation = await Assignation.findByPk(AssignationId);
-        if (!assignation) {
-            return res.status(404).json({
-                successful: false,
-                message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.`
-            });
-        }
-
-        // Check for conflicting schedules in the same room on the same day (excluding current schedule)
-        const existingSchedules = await Schedule.findAll({
-            where: {
-                Day,
-                RoomId,
-                id: { [Op.ne]: id } // Exclude current schedule
-            }
-        });
-
-        const isConflict = existingSchedules.some(existing => {
-            return (
-                (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
-                (End_time > existing.Start_time && End_time <= existing.End_time) ||
-                (Start_time <= existing.Start_time && End_time >= existing.End_time)
-            );
-        });
-
-        if (isConflict) {
-            return res.status(400).json({
-                successful: false,
-                message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`,
-            });
-        }
-
-        // Update schedule
-        await schedule.update({ Day, Start_time, End_time, RoomId, AssignationId });
-
-        return res.status(200).json({ successful: true, message: "Schedule updated successfully." });
-    } catch (error) {
-        console.error(error);
-        next(error);
-    }
-};
-
-// Delete a Schedule by ID
-const deleteSchedule = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-
-        const schedule = await Schedule.findByPk(id);
-        if (!schedule) {
-            return res.status(404).json({ successful: false, message: "Schedule not found." });
-        }
-
-        await schedule.destroy();
-
-        return res.status(200).json({ successful: true, message: "Schedule deleted successfully." });
-    } catch (error) {
-        next(error);
-    }
-};
 
 // Add Schedule
 const addSchedule = async (req, res, next) => {

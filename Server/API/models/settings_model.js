@@ -38,11 +38,11 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 1
         },
-        MaxAllowedGap : {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 1
-        }
+        // MaxAllowedGap : {
+        //     type: DataTypes.INTEGER,
+        //     allowNull: false,
+        //     defaultValue: 1
+        // }
     }, {
         timestamps: true
     });
