@@ -3,46 +3,54 @@ module.exports = (sequelize, DataTypes) => {
         StartHour: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: 7, // Default Start Time is 7 AM
+            defaultValue: 7, 
             validate: {
-                min: 0,  // Cannot start before midnight (0:00)
-                max: 23  // Cannot start after 11 PM (23:00)
+                min: 0,  
+                max: 23  
             }
         },
         EndHour: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: 19, // Default End Time is 7 PM
+            defaultValue: 21, 
             validate: {
-                min: 1,  // End hour should be at least after midnight (1:00)
-                max: 24  // Cannot end after midnight (24:00)
+                min: 1,  
+                max: 24  
             }
         },
+
+        // Professor's max hours of stay in school per day
         ProfessorMaxHours: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 12
         },
+
+        // Student's max hours of stay in school per day
         StudentMaxHours: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 12
         },
+
+        // Hours of break per continuous hours of schedule
         ProfessorBreak: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 1
         },
+
+        // Hours of break per continuous hours of schedule
         StudentBreak: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 1
         },
-        // MaxAllowedGap : {
-        //     type: DataTypes.INTEGER,
-        //     allowNull: false,
-        //     defaultValue: 1
-        // }
+        MaxAllowedGap : {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 5
+        }
     }, {
         timestamps: true
     });

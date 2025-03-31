@@ -52,7 +52,7 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
  */
 const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
     const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
-    const maxContinuousHours = 5; // Max hours before break is required
+    const maxContinuousHours = settings.maxAllowedGap; // Max hours before break is required
 
     if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
 
@@ -96,7 +96,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
  */
 const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
     const requiredBreak = settings.StudentBreak || 1; // Default break duration: 1 hour
-    const maxContinuousHours = 5; // Max hours before break is required
+    const maxContinuousHours = settings.maxAllowedGap; // Max hours before break is required
 
     if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
 
@@ -158,18 +158,7 @@ const isSchedulePossible = (
 
 
 
-/**
- * Backtracking function to automate schedule generation.
- * Added a new parameter `progYrSecSchedules` to track schedules for each ProgYrSec.
- */
-// Optimized backtracking function
-// Modified backtrackSchedule function with compact scheduling for progYrSec
-/**
- * Backtracking function to automate schedule generation.
- * Added a new parameter progYrSecSchedules to track schedules for each ProgYrSec.
- */
-// Optimized backtracking function
-// Modified backtrackSchedule function with compact scheduling for progYrSec
+
 const backtrackSchedule = async (
     assignations,
     rooms,
@@ -321,17 +310,10 @@ const backtrackSchedule = async (
     }
 };
 
-
-
-// automateSchedule function (remains mostly unchanged)
-// Note: Its primary role is to initialize schedules and kick off backtracking,
-// so the compacting effect comes through the modified backtrackSchedule.
-// Automate Schedule
 const automateSchedule = async (req, res, next) => {
     try {
 
         const { DepartmentId, isOverwrite } = req.body;
-
 
         if (!DepartmentId) {
             return res.status(400).json({ successful: false, message: "Department ID is required." });
@@ -368,7 +350,7 @@ const automateSchedule = async (req, res, next) => {
             where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
         });
 
-        if (isOverwrite == 1) {
+        if (isOverwrite === 1) {
             await Schedule.destroy({
                 where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
             });
