@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken')
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
-const { requireAuth } = require('./authMiddleware');
+const { refreshTokens } = require('./authMiddleware');
 const { USER,
     APP_PASSWORD,
     ACCESS_TOKEN_SECRET,
@@ -663,24 +663,22 @@ const logoutAccount = async (req, res, next) => {
 
 
 const getCurrentAccount = async (req, res, next) => {
-    // Set header to prevent caching
     res.set('Cache-Control', 'no-store');
 
-    // Retrieve the access token from cookies
     const AToken = req.cookies.jwt;
     const RToken = req.cookies.refreshToken;
+
     if (!AToken && !RToken) {
         return res.status(401).json({
             successful: false,
             message: 'Not authenticated'
         });
     }
+
     if (AToken) {
         try {
-            // Verify token
+            // Try verifying the access token
             const decoded = jwt.verify(AToken, ACCESS_TOKEN_SECRET);
-
-            // Query the account by primary key and return non-sensitive fields
             const account = await Account.findByPk(decoded.id, {
                 attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
             });
@@ -697,44 +695,68 @@ const getCurrentAccount = async (req, res, next) => {
                 account
             });
         } catch (error) {
-            console.error("Error in getCurrentAccount:", error);
-            return res.status(401).json({
-                successful: false,
-                message: 'Invalid or expired token'
-            });
+            console.error("Error verifying access token:", error.message);
+            // If the access token is invalid/expired and a refresh token exists,
+            // attempt to refresh tokens.
+            if (RToken) {
+                try {
+                    const newDecoded = await refreshTokens(req, res);
+                    const account = await Account.findByPk(newDecoded.id, {
+                        attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                    });
+                    if (!account) {
+                        return res.status(404).json({
+                            successful: false,
+                            message: 'Account not found'
+                        });
+                    }
+                    return res.status(200).json({
+                        successful: true,
+                        account
+                    });
+                } catch (refreshError) {
+                    console.error("Error refreshing tokens:", refreshError.message);
+                    return res.status(401).json({
+                        successful: false,
+                        message: refreshError.message
+                    });
+                }
+            } else {
+                return res.status(401).json({
+                    successful: false,
+                    message: 'Invalid or expired token'
+                });
+            }
         }
     }
 
+    // If there's no access token but a refresh token exists
     if (RToken && !AToken) {
-        // Call the requireAuth middleware
-        return requireAuth(req, res, async () => {
-            try {
-                // After requireAuth has refreshed the tokens and added decodedToken to req
-                const account = await Account.findByPk(req.decodedToken.id, {
-                    attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
-                });
-
-                if (!account) {
-                    return res.status(404).json({
-                        successful: false,
-                        message: 'Account not found'
-                    });
-                }
-
-                return res.status(200).json({
-                    successful: true,
-                    account
-                });
-            } catch (error) {
-                console.error("Error getting account after token refresh:", error);
-                return res.status(500).json({
+        try {
+            const newDecoded = await refreshTokens(req, res);
+            const account = await Account.findByPk(newDecoded.id, {
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+            });
+            if (!account) {
+                return res.status(404).json({
                     successful: false,
-                    message: 'Server error'
+                    message: 'Account not found'
                 });
             }
-        });
+            return res.status(200).json({
+                successful: true,
+                account
+            });
+        } catch (refreshError) {
+            console.error("Error refreshing tokens:", refreshError.message);
+            return res.status(401).json({
+                successful: false,
+                message: refreshError.message
+            });
+        }
     }
 };
+
 
 
 module.exports = {
