@@ -3,7 +3,7 @@ const { Account, Session } = require('../models');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
 
 // Token Expirations
-const ACCESS_TOKEN_EXPIRY = 60; // 15 minutes
+const ACCESS_TOKEN_EXPIRY = 60; // 60 seconds (adjust as needed, e.g., 900 for 15 minutes)
 const REFRESH_TOKEN_EXPIRY = 60 * 60 * 24 * 30; // 30 days
 
 // Functions to create tokens
@@ -89,7 +89,53 @@ const refresh = async (req, res) => {
   }
 };
 
+/**
+ * Helper function to refresh tokens and return the decoded token of the new access token.
+ */
+const refreshTokens = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    throw new Error("Refresh token not provided");
+  }
+
+  // Find session using the provided refresh token
+  const session = await Session.findOne({ where: { Token: refreshToken } });
+  if (!session) {
+    throw new Error("Invalid refresh token");
+  }
+
+  // Verify refresh token
+  const decodedUser = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+
+  // Generate new tokens
+  const newAccessToken = createAccessToken(decodedUser.id);
+  const newRefreshToken = createRefreshToken(decodedUser.id);
+
+  // Update session with new refresh token
+  await Session.update({ Token: newRefreshToken }, { where: { AccountId: decodedUser.id } });
+
+  // Set new tokens in cookies
+  res.cookie('jwt', newAccessToken, {
+    httpOnly: true,
+    maxAge: ACCESS_TOKEN_EXPIRY * 1000,
+    secure: true,
+    sameSite: 'Strict'
+  });
+  res.cookie('refreshToken', newRefreshToken, {
+    httpOnly: true,
+    maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+    secure: true,
+    sameSite: 'Strict'
+  });
+
+  // Return the decoded token of the new access token
+  return jwt.verify(newAccessToken, ACCESS_TOKEN_SECRET);
+};
+
 module.exports = {
   requireAuth,
-  refresh
+  refresh,
+  refreshTokens, // Exported for use in account controller
+  createAccessToken,
+  createRefreshToken,
 };
