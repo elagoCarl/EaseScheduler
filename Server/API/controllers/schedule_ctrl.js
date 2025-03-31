@@ -4,8 +4,6 @@ const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
 
-// SUCCESS WHEN SCHEDULE IS CLEARED BUT FAILS WHEN SCHEDULE IS NOT CLEARED
-
 
 // HELPER FUNCTIONS
 
@@ -235,7 +233,8 @@ const backtrackSchedule = async (
                                 Start_time: `${hour}:00`,
                                 End_time: `${hour + duration}:00`,
                                 RoomId: room.id,
-                                AssignationId: assignation.id
+                                AssignationId: assignation.id,
+                                isLocked: false
                             });
 
                             await createdSchedule.addProgYrSecs(group);
@@ -313,7 +312,7 @@ const backtrackSchedule = async (
 const automateSchedule = async (req, res, next) => {
     try {
 
-        const { DepartmentId, isOverwrite } = req.body;
+        const { DepartmentId } = req.body;
 
         if (!DepartmentId) {
             return res.status(400).json({ successful: false, message: "Department ID is required." });
@@ -321,9 +320,6 @@ const automateSchedule = async (req, res, next) => {
 
         // why is the settings here?
         const settings = await Settings.findByPk(1);
-        if (!settings) {
-            return res.status(404).json({ successful: false, message: "Scheduling settings not found." });
-        }
 
         // this can be moved to other functions?
         const { StartHour, EndHour } = settings;
@@ -350,27 +346,30 @@ const automateSchedule = async (req, res, next) => {
             where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
         });
 
-        if (isOverwrite === 1) {
-            await Schedule.destroy({
-                where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
-            });
-        }
+
+        await Schedule.destroy({
+            where: {
+                AssignationId: { [Op.in]: assignations.map(a => a.id) },
+                isLocked: false
+            }
+        });
 
 
         // Filter out assignations that are already scheduled when overwrite is 0
-        const unscheduledAssignations = isOverwrite === 0
-            ? assignations.filter(a => !alreadyScheduledAssignations.has(a.id))
-            : assignations;
+        const lockedAssignationIds = new Set(existingSchedules
+            .filter(schedule => schedule.isLocked)
+            .map(schedule => schedule.AssignationId)
+        );
 
-        // If everything is already scheduled, return success
-        if (unscheduledAssignations.length === 0) {
-            return res.status(200).json({
-                successful: true,
-                message: "All assignations are already scheduled. No changes made."
-            });
-        }
+        console.log("LOCKED ASSIGNATIONS: ", lockedAssignationIds)
 
+        const unscheduledAssignations = assignations.filter(assignation =>
+            !lockedAssignationIds.has(assignation.id)
+        );
+
+        console.log("UNLOCKED ASSIGNATIONS: ", unscheduledAssignations)
         // Initialize tracking structures
+
         const professorSchedule = {};
         const courseSchedules = {};
         const progYrSecSchedules = {};
@@ -407,55 +406,55 @@ const automateSchedule = async (req, res, next) => {
         });
 
         // Load existing schedules into tracking structures if not overwriting
-        if (isOverwrite === 0) {
-            // Process existing schedules data into the tracking structures
-            for (const schedule of existingSchedules) {
-                const associatedPYS = await schedule.getProgYrSecs();
-                const assignation = await Assignation.findByPk(schedule.AssignationId, {
-                    include: [Course, Professor]
-                });
 
-                if (!assignation) continue;
+        // Process existing schedules data into the tracking structures
+        for (const schedule of existingSchedules) {
+            const associatedPYS = await schedule.getProgYrSecs();
+            const assignation = await Assignation.findByPk(schedule.AssignationId, {
+                include: [Course, Professor]
+            });
 
-                const { Course, Professor } = assignation;
-                const day = schedule.Day;
+            if (!assignation) continue;
 
-                // Parse start and end times to hours
-                const startTimeHour = parseInt(schedule.Start_time.split(':')[0]);
-                const endTimeHour = parseInt(schedule.End_time.split(':')[0]);
-                const duration = endTimeHour - startTimeHour;
+            const { Course, Professor } = assignation;
+            const day = schedule.Day;
 
-                // Update professor schedule
-                professorSchedule[Professor.id][day].hours += duration;
-                professorSchedule[Professor.id][day].dailyTimes.push({
+            // Parse start and end times to hours
+            const startTimeHour = parseInt(schedule.Start_time.split(':')[0]);
+            const endTimeHour = parseInt(schedule.End_time.split(':')[0]);
+            const duration = endTimeHour - startTimeHour;
+
+            // Update professor schedule
+            professorSchedule[Professor.id][day].hours += duration;
+            professorSchedule[Professor.id][day].dailyTimes.push({
+                start: startTimeHour,
+                end: endTimeHour
+            });
+
+            // Update course schedule
+            courseSchedules[Course.id][day].push({
+                start: startTimeHour,
+                end: endTimeHour
+            });
+
+            // Update room schedule
+            if (!roomSchedules[schedule.RoomId]) roomSchedules[schedule.RoomId] = {};
+            if (!roomSchedules[schedule.RoomId][day]) roomSchedules[schedule.RoomId][day] = [];
+            roomSchedules[schedule.RoomId][day].push({
+                start: startTimeHour,
+                end: endTimeHour
+            });
+
+            // Update progYrSec schedules
+            for (const section of associatedPYS) {
+                progYrSecSchedules[section.id][day].hours += duration;
+                progYrSecSchedules[section.id][day].dailyTimes.push({
                     start: startTimeHour,
                     end: endTimeHour
                 });
-
-                // Update course schedule
-                courseSchedules[Course.id][day].push({
-                    start: startTimeHour,
-                    end: endTimeHour
-                });
-
-                // Update room schedule
-                if (!roomSchedules[schedule.RoomId]) roomSchedules[schedule.RoomId] = {};
-                if (!roomSchedules[schedule.RoomId][day]) roomSchedules[schedule.RoomId][day] = [];
-                roomSchedules[schedule.RoomId][day].push({
-                    start: startTimeHour,
-                    end: endTimeHour
-                });
-
-                // Update progYrSec schedules
-                for (const section of associatedPYS) {
-                    progYrSecSchedules[section.id][day].hours += duration;
-                    progYrSecSchedules[section.id][day].dailyTimes.push({
-                        start: startTimeHour,
-                        end: endTimeHour
-                    });
-                }
             }
         }
+
 
         // Call backtracking only on unscheduled assignations
         const success = await backtrackSchedule(
@@ -497,6 +496,28 @@ const automateSchedule = async (req, res, next) => {
     }
 };
 
+const automateRoomSpecificSchedule = async (req, res) => {
+    try {
+        const { roomIds } = req.body;
+        if (!Array.isArray(roomIds) || roomIds.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: "invalid or missing room id"
+            });
+        }
+
+        // Fetch all necessary data
+        const settings = await Settings.findByPk(1);
+
+        const { StartHour, EndHour } = settings;
+
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: error.message
+        });
+    }
+};
 
 // Get a specific Schedule by ID
 const getSchedule = async (req, res, next) => {
@@ -880,6 +901,7 @@ const deleteSchedule = async (req, res, next) => {
 module.exports = {
     addSchedule,
     automateSchedule,
+    automateRoomSpecificSchedule,
     getSchedule,
     getAllSchedules,
     updateSchedule,

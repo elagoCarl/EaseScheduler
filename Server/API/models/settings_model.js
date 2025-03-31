@@ -46,10 +46,17 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 1
         },
-        MaxAllowedGap : {
+
+        // remove the maxallowedgap and change it into nextScheduleBreak
+        // MaxAllowedGap : {
+        //     type: DataTypes.INTEGER,
+        //     allowNull: false,
+        //     defaultValue: 5
+        // },
+        nextScheduleBreak: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: 5
+            defaultValue: 0.5
         }
     }, {
         timestamps: true

@@ -17,6 +17,10 @@ module.exports = (sequelize, DataTypes) => {
         End_time: {
             type: DataTypes.TIME,
             allowNull: false
+        },
+        isLocked: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false
         }
     }, {
         timestamps: true
