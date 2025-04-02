@@ -20,7 +20,8 @@ module.exports = (sequelize, DataTypes) => {
         },
         isLocked: {
             type: DataTypes.BOOLEAN,
-            allowNull: false
+            allowNull: false,
+            defaultValue: false
         }
     }, {
         timestamps: true

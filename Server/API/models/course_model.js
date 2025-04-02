@@ -1,5 +1,3 @@
-
-
 module.exports = (sequelize, DataTypes) => {
     const Course = sequelize.define('Course', {
         Code: {
@@ -58,14 +56,11 @@ module.exports = (sequelize, DataTypes) => {
         });
         Course.belongsToMany(models.Department, {
             through: models.Assignation,  // Use the model reference
-            foreignKey: 'CourseId',
-            uniqueKey: false
-        });
-        Course.belongsToMany(models.Department, {
-            through: 'DeptCourse',
             as: 'CourseDepts',
             onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
+            onUpdate: 'CASCADE',
+            foreignKey: 'CourseId',
+            uniqueKey: false
         });
         Course.hasMany(models.Assignation, {
             foreignKey: 'CourseId'

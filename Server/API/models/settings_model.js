@@ -40,19 +40,23 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: 1
         },
 
-        // Hours of break per continuous hours of schedule
-        StudentBreak: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            defaultValue: 1
-        },
-
-        // remove the maxallowedgap and change it into nextScheduleBreak
-        // MaxAllowedGap : {
+        // instead of studentBreak, we will enforce nextScheduleBreak which adds a break after every 
+        // course
+        
+        // // Hours of break per continuous hours of schedule
+        // StudentBreak: {
         //     type: DataTypes.INTEGER,
         //     allowNull: false,
-        //     defaultValue: 5
+        //     defaultValue: 1
         // },
+
+        // remove the maxallowedgap and change it into nextScheduleBreak
+        MaxAllowedGap : {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 5
+        },
+        
         nextScheduleBreak: {
             type: DataTypes.INTEGER,
             allowNull: false,

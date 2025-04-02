@@ -1,5 +1,5 @@
 // Changed the Course into Course model because it is not being imported properly
-const { Settings, Schedule, Room, Assignation, Program, Professor, Course, ProgYrSec, Department, Course: CourseModel } = require('../models');
+const {  Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
@@ -22,7 +22,7 @@ const isValidTime = (startTime, endTime, res) => {
     const [startHours, startMinutes] = startTime.split(":").map(Number);
     const [endHours, endMinutes] = endTime.split(":").map(Number);
 
-    if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) {
+    if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) { 
         return res.status(400).json({
             successful: false,
             message: "Start time must be earlier than end time."
@@ -93,8 +93,8 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings) => {
  * Check if students in a section can be scheduled based on hours, conflicts, and break enforcement.
  */
 const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
-    const requiredBreak = settings.StudentBreak || 1; // Default break duration: 1 hour
-    const maxContinuousHours = settings.maxAllowedGap; // Max hours before break is required
+    const requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration: 1 hour
+
 
     if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
 
@@ -109,28 +109,25 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
         }
     }
 
+
     // Sort schedules by start time to find contiguous blocks
     const intervals = [...secSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
         .sort((a, b) => a.start - b.start);
 
-    let contiguousStart = intervals[0].start;
-    let contiguousEnd = intervals[0].end;
+    // enforce nextSchedule break
+    for (let i = 0; i < intervals.length - 1; i++) {
 
-    for (let i = 1; i < intervals.length; i++) {
-        if (intervals[i].start === contiguousEnd) {
-            contiguousEnd = intervals[i].end;
-        } else {
-            // If a contiguous block exceeds the max hours, enforce a break
-            if (contiguousEnd - contiguousStart >= maxContinuousHours) {
-                let requiredBreakEnd = contiguousEnd + requiredBreak;
-                if (startHour < requiredBreakEnd) return false;
-            }
-            contiguousStart = intervals[i].start;
-            contiguousEnd = intervals[i].end;
+        console.log("INTERVALS LIST: ", intervals);
+        
+        let currentEnd = intervals[i].end;
+        let nextStart = intervals[i + 1].start;
+
+        // Enforce a break after each schedule block
+        if (nextStart < currentEnd + requiredBreak) {
+            return false; // Not enough break time
         }
     }
-
-    return true;
+    return true;                
 };
 
 /**
@@ -174,24 +171,32 @@ const backtrackSchedule = async (
     if (index === assignations.length) return true;
 
     const assignation = assignations[index];
-    const { Course, Professor } = assignation;
-    const duration = Course.Duration;
+    const { Course: courseParam, Professor } = assignation; // ✅ FIXED: Renamed 'Course' to 'courseParam'
+    const duration = courseParam.Duration;
 
     let validProgYrSecs = [];
+
+    console.log("COURSE INFORMATION: ")
+    console.log(courseParam.Code)
+    console.log(courseParam.Description)
+    console.log(courseParam.Duration)
+    console.log(courseParam.Units)
+    console.log(courseParam.Type)
+    
     try {
         // Determine valid sections for the course
-        if (Course.Type === "Core") {
-            validProgYrSecs = await ProgYrSec.findAll({ where: { Year: Course.Year } });
-        } else if (Course.Type === "Professional") {
-            const courseWithPrograms = await CourseModel.findOne({
-                where: { id: Course.id },
+        if (courseParam.Type === "Core") {
+            validProgYrSecs = await ProgYrSec.findAll({ where: { Year: courseParam.Year } });
+        } else if (courseParam.Type === "Professional") {
+            const courseWithPrograms = await Course.findOne({
+                where: { id: courseParam.id },
                 include: { model: Program, as: 'CourseProgs', attributes: ['id'] }
             });
 
             if (courseWithPrograms && courseWithPrograms.CourseProgs.length) {
                 const allowedProgramIds = courseWithPrograms.CourseProgs.map(program => program.id);
                 validProgYrSecs = await ProgYrSec.findAll({
-                    where: { Year: Course.Year, ProgramId: { [Op.in]: allowedProgramIds } }
+                    where: { Year: courseParam.Year, ProgramId: { [Op.in]: allowedProgramIds } }
                 });
             }
         }
@@ -242,7 +247,7 @@ const backtrackSchedule = async (
                             professorSchedule[Professor.id][day].hours += duration;
                             professorSchedule[Professor.id][day].dailyTimes.push({ start: hour, end: hour + duration });
 
-                            courseSchedules[Course.id][day].push({ start: hour, end: hour + duration });
+                            courseSchedules[courseParam.id][day].push({ start: hour, end: hour + duration });
 
                             if (!roomSchedules[room.id]) roomSchedules[room.id] = {};
                             if (!roomSchedules[room.id][day]) roomSchedules[room.id][day] = [];
@@ -255,8 +260,8 @@ const backtrackSchedule = async (
 
                             report.push({
                                 Professor: Professor.Name,
-                                Course: Course.Code,
-                                CourseType: Course.Type,
+                                Course: courseParam.Code,
+                                CourseType: courseParam.Type,
                                 Sections: group.map(sec => `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`),
                                 Room: room.Code,
                                 Day: day,
@@ -279,7 +284,7 @@ const backtrackSchedule = async (
                             professorSchedule[Professor.id][day].hours -= duration;
                             professorSchedule[Professor.id][day].dailyTimes.pop();
 
-                            courseSchedules[Course.id][day].pop();
+                            courseSchedules[courseParam.id][day].pop();
                             roomSchedules[room.id][day].pop();
 
                             for (const section of group) {
@@ -304,16 +309,15 @@ const backtrackSchedule = async (
         );
 
     } catch (error) {
-        console.error("Error in backtrackSchedule:", error);
+        console.error("Error in backtrackSchedule:", error.message);
         return false;
     }
 };
 
+
 const automateSchedule = async (req, res, next) => {
     try {
-
         const { DepartmentId } = req.body;
-
         if (!DepartmentId) {
             return res.status(400).json({ successful: false, message: "Department ID is required." });
         }
@@ -323,15 +327,16 @@ const automateSchedule = async (req, res, next) => {
 
         // this can be moved to other functions?
         const { StartHour, EndHour } = settings;
-
+    
         const department = await Department.findByPk(DepartmentId, {
+
+
             include: [
                 { model: Assignation, include: [Course, Professor] },
                 // DeptRooms is a bridge table. Needs unique identifier.
                 { model: Room, as: 'DeptRooms' }
             ]
         });
-
 
         if (!department) {
             return res.status(404).json({ successful: false, message: "Department not found." });
@@ -361,13 +366,10 @@ const automateSchedule = async (req, res, next) => {
             .map(schedule => schedule.AssignationId)
         );
 
-        console.log("LOCKED ASSIGNATIONS: ", lockedAssignationIds)
-
         const unscheduledAssignations = assignations.filter(assignation =>
             !lockedAssignationIds.has(assignation.id)
         );
 
-        console.log("UNLOCKED ASSIGNATIONS: ", unscheduledAssignations)
         // Initialize tracking structures
 
         const professorSchedule = {};
@@ -380,6 +382,9 @@ const automateSchedule = async (req, res, next) => {
         // Initialize professor and course schedules
         assignations.forEach(assignation => {
             const { Professor, Course } = assignation;
+            if (!Professor || !Course){
+                return;
+            }
             if (!professorSchedule[Professor.id]) {
                 professorSchedule[Professor.id] = {};
                 for (let day = 1; day <= 5; day++) {
@@ -401,9 +406,11 @@ const automateSchedule = async (req, res, next) => {
         allProgYrSecs.forEach(section => {
             progYrSecSchedules[section.id] = {};
             for (let day = 1; day <= 5; day++) {
-                progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] };
+                progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] }; 
             }
         });
+
+        // Initialize Course model
 
         // Load existing schedules into tracking structures if not overwriting
 
@@ -496,6 +503,95 @@ const automateSchedule = async (req, res, next) => {
     }
 };
 
+
+// Add Schedule (Manual Version of automateSchedule)
+const addSchedule = async (req, res, next) => {
+    try {
+        let schedule = req.body;
+
+        if (!Array.isArray(schedule)) {
+            schedule = [schedule];
+        }
+
+        const createdSchedules = [];
+        const failedSchedules = [];
+
+        for (const sched of schedule) {
+            const { Day, Start_time, RoomId, AssignationId, DepartmentId, isLocked } = sched;
+
+            // Validate mandatory fields
+            if (!util.checkMandatoryFields([Day, Start_time, RoomId, AssignationId, DepartmentId, isLocked])) {
+                failedSchedules.push({ ...sched, reason: "A mandatory field is missing." });
+                continue;
+            }
+
+            // Validate time format
+            if (isValidTime(Start_time, "23:59", res) !== true) continue;
+
+            const department = await Department.findByPk(DepartmentId, {
+                include: [
+                    { model: Assignation, include: [Course, Professor] },
+                    // DeptRooms is a bridge table. Needs unique identifier.
+                    { model: Room, as: 'DeptRooms' }
+                ]
+            });
+
+            const room = department.DeptRooms
+
+            // if (!room || room.DeptRooms.length === 0) { // Ensure the room is associated with the correct department
+            //     failedSchedules.push({ ...sched, reason: `Room with ID ${RoomId} not found or does not belong to Department ${DepartmentId}.` });
+            //     continue;
+            // }
+
+        
+            // Validate Assignation existence
+            const assignation = await Assignation.findByPk(AssignationId, { include: [Course] });
+            if (!assignation || !assignation.Course) {
+                failedSchedules.push({ ...sched, reason: `Assignation with ID ${AssignationId} not found or missing course details.` });
+                continue;
+            }
+
+            // Calculate End_time using course duration
+            const duration = assignation.Course.Duration; // Assuming duration is in hours
+            const [startHour, startMin] = Start_time.split(":").map(Number);
+            const endHour = startHour + duration;
+            const End_time = `${String(endHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+
+            // Check for conflicting schedules in the same room on the same day
+            const existingSchedules = await Schedule.findAll({ where: { Day, RoomId } });
+            const isConflict = existingSchedules.some(existing => {
+                return (
+                    (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
+                    (End_time > existing.Start_time && End_time <= existing.End_time) ||
+                    (Start_time <= existing.Start_time && End_time >= existing.End_time)
+                );
+            });
+
+            if (isConflict) {
+                failedSchedules.push({ ...sched, reason: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.` });
+                continue;
+            }
+
+            // Create schedule
+            const newSchedule = await Schedule.create({ Day, Start_time, End_time, RoomId, AssignationId, isLocked });
+            createdSchedules.push(newSchedule);
+        }
+
+        return res.status(201).json({
+            successful: createdSchedules.length > 0,
+            message: createdSchedules.length > 0 ? "Successfully created schedules." : "No schedules were created.",
+            schedules: createdSchedules,
+            failedSchedules: failedSchedules.length > 0 ? failedSchedules : undefined
+        });
+
+    } catch (error) {
+        console.error(error);
+        next(error.message);
+    }
+};
+
+
+
 const automateRoomSpecificSchedule = async (req, res) => {
     try {
         const { roomIds } = req.body;
@@ -518,6 +614,7 @@ const automateRoomSpecificSchedule = async (req, res) => {
         });
     }
 };
+
 
 // Get a specific Schedule by ID
 const getSchedule = async (req, res, next) => {
@@ -729,83 +826,6 @@ const getSchedsByDept = async (req, res, next) => {
         });
     }
 }
-
-// Add Schedule
-const addSchedule = async (req, res, next) => {
-    try {
-        let schedule = req.body;
-
-        if (!Array.isArray(schedule)) {
-            schedule = [schedule];
-        }
-
-        const createdSchedules = [];
-
-        for (const sched of schedule) {
-            const { Day, Start_time, End_time, RoomId, AssignationId } = sched;
-
-            // Validate mandatory fields
-            if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
-                return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
-            }
-
-            // Validate time format and sequence
-            if (isValidTime(Start_time, End_time, res) !== true) return;
-
-            // Validate Room existence
-            const room = await Room.findByPk(RoomId);
-            if (!room) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
-                });
-            }
-
-            // Validate Assignation existence
-            const assignation = await Assignation.findByPk(AssignationId);
-            if (!assignation) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Assignation with ID ${AssignationId} not found. Ensure the AssignationId is correct.`
-                });
-            }
-
-            // Check for conflicting schedules in the same room on the same day
-            const existingSchedules = await Schedule.findAll({
-                where: { Day, RoomId }
-            });
-
-            const isConflict = existingSchedules.some(existing => {
-                return (
-                    (Start_time >= existing.Start_time && Start_time < existing.End_time) ||
-                    (End_time > existing.Start_time && End_time <= existing.End_time) ||
-                    (Start_time <= existing.Start_time && End_time >= existing.End_time)
-                );
-            });
-
-            if (isConflict) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`,
-                });
-            }
-
-            // Create schedule
-            const newSchedule = await Schedule.create({ Day, Start_time, End_time, RoomId, AssignationId });
-            createdSchedules.push(newSchedule);
-        }
-
-        return res.status(201).json({
-            successful: true,
-            message: "Successfully created schedules.",
-            schedules: createdSchedules
-        });
-
-    } catch (error) {
-        console.error(error);
-        next(error.message);
-    }
-};
 
 // Update Schedule
 const updateSchedule = async (req, res, next) => {
