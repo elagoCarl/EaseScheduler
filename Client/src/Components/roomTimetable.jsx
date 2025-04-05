@@ -3,6 +3,7 @@ import axios from 'axios';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
+import { useAuth } from '../Components/authContext.jsx';
 
 const RoomTimetable = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -11,7 +12,10 @@ const RoomTimetable = () => {
   const [schedules, setSchedules] = useState([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
-
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+  const DeptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
@@ -19,7 +23,7 @@ const RoomTimetable = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:8080/room/getRoomsByDept/1`);
+        const { data } = await axios.get(`http://localhost:8080/room/getRoomsByDept/${DeptId}`);
         if (data.successful && data.data.length) {
           setRooms(data.data);
           setSelectedRoom(data.data[0]);
@@ -39,7 +43,7 @@ const RoomTimetable = () => {
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${ selectedRoom.id }`);
+        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${selectedRoom.id}`);
         if (data.successful) {
           setSchedules(data.data);
         } else {
@@ -58,13 +62,13 @@ const RoomTimetable = () => {
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
-  const formatTimeRange = (start, end) => `${ start.slice(0, 5) } - ${ end.slice(0, 5) }`;
+  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
 
   const calculateEventPosition = (event) => {
     const [sHour, sMin] = event.Start_time.split(':').map(Number);
     const [eHour, eMin] = event.End_time.split(':').map(Number);
     const duration = (eHour - sHour) + ((eMin - sMin) / 60);
-    return { top: `${ (sMin / 60) * 100 }%`, height: `${ duration * 100 }%` };
+    return { top: `${(sMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
   // New component similar to ScheduleEvent in AddConfigSchedule
@@ -72,13 +76,13 @@ const RoomTimetable = () => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
     const sections = schedule.ProgYrSecs
-      .map(sec => `${ sec.Program.Code } ${ sec.Year }-${ sec.Section }`)
+      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
       .join(', ');
     return (
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${ hovered ? 'z-[9999] scale-110' : 'z-10' }`}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -86,7 +90,7 @@ const RoomTimetable = () => {
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
         <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
-        <div className={`text-xs ${ hovered ? '' : 'truncate' }`}>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
           {schedule.Assignation.Course.Description}
         </div>
         <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
@@ -119,7 +123,7 @@ const RoomTimetable = () => {
     <div
       className="min-h-screen flex flex-col"
       style={{
-        backgroundImage: `url(${ Image3 })`,
+        backgroundImage: `url(${Image3})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -200,7 +204,7 @@ const RoomTimetable = () => {
                       {timeSlots.map(hour => (
                         <tr key={hour} className="hover:bg-gray-50">
                           <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                            {`${ hour.toString().padStart(2, '0') }:00`}
+                            {`${hour.toString().padStart(2, '0')}:00`}
                           </td>
                           {days.map((_, dayIndex) => (
                             <td key={dayIndex} className="p-0 border-b border-gray-200 relative h-24 sm:h-28">
@@ -240,7 +244,7 @@ const RoomTimetable = () => {
                       {timeSlots.map(hour => (
                         <tr key={hour} className="hover:bg-gray-50">
                           <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
-                            {`${ hour.toString().padStart(2, '0') }:00`}
+                            {`${hour.toString().padStart(2, '0')}:00`}
                           </td>
                           <td className="p-0 border-b border-gray-200 relative h-24">
                             {renderEvent(hour, selectedDay, true)}

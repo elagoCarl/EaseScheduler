@@ -12,6 +12,7 @@ import ErrorDisplay from './callComponents/errDisplay.jsx';
 import AddRoomModal from "./callComponents/addRoomModal.jsx";
 import EditRoomModal from "./callComponents/editRoomModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning.jsx";
+import { useAuth } from '../Components/authContext.jsx';
 
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -29,16 +30,17 @@ const Room = () => {
   const [isDeleteBtnDisabled, setDeleteBtnDisabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Temporary department id; will later be derived from the logged in user.
-  const temporaryDeptId = "1";
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+  const DeptId = user.DepartmentId;
 
   const campuses = ["LV", "GP"];
 
   const fetchRooms = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:8080/room/getRoomsByDept/${temporaryDeptId}`);
+      const response = await axios.get(`http://localhost:8080/room/getRoomsByDept/${DeptId}`);
       if (response.data.successful) {
         const roomData = response.data.data;
         setRooms(roomData);

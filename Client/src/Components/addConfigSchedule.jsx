@@ -12,7 +12,7 @@ import { useAuth } from '../Components/authContext.jsx';
 const AddConfigSchedule = () => {
   const { user } = useAuth();
   console.log("userid: ", user.id);
-  const deptId = 1;
+  const deptId = user.DepartmentId
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
   // State management

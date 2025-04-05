@@ -29,7 +29,7 @@ const ProtectedRoute = ({ children }) => {
     const normalizedPath = location.pathname.replace(/\/$/, '').toLowerCase();
 
     // Admin-only route check for /createAccount
-    if (normalizedPath === '/createaccount' && user.role !== 'Admin') {
+    if (normalizedPath === '/createaccount' && user.Roles !== 'Admin') {
         return <Navigate to="/403" state={{ from: location }} />;
     }
 

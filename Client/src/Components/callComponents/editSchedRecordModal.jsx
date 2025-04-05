@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { useAuth } from '../authContext';
 
 const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assignations }) => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -11,11 +12,14 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         start_time: "",
         end_time: ""
     });
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [availableSections, setAvailableSections] = useState([]);
     const [selectedSections, setSelectedSections] = useState([]);
-    const deptId = 1; // Assuming the same department ID as in AddConfigSchedule
+    const deptId = user.DepartmentId
 
     // Helper function to transform error messages
     const transformErrorMessage = (message) => {

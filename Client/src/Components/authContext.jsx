@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 
     // Only redirect if the user is on the login page
     useEffect(() => {
-        if (user && location.pathname === '/loginPage') {
+        if (user && (location.pathname === '/loginPage' || location.pathname === '/')) {
             navigate('/homePage');
         }
     }, [user, navigate, location.pathname]);

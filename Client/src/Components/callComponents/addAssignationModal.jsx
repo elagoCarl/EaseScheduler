@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
+import { useAuth } from '../authContext';
 
 const AddAssignationModal = ({ isOpen, onClose }) => {
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const [formData, setFormData] = useState({
         School_Year: "",
         Semester: "",
         CourseId: "",
         ProfessorId: "",
-        DepartmentId: "1", // Setting a dummy department ID
+        DepartmentId: user.DepartmentId,
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
