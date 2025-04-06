@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import axios from "axios";
+import axios from "../../axiosConfig";
 
 const AddProfModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
@@ -17,7 +17,7 @@ const AddProfModal = ({ isOpen, onClose }) => {
     if (isOpen) {
       const fetchStatuses = async () => {
         try {
-          const response = await axios.get("http://localhost:8080/profStatus/getAllProfStatus", {
+          const response = await axios.get("/profStatus/getAllProfStatus", {
             withCredentials: true
           });
           setStatuses(response.data.data); // Assuming 'data' contains the status records
@@ -49,7 +49,7 @@ const AddProfModal = ({ isOpen, onClose }) => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/prof/addProf",
+        "/prof/addProf",
         formData,
         {
           headers: {

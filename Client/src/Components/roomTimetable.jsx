@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
@@ -23,7 +23,7 @@ const RoomTimetable = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:8080/room/getRoomsByDept/${DeptId}`);
+        const { data } = await axios.get(`/room/getRoomsByDept/${DeptId}`);
         if (data.successful && data.data.length) {
           setRooms(data.data);
           setSelectedRoom(data.data[0]);
@@ -43,7 +43,7 @@ const RoomTimetable = () => {
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${selectedRoom.id}`);
+        const { data } = await axios.get(`/schedule/getSchedsByRoom/${selectedRoom.id}`);
         if (data.successful) {
           setSchedules(data.data);
         } else {
