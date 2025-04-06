@@ -1,22 +1,43 @@
 const { Professor, ProfStatus, Assignation } = require('../models')
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+const jwt = require('jsonwebtoken');
+const { REFRESH_TOKEN_SECRET } = process.env
 
 
 const addProf = async (req, res, next) => {
     try {
         let professorsToAdd = req.body;
 
-        // Convert single object to array if not already an array
         if (!Array.isArray(professorsToAdd)) {
             professorsToAdd = [professorsToAdd];
         }
 
         const addedProfs = [];
 
+        // Decode refreshToken from cookies
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        console.log("decodedDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD: ", decoded)
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+
         for (const professorData of professorsToAdd) {
             const { Name, Email, Status } = professorData;
-            console.log("Professor Data:", { Name, Email, Status });
 
             if (!util.checkMandatoryFields([Name, Email, Status])) {
                 return res.status(400).json({
@@ -25,7 +46,6 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            // Validate email format
             if (!util.validateEmail(Email)) {
                 return res.status(406).json({
                     successful: false,
@@ -33,7 +53,6 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            // Check if the status exists
             const status = await ProfStatus.findByPk(Status);
             if (!status) {
                 return res.status(406).json({
@@ -42,7 +61,6 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            // Check if the email already exists
             const existingEmail = await Professor.findOne({ where: { Email } });
             if (existingEmail) {
                 return res.status(406).json({
@@ -51,19 +69,16 @@ const addProf = async (req, res, next) => {
                 });
             }
 
-            // Create professor
             const newProf = await Professor.create({
                 Name,
                 Email,
                 Total_units: 0,
-                ProfStatusId: Status // Ensure the status is linked correctly
+                ProfStatusId: Status
             });
 
             addedProfs.push(Name);
         }
 
-        // Log the action
-        const accountId = '1'; // Example account ID
         const page = 'Professor';
         const details = `Added Professor${addedProfs.length > 1 ? 's' : ''}: ${addedProfs.join(', ')}`;
         await addHistoryLog(accountId, page, details);
@@ -153,6 +168,8 @@ const getProf = async (req, res) => {
     }
 };
 
+const jwt = require('jsonwebtoken'); // Make sure this is imported at the top
+
 const deleteProf = async (req, res, next) => {
     try {
         // Find the professor before deletion (to log the professor's name)
@@ -169,48 +186,70 @@ const deleteProf = async (req, res, next) => {
             });
         }
 
-        // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        // Retrieve the refreshToken from cookies
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+
+        // Extract the account id from the token payload (adjust based on your token's structure)
+        const accountId = decoded.id || decoded.accountId;
+
+        // Log the deletion action
         const page = 'Professor';
-        const details = `Deleted Professor record for: ${professor.Name}`; // Include professor's name or other info
+        const details = `Deleted Professor record for: ${professor.Name}`;
 
         await addHistoryLog(accountId, page, details);
 
         // Delete the professor record
         const deleteProf = await Professor.destroy({
             where: {
-                id: req.params.id, // Replace with the ID of the record you want to delete
+                id: req.params.id,
             },
         });
 
         if (deleteProf) {
-            res.status(200).send({
+            return res.status(200).send({
                 successful: true,
                 message: "Successfully deleted professor."
             });
         } else {
-            res.status(400).send({
+            return res.status(400).send({
                 successful: false,
                 message: "Professor not found."
             });
         }
     } catch (err) {
-        res.status(500).send({
+        return res.status(500).send({
             successful: false,
             message: err.message
         });
     }
-}
+};
+
 
 const updateProf = async (req, res, next) => {
     try {
-        let prof = await Professor.findByPk(req.params.id)
-        const { name, email, ProfStatusId } = req.body
-        console.log("req.body:", name, email, ProfStatusId)
-        console.log("req.body: ", req.body)
+        let prof = await Professor.findByPk(req.params.id);
+        const { name, email, ProfStatusId } = req.body;
+        console.log("req.body:", name, email, ProfStatusId);
+        console.log("req.body: ", req.body);
 
         if (!prof) {
-            res.status(404).send({
+            return res.status(404).send({
                 successful: false,
                 message: "Professor not found"
             });
@@ -220,7 +259,7 @@ const updateProf = async (req, res, next) => {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
-            })
+            });
         }
 
         // Validate email format
@@ -236,46 +275,64 @@ const updateProf = async (req, res, next) => {
             return res.status(406).json({
                 successful: false,
                 message: "Professor status not found."
-            })
+            });
         }
 
         if (email !== prof.Email) {
-            const emailConflict = await Professor.findOne({ where: { email: email } })
+            const emailConflict = await Professor.findOne({ where: { email: email } });
             if (emailConflict) {
                 return res.status(406).json({
                     successful: false,
                     message: "Email already exists. Please use a different email."
-                })
+                });
             }
         }
 
+        // Retrieve the refreshToken from cookies and decode it to get the account ID
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
 
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET); // use your secret key from env
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
 
-        // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        // Extract accountId (adjust property name based on your token payload)
+        const accountId = decoded.id || decoded.accountId;
+
+        // Log the update action with details including old and new data
         const page = 'Professor';
-        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.Status};;; New; Name: ${name}, Email: ${email}, Status: ${ProfStatusId}`;
-
+        const details = `Updated Professor: Old; Name: ${prof.Name}, Email: ${prof.Email}, Status: ${prof.ProfStatusId};;; New; Name: ${name}, Email: ${email}, Status: ${ProfStatusId}`;
         await addHistoryLog(accountId, page, details);
 
-        const updateProf = await prof.update({
+        // Update professor record
+        await prof.update({
             Name: name,
             Email: email,
             ProfStatusId: ProfStatusId
-        })
+        });
 
         return res.status(201).json({
             successful: true,
             message: "Successfully updated professor."
-        })
-    }
-    catch (err) {
+        });
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
 
 const getProfByDept = async (req, res, next) => {
     try {
