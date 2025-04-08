@@ -323,13 +323,13 @@ const loginAccount = async (req, res) => {
 
         res.cookie('jwt', accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false,
             sameSite: 'Lax',  // Changed from Strict to Lax
             maxAge: maxAge * 1000,
         });
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false,
             sameSite: 'Lax',  // Changed from Strict to Lax
             maxAge: 60 * 60 * 24 * 30 * 1000,
         });

@@ -71,13 +71,13 @@ const refresh = async (req, res) => {
       res.cookie('jwt', newAccessToken, {
         httpOnly: true,
         maxAge: ACCESS_TOKEN_EXPIRY * 1000,
-        secure: process.env.NODE_ENV === 'production',
+        secure: false,
         sameSite: 'Lax'
       });
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
         maxAge: REFRESH_TOKEN_EXPIRY * 1000,
-        secure: process.env.NODE_ENV === 'production',
+        secure: false,
         sameSite: 'Lax'
       });
 
@@ -121,13 +121,13 @@ const refreshTokens = async (req, res) => {
   res.cookie('jwt', newAccessToken, {
     httpOnly: true,
     maxAge: ACCESS_TOKEN_EXPIRY * 1000,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     sameSite: 'Lax'
   });
   res.cookie('refreshToken', newRefreshToken, {
     httpOnly: true,
     maxAge: REFRESH_TOKEN_EXPIRY * 1000,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     sameSite: 'Lax'
   });
 
