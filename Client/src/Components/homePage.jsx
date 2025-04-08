@@ -3,7 +3,7 @@ import image5 from './Img/5.jpg';
 import room from './Img/room.svg';
 import person from './Img/person.svg'
 import course from './Img/course.svg';
-import bigpic from './Img/bigbog.svg';
+import bigpic from './Img/BigBog.svg';
 import timetables from './Img/timetable.svg';
 import ProfileBtn from './Img/ProfileBtn.png';
 import { useNavigate } from 'react-router-dom';
