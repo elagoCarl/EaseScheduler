@@ -10,9 +10,9 @@ const cors = require('cors');
 //INITIALIZE EXPRESS APPLICATION AND STORE TO app
 const app = express();
 
-// Update CORS configuration to allow 'Cache-Control' header
+// Update CORS configuration to allow requests from both localhost and deployed frontend
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'https://ease-scheduler.vercel.app'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
 }));
@@ -81,10 +81,15 @@ app.use(bodyParser.json({ limit: "50mb" }));
 // })
 
 app.use((req, res, next) => {
-  // Allow the specific origin where your frontend is hosted
-  res.header("Access-Control-Allow-Origin", "http://localhost:5173");  // Replace with your frontend URL
+  // Allow multiple origins
+  const allowedOrigins = ['http://localhost:5173', 'https://ease-scheduler.vercel.app'];
+  const origin = req.headers.origin;
 
-  // Allow all headers and credentials
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+
+  // Allow specific headers
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Allow specific HTTP methods
@@ -144,4 +149,4 @@ app.use((error, req, res, next) => {
 });
 
 //EXPORTS THE EXPRESS APPLICATION SO THAT IT CAN BE IMPORTED FROM OTHE FILES.
-module.exports = app; 
+module.exports = app;
