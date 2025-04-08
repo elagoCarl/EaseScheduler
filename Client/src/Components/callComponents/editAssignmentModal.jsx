@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import PropTypes from 'prop-types';
 import axios from "axios";
+import { useAuth } from '../authContext';
 
 const EditAssignmentModal = ({
     assignment,
@@ -17,7 +18,10 @@ const EditAssignmentModal = ({
         courseId: ""
     });
     // Using a constant department id; you can pass this via props as needed
-    const DEPARTMENT_ID = 1;
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+    const DEPARTMENT_ID = user.DepartmentId;
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);

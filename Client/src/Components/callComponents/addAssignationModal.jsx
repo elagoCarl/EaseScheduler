@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import axios from "axios";
+import { useAuth } from '../authContext';
 
 const AddAssignationModal = ({ isOpen, onClose }) => {
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const [formData, setFormData] = useState({
         School_Year: "",
         Semester: "",
         CourseId: "",
         ProfessorId: "",
-        DepartmentId: "1", // Setting a dummy department ID
+        DepartmentId: user.DepartmentId,
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
@@ -20,28 +25,30 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
             const fetchData = async () => {
                 try {
                     // Fetch courses
-                    const coursesResponse = await fetch("http://localhost:8080/course/getAllCourses");
-                    const coursesResult = await coursesResponse.json();
-                    if (coursesResponse.ok) {
-                        setCourses(coursesResult.data);
+                    const coursesResponse = await axios.get("http://localhost:8080/course/getAllCourses");
+                    if (coursesResponse.status === 200) {
+                        setCourses(coursesResponse.data.data);
                     } else {
-                        setErrorMessage(coursesResult.message || "Failed to fetch courses.");
+                        setErrorMessage(coursesResponse.data.message || "Failed to fetch courses.");
                         return;
                     }
 
                     // Fetch professors
-                    const professorsResponse = await fetch("http://localhost:8080/prof/getAllProf");
-                    const professorsResult = await professorsResponse.json();
-                    if (professorsResponse.ok) {
-                        setProfessors(professorsResult.data);
+                    const professorsResponse = await axios.get("http://localhost:8080/prof/getAllProf");
+                    if (professorsResponse.status === 200) {
+                        setProfessors(professorsResponse.data.data);
                     } else {
-                        setErrorMessage(professorsResult.message || "Failed to fetch professors.");
+                        setErrorMessage(professorsResponse.data.message || "Failed to fetch professors.");
                         return;
                     }
 
                     // Note: No longer fetching departments as it will come from logged in user
                 } catch (error) {
-                    setErrorMessage(error.message || "An error occurred while fetching data.");
+                    setErrorMessage(
+                        error.response?.data?.message ||
+                        error.message ||
+                        "An error occurred while fetching data."
+                    );
                 }
             };
 
@@ -66,18 +73,13 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
         console.log("formData:", formData);
 
         try {
-            const response = await fetch("http://localhost:8080/assignation/addAssignation", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(formData),
-            });
+            const response = await axios.post(
+                "http://localhost:8080/assignation/addAssignation",
+                formData
+            );
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                setErrorMessage(result.message || "Failed to add assignation.");
+            if (response.status !== 200 && response.status !== 201) {
+                setErrorMessage(response.data.message || "Failed to add assignation.");
                 return;
             }
 
@@ -87,7 +89,11 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                 window.location.reload(); // Reload the page to reflect the changes
             }, 1000); // Wait 1 second before closing the modal and reloading the page
         } catch (error) {
-            setErrorMessage(error.message);
+            setErrorMessage(
+                error.response?.data?.message ||
+                error.message ||
+                "Failed to add assignation."
+            );
         }
     };
 

@@ -89,6 +89,7 @@ const HomePage = () => {
       if (data.successful) {
         // Optionally navigate to the login page after logout
         navigate('/loginPage');
+        window.location.reload();
       } else {
         console.error('Logout failed:', data.message);
       }
@@ -99,7 +100,7 @@ const HomePage = () => {
 
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
-      style={{ backgroundImage: `url(${ image5 })` }}>
+      style={{ backgroundImage: `url(${image5})` }}>
       <div className="absolute top-15 right-18 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"
@@ -152,7 +153,7 @@ const HomePage = () => {
       <div className="hidden md:block w-1/2 mx-auto">
         {/* EASESCHEDULER LOGO */}
         <div className='pb-4 flex justify-center'>
-          <button id="logoBtn" className="md:text-4xl sm:text-2xl font-bold text-blue-500" onClick={() => navigate("/")}>
+          <button id="logoBtn" className="md:text-4xl sm:text-2xl font-bold text-blue-500" onClick={() => navigate("/homepage")}>
             EASE<span className="text-white">SCHEDULER</span>
           </button>
         </div>
@@ -168,7 +169,7 @@ const HomePage = () => {
                 {/* 1st Card (Timetable) */}
                 <button
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
-                  onClick={() => openModal('Add/Configure Timetables')}
+                  onClick={() => openModal('Timetables')}
                 >
                   <img className='h-70 w-70 md:h-100 md:w-100' src={timetables} alt="" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
@@ -179,7 +180,7 @@ const HomePage = () => {
                 {/* 2nd Card (Professor) */}
                 <button
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
-                  onClick={() => openModal('Professor availability')}
+                  onClick={() => openModal('Professor')}
                 >
                   <img className='h-70 w-70 md:h-100 md:w-100' src={person} alt="" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
@@ -212,7 +213,7 @@ const HomePage = () => {
 
               {/* Modal */}
               {isModalOpen && (
-                <div className={`absolute top-1/2 left-1/2 text-xl transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${ fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95' }`}>
+                <div className={`absolute top-1/2 left-1/2 text-xl transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
                   <button
                     ref={modalRef}
                     className="absolute top-0 right-0 text-xl font-bold text-red-500 hover:text-red-700 cursor-pointer duration-300"
@@ -220,46 +221,58 @@ const HomePage = () => {
                   >
                     <span className="font-bold m-9">x</span>
                   </button>
-                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center my-10">
+                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-15">
                     {modalContent}
                   </h2>
                   <ul className="space-y-20 m-20 text-center">
-                    {modalContent === 'Add/Configure Timetables' && (
+                    {modalContent === 'Timetables' && (
                       <>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                            onClick={() => navigate('/addConfigSchedule')}>
+                            Configure Timetable
+                          </a>
+                        </li>
                         <li className=''>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/roomTimetable')}
                           >
-                            Room Timetables
+                            Room Timetable
                           </a>
                         </li>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/profTimetable')}>
-                            Professor Timetables
+                            Professor Timetable
                           </a>
                         </li>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
-                            onClick={() => navigate('/addConfigSchedule')}>
-                            Configure Timetables
+                            onClick={() => navigate('/sectionTimetable')}>
+                            Section Timetable
                           </a>
                         </li>
                       </>
                     )}
-                    {modalContent === 'Professor availability' && (
+                    {modalContent === 'Professor' && (
                       <>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/professor')}
                           >
-                            View Professor
+                            Configure Professor
                           </a>
                         </li>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/profAvailability')}>
-                            Configure Professor
+                            Professor Availability
+                          </a>
+                        </li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                            onClick={() => navigate('/assignationsCourseProf')}>
+                            Professor Assignations
                           </a>
                         </li>
                       </>

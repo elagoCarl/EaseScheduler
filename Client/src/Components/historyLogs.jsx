@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Axios from 'axios';
+import Axios from '../axiosConfig.js';
 import dayjs from 'dayjs';
 import Background from './Img/1.jpg';
 import Sidebar from "./callComponents/sideBar.jsx";
@@ -22,7 +22,7 @@ const HistoryLogs = () => {
   const fetchHistoryLogs = async () => {
     try {
       setLoading(true);
-      const response = await Axios.get('http://localhost:8080/historyLogs/getAllHistoryLogs');
+      const response = await Axios.get('/historyLogs/getAllHistoryLogs');
       if (response.data.successful) {
         setLogs(response.data.data);
       } else {
@@ -58,6 +58,15 @@ const HistoryLogs = () => {
         : new Date(b[sortConfig.key]) - new Date(a[sortConfig.key]);
     }
 
+    // For sorting by Account Email
+    if (sortConfig.key === 'Account.Email') {
+      const emailA = a.Account?.Email || '';
+      const emailB = b.Account?.Email || '';
+      return sortConfig.direction === 'asc'
+        ? emailA.localeCompare(emailB)
+        : emailB.localeCompare(emailA);
+    }
+
     if (a[sortConfig.key] < b[sortConfig.key]) {
       return sortConfig.direction === 'asc' ? -1 : 1;
     }
@@ -68,7 +77,8 @@ const HistoryLogs = () => {
   });
 
   const filteredLogs = sortedLogs.filter(log =>
-    log.AccountId?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+    log.Account?.Email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    log.Account?.Name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.Page?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     log.Details?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -160,9 +170,9 @@ const HistoryLogs = () => {
                             Timestamp <SortIcon columnName="createdAt" />
                           </div>
                         </th>
-                        <th className="px-6 py-3 cursor-pointer" onClick={() => requestSort('AccountId')}>
+                        <th className="px-6 py-3 cursor-pointer" onClick={() => requestSort('Account.Email')}>
                           <div className="flex items-center">
-                            Account <SortIcon columnName="AccountId" />
+                            Email <SortIcon columnName="Account.Email" />
                           </div>
                         </th>
                         <th className="px-6 py-3 cursor-pointer" onClick={() => requestSort('Page')}>
@@ -177,7 +187,10 @@ const HistoryLogs = () => {
                       {filteredLogs.map((log, index) => (
                         <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
                           <td className="px-6 py-4 whitespace-nowrap">{formatDate(log.createdAt)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{log.AccountId}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {log.Account?.Email || 'N/A'}
+                            {log.Account?.Name && <span className="text-xs text-gray-500 block">{log.Account.Name}</span>}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">{log.Page}</td>
                           <td className="px-6 py-4">{log.Details}</td>
                         </tr>
@@ -196,7 +209,8 @@ const HistoryLogs = () => {
                       <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{log.Page}</span>
                     </div>
                     <p className="text-sm font-medium text-gray-700 mt-2">
-                      <span className="font-bold">Account: </span>{log.AccountId}
+                      <span className="font-bold">Email: </span>{log.Account?.Email || 'N/A'}
+                      {log.Account?.Name && <span className="text-xs text-gray-500 block ml-1">{log.Account.Name}</span>}
                     </p>
                     <p className="text-sm text-gray-600 mt-2 border-t pt-2">
                       {log.Details}

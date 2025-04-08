@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Axios from "axios";
+import { useAuth } from '../authContext';
 
 const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const [courseCode, setCourseCode] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseType, setCourseType] = useState("");
@@ -50,7 +54,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           Units: courseUnits, // ✅ Include Units
           Type: courseType,
           Year: courseYear,
-          Dept_id: 1
+          Dept_id: user.DepartmentId
         },
         {
           headers: { "Content-Type": "application/json" },

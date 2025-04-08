@@ -152,7 +152,7 @@ const deleteRoom = async (req, res, next) => {
         await addHistoryLog(accountId, page, details);
 
         const deleteRoom = await room.destroy();
-        
+
         if (deleteRoom) {
             res.status(200).send({
                 successful: true,
@@ -298,7 +298,7 @@ const deleteDeptRoom = async (req, res) => {
         if (!util.checkMandatoryFields([roomId, deptId])) {
             return res.status(400).json({
                 successful: false,
-                message: "A mandatory field is missing."
+                message: "Missing required fields: roomId or deptId."
             });
         }
 
@@ -318,11 +318,11 @@ const deleteDeptRoom = async (req, res) => {
             });
         }
 
-        const existingAssociation = await room.hasRoomDepts(deptId)
+        const existingAssociation = await room.hasRoomDepts(deptId);
         if (!existingAssociation) {
-            return res.status(404).json({
+            return res.status(409).json({
                 successful: false,
-                message: "Association between the course and department does not exist."
+                message: "No existing association between this room and department."
             });
         }
 
@@ -330,7 +330,7 @@ const deleteDeptRoom = async (req, res) => {
 
         return res.status(200).json({
             successful: true,
-            message: "Successfully deleted association."
+            message: "Association successfully deleted."
         });
     } catch (err) {
         return res.status(500).json({
@@ -338,7 +338,8 @@ const deleteDeptRoom = async (req, res) => {
             message: err.message || "An unexpected error occurred."
         });
     }
-}
+};
+
 
 const getRoomsByDept = async (req, res, next) => {
     try {

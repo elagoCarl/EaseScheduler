@@ -6,6 +6,7 @@ import Background from './Img/6.jpg';
 const OTPVerification = () => {
   const [otp, setOtp] = useState(new Array(6).fill(''));
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const email = new URLSearchParams(location.search).get('email');//galing sa params ng url
@@ -25,6 +26,7 @@ const OTPVerification = () => {
   const handleOTPSubmit = async (e) => {
     e.preventDefault();
     const otpValue = otp.join('');
+    console.log("otpValue: ", otpValue)
     if (otpValue.length === 6) {
       try {
         const response = await axios.post(
@@ -41,15 +43,22 @@ const OTPVerification = () => {
         );
 
         if (response.data.successful) {
-          navigate('/loginPage'); // Redirect on successful OTP verification
+          setSuccess(true);
+          setError('');
+          setTimeout(() => {
+            navigate('/loginPage'); // Redirect on successful OTP verification after showing success message
+          }, 2000);
         } else {
           setError(response.data.message || 'OTP verification failed. Please try again.');
+          setSuccess(false);
         }
       } catch (err) {
         setError(err.response?.data?.message || 'An error occurred. Please try again later.');
+        setSuccess(false);
       }
     } else {
       setError('Please enter a 6-digit OTP');
+      setSuccess(false);
     }
   };
 
@@ -109,6 +118,12 @@ const OTPVerification = () => {
               </div>
 
               {error && <p className="text-red-500">{error}</p>}
+              {success && (
+                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+                  <strong className="font-bold">Success! </strong>
+                  <span className="block sm:inline">Your account has been successfully verified. Redirecting to login...</span>
+                </div>
+              )}
 
               <div className="flex justify-end mt-20 space-x-8 mr-auto">
                 <div>

@@ -10,10 +10,13 @@ import delBtn from "./Img/delBtn.png";
 import AddAssignationModal from "./callComponents/addAssignationModal.jsx";
 import EditAssignmentModal from "./callComponents/editAssignmentModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning.jsx";
+import { useAuth } from '../Components/authContext.jsx';
 
 const AssignationsCourseProf = () => {
-    // Using a constant department id; you can pass this via props as needed
-    const DEPARTMENT_ID = 1;
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+    const DEPARTMENT_ID = user.DepartmentId;
 
     const [department, setDepartment] = useState(null);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -279,7 +282,7 @@ const AssignationsCourseProf = () => {
 
             <div className="flex flex-col justify-center items-center h-screen w-full px-8">
                 {/* Display the current department */}
-                <div className="mb-4 text-lg font-semibold">
+                <div className="mb-4 text-lg font-semibold text-white">
                     Current Department: {department ? department.Name : "Loading..."}
                 </div>
 

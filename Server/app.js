@@ -5,9 +5,17 @@ const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 require('dotenv').config()
+const cors = require('cors');
 
 //INITIALIZE EXPRESS APPLICATION AND STORE TO app
 const app = express();
+
+// Update CORS configuration to allow 'Cache-Control' header
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
+}));
 
 
 //IMPORT ALL ROUTERS NEEDED
@@ -25,6 +33,7 @@ const profAvail = require('./API/routers/profAvail_rtr')
 const schedule_rtr = require('./API/routers/schedule_rtr')
 const assignation_rtr = require('./API/routers/assignation_rtr')
 const settings_rtr = require('./API/routers/settings_rtr')
+const authMiddleware_rtr = require('./API/routers/authMiddleware_rtr')
 
 // para lang makita kung anong request sa console
 app.use((req, res, next) => {
@@ -109,6 +118,7 @@ app.use('/schedule', schedule_rtr)
 app.use('/assignation', assignation_rtr)
 app.use('/settings', settings_rtr)
 app.use('/profStatus', profStatus_rtr)
+app.use('/auth', authMiddleware_rtr)
 
 
 //ERROR MIDDLEWARES

@@ -1,8 +1,11 @@
 import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { useAuth } from '../../Components/authContext';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
+  const { user } = useAuth();
+  console.log(user);
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
   const [activeSection, setActiveSection] = useState(null);
@@ -38,6 +41,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       const data = await response.json();
       if (data.successful) {
         navigate('/loginPage');
+        window.location.reload();
       } else {
         console.error('Logout failed:', data.message);
       }
@@ -59,7 +63,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         EASE<span className="text-white">SCHEDULER</span>
       </button>
 
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-4 md:py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -72,7 +76,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Timetables Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('Timetables')}
@@ -106,7 +110,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/Timetables/week');
+              navigate('/roomTimetable');
               toggleSidebar(false);
             }}
           >
@@ -115,7 +119,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/Timetables/week');
+              navigate('/profTimetable');
               toggleSidebar(false);
             }}
           >
@@ -124,7 +128,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/Timetables/week');
+              navigate('/sectionTimetable');
               toggleSidebar(false);
             }}
           >
@@ -134,7 +138,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Professors Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('professors')}
@@ -174,11 +178,20 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           >
             Professor Availability
           </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/assignationsCourseProf');
+              toggleSidebar(false);
+            }}
+          >
+            Professor Assignations
+          </button>
         </div>
       </div>
 
       {/* Rooms Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -191,7 +204,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Courses Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -203,8 +216,20 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
 
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
+        <button
+          className="hover:bg-gray-700 p-10 rounded w-full text-left"
+          onClick={() => {
+            navigate('/deptProg');
+            toggleSidebar(false);
+          }}
+        >
+          Departments & Programs
+        </button>
+      </div>
+
       {/* Account Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('account')}

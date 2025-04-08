@@ -8,7 +8,7 @@ const Page403 = () => {
           You don&apos;t have permission to access this page.
           <br />
           Please contact your administrator or go back to{" "}
-          <a href="/" className="text-blue-500 hover:underline duration-300">
+          <a href="/homepage" className="text-blue-500 hover:underline duration-300">
             Home
           </a>
           .

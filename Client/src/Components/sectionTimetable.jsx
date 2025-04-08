@@ -3,8 +3,12 @@ import axios from 'axios';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
+import { useAuth } from '../Components/authContext.jsx';
 
 const SectionTimetable = () => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +34,7 @@ const SectionTimetable = () => {
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        const deptId = '1'; // Hardcoded department ID
+        const deptId = user.DepartmentId
         const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByDept/${deptId}`);
         if (data.successful && data.data.length) {
           const scheds = data.data;

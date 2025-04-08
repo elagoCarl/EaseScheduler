@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios'; // Import axios
+import { useAuth } from './authContext'; // ✅ Import AuthContext
+import axios from 'axios';
 import image2 from './Img/2.jpg';
+import { Eye, EyeOff } from 'lucide-react'; // Import eye icons from lucide-react
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { setUser } = useAuth(); // ✅ Set user manually after login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // State to track password visibility
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +24,7 @@ const LoginPage = () => {
           Password: password,
         },
         {
-          withCredentials: true, // Include cookies in the request
+          withCredentials: true, // ✅ Include credentials
           headers: {
             'Content-Type': 'application/json',
           },
@@ -28,23 +32,30 @@ const LoginPage = () => {
       );
 
       if (response.data.successful) {
-        navigate('/homePage'); // Redirect on successful and verified login
+        console.log('Login successful. Redirecting to homepage...');
+        setUser(response.data.account); // ✅ Set user manually after login
+        navigate('/homePage'); // ✅ Redirect after successful login
       } else {
         if (response.data.message === "Account not verified. OTP sent to email.") {
-          navigate(`/otpVerification?email=${email}`); // Redirect to OTP verification page
+          navigate(`/otpVerification?email=${email}`); // ✅ Redirect to OTP verification
         } else {
           setError(response.data.message || 'Login failed. Please try again.');
         }
       }
     } catch (err) {
       if (err.response?.data?.message === 'Account not verified. OTP sent to email.') {
-        navigate(`/otpVerification?email=${email}`); // Redirect to OTP verification page
+        navigate(`/otpVerification?email=${email}`);
       } else {
         setError(
           err.response?.data?.message || 'An error occurred. Please try again later.'
         );
       }
     }
+  };
+
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -91,15 +102,29 @@ const LoginPage = () => {
             >
               Password
             </label>
-            <input
-              type="password"
-              id="password"
-              className="text-gray-700 rounded-lg w-full p-8 md:p-15 bg-gray-100"
-              placeholder="*********"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                className="text-gray-700 rounded-lg w-full p-8 md:p-15 bg-gray-100"
+                placeholder="*********"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={togglePasswordVisibility}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-20 w-20 mx-15 text-gray-500" />
+                ) : (
+                  <Eye className="h-20 w-20 mx-15 text-gray-500" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-end w-full">

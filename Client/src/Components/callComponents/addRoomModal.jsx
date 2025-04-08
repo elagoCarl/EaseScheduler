@@ -1,5 +1,6 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
+import axios from "../../axiosConfig";
 
 const AddRoomModal = ({ isOpen, onClose }) => {
     const [formData, setFormData] = useState({
@@ -27,28 +28,25 @@ const AddRoomModal = ({ isOpen, onClose }) => {
         setSuccessMessage("");
 
         try {
-            const response = await fetch("http://localhost:8080/room/addRoom", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(formData),
-            });
+            const response = await axios.post(
+                "/room/addRoom",
+                formData,
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                    }
+                }
+            );
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                setErrorMessage(result.message || "Failed to add room.");
-                return;
+            if (response.data) {
+                setSuccessMessage("Room added successfully! Reloading page...");
+                setTimeout(() => {
+                    onClose();
+                    window.location.reload();
+                }, 1000);
             }
-
-            setSuccessMessage("Room added successfully! Reloading page...");
-            setTimeout(() => {
-                onClose();
-                window.location.reload();
-            }, 1000);
         } catch (error) {
-            setErrorMessage(error.message);
+            setErrorMessage(error.response?.data?.message || error.message || "Failed to add room.");
         }
     };
 
