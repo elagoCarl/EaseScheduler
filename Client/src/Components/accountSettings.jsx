@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from './callComponents/sideBar.jsx';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Cookies from 'js-cookie';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../Components/authContext.jsx';
 
@@ -48,7 +48,7 @@ const AccountSettings = () => {
     }
 
     try {
-      const response = await axios.put('http://localhost:8080/accounts/changePassword', {
+      const response = await axios.put('/accounts/changePassword', {
         Email: user.Email, // Use Email from the auth context
         oldPassword: passwords.currentPassword,
         newPassword: passwords.newPassword
@@ -80,7 +80,7 @@ const AccountSettings = () => {
   const archiveAccount = async () => {
     try {
       // Call the API endpoint to archive the account
-      const response = await axios.post(`http://localhost:8080/accArchive/archiveAccount/${user.id}`);
+      const response = await axios.post(`/accArchive/archiveAccount/${user.id}`);
 
       if (response.data.successful) {
         setMessage({

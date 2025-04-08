@@ -9,7 +9,7 @@ import Book from "./Img/Book.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
-import Axios from 'axios';
+import Axios from '../axiosConfig.js';
 import { useAuth } from '../Components/authContext.jsx';
 
 
@@ -79,7 +79,7 @@ const Course = () => {
 
   const fetchCourse = async (deptId) => {
     try {
-      const response = await Axios.get(`http://localhost:8080/course/getCoursesByDept/${deptId}`);
+      const response = await Axios.get(`/course/getCoursesByDept/${deptId}`);
       console.log('API Response:', response.data);
       if (response.data.successful) {
         setCourses(response.data.data);
@@ -169,7 +169,7 @@ const Course = () => {
 
       await Promise.all(
         courseToDelete.map((course) =>
-          Axios.delete(`http://localhost:8080/course/deleteCourse/${course.id}`)
+          Axios.delete(`/course/deleteCourse/${course.id}`)
         )
       );
 

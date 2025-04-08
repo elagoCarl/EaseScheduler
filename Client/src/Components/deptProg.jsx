@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../axiosConfig.js";
 import { useNavigate } from "react-router-dom";
 import Background from "./Img/1.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
@@ -29,7 +29,7 @@ const DeptProg = () => {
 
     const fetchDepartments = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/dept/getAllDept");
+            const response = await axios.get("/dept/getAllDept");
             if (response.data.successful) {
                 setDepartments(response.data.data || []);
             } else {
@@ -42,7 +42,7 @@ const DeptProg = () => {
 
     const fetchPrograms = async () => {
         try {
-            const response = await axios.get("http://localhost:8080/program/getAllProgram");
+            const response = await axios.get("/program/getAllProgram");
             if (response.data.successful) {
                 setPrograms(response.data.data || []);
             } else {
@@ -66,12 +66,12 @@ const DeptProg = () => {
             let response;
             if (isDeptEditing) {
                 response = await axios.put(
-                    `http://localhost:8080/dept/updateDept/${deptEditingId}`,
+                    `/dept/updateDept/${deptEditingId}`,
                     deptFormData
                 );
             } else {
                 response = await axios.post(
-                    "http://localhost:8080/dept/addDept",
+                    "/dept/addDept",
                     deptFormData
                 );
             }
@@ -114,7 +114,7 @@ const DeptProg = () => {
     const handleDeptDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this department?")) {
             try {
-                const response = await axios.delete(`http://localhost:8080/dept/deleteDept/${id}`);
+                const response = await axios.delete(`/dept/deleteDept/${id}`);
                 setMessage({
                     type: "success",
                     text: response.data.message || "Department deleted successfully.",
@@ -142,12 +142,12 @@ const DeptProg = () => {
             let response;
             if (isProgEditing) {
                 response = await axios.put(
-                    `http://localhost:8080/program/updateProgram/${progEditingId}`,
+                    `/program/updateProgram/${progEditingId}`,
                     progFormData
                 );
             } else {
                 response = await axios.post(
-                    "http://localhost:8080/program/addProgram",
+                    "/program/addProgram",
                     progFormData
                 );
             }
@@ -194,7 +194,7 @@ const DeptProg = () => {
     const handleProgDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this program?")) {
             try {
-                const response = await axios.delete(`http://localhost:8080/program/deleteProgram/${id}`);
+                const response = await axios.delete(`/program/deleteProgram/${id}`);
                 setMessage({
                     type: "success",
                     text: response.data.message || "Program deleted successfully.",

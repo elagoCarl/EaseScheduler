@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import axios from '../axiosConfig'; // Added axios import
 import image5 from './Img/5.jpg';
 import room from './Img/room.svg';
 import person from './Img/person.svg'
@@ -75,23 +76,22 @@ const HomePage = () => {
     };
   }, []);
 
-  // Logout handler that integrates with your logout API
+  // Logout handler using axios instead of fetch
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/accounts/logoutAccount', {
-        method: 'POST',
-        credentials: 'include', // Ensures cookies are sent with the request
+      const response = await axios.post('/accounts/logoutAccount', {}, {
+        withCredentials: true, // Ensures cookies are sent with the request
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      const data = await response.json();
-      if (data.successful) {
-        // Optionally navigate to the login page after logout
+
+      if (response.data.successful) {
+        // Navigate to the login page after logout
         navigate('/loginPage');
         window.location.reload();
       } else {
-        console.error('Logout failed:', data.message);
+        console.error('Logout failed:', response.data.message);
       }
     } catch (error) {
       console.error('Error during logout:', error);

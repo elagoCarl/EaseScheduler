@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../axiosConfig.js";
 import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -54,7 +54,7 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         const fetchDepartment = async () => {
             try {
-                const response = await axios.get(`http://localhost:8080/dept/getDept/${DEPARTMENT_ID}`);
+                const response = await axios.get(`/dept/getDept/${DEPARTMENT_ID}`);
                 if (response.data.successful) {
                     setDepartment(response.data.data);
                 } else {
@@ -71,7 +71,7 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         const fetchAssignations = async () => {
             try {
-                const response = await axios.get(`http://localhost:8080/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+                const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
                 if (response.data.successful) {
                     const data = response.data.data;
                     setAssignedCourses(data);
@@ -103,7 +103,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     professorIds.map(id =>
-                        axios.get(`http://localhost:8080/prof/getProf/${id}`)
+                        axios.get(`/prof/getProf/${id}`)
                     )
                 );
                 const detailsMap = {};
@@ -137,7 +137,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     courseIds.map(id =>
-                        axios.get(`http://localhost:8080/course/getCourse/${id}`)
+                        axios.get(`/course/getCourse/${id}`)
                     )
                 );
                 const detailsMap = {};
@@ -211,7 +211,7 @@ const AssignationsCourseProf = () => {
             // Delete each assignation individually using the backend API
             for (const id of selectedCourseIds) {
                 try {
-                    const response = await axios.delete(`http://localhost:8080/assignation/deleteAssignation/${id}`);
+                    const response = await axios.delete(`/assignation/deleteAssignation/${id}`);
                     results.push({
                         id,
                         success: response.data.successful,
@@ -234,7 +234,7 @@ const AssignationsCourseProf = () => {
             }
 
             // Refresh the assignations list
-            const response = await axios.get(`http://localhost:8080/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+            const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
             if (response.data.successful) {
                 setAssignedCourses(response.data.data);
                 setCheckboxes(new Array(response.data.data.length).fill(false));

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
@@ -35,7 +35,7 @@ const SectionTimetable = () => {
     const fetchSchedules = async () => {
       try {
         const deptId = user.DepartmentId
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByDept/${deptId}`);
+        const { data } = await axios.get(`/schedule/getSchedsByDept/${deptId}`);
         if (data.successful && data.data.length) {
           const scheds = data.data;
           setSchedules(scheds);
@@ -128,7 +128,7 @@ const SectionTimetable = () => {
         </div>
         <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
         <div className="text-xs italic">
-          Room: {schedule.Room.Code} - { schedule.Room.Building}
+          Room: {schedule.Room.Code} - {schedule.Room.Building}
         </div>
       </div>
     );

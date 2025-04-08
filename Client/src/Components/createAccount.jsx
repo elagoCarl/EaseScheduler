@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../axiosConfig.js";
 import { useNavigate } from "react-router-dom";
 import Background from "./Img/1.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
@@ -26,7 +26,7 @@ const CreateAccount = () => {
   // Fetch departments on component mount
   useEffect(() => {
     axios
-      .get("http://localhost:8080/dept/getAllDept")
+      .get("/dept/getAllDept")
       .then((response) => {
         // Extract the departments array from the 'data' property
         const deptArray = response.data.data || [];
@@ -56,7 +56,7 @@ const CreateAccount = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/accounts/addAccount",
+        "/accounts/addAccount",
         formData
       );
 

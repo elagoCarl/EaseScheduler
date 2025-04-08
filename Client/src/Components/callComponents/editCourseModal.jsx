@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Axios from "axios";
+import Axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
 const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
@@ -46,7 +46,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
 
     try {
       const response = await Axios.put(
-        `http://localhost:8080/course/updateCourse/${ courseID }`,
+        `/course/updateCourse/${courseID}`,
         {
           Code: courseCode,
           Description: courseDescription,
@@ -85,7 +85,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
 
   const handleEditCourse = async () => {
     try {
-      const response = await Axios.put(`http://localhost:8080/course/updateCourse/${ course.id }`, updatedCourse);
+      const response = await Axios.put(`/course/updateCourse/${course.id}`, updatedCourse);
       if (response.data.successful) {
         onUpdateSuccess(); // ✅ Trigger parent update
         onClose(); // ✅ Close modal

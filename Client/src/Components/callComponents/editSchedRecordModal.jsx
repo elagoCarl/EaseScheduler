@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
 const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assignations }) => {
@@ -39,11 +39,11 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
     // Fetch sections for a course
     const fetchSectionsForCourse = async (courseId) => {
         try {
-            const response = await axios.post('http://localhost:8080/progYrSec/getProgYrSecByCourse', { 
-                CourseId: courseId, 
-                DepartmentId: deptId 
+            const response = await axios.post('/progYrSec/getProgYrSecByCourse', {
+                CourseId: courseId,
+                DepartmentId: deptId
             });
-            
+
             if (response.data.successful) {
                 setAvailableSections(response.data.data);
             } else {
@@ -58,7 +58,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
     // Fetch currently assigned sections
     const fetchAssignedSections = async (scheduleId) => {
         try {
-            const response = await axios.get(`http://localhost:8080/schedule/getSchedule/${scheduleId}`);
+            const response = await axios.get(`/schedule/getSchedule/${scheduleId}`);
             if (response.data.successful && response.data.data.ProgYrSecs) {
                 const sectionIds = response.data.data.ProgYrSecs.map(sec => sec.id);
                 setSelectedSections(sectionIds);
@@ -78,7 +78,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 start_time: schedule.Start_time ? schedule.Start_time.slice(0, 5) : "",
                 end_time: schedule.End_time ? schedule.End_time.slice(0, 5) : ""
             });
-            
+
             // Fetch course sections when a schedule is selected
             if (schedule.AssignationId) {
                 const selectedAssignation = assignations.find(a => a.id === schedule.AssignationId);
@@ -86,7 +86,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                     fetchSectionsForCourse(selectedAssignation.CourseId);
                 }
             }
-            
+
             // Fetch currently assigned sections
             if (schedule.id) {
                 fetchAssignedSections(schedule.id);
@@ -123,7 +123,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         e.preventDefault();
         setError("");
         setLoading(true);
-        
+
         if (selectedSections.length === 0) {
             setError("Please select at least one section.");
             setLoading(false);
@@ -139,12 +139,12 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 AssignationId: parseInt(formData.assignation_id),
                 Sections: selectedSections // Include selected sections in payload
             };
-            
-            const response = await axios.put(`http://localhost:8080/schedule/updateSchedule/${schedule.id}`, payload);
-            
+
+            const response = await axios.put(`/schedule/updateSchedule/${schedule.id}`, payload);
+
             if (response.data.successful) {
                 // Fetch the updated schedule to get the complete data with sections
-                const updatedResponse = await axios.get(`http://localhost:8080/schedule/getSchedule/${schedule.id}`);
+                const updatedResponse = await axios.get(`/schedule/getSchedule/${schedule.id}`);
                 if (updatedResponse.data.successful) {
                     onUpdate(updatedResponse.data.data);
                     onClose();
@@ -194,7 +194,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             ))}
                         </select>
                     </div>
-                    
+
                     {/* Assignation Dropdown */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Assignation</label>
@@ -212,7 +212,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             ))}
                         </select>
                     </div>
-                    
+
                     {/* Sections Selection */}
                     {formData.assignation_id && availableSections.length > 0 && (
                         <div>
@@ -254,7 +254,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             )}
                         </div>
                     )}
-                    
+
                     {/* Day Dropdown */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Day</label>
@@ -272,7 +272,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             ))}
                         </select>
                     </div>
-                    
+
                     {/* Time Inputs */}
                     <div className="flex space-x-4">
                         <div className="w-1/2">
@@ -296,7 +296,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             />
                         </div>
                     </div>
-                    
+
                     {/* Action Buttons */}
                     <div className="flex justify-end space-x-4">
                         <button

@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
         const fetchCurrentUser = async () => {
             try {
                 const response = await axios.get(
-                    `http://localhost:8080/accounts/getCurrentAccount?t=${Date.now()}`,
+                    `https://easescheduler.onrender.com/accounts/getCurrentAccount?t=${Date.now()}`,
                     { withCredentials: true }
                 );
                 if (response.data.successful && response.data.account) {

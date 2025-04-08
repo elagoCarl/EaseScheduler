@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import axios from "axios";
+import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
 const AddAssignationModal = ({ isOpen, onClose }) => {
@@ -25,7 +25,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
             const fetchData = async () => {
                 try {
                     // Fetch courses
-                    const coursesResponse = await axios.get("http://localhost:8080/course/getAllCourses");
+                    const coursesResponse = await axios.get("/course/getAllCourses");
                     if (coursesResponse.status === 200) {
                         setCourses(coursesResponse.data.data);
                     } else {
@@ -34,7 +34,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                     }
 
                     // Fetch professors
-                    const professorsResponse = await axios.get("http://localhost:8080/prof/getAllProf");
+                    const professorsResponse = await axios.get("/prof/getAllProf");
                     if (professorsResponse.status === 200) {
                         setProfessors(professorsResponse.data.data);
                     } else {
@@ -74,7 +74,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
 
         try {
             const response = await axios.post(
-                "http://localhost:8080/assignation/addAssignation",
+                "/assignation/addAssignation",
                 formData
             );
 

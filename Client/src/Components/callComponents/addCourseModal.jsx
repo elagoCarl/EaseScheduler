@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import Axios from 'axios';
+import Axios from '../../axiosConfig';
 import { useAuth } from '../authContext';
 
 const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
@@ -38,7 +38,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
     });
 
     try {
-      const response = await Axios.post("http://localhost:8080/course/addCourse", {
+      const response = await Axios.post("/course/addCourse", {
         Code: courseCode,
         Description: courseDescription,
         Duration: courseDuration,

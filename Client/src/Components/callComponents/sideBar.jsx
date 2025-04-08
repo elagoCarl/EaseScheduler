@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../Components/authContext';
+import axios from '../../axiosConfig'; // Added axios import
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
@@ -30,20 +31,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     setActiveSection(activeSection === section ? null : section);
   };
 
-  // Logout handler that calls the logout API endpoint
+  // Logout handler using axios instead of fetch
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/accounts/logoutAccount', {
-        method: 'POST',
-        credentials: 'include', // ensure cookies are sent
+      const response = await axios.post('/accounts/logoutAccount', {}, {
+        withCredentials: true, // ensure cookies are sent
         headers: { 'Content-Type': 'application/json' }
       });
-      const data = await response.json();
-      if (data.successful) {
+
+      if (response.data.successful) {
         navigate('/loginPage');
         window.location.reload();
       } else {
-        console.error('Logout failed:', data.message);
+        console.error('Logout failed:', response.data.message);
       }
     } catch (error) {
       console.error('Error during logout:', error);

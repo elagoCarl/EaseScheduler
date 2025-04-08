@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../axiosConfig';
 import Background from './Img/6.jpg';
 
 const OTPVerification = () => {
@@ -30,7 +30,7 @@ const OTPVerification = () => {
     if (otpValue.length === 6) {
       try {
         const response = await axios.post(
-          'http://localhost:8080/accounts/verifyAccountOTP',
+          '/accounts/verifyAccountOTP',
           {
             email: email,
             otp: otpValue,

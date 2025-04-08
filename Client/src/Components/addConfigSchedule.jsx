@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import bg from './Img/bg.jpg';
 import delBtn from './Img/delBtn.png';
 import editBtn from './Img/editBtn.png';
@@ -70,8 +70,8 @@ const AddConfigSchedule = () => {
     const fetchData = async () => {
       try {
         const [roomsRes, assignationsRes] = await Promise.all([
-          axios.get(`http://localhost:8080/room/getRoomsByDept/${deptId}`),
-          axios.get(`http://localhost:8080/assignation/getAllAssignationsByDeptInclude/${deptId}`)
+          axios.get(`/room/getRoomsByDept/${deptId}`),
+          axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`)
         ]);
         if (roomsRes.data.successful) setRooms(roomsRes.data.data);
         if (assignationsRes.data.successful) setAssignations(assignationsRes.data.data);
@@ -88,7 +88,7 @@ const AddConfigSchedule = () => {
 
   // API handlers
   const fetchSchedulesForRoom = (roomId) => {
-    axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${roomId}`)
+    axios.get(`/schedule/getSchedsByRoom/${roomId}`)
       .then(({ data }) => setSchedules(data.successful ? data.data : []))
       .catch(err => {
         console.error("Error fetching schedules:", err);
@@ -97,7 +97,7 @@ const AddConfigSchedule = () => {
   };
 
   const fetchSectionsForCourse = (courseId) => {
-    axios.post('http://localhost:8080/progYrSec/getProgYrSecByCourse', { CourseId: courseId, DepartmentId: deptId })
+    axios.post('/progYrSec/getProgYrSecByCourse', { CourseId: courseId, DepartmentId: deptId })
       .then(({ data }) => {
         if (data.successful) {
           setAvailableSections(data.data);
@@ -116,7 +116,7 @@ const AddConfigSchedule = () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
-      const response = await axios.delete(`http://localhost:8080/schedule/deleteSchedule/${scheduleId}`);
+      const response = await axios.delete(`/schedule/deleteSchedule/${scheduleId}`);
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -150,7 +150,7 @@ const AddConfigSchedule = () => {
     };
 
     try {
-      const response = await axios.post("http://localhost:8080/schedule/addSchedule", payload);
+      const response = await axios.post("/schedule/addSchedule", payload);
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule added successfully!" });
         resetForm();
@@ -170,7 +170,7 @@ const AddConfigSchedule = () => {
     }
     setIsAutomating(true);
     try {
-      const response = await axios.post(`http://localhost:8080/schedule/automate`, { roomId: formData.room_id });
+      const response = await axios.post(`/schedule/automate`, { roomId: formData.room_id });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule automation initiated!" });
         fetchSchedulesForRoom(formData.room_id);

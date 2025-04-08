@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios';
+import axios from '../../axiosConfig';
 
 const EditRoomModal = ({ room, onClose, onUpdate }) => {
     const [formData, setFormData] = useState({
@@ -32,7 +32,7 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
             setIsLoading(true);
 
             const response = await axios.put(
-                `http://localhost:8080/room/updateRoom/${room.id}`,
+                `/room/updateRoom/${room.id}`,
                 formData,
                 {
                     headers: { 'Content-Type': 'application/json' },

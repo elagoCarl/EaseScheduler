@@ -20,7 +20,6 @@ const ProfAvailability = () => {
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const hours = Array.from({ length: 15 }, (_, i) => 7 + i);
-  const apiBase = 'http://localhost:8080';
   const professorColors = ['bg-blue-300', 'bg-green-300', 'bg-purple-300', 'bg-yellow-300', 'bg-red-300', 'bg-indigo-300', 'bg-pink-300', 'bg-teal-300'];
 
   // Effects
@@ -35,7 +34,7 @@ const ProfAvailability = () => {
     const fetchProfessors = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(`${apiBase}/prof/getAllProf`);
+        const response = await axios.get(`/prof/getAllProf`);
         if (response.data.successful) {
           setProfessors(response.data.data);
         } else {
@@ -62,7 +61,7 @@ const ProfAvailability = () => {
     const fetchProfessorAvailability = async () => {
       setFetchingAvailability(true);
       try {
-        const response = await axios.get(`${apiBase}/profAvail/getProfAvailByProf/${formData.professor}`);
+        const response = await axios.get(`/profAvail/getProfAvailByProf/${formData.professor}`);
         if (response.data.successful) {
           const availabilityData = response.data.data;
           setScheduleData(prevData => prevData.filter(item => item.professorId !== formData.professor && !item.isExisting));
@@ -154,7 +153,7 @@ const ProfAvailability = () => {
       };
 
       setLoading(true);
-      const response = await axios.post(`${apiBase}/profAvail/addProfAvail`, availabilityData);
+      const response = await axios.post(`/profAvail/addProfAvail`, availabilityData);
 
       if (response.data.successful) {
         let newId = response.data.data?.id
@@ -196,7 +195,7 @@ const ProfAvailability = () => {
 
     try {
       setLoading(true);
-      const response = await axios.delete(`${apiBase}/profAvail/deleteProfAvail/${selectedAvailabilityId}`);
+      const response = await axios.delete(`/profAvail/deleteProfAvail/${selectedAvailabilityId}`);
       if (response.data.successful) {
         setScheduleData(scheduleData.filter(item => {
           const itemId = item.id.split('-')[1];

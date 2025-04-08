@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './authContext'; // ✅ Import AuthContext
-import axios from 'axios';
+import axios from '../axiosConfig';
 import image2 from './Img/2.jpg';
 import { Eye, EyeOff } from 'lucide-react'; // Import eye icons from lucide-react
 
@@ -18,7 +18,7 @@ const LoginPage = () => {
 
     try {
       const response = await axios.post(
-        'http://localhost:8080/accounts/loginAccount',
+        '/accounts/loginAccount',
         {
           Email: email,
           Password: password,
