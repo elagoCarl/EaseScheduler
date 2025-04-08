@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../Components/authContext';
-import axios from '../../axiosConfig'; // Added axios import
+import axios from 'axios'; // Added axios import
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
@@ -31,10 +31,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     setActiveSection(activeSection === section ? null : section);
   };
 
-  // Logout handler using axios instead of fetch
   const handleLogout = async () => {
     try {
-      const response = await axios.post('/accounts/logoutAccount', {}, {
+      const response = await axios.post('https://easescheduler.onrender.com/accounts/logoutAccount', {}, {
         withCredentials: true, // ensure cookies are sent
         headers: { 'Content-Type': 'application/json' }
       });
