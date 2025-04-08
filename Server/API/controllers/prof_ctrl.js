@@ -168,7 +168,6 @@ const getProf = async (req, res) => {
     }
 };
 
-const jwt = require('jsonwebtoken'); // Make sure this is imported at the top
 
 const deleteProf = async (req, res, next) => {
     try {
