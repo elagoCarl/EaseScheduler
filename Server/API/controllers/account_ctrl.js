@@ -308,16 +308,29 @@ const loginAccount = async (req, res) => {
         console.log("User logged in. Tokens saved successfully.");
 
         // Set cookies securely
+        // res.cookie('jwt', accessToken, {
+        //     httpOnly: true,
+        //     secure: process.env.NODE_ENV === 'production',
+        //     sameSite: 'Strict',
+        //     maxAge: maxAge * 1000,
+        // });
+        // res.cookie('refreshToken', refreshToken, {
+        //     httpOnly: true,
+        //     secure: process.env.NODE_ENV === 'production',
+        //     sameSite: 'Strict',
+        //     maxAge: 60 * 60 * 24 * 30 * 1000,
+        // });
+
         res.cookie('jwt', accessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
+            sameSite: 'Lax',  // Changed from Strict to Lax
             maxAge: maxAge * 1000,
         });
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
+            sameSite: 'Lax',  // Changed from Strict to Lax
             maxAge: 60 * 60 * 24 * 30 * 1000,
         });
 
