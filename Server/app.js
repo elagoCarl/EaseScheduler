@@ -12,7 +12,7 @@ const app = express();
 
 // Update CORS configuration to allow requests from both localhost and deployed frontend
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://ease-scheduler.vercel.app'],
+  origin: ['http://localhost:5173', 'https://ease-scheduler.vercel.app', 'https://easescheduler.onrender.com'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
 }));
