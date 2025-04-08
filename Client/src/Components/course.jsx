@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -9,34 +9,77 @@ import Book from "./Img/Book.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
-import Axios from 'axios';
+import Axios from '../axiosConfig.js';
+import { useAuth } from '../Components/authContext.jsx';
 
-// const deptId = 1;
 
 const Course = () => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+  const deptId = user.DepartmentId;
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState(Array(50).fill(false)); // Example for multiple rows
   const [isAllChecked, setAllChecked] = useState(false);
-  const [selectedCampus, setSelectedCampus] = useState("Select Campus");
+
+  const [searchTerm, setSearchTerm] = useState(""); // Search term state
+  const [yearFilter, setYearFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
 
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false); // Add CourseModal state
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false); // Edit CourseModal state
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false); // Delete Warning state
   const [courseToEdit, setCourseToEdit] = useState(null); // Course to edit state
-  const campuses = ["Campus A", "Campus B", "Campus C"];
-
-  const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState(null);
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [courses, setCourses] = useState([]); // Initialize as an empty array
   const [updateTrigger, setUpdateTrigger] = useState(false); // 🔹 Trigger refetch
+
+  // Move these inside the component and use useMemo for performance
+  const uniqueYears = useMemo(() => {
+    const yearsArray = [...new Set(courses.map(c => c.Year).filter(Boolean))];
+    yearsArray.sort((a, b) => parseInt(a) - parseInt(b));
+    return ["All", ...yearsArray];
+  }, [courses]);
+
+  const uniqueTypes = useMemo(() => {
+    // Normalize all type strings
+    const typesArray = courses
+      .map(c => c.Type && c.Type.trim())  // => 'core' or 'professional'
+      .filter(Boolean);
+
+    // Make them unique
+    const uniqueSet = new Set(typesArray); // => { 'core', 'professional' }
+
+    return ["All", ...uniqueSet];
+  }, [courses]);
+
+  const filteredCourses = useMemo(() => {
+    return courses.filter(course => {
+      const matchesSearch = !searchTerm ||
+        (course.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          course.Description?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesYear =
+        yearFilter === "All" ||
+        parseInt(course.Year) === parseInt(yearFilter);
+
+      const matchesType =
+        typeFilter === "All" ||
+        course.Type?.trim() === typeFilter.trim();
+
+
+      return matchesSearch && matchesYear && matchesType;
+    });
+  }, [courses, searchTerm, yearFilter, typeFilter]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
-  const fetchCourse = async () => {
+  const fetchCourse = async (deptId) => {
     try {
-      const response = await Axios.get('http://localhost:8080/course/getAllCourses');
+      const response = await Axios.get(`/course/getCoursesByDept/${deptId}`);
       console.log('API Response:', response.data);
       if (response.data.successful) {
         setCourses(response.data.data);
@@ -45,47 +88,25 @@ const Course = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError(`Error fetching courses: ${ err.message }`);
+      setError(`Error fetching courses: ${err.message}`);
     }
   };
 
-
   useEffect(() => {
-    fetchCourse();
+    fetchCourse(deptId);
     console.log("Fetching courses...");
-  }, [updateTrigger]);
-
+  }, [deptId, updateTrigger]);
 
   useEffect(() => {
     if (courses.length > 0) {
-      setCheckboxes(Array(courses.length).fill(false)); // Reset checkboxes
+      const allTypes = new Set(courses.map(c => c.Type));
+      console.log("Available course types:", [...allTypes]);
     }
-  }, [courses]); // 🔹 Removed success message here
+  }, [courses]);
 
-  const handleDeleteCourse = async (courseId) => {
-    if (!courseId) return;
-
-    try {
-      const response = await Axios.delete(`http://localhost:8080/course/deleteCourse/${ courseId }`);
-      if (response.data.successful) {
-        setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
-      }
-    } catch (error) {
-      console.error("Error deleting course:", error);
-    }
-  };
-
-  const handleAddCourse = async (newCourse) => {
-    try {
-      const response = await Axios.post("http://localhost:8080/course/addCourse", newCourse);
-      if (response.data.successful) {
-        setUpdateTrigger((prev) => !prev); // ✅ Trigger re-fetch
-      }
-    } catch (error) {
-      console.error("Error adding course:", error);
-    }
-  };
-
+  useEffect(() => {
+    console.log("Courses after adding new one:", courses);
+  }, [courses]);
 
   const handleMasterCheckboxChange = () => {
     const newState = !isAllChecked;
@@ -119,24 +140,6 @@ const Course = () => {
     setIsEditCourseModalOpen(true); // ✅ Open edit modal
   };
 
-  const handleEditClick = (course) => {
-    setCourseToEdit(course);
-    setIsEditCourseModalOpen(true);
-  };
-
-  const handleUpdateSuccess = () => {
-    setSuccessMessage("Course updated successfully!");
-    setTimeout(() => {
-      setSuccessMessage("");
-    }, 3000);
-    setUpdateTrigger(!updateTrigger);
-  };
-
-
-  const handleEditCourseCloseModal = () => {
-    setIsEditCourseModalOpen(false); // Close the edit course modal
-  };
-
   const [warningMessage, setWarningMessage] = useState("");
 
   const handleDeleteClick = () => {
@@ -166,13 +169,12 @@ const Course = () => {
 
       await Promise.all(
         courseToDelete.map((course) =>
-          Axios.delete(`http://localhost:8080/course/deleteCourse/${ course.id }`)
+          Axios.delete(`/course/deleteCourse/${course.id}`)
         )
       );
 
       console.log("Selected courses deleted successfully!");
 
-      // ✅ Update state directly without calling fetchCourse()
       setCourses((prevCourses) =>
         prevCourses.filter((course) => !courseToDelete.some((del) => del.id === course.id))
       );
@@ -187,11 +189,10 @@ const Course = () => {
     }
   };
 
-
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}>
+      style={{ backgroundImage: `url(${Background})` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
@@ -200,22 +201,44 @@ const Course = () => {
       {/* Main Content */}
       <div className="flex flex-col justify-center items-center h-screen w-full px-20">
         {/* Filters */}
+
         <div className="flex justify-end w-10/12 mb-4">
-          <div className="flex gap-4">
-            {/* Campus Dropdown */}
+          <div className="flex gap-4 flex-wrap">
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Search by code or description"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base"
+            />
+
+            {/* Year Filter */}
             <select
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
               className="px-4 py-2 border rounded text-sm md:text-base">
-              <option disabled>Select Campus</option>
-              {campuses.map((campus, index) => (
-                <option key={index} value={campus}>
-                  {campus}
+              {uniqueYears.map((year, index) => (
+                <option key={index} value={year}>
+                  {year === "All" ? "Year Level" : year}
+                </option>
+              ))}
+            </select>
+
+            {/* Type Filter */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base">
+              {uniqueTypes.map((type, index) => (
+                <option key={index} value={type}>
+                  {type === "All" ? "Select Type" : type}
                 </option>
               ))}
             </select>
           </div>
         </div>
+
         {/* Table Container */}
         <div className="bg-white p-4 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
           <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
@@ -228,26 +251,26 @@ const Course = () => {
           <div className="overflow-auto w-full h-full flex-grow">
             <table className="text-center w-full border-collapse">
               <thead>
-                <tr className="bg-customLightBlue2">
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                <tr className="bg-blue-600">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     Code
                   </th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     Description
                   </th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     Duration
                   </th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     Units
                   </th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     Type
                   </th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     Year Level
                   </th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-gray-600 border border-gray-300">
+                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
                     <input
                       type="checkbox"
                       checked={isAllChecked}
@@ -259,7 +282,7 @@ const Course = () => {
                 </tr>
               </thead>
               <tbody>
-                {courses.map((course, index) => (
+                {filteredCourses.map((course, index) => (
                   <tr
                     key={course.id}
                     className="hover:bg-customLightBlue2 border-t border-gray-300"

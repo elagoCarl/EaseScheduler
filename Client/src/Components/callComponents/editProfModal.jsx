@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import axios from 'axios';
+import axios from '../../axiosConfig';
 
 const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -17,7 +17,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const response = await axios.get('http://localhost:8080/profStatus/getAllProfStatus');
+        const response = await axios.get('/profStatus/getAllProfStatus');
         console.log("Fetched data:", response.data);
         setStatuses(response.data.data);
       } catch (error) {
@@ -51,7 +51,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
       setIsLoading(true);
 
       const response = await axios.put(
-        `http://localhost:8080/prof/updateProf/${professor.id}`,
+        `/prof/updateProf/${professor.id}`,
         formData,
         {
           headers: { 'Content-Type': 'application/json' },

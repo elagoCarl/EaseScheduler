@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
@@ -21,7 +21,7 @@ const ProfTimetable = () => {
     const fetchProfessors = async () => {
       try {
         const deptId = '1'; // Update department ID as needed
-        const { data } = await axios.get(`http://localhost:8080/prof/getProfByDept/${deptId}`);
+        const { data } = await axios.get(`/prof/getProfByDept/${deptId}`);
         if (data.successful && data.data.length) {
           setProfessors(data.data);
           setSelectedProf(data.data[0]);
@@ -43,7 +43,7 @@ const ProfTimetable = () => {
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByProf/${selectedProf.id}`);
+        const { data } = await axios.get(`/schedule/getSchedsByProf/${selectedProf.id}`);
         if (data.successful) {
           setSchedules(data.data);
         } else {
@@ -78,7 +78,7 @@ const ProfTimetable = () => {
     const sections = schedule.ProgYrSecs
       .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
       .join(', ');
-      
+
     return (
       <div
         onMouseEnter={() => setHovered(true)}
@@ -95,7 +95,7 @@ const ProfTimetable = () => {
           {schedule.Assignation.Course.Description}
         </div>
         <div className="text-xs">
-          Room: {schedule.Assignation.Rooms[0].Code} ({schedule.Assignation.Rooms[0].Building})
+          Room: {schedule.Room.Code} - {schedule.Room.Building}
         </div>
       </div>
     );

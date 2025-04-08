@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import axios from "../../axiosConfig";
 
 const AddProfModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
@@ -9,22 +10,19 @@ const AddProfModal = ({ isOpen, onClose }) => {
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [statuses, setStatuses] = useState([]); // Added to store the fetched statuses
+  const [statuses, setStatuses] = useState([]);
 
   // Fetch statuses from the backend when the modal is opened
   useEffect(() => {
     if (isOpen) {
       const fetchStatuses = async () => {
         try {
-          const response = await fetch("http://localhost:8080/profStatus/getAllProfStatus");
-          const result = await response.json();
-          if (response.ok) {
-            setStatuses(result.data); // Assuming 'data' contains the status records
-          } else {
-            setErrorMessage(result.message || "Failed to fetch statuses.");
-          }
+          const response = await axios.get("/profStatus/getAllProfStatus", {
+            withCredentials: true
+          });
+          setStatuses(response.data.data); // Assuming 'data' contains the status records
         } catch (error) {
-          setErrorMessage(error.message || "An error occurred while fetching statuses.");
+          setErrorMessage(error.response?.data?.message || "An error occurred while fetching statuses.");
         }
       };
 
@@ -47,31 +45,27 @@ const AddProfModal = ({ isOpen, onClose }) => {
     setErrorMessage("");
     setSuccessMessage("");
     console.log("formData:", formData);
-    console.log("statuses:", statuses)
+    console.log("statuses:", statuses);
 
     try {
-      const response = await fetch("http://localhost:8080/prof/addProf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(result.message || "Failed to add professor.");
-        return;
-      }
+      const response = await axios.post(
+        "/prof/addProf",
+        formData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        }
+      );
 
       setSuccessMessage("Professor added successfully! Reloading page...");
       setTimeout(() => {
         onClose(); // Close the modal after a short delay
         window.location.reload(); // Reload the page to reflect the changes
-      }, 1000); // Wait 1 seconds before closing the modal and reloading the page
+      }, 1000); // Wait 1 second before closing the modal and reloading the page
     } catch (error) {
-      setErrorMessage(error.message);
+      setErrorMessage(error.response?.data?.message || "Failed to add professor.");
     }
   };
 

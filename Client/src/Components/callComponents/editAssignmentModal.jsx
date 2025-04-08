@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import PropTypes from 'prop-types';
-import axios from "axios";
+import axios from "../../axiosConfig";
+import { useAuth } from '../authContext';
 
 const EditAssignmentModal = ({
     assignment,
@@ -17,7 +18,10 @@ const EditAssignmentModal = ({
         courseId: ""
     });
     // Using a constant department id; you can pass this via props as needed
-    const DEPARTMENT_ID = 1;
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+    const DEPARTMENT_ID = user.DepartmentId;
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -37,7 +41,7 @@ const EditAssignmentModal = ({
     useEffect(() => {
         const fetchAllProfessors = async () => {
             try {
-                const response = await axios.get('http://localhost:8080/prof/getAllProf');
+                const response = await axios.get('/prof/getAllProf');
                 if (response.data.successful) {
                     setAllProfessors(response.data.data);
 
@@ -67,7 +71,7 @@ const EditAssignmentModal = ({
             setHasAttemptedFetch(true); // Mark that we've attempted to fetch
 
             axios
-                .get('http://localhost:8080/course/getAllCourses')
+                .get('/course/getAllCourses')
                 .then(response => {
                     if (response.data.successful) {
                         setFetchedCourses(response.data.data);
@@ -138,7 +142,7 @@ const EditAssignmentModal = ({
             console.log("Sending update data:", updateData);
 
             const response = await axios.put(
-                `http://localhost:8080/assignation/updateAssignation/${assignment.id}`,
+                `/assignation/updateAssignation/${assignment.id}`,
                 updateData,
                 { headers: { 'Content-Type': 'application/json' } }
             );

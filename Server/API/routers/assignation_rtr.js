@@ -1,6 +1,8 @@
 const express = require('express');
 const assignation_ctrl = require('../controllers/assignation_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+// router.use(requireAuth)
 
 router.post('/addAssignation', assignation_ctrl.addAssignation);
 router.get('/getAllAssignations', assignation_ctrl.getAllAssignations);

@@ -5,9 +5,17 @@ const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 require('dotenv').config()
+const cors = require('cors');
 
 //INITIALIZE EXPRESS APPLICATION AND STORE TO app
 const app = express();
+
+// Update CORS configuration to allow requests from both localhost and deployed frontend
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://ease-scheduler.vercel.app', 'https://easescheduler.onrender.com'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
+}));
 
 
 //IMPORT ALL ROUTERS NEEDED
@@ -25,6 +33,7 @@ const profAvail = require('./API/routers/profAvail_rtr')
 const schedule_rtr = require('./API/routers/schedule_rtr')
 const assignation_rtr = require('./API/routers/assignation_rtr')
 const settings_rtr = require('./API/routers/settings_rtr')
+const authMiddleware_rtr = require('./API/routers/authMiddleware_rtr')
 
 // para lang makita kung anong request sa console
 app.use((req, res, next) => {
@@ -72,10 +81,15 @@ app.use(bodyParser.json({ limit: "50mb" }));
 // })
 
 app.use((req, res, next) => {
-  // Allow the specific origin where your frontend is hosted
-  res.header("Access-Control-Allow-Origin", "http://localhost:5173");  // Replace with your frontend URL
+  // Allow multiple origins
+  const allowedOrigins = ['http://localhost:5173', 'https://ease-scheduler.vercel.app'];
+  const origin = req.headers.origin;
 
-  // Allow all headers and credentials
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+
+  // Allow specific headers
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   // Allow specific HTTP methods
@@ -109,6 +123,7 @@ app.use('/schedule', schedule_rtr)
 app.use('/assignation', assignation_rtr)
 app.use('/settings', settings_rtr)
 app.use('/profStatus', profStatus_rtr)
+app.use('/auth', authMiddleware_rtr)
 
 
 //ERROR MIDDLEWARES
@@ -134,4 +149,4 @@ app.use((error, req, res, next) => {
 });
 
 //EXPORTS THE EXPRESS APPLICATION SO THAT IT CAN BE IMPORTED FROM OTHE FILES.
-module.exports = app; 
+module.exports = app;

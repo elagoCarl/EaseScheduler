@@ -1,6 +1,8 @@
 const express = require('express');
 const prof_ctrl = require('../controllers/prof_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+router.use(requireAuth)
 
 router.post('/addProf', prof_ctrl.addProf)
 router.get('/getAllProf', prof_ctrl.getAllProf)

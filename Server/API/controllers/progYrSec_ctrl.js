@@ -1,4 +1,4 @@
-const { ProgYrSec, Program ,Department } = require('../models');
+const { ProgYrSec, Program, Course } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -205,7 +205,7 @@ const deleteProgYrSec = async (req, res, next) => {
         }
 
         const oldProgram = await Program.findByPk(progYrSec.ProgramId);
-        const oldprog= {
+        const oldprog = {
             ProgramName: oldProgram ? oldProgram.Name : "Unknown"
         };
 
@@ -295,6 +295,83 @@ const getProgYrSecByDept = async (req, res, next) => {
         });
     }
 }
+
+const getProgYrSecByCourse = async (req, res, next) => {
+    try {
+        const { CourseId, DepartmentId } = req.body
+        if (!util.checkMandatoryFields([CourseId, DepartmentId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const course = await Course.findByPk(CourseId, {
+            attributes: ['id', 'Year', 'Type'],
+            include: [{
+                model: Program,
+                as: 'CourseProgs',
+                attributes: ['id']
+            }]
+        });
+
+        if (!course) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found."
+            });
+        }
+
+        // Define the base condition using the course year.
+        let whereCondition = { Year: course.Year };
+
+        // If the course type is Professional, add filtering by associated program IDs.
+        if (course.Type === 'Professional') {
+            const courseProgramIds = course.CourseProgs.map(prog => prog.id);
+            whereCondition = {
+                ...whereCondition,
+                ProgramId: { [Op.in]: courseProgramIds }
+            };
+        }
+
+        const programInclude = {
+            model: Program,
+            attributes: ['id', 'Code'],
+            // If departmentId is provided, filter programs by DepartmentId
+            where: DepartmentId ? { DepartmentId: DepartmentId } : undefined
+        };
+
+        const pys = await ProgYrSec.findAll({
+            where: whereCondition,
+            attributes: ['Year', 'Section', 'ProgramId', 'id'],
+            include: [ programInclude ]
+        });
+
+        if (!pys || pys.length === 0) {
+            return res.status(200).send({
+                successful: true,
+                message: "No ProgYrSec found",
+                count: 0,
+                data: []
+            });
+        } else {
+            return res.status(200).send({
+                successful: true,
+                message: "Retrieved all ProgYrSec",
+                count: pys.length,
+                data: pys
+            });
+        }
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+
+
 module.exports = {
     addProgYrSec,
     getProgYrSec,
@@ -302,5 +379,6 @@ module.exports = {
     updateProgYrSec,
     deleteProgYrSec,
     getAllProgYrSecByProgram,
-    getProgYrSecByDept
+    getProgYrSecByDept,
+    getProgYrSecByCourse
 };

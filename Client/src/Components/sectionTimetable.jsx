@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
+import { useAuth } from '../Components/authContext.jsx';
 
 const SectionTimetable = () => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +34,8 @@ const SectionTimetable = () => {
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        const deptId = '1'; // Hardcoded department ID
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByDept/${deptId}`);
+        const deptId = user.DepartmentId
+        const { data } = await axios.get(`/schedule/getSchedsByDept/${deptId}`);
         if (data.successful && data.data.length) {
           const scheds = data.data;
           setSchedules(scheds);
@@ -124,7 +128,7 @@ const SectionTimetable = () => {
         </div>
         <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
         <div className="text-xs italic">
-          Room {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Code} - {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Building}
+          Room: {schedule.Room.Code} - {schedule.Room.Building}
         </div>
       </div>
     );
