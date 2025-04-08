@@ -6,7 +6,7 @@ import TopMenu from "./callComponents/topMenu.jsx";
 import AddProfModal from "./callComponents/addProfModal.jsx";
 import EditProfModal from "./callComponents/editProfModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning.jsx";
-import ProfessorSearchFilter from "./callComponents/ProfessorSearchFilter.jsx";
+import ProfessorSearchFilter from "./callComponents/professorSearchFilter.jsx";
 import profV from "./Img/profV.png";
 import addBtn from "./Img/addBtn.png";
 import editBtn from "./Img/editBtn.png";
