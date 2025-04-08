@@ -72,13 +72,15 @@ const refresh = async (req, res) => {
         httpOnly: true,
         maxAge: ACCESS_TOKEN_EXPIRY * 1000,
         secure: false,
-        sameSite: 'Lax'
+        sameSite: 'Lax',
+        path: '/',
       });
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
         maxAge: REFRESH_TOKEN_EXPIRY * 1000,
         secure: false,
-        sameSite: 'Lax'
+        sameSite: 'Lax',
+        path: '/',
       });
 
       return res.json({ successful: true, message: "Tokens refreshed" });
@@ -122,13 +124,15 @@ const refreshTokens = async (req, res) => {
     httpOnly: true,
     maxAge: ACCESS_TOKEN_EXPIRY * 1000,
     secure: false,
-    sameSite: 'Lax'
+    sameSite: 'Lax',
+    path: '/',
   });
   res.cookie('refreshToken', newRefreshToken, {
     httpOnly: true,
     maxAge: REFRESH_TOKEN_EXPIRY * 1000,
     secure: false,
-    sameSite: 'Lax'
+    sameSite: 'Lax',
+    path: '/',
   });
 
   // Return the decoded token of the new access token
