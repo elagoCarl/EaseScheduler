@@ -326,12 +326,16 @@ const loginAccount = async (req, res) => {
             secure: false,
             sameSite: 'Lax',  // Changed from Strict to Lax
             maxAge: maxAge * 1000,
+            domain: 'https://ease-scheduler.vercel.app',
+            path: '/',
         });
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: false,
             sameSite: 'Lax',  // Changed from Strict to Lax
             maxAge: 60 * 60 * 24 * 30 * 1000,
+            domain: 'https://ease-scheduler.vercel.app',
+            path: '/',
         });
 
         return res.status(200).json({
