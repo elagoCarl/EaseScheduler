@@ -9,11 +9,11 @@ import bigpic from './Img/BigBog.svg';
 import timetables from './Img/timetable.svg';
 import ProfileBtn from './Img/ProfileBtn.png';
 import { useNavigate } from 'react-router-dom';
-
-
+import { useAuth } from '../Components/authContext'; // Import useAuth hook
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // Get the user from auth context
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
@@ -119,9 +119,17 @@ const HomePage = () => {
         </button>
       </div>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu with User Profile Info */}
       {isDropdownOpen && (
         <div ref={dropdownRef} className="absolute xs:top-50 xs:right-20 sm:top-62 sm:right-40 lg:top-60 lg:right-50 bg-white shadow-lg rounded-md p-4 z-10">
+          {/* User Profile Section */}
+          <div className="border-b border-gray-200 pb-3 mb-3">
+            <h3 className="font-semibold text-gray-800">{user?.Name || 'User'}</h3>
+            <p className="text-sm text-gray-600">{user?.Email || 'No email'}</p>
+            <p className="text-xs text-gray-500">
+              {user?.Department?.Name || 'No department'}
+            </p>
+          </div>
           <ul className="space-y-4">
             <li>
               <a href="/accountSettings" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
@@ -141,7 +149,7 @@ const HomePage = () => {
             <li>
               <button
                 onClick={handleLogout}
-                className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md"
+                className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md w-full text-left"
               >
                 Logout
               </button>
@@ -163,6 +171,13 @@ const HomePage = () => {
 
       {/* RIGHT SIDE */}
       <div className='w-full md:w-5/12 lg:w-5/12 xl:w-5/12 px-4 sm:px-0 flex flex-col items-center my-20 mx-40 relative'>
+        {/* Welcome message with user info */}
+        <div className="mb-8 text-center">
+          <h2 className="text-white text-2xl md:text-3xl font-bold mb-1">Welcome, {user?.Name || 'User'}!</h2>
+          <p className="text-white text-md md:text-lg opacity-90">{user?.Email || 'user@example.com'}</p>
+          <p className="text-white text-md md:text-lg">{user?.Department?.Name || 'Department'}</p>
+        </div>
+
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
