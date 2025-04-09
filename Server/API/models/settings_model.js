@@ -3,19 +3,19 @@ module.exports = (sequelize, DataTypes) => {
         StartHour: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: 7, 
+            defaultValue: 7,
             validate: {
-                min: 0,  
-                max: 23  
+                min: 0,
+                max: 23
             }
         },
         EndHour: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: 21, 
+            defaultValue: 21,
             validate: {
-                min: 1,  
-                max: 24  
+                min: 1,
+                max: 24
             }
         },
 
@@ -42,7 +42,6 @@ module.exports = (sequelize, DataTypes) => {
 
         // instead of studentBreak, we will enforce nextScheduleBreak which adds a break after every 
         // course
-        
         // // Hours of break per continuous hours of schedule
         // StudentBreak: {
         //     type: DataTypes.INTEGER,
@@ -51,12 +50,11 @@ module.exports = (sequelize, DataTypes) => {
         // },
 
         // remove the maxallowedgap and change it into nextScheduleBreak
-        MaxAllowedGap : {
+        MaxAllowedGap: {
             type: DataTypes.INTEGER,
             allowNull: false,
             defaultValue: 5
         },
-        
         nextScheduleBreak: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -65,7 +63,6 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
-    
     // Hook to prevent multiple records
     Settings.beforeCreate(async (settings, options) => {
         const count = await Settings.count();
