@@ -1,3 +1,5 @@
+const jwt = require("jsonwebtoken");
+const { REFRESH_TOKEN_SECRET } = process.env;
 const { Course, Professor, Department, Settings } = require("../models");
 const util = require("../../utils");
 const { Op } = require("sequelize");
@@ -100,11 +102,26 @@ const addCourse = async (req, res) => {
     }
 
     // Log the archive action
-    const accountId = "1"; // Example account ID for testing
+    const token = req.cookies?.refreshToken;
+            if (!token) {
+                return res.status(401).json({
+                    successful: false,
+                    message: "Unauthorized: refreshToken not found."
+                });
+            }
+            let decoded;
+            try {
+                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            } catch (err) {
+                return res.status(403).json({
+                    successful: false,
+                    message: "Invalid refreshToken."
+                });
+            }
+            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
-    const details = `Added Course${
-      addedCourses.length > 1 ? "s" : ""
-    }: ${addedCourses.join(", ")}`;
+    const details = `Added Course${addedCourses.length > 1 ? "s" : ""
+      }: ${addedCourses.join(", ")}`;
 
     await addHistoryLog(accountId, page, details);
 
@@ -166,8 +183,23 @@ const deleteCourse = async (req, res, next) => {
       where: { id: req.params.id },
     });
 
-    // Log the archive action
-    const accountId = "1"; // Example account ID for testing
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({
+        successful: false,
+        message: "Unauthorized: refreshToken not found."
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+    } catch (err) {
+      return res.status(403).json({
+        successful: false,
+        message: "Invalid refreshToken."
+      });
+    }
+    const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
     const details = `Deleted Course: Code - ${course.Code}, Description - ${course.Description}`;
 
@@ -301,7 +333,23 @@ const updateCourse = async (req, res) => {
     });
 
     // Log the archive action
-    const accountId = "1"; // Example account ID for testing
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({
+        successful: false,
+        message: "Unauthorized: refreshToken not found."
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+    } catch (err) {
+      return res.status(403).json({
+        successful: false,
+        message: "Invalid refreshToken."
+      });
+    }
+    const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
     const details = `Updated Course: Old Code: ${oldDetails.Code}, Desc: ${oldDetails.Description}, Duration: ${oldDetails.Duration}, Units: ${oldDetails.Units}, Type: ${oldDetails.Type}; New Code: ${Code}, Desc: ${Description}, Duration: ${Duration}, Units: ${Units}, Type: ${Type}`;
 
@@ -395,7 +443,7 @@ const addDeptCourse = async (req, res) => {
     }
 
     await course.addCourseDepts(deptId);
-
+    
     return res.status(200).json({
       successful: true,
       message: "Successfully associated course with department.",
@@ -481,7 +529,7 @@ const getCoursesByDept = async (req, res, next) => {
         },
       },
     });
-    
+
     if (!courses || courses.length === 0) {
       res.status(200).send({
         successful: true,

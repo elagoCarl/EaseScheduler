@@ -23,7 +23,6 @@ const addProf = async (req, res, next) => {
                 message: "Unauthorized: refreshToken not found."
             });
         }
-
         let decoded;
         try {
             decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
@@ -33,7 +32,6 @@ const addProf = async (req, res, next) => {
                 message: "Invalid refreshToken."
             });
         }
-        console.log("decodedDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD: ", decoded)
         const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
 
         for (const professorData of professorsToAdd) {
