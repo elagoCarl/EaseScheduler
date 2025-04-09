@@ -2,6 +2,8 @@ const { ProgYrSec, Program, Course } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+const jwt = require('jsonwebtoken');
+const { REFRESH_TOKEN_SECRET } = process.env
 
 // Add ProgYrSec (Single or Bulk)
 const addProgYrSec = async (req, res, next) => {
@@ -48,7 +50,23 @@ const addProgYrSec = async (req, res, next) => {
             await ProgYrSec.create({ Year, Section, ProgramId });
 
             // Log the archive action
-            const accountId = '1'; // Example account ID for testing
+            const token = req.cookies?.refreshToken;
+            if (!token) {
+                return res.status(401).json({
+                    successful: false,
+                    message: "Unauthorized: refreshToken not found."
+                });
+            }
+            let decoded;
+            try {
+                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            } catch (err) {
+                return res.status(403).json({
+                    successful: false,
+                    message: "Invalid refreshToken."
+                });
+            }
+            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
             const page = 'ProgYrSec';
             const details = `Added Program: ${program.Code}${Year}${Section}`;
 
@@ -172,7 +190,23 @@ const updateProgYrSec = async (req, res, next) => {
         const newProgram = await Program.findByPk(ProgramId);
 
         // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'ProgYrSec';
         const details = `Updated ProgYrSec: Old; Year: ${oldValues.Year}, Section: ${oldValues.Section}, Program: ${oldValues.ProgramName};;; New; Year: ${Year}, Section: ${Section}, Program: ${newProgram ? newProgram.Name : "Unknown"}`;
 
@@ -212,7 +246,23 @@ const deleteProgYrSec = async (req, res, next) => {
         await progYrSec.destroy();
 
         // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Schedules?';
         const details = `Deleted ProgYrSec record for: ${oldprog.ProgramName}${progYrSec.Year}${progYrSec.Section}`; // Include professor's name or other info
 
@@ -344,7 +394,7 @@ const getProgYrSecByCourse = async (req, res, next) => {
         const pys = await ProgYrSec.findAll({
             where: whereCondition,
             attributes: ['Year', 'Section', 'ProgramId', 'id'],
-            include: [ programInclude ]
+            include: [programInclude]
         });
 
         if (!pys || pys.length === 0) {

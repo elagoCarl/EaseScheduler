@@ -71,17 +71,15 @@ const refresh = async (req, res) => {
       res.cookie('jwt', newAccessToken, {
         httpOnly: true,
         maxAge: ACCESS_TOKEN_EXPIRY * 1000,
-        secure: false,
-        sameSite: 'Lax',
-        domain: 'https://ease-scheduler.vercel.app',
+        secure: true,
+        sameSite: 'None',
         path: '/',
       });
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
         maxAge: REFRESH_TOKEN_EXPIRY * 1000,
-        secure: false,
-        sameSite: 'Lax',
-        domain: 'https://ease-scheduler.vercel.app',
+        secure: true,
+        sameSite: 'None',
         path: '/',
       });
 
@@ -125,17 +123,15 @@ const refreshTokens = async (req, res) => {
   res.cookie('jwt', newAccessToken, {
     httpOnly: true,
     maxAge: ACCESS_TOKEN_EXPIRY * 1000,
-    secure: false,
-    sameSite: 'Lax',
-    domain: 'https://ease-scheduler.vercel.app',
+    secure: true,
+    sameSite: 'None',
     path: '/',
   });
   res.cookie('refreshToken', newRefreshToken, {
     httpOnly: true,
     maxAge: REFRESH_TOKEN_EXPIRY * 1000,
-    secure: false,
-    sameSite: 'Lax',
-    domain: 'https://ease-scheduler.vercel.app',
+    secure: true,
+    sameSite: 'None',
     path: '/',
   });
 

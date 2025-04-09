@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { BASE_URL } from '../axiosConfig';
 import PropTypes from 'prop-types';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -16,7 +17,7 @@ export const AuthProvider = ({ children }) => {
         const fetchCurrentUser = async () => {
             try {
                 const response = await axios.get(
-                    `https://easescheduler.onrender.com/accounts/getCurrentAccount?t=${Date.now()}`,
+                    `${BASE_URL}/accounts/getCurrentAccount?t=${Date.now()}`,
                     { withCredentials: true }
                 );
                 if (response.data.successful && response.data.account) {

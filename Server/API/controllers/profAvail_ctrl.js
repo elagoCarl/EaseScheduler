@@ -1,4 +1,6 @@
 const { ProfAvail, Professor } = require('../models')
+const jwt = require('jsonwebtoken');
+const { REFRESH_TOKEN_SECRET } = process.env;
 const util = require('../../utils')
 const { Op } = require('sequelize')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -66,7 +68,23 @@ const addProfessorAvail = async (req, res, next) => {
                 }
             });
             // Log the archive action
-            const accountId = '1'; // Example account ID for testing
+            const token = req.cookies?.refreshToken;
+            if (!token) {
+                return res.status(401).json({
+                    successful: false,
+                    message: "Unauthorized: refreshToken not found."
+                });
+            }
+            let decoded;
+            try {
+                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            } catch (err) {
+                return res.status(403).json({
+                    successful: false,
+                    message: "Invalid refreshToken."
+                });
+            }
+            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
             const page = 'Professor Availability';
             const details = `Added Professor Availability${prof.Day, prof.ProfessorId}`;
 
@@ -150,7 +168,7 @@ const getProfAvailByProf = async (req, res, next) => {
         const professorAvails = await ProfAvail.findAll({
             where: { ProfessorId: req.params.id }
         })
-        
+
         if (professorAvails.length === 0) {
             return res.status(200).json({
                 successful: true,
@@ -235,7 +253,23 @@ const updateProfessorAvail = async (req, res, next) => {
         });
 
         // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Professor Availability';
         const details = `Updated Professor Availability: Old; Day: ${profAvail.Day}, Start Time: ${profAvail.Start_time}, End Time: ${profAvail.End_time}, Professor Id: ${profAvail.ProfessorId};;; New; Day: ${Day}, Start Time: ${Start_time}, End Time: ${End_time}, Professor Id: ${ProfessorId}`;
 
@@ -277,7 +311,23 @@ const deleteProfessorAvail = async (req, res, next) => {
         }
 
         // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Professor Availability';
         const details = `Deleted Professor Availability${professorAvail.Day, professorAvail.ProfessorId}`;
 
