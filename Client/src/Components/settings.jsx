@@ -83,7 +83,7 @@ const Settings = () => {
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
-        setOriginalSettings({...settings }); 
+        setOriginalSettings({ ...settings });
         setIsEditing(false);
         setShowSaveModal(false);
       } else {
@@ -189,7 +189,7 @@ const Settings = () => {
       {/* Main Content */}
       <div className="flex flex-col justify-center items-center h-screen w-full px-20">
         {/* Settings Container */}
-        <div className="bg-white p-4 rounded-lg flex flex-col items-center w-10/12 max-h-[80vh]">
+        <div className="bg-white rounded-lg flex flex-col items-center w-8/12 max-h-[80vh]">
           <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
               System Settings Configuration
@@ -218,7 +218,7 @@ const Settings = () => {
             <form onSubmit={(e) => e.preventDefault()}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* School Hours Section */}
-                <div className="bg-customLightBlue2 p-4 rounded-lg">
+                <div className="bg-blue-200/60 p-4 rounded-lg">
                   <h3 className="text-customBlue1 font-semibold mb-4">School Hours</h3>
 
                   <div className="mb-4">
@@ -230,7 +230,7 @@ const Settings = () => {
                       value={settings.StartHour}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-500 leading-tight focus:outline-none focus:shadow-outline"
                     >
                       {generateTimeOptions(0, 12)}
                     </select>
@@ -245,7 +245,7 @@ const Settings = () => {
                       value={settings.EndHour}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                      className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-500 leading-tight focus:outline-none focus:shadow-outline"
                     >
                       {generateTimeOptions(13, 24)}
                     </select>
@@ -253,7 +253,7 @@ const Settings = () => {
                 </div>
 
                 {/* Professor Settings */}
-                <div className="bg-customLightBlue2 p-4 rounded-lg">
+                <div className="bg-blue-200/60 p-4 rounded-lg">
                   <h3 className="text-customBlue1 font-semibold mb-4">Professor Settings</h3>
 
                   <div className="mb-4">
@@ -290,7 +290,7 @@ const Settings = () => {
                   </div>
                 </div>
 
-                <div className="bg-customLightBlue2 p-4 rounded-lg">
+                <div className="bg-blue-200/60 p-4 rounded-lg">
                   <h3 className="text-customBlue1 font-semibold mb-4">Student Settings</h3>
 
                   <div className="mb-4">
@@ -310,7 +310,7 @@ const Settings = () => {
                   </div>
                 </div>
 
-                <div className="bg-customLightBlue2 p-4 rounded-lg">
+                <div className="bg-blue-200/60 p-4 rounded-lg">
                   <h3 className="text-customBlue1 font-semibold mb-4">Schedule Settings</h3>
 
                   <div className="mb-4">
