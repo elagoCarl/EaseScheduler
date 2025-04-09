@@ -42,7 +42,6 @@ module.exports = (sequelize, DataTypes) => {
 
         // instead of studentBreak, we will enforce nextScheduleBreak which adds a break after every 
         // course
-
         // // Hours of break per continuous hours of schedule
         // StudentBreak: {
         //     type: DataTypes.INTEGER,
@@ -56,7 +55,6 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 5
         },
-
         nextScheduleBreak: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -65,7 +63,6 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         timestamps: true
     });
-
     // Hook to prevent multiple records
     Settings.beforeCreate(async (settings, options) => {
         const count = await Settings.count();

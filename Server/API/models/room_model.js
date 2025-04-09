@@ -47,3 +47,5 @@ module.exports = (sequelize, DataTypes) => {
 
     return Room
 }
+
+

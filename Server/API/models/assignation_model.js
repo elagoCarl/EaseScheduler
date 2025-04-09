@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         ProfessorId: {
             type: DataTypes.INTEGER,
-            allowNull: true, // Ensure NULL values are allowed
+            allowNull: true, 
             references: {
                 model: 'Professors',
                 key: 'id'
@@ -40,29 +40,30 @@ module.exports = (sequelize, DataTypes) => {
         Assignation.belongsTo(models.Professor, {
             foreignKey: {
                 name: 'ProfessorId',
-                allowNull: true, // Ensure that ProfessorId is nullable
+                allowNull: true, 
             },
-            onDelete: 'SET NULL', // When a professor is deleted, set ProfessorId to NULL
+            onDelete: 'SET NULL',
             onUpdate: 'CASCADE',
         });
-        
-        
+
         Assignation.belongsTo(models.Course, {
             foreignKey: {
-                allowNull: false // Ensures CourseId is required
+                allowNull: false 
             },
-            onDelete: 'CASCADE', // Deletes Assignation when the related Course is deleted
+            onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });
-        
+
         Assignation.belongsTo(models.Department, {
             foreignKey: {
                 name: 'DepartmentId',
-                allowNull: true, // Change from false to true
+                allowNull: true, 
             },
-            onDelete: 'CASCADE', // When a department is deleted, set DepartmentId to NULL
+            onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });
+
+        Assignation.belongsToMany(models.Room, { through: 'Schedule' });
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'

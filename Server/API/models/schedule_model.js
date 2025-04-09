@@ -18,14 +18,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.TIME,
             allowNull: false
         },
-        RoomId: {
-            type: DataTypes.INTEGER,
-            allowNull: false
-        },
-        AssignationId: {
-            type: DataTypes.INTEGER,
-            allowNull: false
-        },
+        isLocked: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
+        }
     }, {
         timestamps: true,
         indexes: [
