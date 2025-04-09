@@ -12,7 +12,6 @@ const ProgYrSec = () => {
     const [sectionFormData, setSectionFormData] = useState({
         Year: "",
         Section: "",
-        No_Of_Students: "",
         ProgramId: ""
     });
     const [isSectionEditing, setIsSectionEditing] = useState(false);
@@ -57,8 +56,8 @@ const ProgYrSec = () => {
 
     const handleSectionChange = (e) => {
         const { name, value } = e.target;
-        // Convert Year and No_Of_Students to integers when appropriate
-        if (name === "Year" || name === "No_Of_Students") {
+        // Convert Year to integer when appropriate
+        if (name === "Year") {
             setSectionFormData({ ...sectionFormData, [name]: value === "" ? "" : parseInt(value) });
         } else {
             setSectionFormData({ ...sectionFormData, [name]: value });
@@ -105,7 +104,6 @@ const ProgYrSec = () => {
         setSectionFormData({
             Year: "",
             Section: "",
-            No_Of_Students: "",
             ProgramId: ""
         });
         setIsSectionEditing(false);
@@ -116,7 +114,6 @@ const ProgYrSec = () => {
         setSectionFormData({
             Year: section.Year,
             Section: section.Section,
-            No_Of_Students: section.No_Of_Students,
             ProgramId: section.ProgramId,
         });
         setIsSectionEditing(true);
@@ -242,20 +239,6 @@ const ProgYrSec = () => {
                                             required
                                         />
                                     </div>
-                                    <div className="mb-4">
-                                        <label htmlFor="students" className="block font-medium text-gray-700 mb-2">Number of Students</label>
-                                        <input
-                                            id="students"
-                                            name="No_Of_Students"
-                                            type="number"
-                                            min="1"
-                                            placeholder="Enter number of students"
-                                            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500"
-                                            value={sectionFormData.No_Of_Students}
-                                            onChange={handleSectionChange}
-                                            required
-                                        />
-                                    </div>
                                     <div className="flex justify-end mt-6 space-x-3">
                                         {isSectionEditing && (
                                             <button
@@ -294,7 +277,6 @@ const ProgYrSec = () => {
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Program</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Year</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
-                                                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Students</th>
                                                         <th className="px-2 sm:px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -307,7 +289,6 @@ const ProgYrSec = () => {
                                                             </td>
                                                             <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.Year}</td>
                                                             <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.Section}</td>
-                                                            <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.No_Of_Students}</td>
                                                             <td className="px-2 sm:px-4 py-2 text-sm text-center">
                                                                 <button
                                                                     className="inline-block px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded mr-1 sm:mr-2 hover:bg-blue-200"

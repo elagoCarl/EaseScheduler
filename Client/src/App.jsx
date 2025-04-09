@@ -36,7 +36,6 @@ const App = () => {
           <Route path="/loginPage" element={<LoginPage />} />
           <Route path="/forgotPassPage" element={<ForgotPass />} />
           <Route path="/otpVerification" element={<OTPVerification />} />
-          <Route path="/progYrSec" element={<ProgYrSec />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
@@ -56,6 +55,7 @@ const App = () => {
             <Route path="/accountList" element={<AccountList />} />
             <Route path="/assignationsCourseProf" element={<AssignationsCourseProf />} />
             <Route path="/deptProg" element={<DeptProg />} />
+            <Route path="/progYrSec" element={<ProgYrSec />} />
 
             {/* ERROR handling routes */}
             <Route path="*" element={<Page404 />} />
