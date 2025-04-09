@@ -2,8 +2,8 @@ import axios from 'axios';
 const renderURL = 'https://easescheduler.onrender.com';
 const localURL = 'http://localhost:8080';
 // Set this to true during development, false before pushing to production
-const isDevelopment = true;
-const BASE_URL = isDevelopment ? localURL : renderURL;
+export const isDevelopment = true;
+export const BASE_URL = isDevelopment ? localURL : renderURL;
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,

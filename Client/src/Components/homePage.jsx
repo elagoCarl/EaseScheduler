@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios'; // Added axios import
+import axios from 'axios';
+import { BASE_URL } from '../axiosConfig';
 import image5 from './Img/5.jpg';
 import room from './Img/room.svg';
 import person from './Img/person.svg'
@@ -78,8 +79,9 @@ const HomePage = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await axios.post('https://easescheduler.onrender.com/accounts/logoutAccount', {}, {
-        withCredentials: true, // Ensures cookies are sent with the request
+      // Using regular axios with BASE_URL directly to bypass the refresh interceptor
+      const response = await axios.post(`${BASE_URL}/accounts/logoutAccount`, {}, {
+        withCredentials: true,
         headers: {
           'Content-Type': 'application/json'
         }

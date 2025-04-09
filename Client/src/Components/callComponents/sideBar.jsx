@@ -2,7 +2,8 @@ import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../Components/authContext';
-import axios from 'axios'; // Added axios import
+import axios from 'axios';
+import { BASE_URL } from '../../axiosConfig';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
@@ -33,7 +34,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   const handleLogout = async () => {
     try {
-      const response = await axios.post('https://easescheduler.onrender.com/accounts/logoutAccount', {}, {
+      const response = await axios.post(`${BASE_URL}/accounts/logoutAccount`, {}, {
         withCredentials: true, // ensure cookies are sent
         headers: { 'Content-Type': 'application/json' }
       });
