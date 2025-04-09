@@ -12,13 +12,13 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Section is required." }
             }
         },
-        No_Of_Students:{
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            validate: {
-                notEmpty: { msg: "Number of students is required." }
-            }
-        }
+        // No_Of_Students:{
+        //     type: DataTypes.INTEGER,
+        //     allowNull: false,
+        //     validate: {
+        //         notEmpty: { msg: "Number of students is required." }
+        //     }
+        // }
     }, {
         timestamps: true
     })

@@ -216,16 +216,48 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
 
+      {/* Departments & Programs Section with dropdown */}
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left"
-          onClick={() => {
-            navigate('/deptProg');
-            toggleSidebar(false);
-          }}
+          className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+          onClick={() => toggleSubContent('deptProg')}
         >
           Departments & Programs
+          <svg
+            className={`w-9 h-9 transform transition-transform ${activeSection === 'deptProg' ? 'rotate-180' : ''
+              }`}
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth="5"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
+        <div
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
+            }`}
+        >
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/deptProg');
+              toggleSidebar(false);
+            }}
+          >
+            Manage Depts & Programs
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/progYrSec');
+              toggleSidebar(false);
+            }}
+          >
+            Program, Year, and Sections
+          </button>
+        </div>
       </div>
 
       {/* Account Section */}

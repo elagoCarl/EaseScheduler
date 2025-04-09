@@ -22,6 +22,7 @@ import Page403 from "./Components/page403";
 import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
 import DeptProg from "./Components/deptProg";
+import ProgYrSec from "./Components/progYrSec";
 
 
 const App = () => {
@@ -34,6 +35,7 @@ const App = () => {
           <Route path="/loginPage" element={<LoginPage />} />
           <Route path="/forgotPassPage" element={<ForgotPass />} />
           <Route path="/otpVerification" element={<OTPVerification />} />
+          <Route path="/progYrSec" element={<ProgYrSec />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
