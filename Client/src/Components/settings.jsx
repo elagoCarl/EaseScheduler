@@ -19,10 +19,8 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  // Modal states
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
@@ -56,23 +54,23 @@ const Settings = () => {
 
   const handleSaveClick = (e) => {
     e.preventDefault();
-    // Check if there are any changes
+    // pang check if may changes
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
     if (hasChanges) {
       setShowSaveModal(true);
     } else {
-      // No changes, just exit edit mode
+      // pag wala binago wala modal
       setIsEditing(false);
     }
   };
 
   const handleCancelClick = () => {
-    // Check if there are any changes
+    // pang check if may changes
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
     if (hasChanges) {
       setShowCancelModal(true);
     } else {
-      // No changes, just exit edit mode
+      //pag wala binago wala modal
       setIsEditing(false);
     }
   };
@@ -85,7 +83,7 @@ const Settings = () => {
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
-        setOriginalSettings({ ...settings }); // Update original settings
+        setOriginalSettings({...settings }); 
         setIsEditing(false);
         setShowSaveModal(false);
       } else {
@@ -146,7 +144,6 @@ const Settings = () => {
     );
   };
 
-  // Modal component for Cancel confirmation
   const CancelConfirmationModal = () => {
     if (!showCancelModal) return null;
 
