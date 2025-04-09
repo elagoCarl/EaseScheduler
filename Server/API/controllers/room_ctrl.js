@@ -1,6 +1,6 @@
 const { Room, Department } = require('../models')
 const jwt = require('jsonwebtoken')
-const { REFRESH_TOKEN_SECRET } = require('../../config/config')
+const { REFRESH_TOKEN_SECRET } = process.env
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
@@ -163,22 +163,22 @@ const deleteRoom = async (req, res, next) => {
 
         // Log the archive action
         const token = req.cookies?.refreshToken;
-            if (!token) {
-                return res.status(401).json({
-                    successful: false,
-                    message: "Unauthorized: refreshToken not found."
-                });
-            }
-            let decoded;
-            try {
-                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
-            } catch (err) {
-                return res.status(403).json({
-                    successful: false,
-                    message: "Invalid refreshToken."
-                });
-            }
-            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Room';
         const details = `Deleted Room for: ${room.Building} ${room.Code}`; // Include professor's name or other info
 
@@ -257,22 +257,22 @@ const updateRoom = async (req, res, next) => {
         })
         // Log the archive action
         const token = req.cookies?.refreshToken;
-            if (!token) {
-                return res.status(401).json({
-                    successful: false,
-                    message: "Unauthorized: refreshToken not found."
-                });
-            }
-            let decoded;
-            try {
-                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
-            } catch (err) {
-                return res.status(403).json({
-                    successful: false,
-                    message: "Invalid refreshToken."
-                });
-            }
-            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Professor';
         const details = `Updated Room: Old; Code: ${room.Code}, Floor: ${room.Floor}, Building: ${room.Building}, Type: ${room.Type};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Type: ${Type}`;
 
