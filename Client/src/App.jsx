@@ -23,6 +23,7 @@ import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
 import DeptProg from "./Components/deptProg";
 import ProgYrSec from "./Components/progYrSec";
+import Settings from "./Components/settings"
 
 
 const App = () => {
@@ -48,6 +49,7 @@ const App = () => {
             <Route path="/course" element={<Course />} />
             <Route path="/professor" element={<Professor />} />
             <Route path="/addConfigSchedule" element={<AddConfigSchedule />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/roomTimetable" element={<RoomTimetable />} />
             <Route path="/profTimetable" element={<ProfTimetable />} />
             <Route path="/sectionTimetable" element={<SectionTimetable />} />
