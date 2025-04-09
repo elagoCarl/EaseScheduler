@@ -53,10 +53,11 @@ const addCourse = async (req, res) => {
         });
       }
 
-      if (Duration > settings.MaxCourseDuration) {
+      const availableHours = settings.EndHour - settings.StartHour;
+      if (Duration > availableHours) {
         return res.status(406).json({
           successful: false,
-          message: "Duration limit reached.",
+          message: `Duration cannot exceed available hours (${availableHours} hours between ${settings.StartHour}:00 and ${settings.EndHour}:00).`,
         });
       }
 
@@ -103,22 +104,22 @@ const addCourse = async (req, res) => {
 
     // Log the archive action
     const token = req.cookies?.refreshToken;
-            if (!token) {
-                return res.status(401).json({
-                    successful: false,
-                    message: "Unauthorized: refreshToken not found."
-                });
-            }
-            let decoded;
-            try {
-                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
-            } catch (err) {
-                return res.status(403).json({
-                    successful: false,
-                    message: "Invalid refreshToken."
-                });
-            }
-            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+    if (!token) {
+      return res.status(401).json({
+        successful: false,
+        message: "Unauthorized: refreshToken not found."
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+    } catch (err) {
+      return res.status(403).json({
+        successful: false,
+        message: "Invalid refreshToken."
+      });
+    }
+    const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
     const details = `Added Course${addedCourses.length > 1 ? "s" : ""
       }: ${addedCourses.join(", ")}`;
@@ -305,10 +306,11 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    if (Duration > settings.MaxCourseDuration) {
+    const availableHours = settings.EndHour - settings.StartHour;
+    if (Duration > availableHours) {
       return res.status(406).json({
         successful: false,
-        message: "Duration limit reached.",
+        message: `Duration cannot exceed available hours (${availableHours} hours between ${settings.StartHour}:00 and ${settings.EndHour}:00).`,
       });
     }
 
@@ -443,7 +445,7 @@ const addDeptCourse = async (req, res) => {
     }
 
     await course.addCourseDepts(deptId);
-    
+
     return res.status(200).json({
       successful: true,
       message: "Successfully associated course with department.",
