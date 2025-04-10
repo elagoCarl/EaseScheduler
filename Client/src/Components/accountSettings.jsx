@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Background from './Img/4.jpg';
+import Background from './Img/8.jpg';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './callComponents/sideBar.jsx';
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -80,7 +80,7 @@ const AccountSettings = () => {
   const archiveAccount = async () => {
     try {
       // Call the API endpoint to archive the account
-      const response = await axios.post(`/accArchive/archiveAccount/${user.id}`);
+      const response = await axios.post(`/accArchive/archiveAccount/${ user.id }`);
 
       if (response.data.successful) {
         setMessage({
@@ -142,7 +142,7 @@ const AccountSettings = () => {
     <div
       id="bgImg"
       className="bg-cover bg-center bg-no-repeat h-screen w-screen"
-      style={{ backgroundImage: `url(${Background})` }}>
+      style={{ backgroundImage: `url(${ Background })` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       {/* Top Menu */}
@@ -151,7 +151,7 @@ const AccountSettings = () => {
       {showConfirmDialog && <ConfirmationDialog />}
       {/* Main Content */}
       <div className="h-screen flex justify-center items-center">
-        <div className="relative bg-customBlue1 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
+        <div className="relative py-30 mt-70 bg-blue-500 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
           <button
             className="absolute top-3 right-10 text-white font-bold text-2xl hover:text-red-500"
             onClick={() => navigate('/')}>
@@ -163,7 +163,7 @@ const AccountSettings = () => {
           </h1>
 
           {message.text && (
-            <div className={`mt-4 p-2 rounded text-center ${message.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+            <div className={`mt-4 p-2 rounded text-center ${ message.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white' }`}>
               {message.text}
             </div>
           )}
@@ -177,7 +177,7 @@ const AccountSettings = () => {
                 Full Name:
               </label>
               <input
-                className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white"
                 id="fullName"
                 type="text"
                 value={user?.Name || ''} // Use Name from auth context
@@ -193,7 +193,7 @@ const AccountSettings = () => {
                 Email Address:
               </label>
               <input
-                className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                className="border rounded w-full py-10 px-3 pl-10 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white"
                 id="email"
                 type="email"
                 value={user?.Email || ''} // Use Email from auth context
@@ -254,7 +254,7 @@ const AccountSettings = () => {
             <div className="flex justify-end mt-20 space-x-8 mr-auto">
               <div>
                 <button
-                  className="bg-customRed hover:bg-red-800 text-white font-bold py-8 px-12 rounded"
+                  className="bg-customRed hover:bg-red-800 text-white font-bold py-8 px-12 rounded duration-300"
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
@@ -266,7 +266,7 @@ const AccountSettings = () => {
               </div>
               <div>
                 <button
-                  className="bg-customLightBlue2 hover:bg-blue-300 text-gray-600 font-bold py-7 px-23 rounded"
+                  className="bg-gray-200 hover:bg-blue-300 text-gray-600 font-bold py-7 px-23 rounded duration-300"
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();

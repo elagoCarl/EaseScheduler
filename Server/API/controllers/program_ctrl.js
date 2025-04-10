@@ -309,6 +309,32 @@ const getAllProgramByCourse = async (req, res, next) => {
   }
 };
 
+const getAllProgramByDept = async (req, res, next) => {
+  try {
+    const programs = await Program.findAll({ where: { DepartmentId: req.params.id } })
+    if (!programs || programs.length === 0) {
+      return res.status(200).json({
+        successful: false,
+        message: "No programs found.",
+        count: 0,
+        data: [],
+      })
+    }
+
+    return res.status(200).json({
+      successful: true,
+      message: "Retrieved all programs.",
+      count: programs.length,
+      data: programs,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      successful: false,
+      message: error.message || "An unexpected error occurred.",
+    });
+  }
+};
+
 const addCourseProg = async (req, res) => {
   try {
     const { courseId, programId } = req.body;
@@ -474,11 +500,11 @@ const updateCourseProg = async (req, res, next) => {
       });
     }
 
-    const oldProg = await Department.findByPk(oldProgId);
+    const oldProg = await Program.findByPk(oldProgId);
     if (!oldProg) {
       return res.status(404).json({
         successful: false,
-        message: "Department not found.",
+        message: "Program not found.",
       });
     }
 
@@ -490,11 +516,11 @@ const updateCourseProg = async (req, res, next) => {
       });
     }
 
-    const newProg = await Department.findByPk(newProgId);
+    const newProg = await Program.findByPk(newProgId);
     if (!newProg) {
       return res.status(404).json({
         successful: false,
-        message: "Department not found.",
+        message: "Program not found.",
       });
     }
 
@@ -530,4 +556,4 @@ const updateCourseProg = async (req, res, next) => {
   }
 };
 
-module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByCourse, addCourseProg, deleteCourseProg, getCoursesByProg, updateCourseProg };
+module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByCourse, addCourseProg, deleteCourseProg, getCoursesByProg, updateCourseProg, getAllProgramByDept };

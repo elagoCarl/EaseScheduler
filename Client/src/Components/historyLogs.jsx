@@ -118,13 +118,13 @@ const HistoryLogs = () => {
   };
 
   return (
-    <div className="bg-cover bg-no-repeat min-h-screen" style={{ backgroundImage: `url(${Background})` }}>
+    <div className="bg-cover bg-no-repeat min-h-screen" style={{ backgroundImage: `url(${ Background })` }}>
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
 
       <div className="container mx-auto px-4 py-8 pt-20">
         <div className="bg-white bg-opacity-95 shadow-lg rounded-lg w-full p-4 md:p-8 my-60">
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-800 text-center mb-4">History Logs</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-white text-center mb-4 bg-blue-600 p-5 rounded-lg">History Logs</h1>
 
           <div className="mb-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div className="relative">
