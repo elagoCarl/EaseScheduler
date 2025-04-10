@@ -63,6 +63,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         EASE<span className="text-white">SCHEDULER</span>
       </button>
 
+      {/* User Profile Section */}
+      <div className="flex flex-col items-center px-5 py-4 border-b border-gray-700">
+        <div className="text-center">
+          <h3 className="font-semibold truncate max-w-full">{user?.Name || 'User'}</h3>
+          <p className="text-sm text-gray-300 truncate max-w-full">{user?.Email || 'No email'}</p>
+          <p className="text-xs text-gray-400 truncate max-w-full">
+            {user?.Department?.Name || 'No department'}
+          </p>
+        </div>
+      </div>
+
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"

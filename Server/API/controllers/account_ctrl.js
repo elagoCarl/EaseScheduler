@@ -1,4 +1,4 @@
-const { Account, OTP, Session } = require('../models'); // Ensure model name matches exported model
+const { Account, OTP, Session, Department } = require('../models'); // Ensure model name matches exported model
 const util = require('../../utils');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken')
@@ -695,7 +695,13 @@ const getCurrentAccount = async (req, res, next) => {
             // Try verifying the access token
             const decoded = jwt.verify(AToken, ACCESS_TOKEN_SECRET);
             const account = await Account.findByPk(decoded.id, {
-                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                include: [
+                    {
+                        model: Department,
+                        attributes: ['Name']
+                    }
+                ]
             });
 
             if (!account) {
@@ -717,7 +723,13 @@ const getCurrentAccount = async (req, res, next) => {
                 try {
                     const newDecoded = await refreshTokens(req, res);
                     const account = await Account.findByPk(newDecoded.id, {
-                        attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                        attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                        include: [
+                            {
+                                model: Department,
+                                attributes: ['Name']
+                            }
+                        ]
                     });
                     if (!account) {
                         return res.status(404).json({
@@ -750,7 +762,13 @@ const getCurrentAccount = async (req, res, next) => {
         try {
             const newDecoded = await refreshTokens(req, res);
             const account = await Account.findByPk(newDecoded.id, {
-                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                include: [
+                    {
+                        model: Department,
+                        attributes: ['Name']
+                    }
+                ]
             });
             if (!account) {
                 return res.status(404).json({
