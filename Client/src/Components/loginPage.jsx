@@ -19,7 +19,7 @@ const LoginPage = () => {
 
     try {
       const response = await axios.post(
-        `${BASE_URL}/accounts/loginAccount`,
+        `${ BASE_URL }/accounts/loginAccount`,
         {
           Email: email,
           Password: password,
@@ -38,14 +38,14 @@ const LoginPage = () => {
         navigate('/homePage'); // ✅ Redirect after successful login
       } else {
         if (response.data.message === "Account not verified. OTP sent to email.") {
-          navigate(`/otpVerification?email=${email}`); // ✅ Redirect to OTP verification
+          navigate(`/otpVerification?email=${ email }`); // ✅ Redirect to OTP verification
         } else {
           setError(response.data.message || 'Login failed. Please try again.');
         }
       }
     } catch (err) {
       if (err.response?.data?.message === 'Account not verified. OTP sent to email.') {
-        navigate(`/otpVerification?email=${email}`);
+        navigate(`/otpVerification?email=${ email }`);
       } else {
         setError(
           err.response?.data?.message || 'An error occurred. Please try again later.'
@@ -62,7 +62,7 @@ const LoginPage = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${image2})` }}
+      style={{ backgroundImage: `url(${ image2 })` }}
     >
       <section className="justify-center items-center text-center m-auto w-11/12 sm:w-9/12 md:w-5/12 lg:w-4/12">
         <button
@@ -143,7 +143,7 @@ const LoginPage = () => {
           <button
             type="submit"
             id="signInBtn"
-            className="w-full text-white bg-blue-700 hover:bg-gray-500 font-medium rounded-lg text-sm py-2.5 text-center"
+            className="w-full text-white bg-blue-700 hover:bg-blue-500 font-medium rounded-lg text-sm py-2.5 text-center duration-300"
           >
             Sign in
           </button>
