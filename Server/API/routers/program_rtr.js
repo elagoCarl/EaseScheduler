@@ -1,6 +1,8 @@
 const express = require('express');
 const program_ctrl = require('../controllers/program_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+router.use(requireAuth)
 
 router.get('/getProgram/:id', program_ctrl.getProgram);
 router.get('/getAllProgram', program_ctrl.getAllProgram);

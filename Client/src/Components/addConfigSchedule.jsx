@@ -11,10 +11,10 @@ import { useAuth } from '../Components/authContext.jsx';
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
-  console.log("userid: ", user.id);
-  const deptId = user.DepartmentId
+  const deptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
+
   // State management
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
@@ -34,8 +34,25 @@ const AddConfigSchedule = () => {
   const [selectedScheduleId, setSelectedScheduleId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [professors, setProfessors] = useState([]);
+  const [automateType, setAutomateType] = useState('room');
+  const [prioritizedProfessors, setPrioritizedProfessors] = useState([]);
+  const [prioritizedRooms, setPrioritizedRooms] = useState([]);
+  const [newPriorityProfessor, setNewPriorityProfessor] = useState("");
+  const [newPriorityRoom, setNewPriorityRoom] = useState("");
+
+  const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
   // Helper functions
+  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+
+  const calculateEventPosition = event => {
+    const [sH, sM] = event.Start_time.split(':').map(Number);
+    const [eH, eM] = event.End_time.split(':').map(Number);
+    const duration = (eH - sH) + (eM - sM) / 60;
+    return { top: `${(sM / 60) * 100}%`, height: `${duration * 100}%` };
+  };
+
   const transformErrorMessage = (message) => {
     if (!message) return message;
     let newMessage = message.replace(/Room\s+(\d+)\b/, (match, roomId) => {
@@ -48,16 +65,6 @@ const AddConfigSchedule = () => {
     });
   };
 
-  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
-  const calculateEventPosition = event => {
-    const [sH, sM] = event.Start_time.split(':').map(Number);
-    const [eH, eM] = event.End_time.split(':').map(Number);
-    const duration = (eH - sH) + (eM - sM) / 60;
-    return { top: `${(sM / 60) * 100}%`, height: `${duration * 100}%` };
-  };
-
-  const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
-
   // Effects
   useEffect(() => {
     if (notification) {
@@ -69,12 +76,14 @@ const AddConfigSchedule = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [roomsRes, assignationsRes] = await Promise.all([
+        const [roomsRes, assignationsRes, professorsRes] = await Promise.all([
           axios.get(`/room/getRoomsByDept/${deptId}`),
-          axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`)
+          axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`),
+          axios.get(`/prof/getProfByDept/${deptId}`)
         ]);
         if (roomsRes.data.successful) setRooms(roomsRes.data.data);
         if (assignationsRes.data.successful) setAssignations(assignationsRes.data.data);
+        if (professorsRes.data.successful) setProfessors(professorsRes.data.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -164,16 +173,25 @@ const AddConfigSchedule = () => {
   };
 
   const handleAutomateSchedule = async () => {
-    if (!formData.room_id) {
-      setNotification({ type: 'error', message: "Please select a room first before automating." });
-      return;
-    }
     setIsAutomating(true);
+
     try {
-      const response = await axios.post(`/schedule/automate`, { roomId: formData.room_id });
+      const payload = {
+        DepartmentId: deptId,
+        prioritizedProfessors: prioritizedProfessors.map(val => parseInt(val)),
+        prioritizedRooms: prioritizedRooms.map(val => parseInt(val))
+      };
+
+      let endpoint = '/schedule/automate';
+      if (automateType === 'room' && formData.room_id) {
+        endpoint = `/schedule/automate/${formData.room_id}`;
+      }
+
+      const response = await axios.post(endpoint, payload);
+
       if (response.data.successful) {
-        setNotification({ type: 'success', message: "Schedule automation initiated!" });
-        fetchSchedulesForRoom(formData.room_id);
+        setNotification({ type: 'success', message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} initiated successfully!` });
+        if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
       } else {
         setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
       }
@@ -217,6 +235,28 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const handleAddPriorityProfessor = () => {
+    if (newPriorityProfessor && !prioritizedProfessors.includes(newPriorityProfessor)) {
+      setPrioritizedProfessors(prev => [...prev, newPriorityProfessor]);
+      setNewPriorityProfessor("");
+    }
+  };
+
+  const handleRemovePriorityProfessor = (id) => {
+    setPrioritizedProfessors(prev => prev.filter(val => val !== id));
+  };
+
+  const handleAddPriorityRoom = () => {
+    if (newPriorityRoom && !prioritizedRooms.includes(newPriorityRoom)) {
+      setPrioritizedRooms(prev => [...prev, newPriorityRoom]);
+      setNewPriorityRoom("");
+    }
+  };
+
+  const handleRemovePriorityRoom = (id) => {
+    setPrioritizedRooms(prev => prev.filter(val => val !== id));
+  };
+
   const resetForm = () => {
     setFormData({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
     setCustomStartTime("");
@@ -258,16 +298,14 @@ const AddConfigSchedule = () => {
                   e.stopPropagation();
                   setSelectedSchedule(schedule);
                   setIsEditModalOpen(true);
-                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
-                  title="Edit schedule">
+                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
                   <img src={editBtn} alt="Edit" className="w-10 h-10" />
                 </button>
                 <button onClick={(e) => {
                   e.stopPropagation();
                   setSelectedScheduleId(schedule.id);
                   setIsDeleteWarningOpen(true);
-                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors"
-                  title="Delete schedule">
+                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
                   <img src={delBtn} alt="Delete" className="w-10 h-10" />
                 </button>
               </div>
@@ -282,7 +320,7 @@ const AddConfigSchedule = () => {
     if (!selectedRoom) return null;
     return schedules
       .filter(schedule => {
-        const [sH, sM] = schedule.Start_time.split(':').map(Number);
+        const [sH] = schedule.Start_time.split(':').map(Number);
         const [eH, eM] = schedule.End_time.split(':').map(Number);
         return schedule.Day === dayIndex + 1 && sH <= hour && (eH > hour || (eH === hour && eM > 0));
       })
@@ -300,15 +338,13 @@ const AddConfigSchedule = () => {
             {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { setSelectedSchedule(event); setIsEditModalOpen(true); }}
-              className="p-1 hover:bg-blue-100 rounded-full transition-colors" title="Edit schedule">
+            <button onClick={() => { setSelectedSchedule(event); setIsEditModalOpen(true); }} className="p-1 hover:bg-blue-100 rounded-full transition-colors">
               <img src={editBtn} alt="Edit" className="w-10 h-10" />
             </button>
             <button onClick={() => {
               setSelectedScheduleId(event.id);
               setIsDeleteWarningOpen(true);
-            }} disabled={isDeleting} className="p-1 hover:bg-red-100 rounded-full transition-colors"
-              title="Delete schedule">
+            }} disabled={isDeleting} className="p-1 hover:bg-red-100 rounded-full transition-colors">
               <img src={delBtn} alt="Delete" className="w-10 h-10" />
             </button>
           </div>
@@ -331,13 +367,10 @@ const AddConfigSchedule = () => {
     </div>
   );
 
-  // Sections component
   const renderSectionsSelect = () => (
     formData.assignation_id && availableSections.length > 0 && (
       <div className="mb-3">
-        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">
-          Sections:
-        </label>
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Sections:</label>
         <div className="p-2 border border-gray-300 rounded-lg bg-white">
           {availableSections.map(section => (
             <div key={section.id} className="mb-1 flex items-center">
@@ -357,18 +390,137 @@ const AddConfigSchedule = () => {
         </div>
         {availableSections.length > 0 && (
           <div className="flex justify-end mt-1">
-            <button type="button" onClick={() => setSelectedSections(availableSections.map(s => s.id))}
-              className="text-xs text-blue-600 hover:text-blue-800 mr-2">
+            <button type="button" onClick={() => setSelectedSections(availableSections.map(s => s.id))} className="text-xs text-blue-600 hover:text-blue-800 mr-2">
               Select All
             </button>
-            <button type="button" onClick={() => setSelectedSections([])}
-              className="text-xs text-blue-600 hover:text-blue-800">
+            <button type="button" onClick={() => setSelectedSections([])} className="text-xs text-blue-600 hover:text-blue-800">
               Clear All
             </button>
           </div>
         )}
       </div>
     )
+  );
+
+  const renderAutomationSection = () => (
+    <div className="flex flex-col mt-4 border-t pt-4">
+      <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
+
+      <div className="mb-3">
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
+        <div className="flex gap-4">
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="room-automation"
+              name="automate-type"
+              value="room"
+              checked={automateType === 'room'}
+              onChange={() => setAutomateType('room')}
+              className="mr-2"
+            />
+            <label htmlFor="room-automation" className="text-xs sm:text-sm text-gray-700">Single Room</label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="all-automation"
+              name="automate-type"
+              value="all"
+              checked={automateType === 'all'}
+              onChange={() => setAutomateType('all')}
+              className="mr-2"
+            />
+            <label htmlFor="all-automation" className="text-xs sm:text-sm text-gray-700">All Department Rooms</label>
+          </div>
+        </div>
+      </div>
+
+      {automateType === 'room' && (
+        <div className="mb-3">
+          <p className="text-xs text-gray-500 mb-1">Selected room will be used for automation</p>
+          {!formData.room_id && (
+            <p className="text-xs text-red-500">Please select a room first</p>
+          )}
+        </div>
+      )}
+
+      <div className="mb-3">
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Professors (Optional):</label>
+        <div className="flex items-center gap-2">
+          <select
+            value={newPriorityProfessor}
+            onChange={(e) => setNewPriorityProfessor(e.target.value)}
+            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Professor</option>
+            {professors.map(prof => (
+              <option key={prof.id} value={prof.id}>
+                {prof.Name} ({prof.Designation})
+              </option>
+            ))}
+          </select>
+          <button onClick={handleAddPriorityProfessor} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded">
+            Add
+          </button>
+        </div>
+        {prioritizedProfessors.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {prioritizedProfessors.map((id) => {
+              const prof = professors.find(p => p.id.toString() === id.toString());
+              return (
+                <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
+                  <span>{prof ? `${prof.Name} (${prof.Designation})` : id}</span>
+                  <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Rooms (Optional):</label>
+        <div className="flex items-center gap-2">
+          <select
+            value={newPriorityRoom}
+            onChange={(e) => setNewPriorityRoom(e.target.value)}
+            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Room</option>
+            {rooms.map(room => (
+              <option key={room.id} value={room.id}>
+                {room.Code} - {room.Building} {room.Floor} (Type: {room.Type})
+              </option>
+            ))}
+          </select>
+          <button onClick={handleAddPriorityRoom} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded">
+            Add
+          </button>
+        </div>
+        {prioritizedRooms.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {prioritizedRooms.map((id) => {
+              const room = rooms.find(r => r.id.toString() === id.toString());
+              return (
+                <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
+                  <span>{room ? `${room.Code} - ${room.Building}` : id}</span>
+                  <button onClick={() => handleRemovePriorityRoom(id)} className="text-red-600 hover:text-red-800">Remove</button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <button
+        onClick={handleAutomateSchedule}
+        disabled={isAutomating || (automateType === 'room' && !formData.room_id)}
+        className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white px-4 py-2 rounded-lg transition-colors`}
+      >
+        {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
+      </button>
+    </div>
   );
 
   return (
@@ -394,8 +546,7 @@ const AddConfigSchedule = () => {
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-                <select name="room_id" value={formData.room_id} onChange={handleInputChange}
-                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select name="room_id" value={formData.room_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select Room</option>
                   {rooms.map(r => (
                     <option key={r.id} value={r.id}>
@@ -405,8 +556,7 @@ const AddConfigSchedule = () => {
                 </select>
 
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Assignation:</label>
-                <select name="assignation_id" value={formData.assignation_id} onChange={handleInputChange}
-                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select name="assignation_id" value={formData.assignation_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select Assignation</option>
                   {assignations.map(a => (
                     <option key={a.id} value={a.id}>
@@ -420,8 +570,7 @@ const AddConfigSchedule = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Day:</label>
-                    <select name="day" value={formData.day} onChange={handleInputChange}
-                      className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="day" value={formData.day} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="">Select Day</option>
                       {days.map((d, i) => (
                         <option key={d} value={i + 1}>{d}</option>
@@ -430,34 +579,24 @@ const AddConfigSchedule = () => {
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
-                    <input type="time" name="custom_start_time" value={customStartTime} onChange={handleTimeChange}
-                      className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="time" name="custom_start_time" value={customStartTime} onChange={handleTimeChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
-                    <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange}
-                      className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
 
                 <div className="flex pt-3 sm:pt-4 gap-10">
-                  <button onClick={resetForm}
-                    className="flex flex-1 justify-center bg-red-500 text-white px-10 sm:px-40 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors">
+                  <button onClick={resetForm} className="flex flex-1 justify-center bg-red-500 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors">
                     Reset
                   </button>
-                  <button onClick={handleAddSchedule}
-                    className="flex flex-1 justify-center bg-blue-600 text-white px-10 sm:px-40 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                  <button onClick={handleAddSchedule} className="flex flex-1 justify-center bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors">
                     Save
                   </button>
                 </div>
 
-                <div className="flex flex-col mt-4 border-t pt-4">
-                  <p className="text-sm font-medium text-gray-700">Would you like to automate schedule?</p>
-                  <button onClick={handleAutomateSchedule} disabled={isAutomating}
-                    className="flex flex-1 justify-center mt-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                    {isAutomating ? "Automating..." : "Automate Schedule"}
-                  </button>
-                </div>
+                {renderAutomationSection()}
               </div>
             </div>
 
@@ -467,8 +606,7 @@ const AddConfigSchedule = () => {
                   <>
                     <div className="flex justify-between items-center bg-gray-50 border-b-2 border-gray-200 p-2 sticky top-0 z-10">
                       <span className="text-gray-700 font-medium text-xs sm:text-sm">Schedule</span>
-                      <select className="rounded-lg px-2 py-1 text-xs bg-white border border-gray-200"
-                        value={selectedDay} onChange={e => setSelectedDay(parseInt(e.target.value, 10))}>
+                      <select className="rounded-lg px-2 py-1 text-xs bg-white border border-gray-200" value={selectedDay} onChange={e => setSelectedDay(parseInt(e.target.value, 10))}>
                         {days.map((d, idx) => (
                           <option key={d} value={idx}>{d}</option>
                         ))}
@@ -504,7 +642,7 @@ const AddConfigSchedule = () => {
                               {`${hour.toString().padStart(2, '0')}:00`}
                             </td>
                             {days.map((_, idx) => (
-                              <td key={idx} className="p-2 border-b border-gray-200 relative h-24 sm:h-28">
+                              <td key={idx} className="p-2 border-b border-gray-200 relative h-24">
                                 {renderEventInCell(hour, idx)}
                               </td>
                             ))}
