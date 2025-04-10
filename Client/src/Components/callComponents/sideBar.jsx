@@ -257,6 +257,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           >
             Program, Year, and Sections
           </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/courseProg');
+              toggleSidebar(false);
+            }}
+          >
+            Course & Program
+          </button>
         </div>
       </div>
 
