@@ -240,7 +240,7 @@ const Course = () => {
         </div>
 
         {/* Table Container */}
-        <div className="bg-white p-4 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
+        <div className="bg-white p-4 pt-6 pb-12 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
           <div className="flex items-center bg-blue-600 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
             <img src={Book} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Course img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
@@ -248,7 +248,7 @@ const Course = () => {
             </h2>
           </div>
           {/* Scrollable Table */}
-          <div className="overflow-auto w-full h-full flex-grow">
+          <div className="overflow-auto w-full h-full flex-grow pt-4 mb-10">
             <table className="text-center w-full border-collapse">
               <thead>
                 <tr className="bg-blue-600/90">
