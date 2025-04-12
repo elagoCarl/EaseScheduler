@@ -658,8 +658,20 @@ const logoutAccount = async (req, res, next) => {
         await Session.destroy({ where: { AccountId: userId } });
 
         // Clear the JWT and refreshToken cookies by setting their maxAge to 1 millisecond
-        res.cookie('jwt', '', { maxAge: 1 });
-        res.cookie('refreshToken', '', { maxAge: 1 });
+        res.cookie('jwt', '', {
+            maxAge: 1,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+        });
+        res.cookie('refreshToken', '', {
+            maxAge: 1,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+        });
 
         // Send success response
         res.status(200).json({
