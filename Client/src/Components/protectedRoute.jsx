@@ -5,8 +5,8 @@ import PropTypes from 'prop-types';
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
     const location = useLocation();
-    console.log("User object:", user);
-    console.log("Current path:", location.pathname);
+    // console.log("User object:", user);
+    // console.log("Current path:", location.pathname);
 
     // Render a loading indicator while the auth state is being determined
     if (loading) {

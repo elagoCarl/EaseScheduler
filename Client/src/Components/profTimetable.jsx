@@ -3,8 +3,12 @@ import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
+import { useAuth } from '../Components/authContext.jsx';
 
 const ProfTimetable = () => {
+  const { user } = useAuth();
+  // console.log("UUUUUUUUUUUUUSSSSERR1231: ", user);
+  // console.log("useridDDDDDDDDDDDDDDept12321321: ", user?.DepartmentId);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProf, setSelectedProf] = useState(null);
   const [professors, setProfessors] = useState([]);
@@ -20,7 +24,7 @@ const ProfTimetable = () => {
   useEffect(() => {
     const fetchProfessors = async () => {
       try {
-        const deptId = '1'; // Update department ID as needed
+        const deptId = user?.DepartmentId; // Update department ID as needed
         const { data } = await axios.get(`/prof/getProfByDept/${deptId}`);
         if (data.successful && data.data.length) {
           setProfessors(data.data);
@@ -45,7 +49,7 @@ const ProfTimetable = () => {
       try {
         const { data } = await axios.get(`/schedule/getSchedsByProf/${selectedProf.id}`);
         if (data.successful) {
-          console.log("Schedules fetched successfully:", data.data);
+          // console.log("Schedules fetched successfully:", data.data);
           setSchedules(data.data);
         } else {
           console.error('Error fetching schedules:', data.message);

@@ -7,7 +7,7 @@ import { BASE_URL } from '../../axiosConfig';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
-  console.log(user);
+  // console.log(user);
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
   const [activeSection, setActiveSection] = useState(null);
