@@ -267,10 +267,18 @@ const AddConfigSchedule = () => {
   };
 
   // Components
+  // Original ScheduleEvent component with fix
   const ScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
-    const sections = schedule.ProgYrSecs.map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`).join(', ');
+
+    // Add a null check for ProgYrSecs before mapping
+    const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
+      ? schedule.ProgYrSecs
+        .filter(sec => sec && sec.Program) // Filter out entries with missing data
+        .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+        .join(', ')
+      : 'No sections';
 
     return (
       <div
@@ -283,15 +291,15 @@ const AddConfigSchedule = () => {
           <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
-        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation.Course.Description}</div>
-        <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
+        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
         {hovered && (
           <div className="mt-2 text-xs">
             <div className="flex justify-between items-center">
               <div>
-                <div>School Year: {schedule.Assignation.School_Year}</div>
-                <div>Semester: {schedule.Assignation.Semester}</div>
+                <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
+                <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
               </div>
               <div className="flex">
                 <button onClick={(e) => {

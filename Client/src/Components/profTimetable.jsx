@@ -45,6 +45,7 @@ const ProfTimetable = () => {
       try {
         const { data } = await axios.get(`/schedule/getSchedsByProf/${selectedProf.id}`);
         if (data.successful) {
+          console.log("Schedules fetched successfully:", data.data);
           setSchedules(data.data);
         } else {
           console.error('Error fetching schedules:', data.message);
@@ -71,13 +72,55 @@ const ProfTimetable = () => {
     return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
-  // New component to expand on hover (similar to RoomScheduleEvent)
+  // Get room info based on the actual data structure
+  const getRoomInfo = (schedule) => {
+    // Check if room exists in the Assignation.Rooms array
+    if (schedule.Assignation?.Rooms && schedule.Assignation.Rooms.length > 0) {
+      const room = schedule.Assignation.Rooms[0];
+      return {
+        code: room.Code || 'Unknown',
+        building: room.Building || 'Unknown',
+        floor: room.Floor || '',
+        type: room.Type || ''
+      };
+    }
+
+    // Fallback to RoomId if available
+    if (schedule.RoomId) {
+      return { code: `Room ${schedule.RoomId}`, building: 'Unknown', floor: '', type: '' };
+    }
+
+    return { code: 'Unknown', building: 'Unknown', floor: '', type: '' };
+  };
+
+  // Safely get sections info from the actual data structure
+  const getSectionsInfo = (schedule) => {
+    if (!schedule.ProgYrSecs || !Array.isArray(schedule.ProgYrSecs) || schedule.ProgYrSecs.length === 0) {
+      return 'No sections data';
+    }
+
+    return schedule.ProgYrSecs
+      .map(sec => {
+        if (!sec || !sec.Program) return 'Unknown';
+        return `${sec.Program.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`;
+      })
+      .join(', ');
+  };
+
+  // Component to display schedule events with the correct data structure
   const ProfScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
-    const sections = schedule.ProgYrSecs
-      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-      .join(', ');
+
+    // Get course info safely
+    const courseCode = schedule.Assignation?.Course?.Code || 'Unknown Course';
+    const courseDesc = schedule.Assignation?.Course?.Description || 'No description available';
+
+    // Get sections info
+    const sections = getSectionsInfo(schedule);
+
+    // Get room info
+    const room = getRoomInfo(schedule);
 
     return (
       <div
@@ -90,12 +133,14 @@ const ProfTimetable = () => {
           <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
-        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className="text-sm font-semibold">{courseCode}</div>
         <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
-          {schedule.Assignation.Course.Description}
+          {courseDesc}
         </div>
         <div className="text-xs">
-          Room: {schedule.Room.Code} - {schedule.Room.Building}
+          Room: {room.code} {room.building && `- ${room.building}`}
+          {room.floor && `, ${room.floor}`}
+          {room.type && ` (${room.type})`}
         </div>
       </div>
     );
@@ -107,10 +152,14 @@ const ProfTimetable = () => {
     const apiDayIndex = dayIndex + 1;
     return schedules
       .filter(schedule => {
+        if (!schedule.Start_time || !schedule.End_time || schedule.Day !== apiDayIndex) {
+          return false;
+        }
+
         const [sHour, sMin] = schedule.Start_time.split(':').map(Number);
         const [eHour, eMin] = schedule.End_time.split(':').map(Number);
+
         return (
-          schedule.Day === apiDayIndex &&
           sHour <= hour &&
           (eHour > hour || (eHour === hour && eMin > 0))
         );
@@ -164,6 +213,7 @@ const ProfTimetable = () => {
                   setSelectedProf(professors.find(p => p.id === parseInt(e.target.value)))
                 }
                 className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                disabled={loading}
               >
                 {professors.map(prof => (
                   <option key={prof.id} value={prof.id}>

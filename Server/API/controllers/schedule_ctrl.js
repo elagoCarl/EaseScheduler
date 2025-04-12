@@ -1,5 +1,5 @@
 // Changed the Course into Course model because it is not being imported properly
-const {  Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course } = require('../models');
+const { Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
@@ -22,7 +22,7 @@ const isValidTime = (startTime, endTime, res) => {
     const [startHours, startMinutes] = startTime.split(":").map(Number);
     const [endHours, endMinutes] = endTime.split(":").map(Number);
 
-    if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) { 
+    if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) {
         return res.status(400).json({
             successful: false,
             message: "Start time must be earlier than end time."
@@ -118,7 +118,7 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
     for (let i = 0; i < intervals.length - 1; i++) {
 
         console.log("INTERVALS LIST: ", intervals);
-        
+
         let currentEnd = intervals[i].end;
         let nextStart = intervals[i + 1].start;
 
@@ -127,7 +127,7 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
             return false; // Not enough break time
         }
     }
-    return true;                
+    return true;
 };
 
 /**
@@ -182,7 +182,7 @@ const backtrackSchedule = async (
     console.log(courseParam.Duration)
     console.log(courseParam.Units)
     console.log(courseParam.Type)
-    
+
     try {
         // Determine valid sections for the course
         if (courseParam.Type === "Core") {
@@ -323,15 +323,15 @@ const automateSchedule = async (req, res, next) => {
 
         const settings = await Settings.findByPk(1);
         const { StartHour, EndHour } = settings;
-    
+
         const department = await Department.findByPk(DepartmentId, {
             include: [
-                { 
-                    model: Assignation, 
+                {
+                    model: Assignation,
                     include: [
-                        Course, 
+                        Course,
                         { model: Professor, attributes: ['id', 'Name'] }
-                    ] 
+                    ]
                 },
                 { model: Room, as: 'DeptRooms' }
             ]
@@ -344,7 +344,7 @@ const automateSchedule = async (req, res, next) => {
         // Extract assignations and rooms from the department
         const assignations = department.Assignations;
         const rooms = department.DeptRooms;
-        
+
         console.log(`Total assignations: ${assignations.length}`);
         console.log(`Total rooms: ${rooms.length}`);
 
@@ -352,7 +352,7 @@ const automateSchedule = async (req, res, next) => {
         const existingSchedules = await Schedule.findAll({
             where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
         });
-        
+
         console.log(`Existing schedules: ${existingSchedules.length}`);
 
         // Always delete all unlocked schedules
@@ -369,10 +369,10 @@ const automateSchedule = async (req, res, next) => {
         const lockedAssignationIds = new Set(lockedSchedules.map(schedule => schedule.AssignationId));
 
         // Only schedule assignations that don't have locked schedules
-        const unscheduledAssignations = assignations.filter(assignation => 
+        const unscheduledAssignations = assignations.filter(assignation =>
             !lockedAssignationIds.has(assignation.id)
         );
-        
+
         console.log(`Unscheduled assignations to process: ${unscheduledAssignations.length}`);
         unscheduledAssignations.forEach(a => {
             console.log(`- ${a.id}: ${a.Course?.Code || 'Unknown'} with ${a.Professor?.Name || 'Unknown'}`);
@@ -392,14 +392,14 @@ const automateSchedule = async (req, res, next) => {
             if (!professorInfo || !courseInfo) {
                 return;
             }
-            
+
             if (!professorSchedule[professorInfo.id]) {
                 professorSchedule[professorInfo.id] = {};
                 for (let day = 1; day <= 5; day++) {
                     professorSchedule[professorInfo.id][day] = { hours: 0, dailyTimes: [] };
                 }
             }
-            
+
             if (!courseSchedules[courseInfo.id]) {
                 courseSchedules[courseInfo.id] = {};
                 for (let day = 1; day <= 5; day++) {
@@ -415,7 +415,7 @@ const automateSchedule = async (req, res, next) => {
         allProgYrSecs.forEach(section => {
             progYrSecSchedules[section.id] = {};
             for (let day = 1; day <= 5; day++) {
-                progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] }; 
+                progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] };
             }
         });
 
@@ -495,16 +495,16 @@ const automateSchedule = async (req, res, next) => {
                 { model: ProgYrSec }
             ]
         });
-        
+
         const fullReport = allSchedules.map(schedule => {
             const assignation = schedule.Assignation;
             if (!assignation || !assignation.Course || !assignation.Professor) return null;
-            
+
             return {
                 Professor: assignation.Professor.Name,
                 Course: assignation.Course.Code,
                 CourseType: assignation.Course.Type,
-                Sections: schedule.ProgYrSecs.map(sec => 
+                Sections: schedule.ProgYrSecs.map(sec =>
                     `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`),
                 Room: schedule.Room.Code,
                 Day: schedule.Day,
@@ -572,7 +572,7 @@ const addSchedule = async (req, res, next) => {
             //     continue;
             // }
 
-        
+
             // Validate Assignation existence
             const assignation = await Assignation.findByPk(AssignationId, { include: [Course] });
             if (!assignation || !assignation.Course) {
@@ -921,7 +921,11 @@ const updateSchedule = async (req, res, next) => {
         // Update schedule
         await schedule.update({ Day, Start_time, End_time, RoomId, AssignationId });
 
-        return res.status(200).json({ successful: true, message: "Schedule updated successfully." });
+        return res.status(200).json({
+            successful: true,
+            data: schedule,
+            message: "Schedule updated successfully."
+        });
     } catch (error) {
         console.error(error);
         next(error);
