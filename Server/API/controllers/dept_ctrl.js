@@ -1,4 +1,6 @@
 const { Department, Course, Room } = require('../models')
+const jwt = require('jsonwebtoken')
+const { REFRESH_TOKEN_SECRET } = process.env
 const util = require('../../utils')
 const { Op } = require('sequelize')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl')
@@ -9,7 +11,7 @@ const addDept = async (req, res, next) => {
 
         // Check if the request body contains an array of professors
         if (!Array.isArray(depts)) {
-            // If not an array, convert the single professor to an array
+            // If not an array, convert the single professor to an array 
             depts = [depts];
         }
 
@@ -41,7 +43,23 @@ const addDept = async (req, res, next) => {
             await Department.create({ Name })
 
             // Log the archive action
-            const accountId = '1'; // Example account ID for testing
+            const token = req.cookies?.refreshToken;
+            if (!token) {
+                return res.status(401).json({
+                    successful: false,
+                    message: "Unauthorized: refreshToken not found."
+                });
+            }
+            let decoded;
+            try {
+                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            } catch (err) {
+                return res.status(403).json({
+                    successful: false,
+                    message: "Invalid refreshToken."
+                });
+            }
+            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
             const page = 'Department';
             const details = `Added Department${Name}`;
 
@@ -137,7 +155,23 @@ const deleteDept = async (req, res, next) => {
 
 
         // Log the archive action
-        const accountId = '1'; // Example account ID for testing
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Department';
         const details = `Deleted Department${department.Name}`;
 
@@ -167,12 +201,7 @@ const updateDept = async (req, res, next) => {
         let dept = await Department.findByPk(req.params.id)
         const { Name } = req.body
 
-        // Log the archive action
-        const accountId = '1'; // Example account ID for testing
-        const page = 'Department';
-        const details = `Department Updated: Old; Name${dept.Name};;; New; Name:${Name}`;
-
-        await addHistoryLog(accountId, page, details);
+        
 
         if (!dept) {
             res.status(404).send({
@@ -205,6 +234,29 @@ const updateDept = async (req, res, next) => {
         const updateDept = await dept.update({
             Name: Name
         })
+        
+        // Log the archive action
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        const page = 'Department';
+        const details = `Department Updated: Old; Name${dept.Name};;; New; Name:${Name}`;
+
+        await addHistoryLog(accountId, page, details);
 
         return res.status(201).json({
             successful: true,

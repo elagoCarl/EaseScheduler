@@ -3,7 +3,6 @@ module.exports = (sequelize, DataTypes) => {
         Year: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            max: 4,
             min: 1
         },
         Section: {
@@ -13,21 +12,21 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Section is required." }
             }
         },
-        No_Of_Students:{
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            validate: {
-                notEmpty: { msg: "Number of students is required." }
-            }
-        }
+        // No_Of_Students:{
+        //     type: DataTypes.INTEGER,
+        //     allowNull: false,
+        //     validate: {
+        //         notEmpty: { msg: "Number of students is required." }
+        //     }
+        // }
     }, {
         timestamps: true
     })
     
     ProgYrSec.associate = (models) => {
-        ProgYrSec.belongsTo(models.Program, { foreignKey: 'ProgramId' }); // Explicit foreignKey
+        ProgYrSec.belongsTo(models.Program, { foreignKey: 'ProgramId' });
         ProgYrSec.belongsToMany(models.Schedule, { 
-            through: 'SectionSched', // Auto-generated bridge table
+            through: 'SectionSched', 
             foreignKey: 'ProgYrSecId'
         });
     };

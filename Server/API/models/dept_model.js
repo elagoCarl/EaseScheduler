@@ -41,6 +41,11 @@ module.exports = (sequelize, DataTypes) => {
         Department.hasMany(models.Assignation, {
             foreignKey: 'DepartmentId'
         });
+        Department.hasMany(models.Account, {
+            foreignKey: 'DepartmentId',
+            onDelete: 'SET NULL',
+            onUpdate: 'CASCADE'
+        });
     }
 
     return Department

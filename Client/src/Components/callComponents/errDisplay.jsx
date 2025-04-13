@@ -3,6 +3,9 @@ import PropTypes from 'prop-types';
 
 const ErrorDisplay = ({ error }) => {
   const navigate = useNavigate();
+  if (!error || error === '') {
+    return null; // Don't render anything if there's no error
+  }
 
   return (
     <div className="grid h-screen place-content-center bg-white px-4">

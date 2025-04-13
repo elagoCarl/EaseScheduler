@@ -1,7 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
-import Axios from 'axios';
+import { useState, useEffect, useRef } from "react";
+import Axios from '../../axiosConfig';
+import { useAuth } from '../authContext';
 
 const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const [courseCode, setCourseCode] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseDuration, setCourseDuration] = useState("");
@@ -34,14 +38,14 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
     });
 
     try {
-      const response = await Axios.post("http://localhost:8080/course/addCourse", {
+      const response = await Axios.post("/course/addCourse", {
         Code: courseCode,
         Description: courseDescription,
         Duration: courseDuration,
         Units: courseUnits,
         Type: courseType,
         Year: courseYear,
-        Dept_id: 1 // Temporary
+        Dept_id: user.DepartmentId
       });
 
       // Handle successful response
@@ -82,7 +86,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
           </button>
         </div>
         <form
-          className={`space-y-10 px-20 ${ isShaking ? 'animate-shake' : '' }`}
+          className={`space-y-10 px-20 ${isShaking ? 'animate-shake' : ''}`}
           onSubmit={handleSubmit}
         > {errorMessage && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">

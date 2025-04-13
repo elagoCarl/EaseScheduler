@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
-import axios from 'axios';
+import axios from '../axiosConfig';
 import image5 from './Img/5.jpg';
 
 const ForgotPass = () => {
@@ -15,7 +15,7 @@ const ForgotPass = () => {
         setIsLoading(true); // Show loading animation
         try {
             // Send a POST request to the backend to handle password reset
-            const response = await axios.post('http://localhost:8080/accounts/forgotPass', { email });
+            const response = await axios.post('/accounts/forgotPass', { email });
 
             if (response.data.successful) {
                 setMessage('An email has been sent to reset your password. Please check your inbox.');
@@ -49,7 +49,7 @@ const ForgotPass = () => {
     return (
         <div
             className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-center items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${ image5 })` }}
+            style={{ backgroundImage: `url(${image5})` }}
         >
             {isLoading || isRedirecting ? (
                 // Show loading spinner or redirecting message

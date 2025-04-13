@@ -24,14 +24,27 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: false
         }
     }, {
-        timestamps: true
+        timestamps: true,
+        indexes: [
+            {
+                name: 'Schedules_RoomId_AssignationId_index',
+                fields: ['RoomId', 'AssignationId'],
+                unique: false
+            }
+        ]
     });
 
     Schedule.associate = (models) => {
-        Schedule.belongsTo(models.Room, { foreignKey: 'RoomId' });
-        Schedule.belongsTo(models.Assignation, { foreignKey: 'AssignationId' });
+        Schedule.belongsTo(models.Room, { 
+            foreignKey: 'RoomId',
+            constraints: false
+        });
+        Schedule.belongsTo(models.Assignation, { 
+            foreignKey: 'AssignationId',
+            constraints: false
+        });
         Schedule.belongsToMany(models.ProgYrSec, { 
-            through: 'SectionSched', // Auto-generated bridge table
+            through: 'SectionSched',
             foreignKey: 'ScheduleId'
         });
     };

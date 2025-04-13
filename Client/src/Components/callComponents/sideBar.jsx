@@ -1,8 +1,13 @@
 import { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { useAuth } from '../../Components/authContext';
+import axios from 'axios';
+import { BASE_URL } from '../../axiosConfig';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
+  const { user } = useAuth();
+  // console.log(user);
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
   const [activeSection, setActiveSection] = useState(null);
@@ -27,19 +32,18 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     setActiveSection(activeSection === section ? null : section);
   };
 
-  // Logout handler that calls the logout API endpoint
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/accounts/logoutAccount', {
-        method: 'POST',
-        credentials: 'include', // ensure cookies are sent
+      const response = await axios.post(`${BASE_URL}/accounts/logoutAccount`, {}, {
+        withCredentials: true, // ensure cookies are sent
         headers: { 'Content-Type': 'application/json' }
       });
-      const data = await response.json();
-      if (data.successful) {
+
+      if (response.data.successful) {
         navigate('/loginPage');
+        window.location.reload();
       } else {
-        console.error('Logout failed:', data.message);
+        console.error('Logout failed:', response.data.message);
       }
     } catch (error) {
       console.error('Error during logout:', error);
@@ -59,7 +63,18 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         EASE<span className="text-white">SCHEDULER</span>
       </button>
 
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-4 md:py-15">
+      {/* User Profile Section */}
+      <div className="flex flex-col items-center px-5 py-4 border-b border-gray-700">
+        <div className="text-center">
+          <h3 className="font-semibold truncate max-w-full">{user?.Name || 'User'}</h3>
+          <p className="text-sm text-gray-300 truncate max-w-full">{user?.Email || 'No email'}</p>
+          <p className="text-xs text-gray-400 truncate max-w-full">
+            {user?.Department?.Name || 'No department'}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -72,7 +87,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Timetables Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('Timetables')}
@@ -106,7 +121,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/Timetables/week');
+              navigate('/roomTimetable');
               toggleSidebar(false);
             }}
           >
@@ -115,7 +130,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/Timetables/week');
+              navigate('/profTimetable');
               toggleSidebar(false);
             }}
           >
@@ -124,7 +139,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/Timetables/week');
+              navigate('/sectionTimetable');
               toggleSidebar(false);
             }}
           >
@@ -134,7 +149,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Professors Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('professors')}
@@ -174,11 +189,20 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           >
             Professor Availability
           </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/assignationsCourseProf');
+              toggleSidebar(false);
+            }}
+          >
+            Professor Assignations
+          </button>
         </div>
       </div>
 
       {/* Rooms Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -191,7 +215,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Courses Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
           onClick={() => {
@@ -203,8 +227,61 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
 
+      {/* Departments & Programs Section with dropdown */}
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
+        <button
+          className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+          onClick={() => toggleSubContent('deptProg')}
+        >
+          Departments & Programs
+          <svg
+            className={`w-9 h-9 transform transition-transform ${activeSection === 'deptProg' ? 'rotate-180' : ''
+              }`}
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth="5"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div
+          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
+            }`}
+        >
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/deptProg');
+              toggleSidebar(false);
+            }}
+          >
+            Manage Depts & Programs
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/progYrSec');
+              toggleSidebar(false);
+            }}
+          >
+            Program, Year, and Sections
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/courseProg');
+              toggleSidebar(false);
+            }}
+          >
+            Course & Program
+          </button>
+        </div>
+      </div>
+
       {/* Account Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-15">
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
           onClick={() => toggleSubContent('account')}

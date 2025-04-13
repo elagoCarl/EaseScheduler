@@ -1,9 +1,10 @@
-const { Account, OTP, Session } = require('../models'); // Ensure model name matches exported model
+const { Account, OTP, Session, Department } = require('../models'); // Ensure model name matches exported model
 const util = require('../../utils');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken')
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
+const { refreshTokens } = require('./authMiddleware');
 const { USER,
     APP_PASSWORD,
     ACCESS_TOKEN_SECRET,
@@ -25,7 +26,7 @@ const transporter = nodemailer.createTransport({
 
 
 // Create access token
-const maxAge = 60; // 1 minute in seconds
+const maxAge = 30 * 60; // 30 mins
 const createAccessToken = (id) => {
     return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
         expiresIn: maxAge,
@@ -159,10 +160,12 @@ const sendOTPVerificationEmail = async (userId, email) => {
 
 const addAccount = async (req, res, next) => {
     try {
-        const { Name, Email, Role } = req.body;
+        // Destructure the required fields including DepartmentId
+        const { Name, Email, Roles, DepartmentId } = req.body;
         const DefaultPassword = "CeuAdmin!12345"; // Default password
 
-        if (!util.checkMandatoryFields([Name, Email, Role])) {
+        // Check if all mandatory fields are provided
+        if (!util.checkMandatoryFields([Name, Email, Roles, DepartmentId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -186,40 +189,35 @@ const addAccount = async (req, res, next) => {
             });
         }
 
-        // Hash the default password
-        // const hashedPassword = await bcrypt.hash(DefaultPassword, 10);
-
-        // Create and save the new account
+        // Create and save the new account (Password will be hashed by the model hook)
         const newAccount = await Account.create({
-            Name: Name,
-            Email: Email,
+            Name,
+            Email,
             Password: DefaultPassword,
-            Roles: Role,
+            Roles,
+            DepartmentId,
             verified: false
         });
-        console.log("NEW ACCOUNT ID AND EMAILL!!")
-        console.log(newAccount.id)
-        console.log(newAccount.Email)
 
-        // MAGSESEND NA SYA NG OTP EMAIL SA USER
+        console.log("NEW ACCOUNT ID AND EMAIL:");
+        console.log(newAccount);
+
         // Send OTP verification email
         await sendOTPVerificationEmail(newAccount.id, newAccount.Email);
-
-
 
         return res.status(201).json({
             successful: true,
             message: "Successfully added new account. Verification email sent."
         });
-
     } catch (err) {
-        console.error(err); //  PANG DEBUG
+        console.error(err); // For debugging
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
         });
     }
 };
+
 
 
 
@@ -263,7 +261,7 @@ const loginAccount = async (req, res) => {
     if (!util.checkMandatoryFields([Email, Password])) {
         return res.status(400).json({
             successful: false,
-            message: "Required fields are empty."
+            message: "Required fields are empty.",
         });
     }
 
@@ -275,7 +273,7 @@ const loginAccount = async (req, res) => {
         if (!user) {
             return res.status(401).json({
                 successful: false,
-                message: "Invalid credentials."
+                message: "Invalid credentials.",
             });
         }
 
@@ -284,7 +282,7 @@ const loginAccount = async (req, res) => {
         if (!auth) {
             return res.status(401).json({
                 successful: false,
-                message: "Invalid credentials."
+                message: "Invalid credentials.",
             });
         }
 
@@ -293,7 +291,7 @@ const loginAccount = async (req, res) => {
             await sendOTPVerificationEmail(user.id, user.Email);
             return res.status(401).json({
                 successful: false,
-                message: "Account not verified. OTP sent to email."
+                message: "Account not verified. OTP sent to email.",
             });
         }
 
@@ -303,39 +301,55 @@ const loginAccount = async (req, res) => {
 
         // Store hashed refresh token in DB
         await Session.create({
-            Token: refreshToken, // Consider hashing before storing
-            AccountId: user.id
+            Token: refreshToken,
+            AccountId: user.id,
         });
 
         console.log("User logged in. Tokens saved successfully.");
 
         // Set cookies securely
+        // res.cookie('jwt', accessToken, {
+        //     httpOnly: true,
+        //     secure: process.env.NODE_ENV === 'production',
+        //     sameSite: 'Strict',
+        //     maxAge: maxAge * 1000,
+        // });
+        // res.cookie('refreshToken', refreshToken, {
+        //     httpOnly: true,
+        //     secure: process.env.NODE_ENV === 'production',
+        //     sameSite: 'Strict',
+        //     maxAge: 60 * 60 * 24 * 30 * 1000,
+        // });
+
         res.cookie('jwt', accessToken, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
-            maxAge: maxAge * 1000
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            maxAge: maxAge * 1000,
+            path: '/',
         });
         res.cookie('refreshToken', refreshToken, {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
-            maxAge: 60 * 60 * 24 * 30 * 1000
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            maxAge: 60 * 60 * 24 * 30 * 1000, //30days in milliseconds
+            path: '/',
         });
 
         return res.status(200).json({
             successful: true,
-            message: "Successfully logged in."
+            message: "Successfully logged in.",
+            account: user, // ✅ Return user for frontend
         });
-
     } catch (err) {
         console.error("Login error:", err);
         return res.status(500).json({
             successful: false,
-            message: "Internal server error."
+            message: "Internal server error.",
         });
     }
 };
+
 
 
 
@@ -420,7 +434,11 @@ const verifyAccountOTP = async (req, res, next) => {
 
         console.log("Fetched OTP Record:", OTPModelRecord);
 
+
         const { expiresAt, OTP: hashedOTP } = OTPModelRecord;
+
+        console.log("OTP:", otp);
+        console.log("Fetched OTP Record:", hashedOTP);
 
         if (!hashedOTP) {
             throw new Error("OTP not found.");
@@ -434,6 +452,7 @@ const verifyAccountOTP = async (req, res, next) => {
         }
 
         const validOTP = await bcrypt.compare(otp, hashedOTP);
+        console.log("validOTP: ", validOTP)
         if (!validOTP) {
             throw new Error("Invalid code, check your email.");
         }
@@ -451,7 +470,7 @@ const verifyAccountOTP = async (req, res, next) => {
         console.error("Verification Error:", error);
         res.status(400).json({
             successful: false,
-            message: error.message
+            message: error.message,
         });
     }
 };
@@ -492,7 +511,7 @@ const changePassword = async (req, res, next) => {
         if (!util.validatePassword(newPassword)) {
             return res.status(406).json({
                 successful: false,
-                message: "Invalid password. It must contain at least eight characters, one uppercase letter, one lowercase letter, one number, and one special character."
+                message: "Invalid password. It must contain at least eight characters, one uppercase letter, one lowercase letter, and one number."
             });
         }
 
@@ -639,8 +658,20 @@ const logoutAccount = async (req, res, next) => {
         await Session.destroy({ where: { AccountId: userId } });
 
         // Clear the JWT and refreshToken cookies by setting their maxAge to 1 millisecond
-        res.cookie('jwt', '', { maxAge: 1 });
-        res.cookie('refreshToken', '', { maxAge: 1 });
+        res.cookie('jwt', '', {
+            maxAge: 1,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+        });
+        res.cookie('refreshToken', '', {
+            maxAge: 1,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+        });
 
         // Send success response
         res.status(200).json({
@@ -656,6 +687,123 @@ const logoutAccount = async (req, res, next) => {
     }
 };
 
+
+
+const getCurrentAccount = async (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+
+    const AToken = req.cookies.jwt;
+    const RToken = req.cookies.refreshToken;
+
+    if (!AToken && !RToken) {
+        return res.status(401).json({
+            successful: false,
+            message: 'Not authenticated'
+        });
+    }
+
+    if (AToken) {
+        try {
+            // Try verifying the access token
+            const decoded = jwt.verify(AToken, ACCESS_TOKEN_SECRET);
+            const account = await Account.findByPk(decoded.id, {
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                include: [
+                    {
+                        model: Department,
+                        attributes: ['Name']
+                    }
+                ]
+            });
+
+            if (!account) {
+                return res.status(404).json({
+                    successful: false,
+                    message: 'Account not found'
+                });
+            }
+
+            return res.status(200).json({
+                successful: true,
+                account
+            });
+        } catch (error) {
+            console.error("Error verifying access token:", error.message);
+            // If the access token is invalid/expired and a refresh token exists,
+            // attempt to refresh tokens.
+            if (RToken) {
+                try {
+                    const newDecoded = await refreshTokens(req, res);
+                    const account = await Account.findByPk(newDecoded.id, {
+                        attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                        include: [
+                            {
+                                model: Department,
+                                attributes: ['Name']
+                            }
+                        ]
+                    });
+                    if (!account) {
+                        return res.status(404).json({
+                            successful: false,
+                            message: 'Account not found'
+                        });
+                    }
+                    return res.status(200).json({
+                        successful: true,
+                        account
+                    });
+                } catch (refreshError) {
+                    console.error("Error refreshing tokens:", refreshError.message);
+                    return res.status(401).json({
+                        successful: false,
+                        message: refreshError.message
+                    });
+                }
+            } else {
+                return res.status(401).json({
+                    successful: false,
+                    message: 'Invalid or expired token'
+                });
+            }
+        }
+    }
+
+    // If there's no access token but a refresh token exists
+    if (RToken && !AToken) {
+        try {
+            const newDecoded = await refreshTokens(req, res);
+            const account = await Account.findByPk(newDecoded.id, {
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                include: [
+                    {
+                        model: Department,
+                        attributes: ['Name']
+                    }
+                ]
+            });
+            if (!account) {
+                return res.status(404).json({
+                    successful: false,
+                    message: 'Account not found'
+                });
+            }
+            return res.status(200).json({
+                successful: true,
+                account
+            });
+        } catch (refreshError) {
+            console.error("Error refreshing tokens:", refreshError.message);
+            return res.status(401).json({
+                successful: false,
+                message: refreshError.message
+            });
+        }
+    }
+};
+
+
+
 module.exports = {
     addAccount,
     getAccountById,
@@ -666,5 +814,6 @@ module.exports = {
     changePassword,
     forgotPass,
     getAllAccounts,
-    logoutAccount
+    logoutAccount,
+    getCurrentAccount
 };

@@ -1,3 +1,5 @@
+const jwt = require("jsonwebtoken");
+const { REFRESH_TOKEN_SECRET } = process.env;
 const { Course, Professor, Department, Settings } = require("../models");
 const util = require("../../utils");
 const { Op } = require("sequelize");
@@ -51,10 +53,11 @@ const addCourse = async (req, res) => {
         });
       }
 
-      if (Duration > settings.MaxCourseDuration) {
+      const availableHours = settings.EndHour - settings.StartHour;
+      if (Duration > availableHours) {
         return res.status(406).json({
           successful: false,
-          message: "Duration limit reached.",
+          message: `Duration cannot exceed available hours (${availableHours} hours between ${settings.StartHour}:00 and ${settings.EndHour}:00).`,
         });
       }
 
@@ -100,11 +103,26 @@ const addCourse = async (req, res) => {
     }
 
     // Log the archive action
-    const accountId = "1"; // Example account ID for testing
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({
+        successful: false,
+        message: "Unauthorized: refreshToken not found."
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+    } catch (err) {
+      return res.status(403).json({
+        successful: false,
+        message: "Invalid refreshToken."
+      });
+    }
+    const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
-    const details = `Added Course${
-      addedCourses.length > 1 ? "s" : ""
-    }: ${addedCourses.join(", ")}`;
+    const details = `Added Course${addedCourses.length > 1 ? "s" : ""
+      }: ${addedCourses.join(", ")}`;
 
     await addHistoryLog(accountId, page, details);
 
@@ -166,8 +184,23 @@ const deleteCourse = async (req, res, next) => {
       where: { id: req.params.id },
     });
 
-    // Log the archive action
-    const accountId = "1"; // Example account ID for testing
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({
+        successful: false,
+        message: "Unauthorized: refreshToken not found."
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+    } catch (err) {
+      return res.status(403).json({
+        successful: false,
+        message: "Invalid refreshToken."
+      });
+    }
+    const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
     const details = `Deleted Course: Code - ${course.Code}, Description - ${course.Description}`;
 
@@ -273,10 +306,11 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    if (Duration > settings.MaxCourseDuration) {
+    const availableHours = settings.EndHour - settings.StartHour;
+    if (Duration > availableHours) {
       return res.status(406).json({
         successful: false,
-        message: "Duration limit reached.",
+        message: `Duration cannot exceed available hours (${availableHours} hours between ${settings.StartHour}:00 and ${settings.EndHour}:00).`,
       });
     }
 
@@ -301,7 +335,23 @@ const updateCourse = async (req, res) => {
     });
 
     // Log the archive action
-    const accountId = "1"; // Example account ID for testing
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      return res.status(401).json({
+        successful: false,
+        message: "Unauthorized: refreshToken not found."
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+    } catch (err) {
+      return res.status(403).json({
+        successful: false,
+        message: "Invalid refreshToken."
+      });
+    }
+    const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
     const details = `Updated Course: Old Code: ${oldDetails.Code}, Desc: ${oldDetails.Description}, Duration: ${oldDetails.Duration}, Units: ${oldDetails.Units}, Type: ${oldDetails.Type}; New Code: ${Code}, Desc: ${Description}, Duration: ${Duration}, Units: ${Units}, Type: ${Type}`;
 
@@ -463,18 +513,25 @@ const getCoursesByDept = async (req, res, next) => {
     const deptId = req.params.id;
     const courses = await Course.findAll({
       attributes: { exclude: ["CourseDepts"] },
+      where: {
+        [Op.or]: [
+          { type: "Core" },
+          {
+            "$CourseDepts.id$": deptId
+          }
+        ]
+      },
       include: {
         model: Department,
         as: "CourseDepts",
-        where: {
-          id: deptId,
-        },
         attributes: [],
+        required: false,
         through: {
           attributes: [],
         },
       },
     });
+
     if (!courses || courses.length === 0) {
       res.status(200).send({
         successful: true,
@@ -491,6 +548,7 @@ const getCoursesByDept = async (req, res, next) => {
       });
     }
   } catch (err) {
+    console.log(err)
     return res.status(500).json({
       successful: false,
       message: err.message || "An unexpected error occurred.",

@@ -1,6 +1,8 @@
 const express = require('express');
 const room_ctrl = require('../controllers/room_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+router.use(requireAuth)
 
 router.post('/addRoom', room_ctrl.addRoom)
 router.get('/getAllRoom', room_ctrl.getAllRoom)

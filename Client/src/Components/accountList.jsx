@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "../Components/callComponents/topMenu.jsx";
 import Sidebar from '../Components/callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
@@ -27,7 +27,7 @@ const AccountList = () => {
 
   const fetchAccounts = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/accounts/getAllAccounts');
+      const response = await axios.get('/accounts/getAllAccounts');
       setAccounts(response.data);
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -36,7 +36,7 @@ const AccountList = () => {
 
   const fetchArchivedAccounts = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/accArchive/getAllArchivedAccounts');
+      const response = await axios.get('/accArchive/getAllArchivedAccounts');
       setArchivedAccounts(response.data);
     } catch (error) {
       console.error('Error fetching archived accounts:', error);
@@ -57,7 +57,7 @@ const AccountList = () => {
     if (!accountToArchive) return;
 
     try {
-      await axios.post(`http://localhost:8080/accArchive/archiveAccount/${accountToArchive.id}`);
+      await axios.post(`/accArchive/archiveAccount/${accountToArchive.id}`);
       setAccounts(prevAccounts => prevAccounts.filter(account => account.id !== accountToArchive.id));
       alert("Account archived successfully.");
     } catch (error) {

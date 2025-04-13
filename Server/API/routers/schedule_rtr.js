@@ -1,6 +1,8 @@
 const express = require('express');
 const schedule_ctrl = require('../controllers/schedule_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+router.use(requireAuth)
 
 router.post('/addSchedule', schedule_ctrl.addSchedule)
 router.get('/getAllSchedule', schedule_ctrl.getAllSchedules)

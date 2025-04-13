@@ -1,5 +1,5 @@
-import { useState } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import axios from "../axiosConfig.js";
 import { useNavigate } from "react-router-dom";
 import Background from "./Img/1.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
@@ -7,10 +7,12 @@ import TopMenu from "./callComponents/topMenu.jsx";
 
 const CreateAccount = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [departments, setDepartments] = useState([]);
   const [formData, setFormData] = useState({
     Name: "",
     Email: "",
-    Role: "",
+    Roles: "",
+    DepartmentId: "",
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -20,6 +22,26 @@ const CreateAccount = () => {
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
+
+  // Fetch departments on component mount
+  useEffect(() => {
+    axios
+      .get("/dept/getAllDept")
+      .then((response) => {
+        // Extract the departments array from the 'data' property
+        const deptArray = response.data.data || [];
+        if (Array.isArray(deptArray)) {
+          setDepartments(deptArray);
+        } else {
+          console.error("Expected departments to be an array, but got:", deptArray);
+          setDepartments([]);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching departments:", error);
+      });
+  }, []);
+
 
   // Handle input change
   const handleChange = (e) => {
@@ -33,7 +55,10 @@ const CreateAccount = () => {
     setMessage(null);
 
     try {
-      const response = await axios.post("http://localhost:8080/accounts/addAccount", formData);
+      const response = await axios.post(
+        "/accounts/addAccount",
+        formData
+      );
 
       setMessage({ type: "success", text: response.data.message });
 
@@ -86,17 +111,44 @@ const CreateAccount = () => {
         )}
 
         <form className="mt-6" onSubmit={handleSubmit}>
+          {/* Department Selection */}
+          <div className="mb-6">
+            <label
+              className="block font-semibold text-white mb-2"
+              htmlFor="DepartmentId"
+            >
+              Select Department:
+            </label>
+            <select
+              id="DepartmentId"
+              name="DepartmentId"
+              value={formData.DepartmentId}
+              onChange={handleChange}
+              className="border rounded w-full py-9 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              required
+            >
+              <option value="" disabled>
+                -- Select Department --
+              </option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.Name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Role Selection */}
           <div className="mb-6">
-            <label className="block font-semibold text-white mb-2" htmlFor="role">
+            <label className="block font-semibold text-white mb-2" htmlFor="Roles">
               Select Role:
             </label>
             <select
-              id="role"
-              name="Role"
-              value={formData.Role}
+              id="Roles"
+              name="Roles"
+              value={formData.Roles}
               onChange={handleChange}
-              className="border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="border rounded w-full py-9 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               required
             >
               <option value="" disabled>
@@ -113,7 +165,7 @@ const CreateAccount = () => {
               Full Name:
             </label>
             <input
-              className="border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="border rounded w-full py-10 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               id="Name"
               name="Name"
               type="text"
@@ -130,7 +182,7 @@ const CreateAccount = () => {
               Email Address:
             </label>
             <input
-              className="border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="border rounded w-full py-10 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               id="Email"
               name="Email"
               type="email"
@@ -144,7 +196,7 @@ const CreateAccount = () => {
           {/* Buttons */}
           <div className="flex justify-end mt-6 space-x-4">
             <button
-              className="bg-customLightBlue2 hover:bg-blue-300 text-gray-600 font-bold py-2 px-6 rounded"
+              className="bg-customLightBlue2 hover:bg-blue-300 text-gray-700 font-bold py-4 px-8 rounded duration-300"
               type="submit"
               disabled={loading}
             >

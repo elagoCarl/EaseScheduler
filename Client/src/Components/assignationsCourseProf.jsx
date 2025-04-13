@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axios from "../axiosConfig.js";
 import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -10,10 +10,13 @@ import delBtn from "./Img/delBtn.png";
 import AddAssignationModal from "./callComponents/addAssignationModal.jsx";
 import EditAssignmentModal from "./callComponents/editAssignmentModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning.jsx";
+import { useAuth } from '../Components/authContext.jsx';
 
 const AssignationsCourseProf = () => {
-    // Using a constant department id; you can pass this via props as needed
-    const DEPARTMENT_ID = 1;
+    const { user } = useAuth();
+    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+    const DEPARTMENT_ID = user.DepartmentId;
 
     const [department, setDepartment] = useState(null);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -51,7 +54,7 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         const fetchDepartment = async () => {
             try {
-                const response = await axios.get(`http://localhost:8080/dept/getDept/${DEPARTMENT_ID}`);
+                const response = await axios.get(`/dept/getDept/${ DEPARTMENT_ID }`);
                 if (response.data.successful) {
                     setDepartment(response.data.data);
                 } else {
@@ -68,7 +71,7 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         const fetchAssignations = async () => {
             try {
-                const response = await axios.get(`http://localhost:8080/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+                const response = await axios.get(`/assignation/getAllAssignationsByDept/${ DEPARTMENT_ID }`);
                 if (response.data.successful) {
                     const data = response.data.data;
                     setAssignedCourses(data);
@@ -100,7 +103,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     professorIds.map(id =>
-                        axios.get(`http://localhost:8080/prof/getProf/${id}`)
+                        axios.get(`/prof/getProf/${ id }`)
                     )
                 );
                 const detailsMap = {};
@@ -134,7 +137,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     courseIds.map(id =>
-                        axios.get(`http://localhost:8080/course/getCourse/${id}`)
+                        axios.get(`/course/getCourse/${ id }`)
                     )
                 );
                 const detailsMap = {};
@@ -208,7 +211,7 @@ const AssignationsCourseProf = () => {
             // Delete each assignation individually using the backend API
             for (const id of selectedCourseIds) {
                 try {
-                    const response = await axios.delete(`http://localhost:8080/assignation/deleteAssignation/${id}`);
+                    const response = await axios.delete(`/assignation/deleteAssignation/${ id }`);
                     results.push({
                         id,
                         success: response.data.successful,
@@ -231,7 +234,7 @@ const AssignationsCourseProf = () => {
             }
 
             // Refresh the assignations list
-            const response = await axios.get(`http://localhost:8080/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+            const response = await axios.get(`/assignation/getAllAssignationsByDept/${ DEPARTMENT_ID }`);
             if (response.data.successful) {
                 setAssignedCourses(response.data.data);
                 setCheckboxes(new Array(response.data.data.length).fill(false));
@@ -272,14 +275,14 @@ const AssignationsCourseProf = () => {
     return (
         <div
             className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${Background})` }}
+            style={{ backgroundImage: `url(${ Background })` }}
         >
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
             <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
 
             <div className="flex flex-col justify-center items-center h-screen w-full px-8">
                 {/* Display the current department */}
-                <div className="mb-4 text-lg font-semibold">
+                <div className="mb-4 text-lg font-semibold text-white">
                     Current Department: {department ? department.Name : "Loading..."}
                 </div>
 
@@ -292,7 +295,7 @@ const AssignationsCourseProf = () => {
                         >
                             <option value="">Select Professor</option>
                             {professors.map(prof => (
-                                <option key={`prof-${prof.id}`} value={prof.Name}>
+                                <option key={`prof-${ prof.id }`} value={prof.Name}>
                                     {prof.Name}
                                 </option>
                             ))}
@@ -327,7 +330,7 @@ const AssignationsCourseProf = () => {
                 </div>
 
                 <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
-                    <div className="flex items-center bg-customBlue1 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
+                    <div className="flex items-center bg-blue-600 text-white px-4 md:px-10 py-4 rounded-t-lg w-full mb-3">
                         <img
                             src={profV}
                             className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
@@ -341,13 +344,13 @@ const AssignationsCourseProf = () => {
                     <div className="overflow-auto w-full h-full flex-grow">
                         <table className="text-center w-full border-collapse">
                             <thead>
-                                <tr className="bg-customLightBlue2">
-                                    <th className="px-4 py-2 text-gray-600 border">Code</th>
-                                    <th className="px-4 py-2 text-gray-600 border">Description</th>
-                                    <th className="px-4 py-2 text-gray-600 border">School Year</th>
-                                    <th className="px-4 py-2 text-gray-600 border">Semester</th>
-                                    <th className="px-4 py-2 text-gray-600 border">Professor</th>
-                                    <th className="px-4 py-2 text-gray-600 border">
+                                <tr className="bg-blue-600">
+                                    <th className="px-4 py-2 text-white font-medium border ">Code</th>
+                                    <th className="px-4 py-2 text-white font-medium border">Description</th>
+                                    <th className="px-4 py-2 text-white font-medium border">School Year</th>
+                                    <th className="px-4 py-2 text-white font-medium border">Semester</th>
+                                    <th className="px-4 py-2 text-white font-medium border">Professor</th>
+                                    <th className="px-4 py-2 text-white font-medium border">
                                         <input
                                             type="checkbox"
                                             checked={isAllChecked}
@@ -366,7 +369,7 @@ const AssignationsCourseProf = () => {
                                         // Use detailed professor info based on ProfessorId
                                         const profDetail = professorDetails[assignment.ProfessorId];
                                         const professorDisplay = profDetail
-                                            ? `${profDetail.Name} (${profDetail.ProfStatus?.Status || "No Status"})`
+                                            ? `${ profDetail.Name } (${ profDetail.ProfStatus?.Status || "No Status" })`
                                             : 'N/A';
                                         // Use detailed course info based on CourseId
                                         const courseDetail = courseDetails[assignment.CourseId];

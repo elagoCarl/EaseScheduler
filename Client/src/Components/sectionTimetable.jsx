@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
+import { useAuth } from '../Components/authContext.jsx';
 
 const SectionTimetable = () => {
+  const { user } = useAuth();
+  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  console.log("useridDDDDDDDDDDDDDDept: ", user?.DepartmentId);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,9 +34,18 @@ const SectionTimetable = () => {
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        const deptId = '1'; // Hardcoded department ID
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByDept/${deptId}`);
-        if (data.successful && data.data.length) {
+        // Add null check for user and DepartmentId
+        if (!user || !user.DepartmentId) {
+          console.error('User or DepartmentId is missing');
+          setLoading(false);
+          return;
+        }
+
+        const deptId = user.DepartmentId;
+        const { data } = await axios.get(`/schedule/getSchedsByDept/${deptId}`);
+        console.log("Fetched schedulesssSSSSSSS: ", data.data);
+
+        if (data.successful && data.data && data.data.length) {
           const scheds = data.data;
           setSchedules(scheds);
 
@@ -41,25 +54,27 @@ const SectionTimetable = () => {
           const uniqueYears = [];
           const uniqueSections = [];
           scheds.forEach(schedule => {
-            schedule.ProgYrSecs.forEach(prog => {
-              if (!uniquePrograms.find(p => p.id === prog.Program.id)) {
-                uniquePrograms.push(prog.Program);
-              }
-              if (!uniqueYears.includes(prog.Year)) {
-                uniqueYears.push(prog.Year);
-              }
-              if (!uniqueSections.includes(prog.Section)) {
-                uniqueSections.push(prog.Section);
-              }
-            });
+            if (schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0) {
+              schedule.ProgYrSecs.forEach(prog => {
+                if (prog.Program && !uniquePrograms.find(p => p.id === prog.Program.id)) {
+                  uniquePrograms.push(prog.Program);
+                }
+                if (prog.Year && !uniqueYears.includes(prog.Year)) {
+                  uniqueYears.push(prog.Year);
+                }
+                if (prog.Section && !uniqueSections.includes(prog.Section)) {
+                  uniqueSections.push(prog.Section);
+                }
+              });
+            }
           });
 
           // Sort and update state
-          setPrograms(uniquePrograms.sort((a, b) => a.Code.localeCompare(b.Code)));
+          setPrograms(uniquePrograms.sort((a, b) => a.Code?.localeCompare(b.Code || '') || 0));
           setYears(uniqueYears.sort((a, b) => a - b));
           setSections(uniqueSections.sort());
 
-          // Set initial selections
+          // Set initial selections only if there are options available
           if (uniquePrograms.length) setSelectedProgram(uniquePrograms[0].id);
           if (uniqueYears.length) setSelectedYear(uniqueYears[0]);
           if (uniqueSections.length) setSelectedSection(uniqueSections[0]);
@@ -73,14 +88,14 @@ const SectionTimetable = () => {
       }
     };
     fetchSchedules();
-  }, []);
+  }, [user]);
 
   // Filter schedules when filters or schedules change
   useEffect(() => {
     if (schedules.length === 0) return;
     const filtered = schedules.filter(schedule =>
-      schedule.ProgYrSecs.some(prog =>
-        (!selectedProgram || prog.Program.id === selectedProgram) &&
+      schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0 && schedule.ProgYrSecs.some(prog =>
+        (!selectedProgram || (prog.Program && prog.Program.id === selectedProgram)) &&
         (!selectedYear || prog.Year === selectedYear) &&
         (!selectedSection || prog.Section === selectedSection)
       )
@@ -90,22 +105,39 @@ const SectionTimetable = () => {
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
-  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+  const formatTimeRange = (start, end) => `${start?.slice(0, 5) || ''} - ${end?.slice(0, 5) || ''}`;
 
   const calculateEventPosition = (event) => {
+    if (!event || !event.Start_time || !event.End_time) return { top: '0%', height: '0%' };
+
     const [startHour, startMin] = event.Start_time.split(':').map(Number);
     const [endHour, endMin] = event.End_time.split(':').map(Number);
     const duration = (endHour - startHour) + (endMin - startMin) / 60;
     return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
+  // Get room info from Assignation.Rooms
+  const getRoomInfo = (schedule) => {
+    const room = schedule?.Assignation?.Rooms?.[0];
+    return {
+      code: room?.Code || '?',
+      building: room?.Building || '?'
+    };
+  };
+
   // New component that expands on hover (similar to the other timetable pages)
   const SectionScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
-    const sectionsStr = schedule.ProgYrSecs
-      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-      .join(', ');
+
+    // Add null checks for all data access
+    const sectionsStr = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
+      ? schedule.ProgYrSecs
+        .map(sec => `${sec.Program?.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`)
+        .join(', ')
+      : 'Unknown';
+
+    const roomInfo = getRoomInfo(schedule);
 
     return (
       <div
@@ -118,13 +150,13 @@ const SectionTimetable = () => {
           <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sectionsStr}</span>
         </div>
-        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'Unknown'}</div>
         <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
-          {schedule.Assignation.Course.Description}
+          {schedule.Assignation?.Course?.Description || 'No description'}
         </div>
-        <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
+        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'Unknown'}</div>
         <div className="text-xs italic">
-          Room {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Code} - {schedule.Assignation.Rooms && schedule.Assignation.Rooms[0]?.Building}
+          Room: {roomInfo.code} - {roomInfo.building}
         </div>
       </div>
     );
@@ -135,6 +167,8 @@ const SectionTimetable = () => {
     const apiDayIndex = dayIndex + 1;
     return filteredSchedules
       .filter(schedule => {
+        if (!schedule || !schedule.Start_time || !schedule.End_time) return false;
+
         const [sHour, sMin] = schedule.Start_time.split(':').map(Number);
         const [eHour, eMin] = schedule.End_time.split(':').map(Number);
         return (
@@ -144,7 +178,7 @@ const SectionTimetable = () => {
         );
       })
       .map(schedule => {
-        if (parseInt(schedule.Start_time.split(':')[0]) !== hour) return null;
+        if (!schedule.Start_time || parseInt(schedule.Start_time.split(':')[0]) !== hour) return null;
         return <SectionScheduleEvent key={schedule.id} schedule={schedule} />;
       });
   };
@@ -153,6 +187,12 @@ const SectionTimetable = () => {
   const renderMobileEvent = (hour, dayIndex) => {
     if (dayIndex !== selectedDay) return null;
     return renderEvent(hour, selectedDay);
+  };
+
+  // Find selected program safely
+  const getSelectedProgramCode = () => {
+    const program = programs.find(p => p.id === selectedProgram);
+    return program?.Code || 'Unknown';
   };
 
   return (
@@ -183,11 +223,15 @@ const SectionTimetable = () => {
                   onChange={e => setSelectedProgram(e.target.value ? parseInt(e.target.value) : null)}
                   className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
                 >
-                  {programs.map(program => (
-                    <option key={program.id} value={program.id}>
-                      {program.Code}
-                    </option>
-                  ))}
+                  {programs.length > 0 ? (
+                    programs.map(program => (
+                      <option key={program.id} value={program.id}>
+                        {program.Code || 'Unknown'}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No programs available</option>
+                  )}
                 </select>
               </div>
               {/* Year Dropdown */}
@@ -198,11 +242,15 @@ const SectionTimetable = () => {
                   onChange={e => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
                   className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
                 >
-                  {years.map(year => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
+                  {years.length > 0 ? (
+                    years.map(year => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No years available</option>
+                  )}
                 </select>
               </div>
               {/* Section Dropdown */}
@@ -213,17 +261,21 @@ const SectionTimetable = () => {
                   onChange={e => setSelectedSection(e.target.value || null)}
                   className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
                 >
-                  {sections.map(section => (
-                    <option key={section} value={section}>
-                      {section}
-                    </option>
-                  ))}
+                  {sections.length > 0 ? (
+                    sections.map(section => (
+                      <option key={section} value={section}>
+                        {section}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No sections available</option>
+                  )}
                 </select>
               </div>
             </div>
             {selectedProgram && selectedYear && selectedSection && (
               <div className="text-blue-100 mt-3 text-lg">
-                Viewing: {programs.find(p => p.id === selectedProgram)?.Code} Year {selectedYear} Section {selectedSection}
+                Viewing: {getSelectedProgramCode()} Year {selectedYear} Section {selectedSection}
               </div>
             )}
           </div>

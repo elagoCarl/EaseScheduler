@@ -1,4 +1,7 @@
 const { Assignation, Course, Professor, Department, ProfStatus } = require('../models');
+const jwt = require('jsonwebtoken');
+const { REFRESH_TOKEN_SECRET } = process.env;
+const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 const { Op, ValidationError } = require('sequelize');
 const util = require('../../utils');
 
@@ -96,7 +99,26 @@ const addAssignation = async (req, res, next) => {
                 message: "No assignations were created. Check for missing fields, duplicates, or professor unit limits.",
             });
         }
-
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        const page = 'Assignation';
+        const details = `Added Assignations: ${createdAssignations.map(assignation => assignation.id).join(', ')}`;
+        await addHistoryLog(accountId, page, details);
         return res.status(201).json({
             successful: true,
             message: `${createdAssignations.length} assignation(s) created successfully.`,
@@ -141,6 +163,8 @@ const updateAssignation = async (req, res, next) => {
         if (!assignation) {
             return res.status(404).json({ successful: false, message: "Assignation not found." });
         }
+
+        const oldA = assignation
 
         // Validate related models
         const course = await Course.findByPk(CourseId);
@@ -239,6 +263,27 @@ const updateAssignation = async (req, res, next) => {
             ProfessorId,
             DepartmentId,
         });
+
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        const page = 'Assignation';
+        const details = `Updated Assignation: ${oldA} to ${assignation}`;
+        await addHistoryLog(accountId, page, details);
 
         return res.status(200).json({
             successful: true,
@@ -386,6 +431,8 @@ const deleteAssignation = async (req, res, next) => {
             return res.status(404).json({ successful: false, message: "Assignation not found." });
         }
 
+        const oldA = assignation
+
         const { CourseId, ProfessorId } = assignation;
 
         // Get Course and Professor
@@ -400,6 +447,27 @@ const deleteAssignation = async (req, res, next) => {
             const decrementedUnit = professor.Total_units - course.Units;
             await professor.update({ Total_units: Math.max(0, decrementedUnit) });
         }
+
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        const page = 'Assignation';
+        const details = `Deleted Assignation: ${oldA}`;
+        await addHistoryLog(accountId, page, details);
 
         return res.status(200).json({
             successful: true,

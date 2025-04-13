@@ -1,90 +1,148 @@
 const jwt = require('jsonwebtoken');
-const { Account, Session } = require('../models'); // Assuming Sequelize models are properly defined
+const { Account, Session } = require('../models');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
 
-// Create JSON Web Tokens
-const maxAge = 10; // 10 seconds
-const createAccessToken = (id) => {
-  return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
-    expiresIn: maxAge
-  });
-};
+// Token Expirations
+const ACCESS_TOKEN_EXPIRY = 60 * 30; // 30 minutes
+const REFRESH_TOKEN_EXPIRY = 60 * 60 * 24 * 30; // 30 days
 
-const createRefreshToken = (id) => {
-  return jwt.sign({ id }, REFRESH_TOKEN_SECRET, {
-    expiresIn: 60 * 60 * 24 * 30 // 30 days
-  });
-};
+// Functions to create tokens
+const createAccessToken = (id) =>
+  jwt.sign({ id }, ACCESS_TOKEN_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+const createRefreshToken = (id) =>
+  jwt.sign({ id }, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-const requireAuth = async (req, res, next) => {
+/**
+ * requireAuth middleware checks for a valid access token.
+ * It does NOT attempt to refresh tokens on the same request.
+ */
+const requireAuth = (req, res, next) => {
+  // Get token from Authorization header or cookies
+  let token = null;
   const authorizationHeader = req.headers['authorization'];
-  if (!authorizationHeader) {
-    return res.status(400).json({
-      successful: false,
-      message: "Authorization header missing"
-    });
+  if (authorizationHeader) {
+    token = authorizationHeader.split(' ')[1];
+  }
+  if (!token) {
+    token = req.cookies.jwt;
+  }
+  if (!token) {
+    return res.status(401).json({ successful: false, message: "Access token not provided" });
   }
 
-  const token = authorizationHeader.split(' ')[1];
-  if (token) {
-    jwt.verify(token, ACCESS_TOKEN_SECRET, async (err, decodedToken) => {
-      if (err) {
-        if (err.name === 'TokenExpiredError') {
-          try {
-            const refreshToken = req.cookies.refreshToken;
-            if (!refreshToken) {
-              throw new Error("Refresh token not provided");
-            }
+  jwt.verify(token, ACCESS_TOKEN_SECRET, (err, decodedToken) => {
+    if (err) {
+      console.error("Authentication error:", err.message);
+      return res.status(401).json({ successful: false, message: err.message });
+    }
+    req.decodedToken = decodedToken;
+    next();
+  });
+};
 
-            const session = await Session.findOne({ where: { token: refreshToken } });
-            if (!session) {
-              throw new Error("Invalid refresh token");
-            }
+/**
+ * refresh function is designed to be used as a dedicated refresh endpoint.
+ * It verifies the refresh token, updates the session with a new refresh token,
+ * issues a new access token, and sets both as cookies.
+ */
+const refresh = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken)
+      return res.status(401).json({ successful: false, message: "Refresh token not provided" });
 
-            const user = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-            const accessToken = createAccessToken(user.id);
-            const newRefreshToken = createRefreshToken(user.id);
+    // Find session using the provided refresh token
+    const session = await Session.findOne({ where: { Token: refreshToken } });
+    if (!session)
+      return res.status(401).json({ successful: false, message: "Invalid refresh token" });
 
-            res.cookie('refreshToken', '', { maxAge: 1 });
-            res.cookie('jwt', accessToken, { httpOnly: true, maxAge: maxAge * 1000 });
-            res.cookie('refreshToken', newRefreshToken, { httpOnly: true, maxAge: (60 * 60 * 24 * 30) * 1000 });
+    jwt.verify(refreshToken, REFRESH_TOKEN_SECRET, async (refreshErr, user) => {
+      if (refreshErr)
+        return res.status(401).json({ successful: false, message: "Invalid or expired refresh token" });
 
-            await Session.destroy({ where: { userId: user.id } });
-            await Session.create({
-              userId: user.id,
-              token: newRefreshToken
-            });
+      // Generate new tokens
+      const newAccessToken = createAccessToken(user.id);
+      const newRefreshToken = createRefreshToken(user.id);
 
-            req.decodedToken = user;
-            next();
-          } catch (err) {
-            console.error("Error refreshing access token:", err);
-            return res.status(400).json({
-              successful: false,
-              message: err.message
-            });
-          }
-        } else {
-          console.log(err.message);
-          res.status(400).json({
-            successful: false,
-            message: err.message
-          });
-        }
-      } else {
-        req.decodedToken = decodedToken;
-        next();
-      }
+      // Update session with new refresh token (update in place)
+      await Session.update({ Token: newRefreshToken }, { where: { AccountId: user.id } });
+
+      // Set new tokens in cookies
+      res.cookie('jwt', newAccessToken, {
+        httpOnly: true,
+        maxAge: ACCESS_TOKEN_EXPIRY * 1000,
+        secure: true,
+        sameSite: 'None',
+        path: '/',
+      });
+      res.cookie('refreshToken', newRefreshToken, {
+        httpOnly: true,
+        maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+        secure: true,
+        sameSite: 'None',
+        path: '/',
+      });
+
+      return res.json({ successful: true, message: "Tokens refreshed" });
     });
-  } else {
-    console.log("No token found");
-    res.status(400).json({
-      successful: false,
-      message: "No token found"
-    });
+  } catch (error) {
+    console.error("Error in refresh endpoint:", error.message);
+    return res.status(401).json({ successful: false, message: error.message });
   }
+};
+
+/**
+ * Helper function to refresh tokens and return the decoded token of the new access token.
+ */
+const refreshTokens = async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    throw new Error("Refresh token not provided");
+  }
+
+  // Find session using the provided refresh token
+  const session = await Session.findOne({ where: { Token: refreshToken } });
+  if (!session) {
+    throw new Error("Invalid refresh token");
+  }
+
+  // Verify refresh token
+  const decodedUser = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+
+  // Generate new tokens
+  const newAccessToken = createAccessToken(decodedUser.id);
+  const newRefreshToken = createRefreshToken(decodedUser.id);
+
+  // Update session with new refresh token
+  await Session.update({ Token: newRefreshToken }, { where: { AccountId: decodedUser.id } });
+
+  // secure: true,
+  // sameSite: 'Strict'
+
+  // Set new tokens in cookies
+  res.cookie('jwt', newAccessToken, {
+    httpOnly: true,
+    maxAge: ACCESS_TOKEN_EXPIRY * 1000,
+    secure: true,
+    sameSite: 'None',
+    path: '/',
+  });
+  res.cookie('refreshToken', newRefreshToken, {
+    httpOnly: true,
+    maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+    secure: true,
+    sameSite: 'None',
+    path: '/',
+  });
+
+  // Return the decoded token of the new access token
+  return jwt.verify(newAccessToken, ACCESS_TOKEN_SECRET);
 };
 
 module.exports = {
-  requireAuth
+  requireAuth,
+  refresh,
+  refreshTokens, // Exported for use in account controller
+  createAccessToken,
+  createRefreshToken,
 };

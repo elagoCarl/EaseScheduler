@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import Image3 from './Img/3.jpg';
+import { useAuth } from '../Components/authContext.jsx';
 
 const RoomTimetable = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -11,7 +12,10 @@ const RoomTimetable = () => {
   const [schedules, setSchedules] = useState([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
-
+  const { user } = useAuth();
+  // console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  // console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+  const DeptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
@@ -19,7 +23,7 @@ const RoomTimetable = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:8080/room/getRoomsByDept/1`);
+        const { data } = await axios.get(`/room/getRoomsByDept/${DeptId}`);
         if (data.successful && data.data.length) {
           setRooms(data.data);
           setSelectedRoom(data.data[0]);
@@ -39,7 +43,7 @@ const RoomTimetable = () => {
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`http://localhost:8080/schedule/getSchedsByRoom/${selectedRoom.id}`);
+        const { data } = await axios.get(`/schedule/getSchedsByRoom/${selectedRoom.id}`);
         if (data.successful) {
           setSchedules(data.data);
         } else {
@@ -132,34 +136,41 @@ const RoomTimetable = () => {
       <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header */}
-          <div className="relative bg-blue-600 p-4 sm:p-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
-            {selectedRoom ? (
-              <div className="text-blue-100 mt-1">
-                <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
-                <div className="flex flex-col gap-x-4 text-sm mt-1">
-                  <span>{selectedRoom.Floor} Floor</span>
-                  <span>{selectedRoom.Building} Building</span>
-                  <span>{selectedRoom.Type}</span>
-                </div>
+          {/* Header */}
+          <div className="bg-blue-600 p-4 sm:p-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
+                {selectedRoom ? (
+                  <div className="text-blue-100 mt-1">
+                    <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
+                    <div className="flex flex-row gap-x-4 text-sm mt-1">
+                      <span>{selectedRoom.Floor} Floor</span>
+                      <span>•</span>
+                      <span>{selectedRoom.Building} Building</span>
+                      <span>•</span>
+                      <span>{selectedRoom.Type}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-blue-100 mt-1">Loading room details...</p>
+                )}
               </div>
-            ) : (
-              <p className="text-blue-100 mt-1">Loading room details...</p>
-            )}
-            <div className="flex items-center gap-2 mt-4">
-              <select
-                value={selectedRoom?.id || ''}
-                onChange={e =>
-                  setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
-                }
-                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-              >
-                {rooms.map(room => (
-                  <option key={room.id} value={room.id}>
-                    Room {room.Code} - {room.Building}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-1">
+                <select
+                  value={selectedRoom?.id || ''}
+                  onChange={e =>
+                    setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
+                  }
+                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                >
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      Room {room.Code} - {room.Building}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           {/* Timetable */}
