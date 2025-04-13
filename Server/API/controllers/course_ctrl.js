@@ -513,35 +513,33 @@ const getCoursesByDept = async (req, res, next) => {
   try {
     const deptId = req.params.id;
     const courses = await Course.findAll({
-      attributes: { exclude: ["CourseDepts"] },
+      // Do not exclude the new alias here, as it might cause conflicts.
       where: {
         [Op.or]: [
-          { type: "Core" },
-          {
-            "$CourseDepts.id$": deptId
-          }
+          { Type: "Core" },
+          { "$DeptCourses.id$": deptId }
         ]
       },
       include: {
         model: Department,
-        as: "CourseDepts",
-        attributes: [],
+        as: "DeptCourses",
+        attributes: [], // Exclude department attributes if you don't need them
         required: false,
         through: {
-          attributes: [],
-        },
-      },
+          attributes: [] // Hide junction table fields
+        }
+      }
     });
 
     if (!courses || courses.length === 0) {
-      res.status(200).send({
+      return res.status(200).send({
         successful: true,
         message: "No courses found",
         count: 0,
         data: [],
       });
     } else {
-      res.status(200).send({
+      return res.status(200).send({
         successful: true,
         message: "Retrieved all courses",
         count: courses.length,
@@ -549,13 +547,15 @@ const getCoursesByDept = async (req, res, next) => {
       });
     }
   } catch (err) {
-    console.log(err)
+    console.log(err);
     return res.status(500).json({
       successful: false,
       message: err.message || "An unexpected error occurred.",
     });
   }
 };
+
+
 
 const updateDeptCourse = async (req, res, next) => {
   try {
