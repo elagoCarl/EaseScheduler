@@ -1,6 +1,8 @@
 const express = require('express');
 const dept_ctrl = require('../controllers/dept_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+router.use(requireAuth)
 
 router.post('/addDept', dept_ctrl.addDept)
 router.get('/getAllDept', dept_ctrl.getAllDept)

@@ -3,7 +3,7 @@ const { Account, Session } = require('../models');
 const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } = process.env;
 
 // Token Expirations
-const ACCESS_TOKEN_EXPIRY = 60; // 60 seconds (adjust as needed, e.g., 900 for 15 minutes)
+const ACCESS_TOKEN_EXPIRY = 60 * 30; // 30 minutes
 const REFRESH_TOKEN_EXPIRY = 60 * 60 * 24 * 30; // 30 days
 
 // Functions to create tokens

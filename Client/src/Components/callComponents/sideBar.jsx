@@ -7,7 +7,7 @@ import { BASE_URL } from '../../axiosConfig';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
-  console.log(user);
+  // console.log(user);
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
   const [activeSection, setActiveSection] = useState(null);
@@ -51,6 +51,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     toggleSidebar(false);
   };
 
+  const isAdmin = user?.Roles === 'Admin';
+
   return (
     <div ref={sidebarRef}
       className={`fixed right-0 xs:right-0 min-h-screen bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
@@ -62,6 +64,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       >
         EASE<span className="text-white">SCHEDULER</span>
       </button>
+
+      {/* User Profile Section */}
+      <div className="flex flex-col items-center px-5 py-4 border-b border-gray-700">
+        <div className="text-center">
+          <h3 className="font-semibold truncate max-w-full">{user?.Name || 'User'}</h3>
+          <p className="text-sm text-gray-300 truncate max-w-full">{user?.Email || 'No email'}</p>
+          <p className="text-xs text-gray-400 truncate max-w-full">
+            {user?.Department?.Name || 'No department'}
+          </p>
+        </div>
+      </div>
 
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
@@ -239,15 +252,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/deptProg');
-              toggleSidebar(false);
-            }}
-          >
-            Manage Depts & Programs
-          </button>
+          {isAdmin && (
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/deptProg');
+                toggleSidebar(false);
+              }}
+            >
+              Manage Depts & Programs
+            </button>
+          )}
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
@@ -255,7 +270,16 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               toggleSidebar(false);
             }}
           >
-            Program, Year, and Sections
+            Program, Year, & Sections
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/courseProg');
+              toggleSidebar(false);
+            }}
+          >
+            Course & Program
           </button>
         </div>
       </div>
@@ -292,15 +316,30 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           >
             Account Settings
           </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/createAccount');
-              toggleSidebar(false);
-            }}
-          >
-            Create Account
-          </button>
+
+          {isAdmin && (
+            <>
+              <button
+                className="hover:bg-gray-700 p-2 rounded w-full text-left"
+                onClick={() => {
+                  navigate('/createAccount');
+                  toggleSidebar(false);
+                }}
+              >
+                Create Account
+              </button>
+              <button
+                className="hover:bg-gray-700 p-2 rounded w-full text-left"
+                onClick={() => {
+                  navigate('/accountList');
+                  toggleSidebar(false);
+                }}
+              >
+                Account List
+              </button>
+            </>
+          )}
+
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {

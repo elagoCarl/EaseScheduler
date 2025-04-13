@@ -1,4 +1,4 @@
-const { Account, OTP, Session } = require('../models'); // Ensure model name matches exported model
+const { Account, OTP, Session, Department } = require('../models'); // Ensure model name matches exported model
 const util = require('../../utils');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken')
@@ -26,7 +26,7 @@ const transporter = nodemailer.createTransport({
 
 
 // Create access token
-const maxAge = 60 * 60; // 1 minute in seconds
+const maxAge = 30 * 60; // 30 mins
 const createAccessToken = (id) => {
     return jwt.sign({ id }, ACCESS_TOKEN_SECRET, {
         expiresIn: maxAge,
@@ -324,15 +324,15 @@ const loginAccount = async (req, res) => {
         res.cookie('jwt', accessToken, {
             httpOnly: true,
             secure: true,
-            sameSite: 'None',  // Changed from Strict to Lax
+            sameSite: 'None',
             maxAge: maxAge * 1000,
             path: '/',
         });
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
             secure: true,
-            sameSite: 'None',  // Changed from Strict to Lax
-            maxAge: 60 * 60 * 24 * 30 * 1000,
+            sameSite: 'None',
+            maxAge: 60 * 60 * 24 * 30 * 1000, //30days in milliseconds
             path: '/',
         });
 
@@ -658,8 +658,20 @@ const logoutAccount = async (req, res, next) => {
         await Session.destroy({ where: { AccountId: userId } });
 
         // Clear the JWT and refreshToken cookies by setting their maxAge to 1 millisecond
-        res.cookie('jwt', '', { maxAge: 1 });
-        res.cookie('refreshToken', '', { maxAge: 1 });
+        res.cookie('jwt', '', {
+            maxAge: 1,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+        });
+        res.cookie('refreshToken', '', {
+            maxAge: 1,
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+        });
 
         // Send success response
         res.status(200).json({
@@ -695,7 +707,13 @@ const getCurrentAccount = async (req, res, next) => {
             // Try verifying the access token
             const decoded = jwt.verify(AToken, ACCESS_TOKEN_SECRET);
             const account = await Account.findByPk(decoded.id, {
-                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                include: [
+                    {
+                        model: Department,
+                        attributes: ['Name']
+                    }
+                ]
             });
 
             if (!account) {
@@ -717,7 +735,13 @@ const getCurrentAccount = async (req, res, next) => {
                 try {
                     const newDecoded = await refreshTokens(req, res);
                     const account = await Account.findByPk(newDecoded.id, {
-                        attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                        attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                        include: [
+                            {
+                                model: Department,
+                                attributes: ['Name']
+                            }
+                        ]
                     });
                     if (!account) {
                         return res.status(404).json({
@@ -750,7 +774,13 @@ const getCurrentAccount = async (req, res, next) => {
         try {
             const newDecoded = await refreshTokens(req, res);
             const account = await Account.findByPk(newDecoded.id, {
-                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId']
+                attributes: ['id', 'Name', 'Email', 'Roles', 'verified', 'DepartmentId'],
+                include: [
+                    {
+                        model: Department,
+                        attributes: ['Name']
+                    }
+                ]
             });
             if (!account) {
                 return res.status(404).json({

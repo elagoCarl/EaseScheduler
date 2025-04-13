@@ -23,6 +23,7 @@ import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
 import DeptProg from "./Components/deptProg";
 import ProgYrSec from "./Components/progYrSec";
+import CourseProg from "./Components/courseProg";
 import Settings from "./Components/settings"
 
 
@@ -56,6 +57,7 @@ const App = () => {
             <Route path="/assignationsCourseProf" element={<AssignationsCourseProf />} />
             <Route path="/deptProg" element={<DeptProg />} />
             <Route path="/progYrSec" element={<ProgYrSec />} />
+            <Route path="/courseProg" element={<CourseProg />} />
 
             {/* ERROR handling routes */}
             <Route path="*" element={<Page404 />} />

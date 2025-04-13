@@ -13,8 +13,8 @@ const RoomTimetable = () => {
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
   const { user } = useAuth();
-  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+  // console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+  // console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const DeptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);

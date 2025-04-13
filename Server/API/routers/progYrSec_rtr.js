@@ -1,6 +1,8 @@
 const express = require('express');
 const progYrSec_ctrl = require('../controllers/progYrSec_ctrl');
 const router = express.Router();
+const { requireAuth } = require('../controllers/authMiddleware')
+router.use(requireAuth)
 
 router.post('/addProgYrSec', progYrSec_ctrl.addProgYrSec);
 router.get('/getAllProgYrSec', progYrSec_ctrl.getAllProgYrSec)

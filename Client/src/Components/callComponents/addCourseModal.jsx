@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Axios from '../../axiosConfig';
 import { useAuth } from '../authContext';
+import PropTypes from "prop-types";
 
 const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   const { user } = useAuth();
@@ -16,6 +17,12 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   const [isShaking, setIsShaking] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  AddCourseModal.propTypes = {
+    isOpen: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    fetchCourse: PropTypes.func.isRequired,
+  };
 
   if (!isOpen) return null; // Prevent rendering if the modal is not open
 
@@ -86,7 +93,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
           </button>
         </div>
         <form
-          className={`space-y-10 px-20 ${isShaking ? 'animate-shake' : ''}`}
+          className={`space-y-10 px-20 ${ isShaking ? 'animate-shake' : '' }`}
           onSubmit={handleSubmit}
         > {errorMessage && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">

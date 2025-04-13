@@ -5,8 +5,8 @@ import PropTypes from 'prop-types';
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
     const location = useLocation();
-    console.log("User object:", user);
-    console.log("Current path:", location.pathname);
+    // console.log("User object:", user);
+    // console.log("Current path:", location.pathname);
 
     // Render a loading indicator while the auth state is being determined
     if (loading) {
@@ -29,9 +29,12 @@ const ProtectedRoute = ({ children }) => {
     const normalizedPath = location.pathname.replace(/\/$/, '').toLowerCase();
 
     // Admin-only route check for /createAccount
-    if (normalizedPath === '/createaccount' && user.Roles !== 'Admin') {
+    const restrictedPaths = ['/createaccount', '/accountlist', '/deptprog'];
+
+    if (restrictedPaths.includes(normalizedPath) && user.Roles !== 'Admin') {
         return <Navigate to="/403" state={{ from: location }} />;
     }
+
 
     // If the user is logged in and verified, render the child component(s)
     return children;
