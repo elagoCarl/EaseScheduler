@@ -291,7 +291,7 @@ const DeptProg = () => {
                                 </div>
 
                                 <div className={`w-full md:w-2/3 ${ activeTab !== 'departments' && activeTab !== 'departments-form' && 'hidden md:block' } ${ activeTab === 'departments-form' && 'md:block hidden' }`}>
-                                    <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                                    <div className="bg-gray-100 rounded-lg shadow p-4 sm:p-6">
                                         <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">Departments List</h3>
                                         {departments.length === 0 ? (
                                             <div className="text-center py-6">
@@ -394,7 +394,7 @@ const DeptProg = () => {
                                 </div>
 
                                 <div className={`w-full md:w-2/3 ${ activeTab !== 'programs' && activeTab !== 'programs-form' && 'hidden md:block' } ${ activeTab === 'programs-form' && 'md:block hidden' }`}>
-                                    <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                                    <div className="bg-gray-100 rounded-lg shadow p-4 sm:p-6">
                                         <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">Programs List</h3>
                                         {programs.length === 0 ? (
                                             <div className="text-center py-6">

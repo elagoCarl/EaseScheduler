@@ -312,7 +312,7 @@ const Room = () => {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
+        <div className="bg-white p-5 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
           <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
             <img src={Door} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Room img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
@@ -320,7 +320,7 @@ const Room = () => {
             </h2>
           </div>
 
-          <div className="overflow-auto w-full h-full flex-grow mt-3">
+          <div className="overflow-auto w-full h-full flex-grow pt-4 pb-4">
             <table className="text-center w-full border-collapse">
               <thead>
                 <tr className="bg-blue-500">
