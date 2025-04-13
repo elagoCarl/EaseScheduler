@@ -3,6 +3,7 @@ const { Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, De
 const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
+const { lock } = require('../routers/profStatus_rtr');
 
 // HELPER FUNCTIONS
 
@@ -1369,7 +1370,66 @@ const toggleLock = async (req, res, next) => {
     }
 };
 
-
+// Updated controller function to toggle lock status (lock or unlock)
+const toggleLockAllSchedules = async (req, res) => {
+    try {
+      const { scheduleIds, isLocked } = req.body;
+      
+      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+        return res.status(400).json({
+          successful: false,
+          message: 'No schedule IDs provided'
+        });
+      }
+  
+      // Update all schedules to the specified lock status
+      await Schedule.update(
+        { isLocked: !!isLocked }, // Convert to boolean
+        { where: { id: scheduleIds } }
+      );
+  
+      return res.json({
+        successful: true,
+        message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
+      });
+    } catch (error) {
+      console.error('Error toggling schedule lock status:', error);
+      return res.status(500).json({
+        successful: false,
+        message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
+      });
+    }
+  };
+  
+  // New controller function to delete multiple schedules at once
+  const deleteMultipleSchedules = async (req, res) => {
+    try {
+      const { scheduleIds } = req.body;
+      
+      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+        return res.status(400).json({
+          successful: false,
+          message: 'No schedule IDs provided'
+        });
+      }
+  
+      // Delete all specified schedules
+      await Schedule.destroy({
+        where: { id: scheduleIds }
+      });
+  
+      return res.json({
+        successful: true,
+        message: `Successfully deleted ${scheduleIds.length} schedules`
+      });
+    } catch (error) {
+      console.error('Error deleting multiple schedules:', error);
+      return res.status(500).json({
+        successful: false,
+        message: 'An error occurred while deleting schedules'
+      });
+    }
+  };
 
 module.exports = {
     addSchedule,
@@ -1381,7 +1441,10 @@ module.exports = {
     getSchedsByRoom,
     getSchedsByProf,
     getSchedsByDept,
-    toggleLock
+    toggleLock,
+    toggleLockAllSchedules,
+    deleteMultipleSchedules
+    
 };
 
 //LOCK ALL & DELETE ALL
