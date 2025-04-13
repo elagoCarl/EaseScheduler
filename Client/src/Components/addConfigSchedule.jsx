@@ -8,6 +8,8 @@ import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
 import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
+import lock from './Img/lock.svg';
+import unlock from './Img/unlock.svg';
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
@@ -276,6 +278,20 @@ const AddConfigSchedule = () => {
     setPrioritizedRooms(prev => prev.filter(val => val !== id));
   };
 
+  const toggleLockStatus = async (scheduleId, currentLockStatus) => {
+    try {
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`);
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
+        if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred while toggling lock status.") });
+    }
+  };
+
   const resetForm = () => {
     setFormData({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
     setCustomStartTime("");
@@ -288,60 +304,70 @@ const AddConfigSchedule = () => {
   // Components
   // Original ScheduleEvent component with fix
   const ScheduleEvent = ({ schedule }) => {
-    const [hovered, setHovered] = useState(false);
-    const pos = calculateEventPosition(schedule);
+  const [hovered, setHovered] = useState(false);
+  const pos = calculateEventPosition(schedule);
 
-    // Add a null check for ProgYrSecs before mapping
-    const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
-      ? schedule.ProgYrSecs
-        .filter(sec => sec && sec.Program) // Filter out entries with missing data
-        .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-        .join(', ')
-      : 'No sections';
+  // Add a null check for ProgYrSecs before mapping
+  const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
+    ? schedule.ProgYrSecs
+      .filter(sec => sec && sec.Program) // Filter out entries with missing data
+      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+      .join(', ')
+    : 'No sections';
 
-    return (
-      <div
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
-        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
-      >
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
-          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-        </div>
-        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
-        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
-        {hovered && (
-          <div className="mt-2 text-xs">
-            <div className="flex justify-between items-center">
-              <div>
-                <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
-                <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
-              </div>
-              <div className="flex">
-                <button onClick={(e) => {
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+      style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+    >
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+        <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+      </div>
+      <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
+      <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+      <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
+      {hovered && (
+        <div className="mt-2 text-xs">
+          <div className="flex justify-between items-center">
+            <div>
+              <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
+              <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
+            </div>
+            <div className="flex">
+              <button 
+                onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedSchedule(schedule);
-                  setIsEditModalOpen(true);
-                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
-                  <img src={editBtn} alt="Edit" className="w-10 h-10" />
-                </button>
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedScheduleId(schedule.id);
-                  setIsDeleteWarningOpen(true);
-                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
-                  <img src={delBtn} alt="Delete" className="w-10 h-10" />
-                </button>
-              </div>
+                  toggleLockStatus(schedule.id, schedule.isLocked);
+                }} 
+                className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
+                title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+              >
+                <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+              </button>
+              <button onClick={(e) => {
+                e.stopPropagation();
+                setSelectedSchedule(schedule);
+                setIsEditModalOpen(true);
+              }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
+                <img src={editBtn} alt="Edit" className="w-10 h-10" />
+              </button>
+              <button onClick={(e) => {
+                e.stopPropagation();
+                setSelectedScheduleId(schedule.id);
+                setIsDeleteWarningOpen(true);
+              }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
+                <img src={delBtn} alt="Delete" className="w-10 h-10" />
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    );
-  };
+        </div>
+      )}
+    </div>
+  );
+};
 
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedRoom) return null;
@@ -365,6 +391,13 @@ const AddConfigSchedule = () => {
             {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
           </div>
           <div className="flex items-center gap-2">
+            <button 
+              onClick={() => toggleLockStatus(event.id, event.isLocked)} 
+              className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+              title={event.isLocked ? "Unlock schedule" : "Lock schedule"}
+            >
+              <img src={event.isLocked ? lock : unlock} alt={event.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+            </button>
             <button onClick={() => { setSelectedSchedule(event); setIsEditModalOpen(true); }} className="p-1 hover:bg-blue-100 rounded-full transition-colors">
               <img src={editBtn} alt="Edit" className="w-10 h-10" />
             </button>
@@ -706,7 +739,10 @@ const AddConfigSchedule = () => {
           setSelectedSchedule(null);
         }}
         onUpdate={(updatedSchedule) => {
-          setSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
+          // Fetch the updated schedule with all relations after successful update
+          if (formData.room_id) {
+            fetchSchedulesForRoom(formData.room_id);
+          }
         }}
         rooms={rooms}
         assignations={assignations}

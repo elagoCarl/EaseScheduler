@@ -58,7 +58,7 @@ const Professor = () => {
   // Open edit modal and fetch specific professor's data
   const handleEditClick = async (profId) => {
     try {
-      const response = await axios.get(`/prof/getProf/${ profId }`);
+      const response = await axios.get(`/prof/getProf/${profId}`);
       const professorData = response.data.data;
 
       if (professorData && professorData.Name && professorData.Email) {
@@ -103,7 +103,7 @@ const Professor = () => {
 
     try {
       for (const id of idsToDelete) {
-        await axios.delete(`/prof/deleteProf/${ id }`);
+        await axios.delete(`/prof/deleteProf/${id}`);
       }
       // Refresh the professor list
       fetchProfessors();
@@ -165,7 +165,7 @@ const Professor = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}
+      style={{ backgroundImage: `url(${Background})` }}
     >
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
@@ -175,7 +175,7 @@ const Professor = () => {
 
         <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[80vh]">
           <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
-            <img src={profV} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Professor Icon" />
+            <img src={profV} className="w-12 h-12 md:w-25 md:h-25" alt="Professor Icon" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">Professors</h2>
           </div>
 

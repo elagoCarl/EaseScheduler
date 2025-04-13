@@ -4,8 +4,11 @@ import { useNavigate } from "react-router-dom";
 import Background from "./Img/1.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
+import { useAuth } from '../Components/authContext.jsx';
 
 const ProgYrSec = () => {
+    const { user } = useAuth();
+    const deptId = user?.DepartmentId;
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [programs, setPrograms] = useState([]);
     const [sections, setSections] = useState([]);
@@ -30,7 +33,7 @@ const ProgYrSec = () => {
 
     const fetchPrograms = async () => {
         try {
-            const response = await axios.get("/program/getAllProgram");
+            const response = await axios.get(`/program/getAllProgByDept/${deptId}`);
             if (response.data.successful) {
                 setPrograms(response.data.data || []);
             } else {
@@ -43,9 +46,15 @@ const ProgYrSec = () => {
 
     const fetchSections = async () => {
         try {
-            const response = await axios.get("/progYrSec/getAllProgYrSec");
+            const response = await axios.get(`/progYrSec/getProgYrSecByDept/${deptId}`);
             if (response.data.successful) {
-                setSections(response.data.data || []);
+                const sectionsData = response.data.data || [];
+                // Map sections to ensure each section has an 'id' property.
+                const mappedSections = sectionsData.map(section => ({
+                    ...section,
+                    id: section.id || section.ID || section._id  // fallback if needed
+                }));
+                setSections(mappedSections);
             } else {
                 setSections([]);
             }
@@ -73,7 +82,7 @@ const ProgYrSec = () => {
             let response;
             if (isSectionEditing) {
                 response = await axios.put(
-                    `/progYrSec/updateProgYrSec/${ sectionEditingId }`,
+                    `/progYrSec/updateProgYrSec/${sectionEditingId}`,
                     sectionFormData
                 );
             } else {
@@ -131,7 +140,7 @@ const ProgYrSec = () => {
     const handleSectionDelete = async (id) => {
         if (window.confirm("Are you sure you want to delete this section?")) {
             try {
-                const response = await axios.delete(`/progYrSec/deleteProgYrSec/${ id }`);
+                const response = await axios.delete(`/progYrSec/deleteProgYrSec/${id}`);
                 setMessage({
                     type: "success",
                     text: response.data.message || "Section deleted successfully.",
@@ -153,7 +162,7 @@ const ProgYrSec = () => {
     };
 
     return (
-        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center" style={{ backgroundImage: `url(${ Background })` }}>
+        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center" style={{ backgroundImage: `url(${Background})` }}>
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             <TopMenu toggleSidebar={toggleSidebar} />
 
@@ -165,7 +174,7 @@ const ProgYrSec = () => {
 
                     <div className="p-4 sm:p-6">
                         {message && (
-                            <div className={`mb-4 p-3 text-center rounded-lg text-white font-medium ${ message.type === "success" ? "bg-green-500" : "bg-red-500" }`}>
+                            <div className={`mb-4 p-3 text-center rounded-lg text-white font-medium ${message.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
                                 {message.text}
                             </div>
                         )}
@@ -173,13 +182,13 @@ const ProgYrSec = () => {
                         {/* Mobile Tab Navigation */}
                         <div className="flex md:hidden mb-4 border-b">
                             <button
-                                className={`w-1/2 py-2 text-center ${ activeTab === 'sections-form' ? 'border-b-2 border-blue-600 text-blue-600 font-medium' : 'text-gray-500' }`}
+                                className={`w-1/2 py-2 text-center ${activeTab === 'sections-form' ? 'border-b-2 border-blue-600 text-blue-600 font-medium' : 'text-gray-500'}`}
                                 onClick={() => setActiveTab("sections-form")}
                             >
                                 {isSectionEditing ? "Edit Section" : "Create Section"}
                             </button>
                             <button
-                                className={`w-1/2 py-2 text-center ${ activeTab === 'sections' ? 'border-b-2 border-purple-600 text-purple-600 font-medium' : 'text-gray-500' }`}
+                                className={`w-1/2 py-2 text-center ${activeTab === 'sections' ? 'border-b-2 border-purple-600 text-purple-600 font-medium' : 'text-gray-500'}`}
                                 onClick={() => setActiveTab("sections")}
                             >
                                 Sections List
@@ -189,7 +198,7 @@ const ProgYrSec = () => {
                         {/* Main Content */}
                         <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                             {/* Section Form */}
-                            <div className={`w-full md:w-1/3 bg-gray-50 p-4 sm:p-6 rounded-lg shadow ${ activeTab !== 'sections-form' && 'hidden md:block' }`}>
+                            <div className={`w-full md:w-1/3 bg-gray-50 p-4 sm:p-6 rounded-lg shadow ${activeTab !== 'sections-form' && 'hidden md:block'}`}>
                                 <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">
                                     {isSectionEditing ? "Edit Section" : "Create Section"}
                                 </h3>
@@ -204,9 +213,9 @@ const ProgYrSec = () => {
                                             onChange={handleSectionChange}
                                             required
                                         >
-                                            <option value="">-- Select Program --</option>
+                                            <option value="" key="default-program">-- Select Program --</option>
                                             {programs.map((program) => (
-                                                <option key={program.id} value={program.id}>
+                                                <option key={`program-${program.id}`} value={program.id}>
                                                     {program.Code} - {program.Name}
                                                 </option>
                                             ))}
@@ -261,7 +270,7 @@ const ProgYrSec = () => {
                             </div>
 
                             {/* Section List */}
-                            <div className={`w-full md:w-2/3 ${ activeTab !== 'sections' && 'hidden md:block' }`}>
+                            <div className={`w-full md:w-2/3 ${activeTab !== 'sections' && 'hidden md:block'}`}>
                                 <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                                     <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">Sections List</h3>
                                     {sections.length === 0 ? (
@@ -273,7 +282,6 @@ const ProgYrSec = () => {
                                             <table className="w-full">
                                                 <thead>
                                                     <tr className="bg-gray-50">
-                                                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Program</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Year</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
@@ -281,9 +289,8 @@ const ProgYrSec = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {sections.map((section) => (
-                                                        <tr key={section.id} className="border-b hover:bg-gray-50 transition">
-                                                            <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.id}</td>
+                                                    {sections.map((section, index) => (
+                                                        <tr key={section.id || `section-${index}`} className="border-b hover:bg-gray-50 transition">
                                                             <td className="px-2 sm:px-4 py-2 text-sm font-medium text-gray-900">
                                                                 {getProgramName(section.ProgramId)}
                                                             </td>

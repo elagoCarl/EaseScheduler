@@ -5,8 +5,6 @@ import { useAuth } from '../authContext';
 
 const AddAssignationModal = ({ isOpen, onClose }) => {
     const { user } = useAuth();
-    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const [formData, setFormData] = useState({
         School_Year: "",
         Semester: "",
@@ -24,9 +22,10 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
         if (isOpen) {
             const fetchData = async () => {
                 try {
-                    // Fetch courses
-                    const coursesResponse = await axios.get("/course/getAllCourses");
+                    // Fetch courses by department ID instead of all courses
+                    const coursesResponse = await axios.get(`course/getCoursesByDept/${user.DepartmentId}`)
                     if (coursesResponse.status === 200) {
+                        
                         setCourses(coursesResponse.data.data);
                     } else {
                         setErrorMessage(coursesResponse.data.message || "Failed to fetch courses.");
@@ -41,8 +40,6 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                         setErrorMessage(professorsResponse.data.message || "Failed to fetch professors.");
                         return;
                     }
-
-                    // Note: No longer fetching departments as it will come from logged in user
                 } catch (error) {
                     setErrorMessage(
                         error.response?.data?.message ||
@@ -54,7 +51,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
 
             fetchData();
         }
-    }, [isOpen]);
+    }, [isOpen, user.DepartmentId]);
 
     if (!isOpen) return null; // Prevent rendering if the modal is not open
 
@@ -70,12 +67,23 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
         e.preventDefault();
         setErrorMessage("");
         setSuccessMessage("");
-        console.log("formData:", formData);
+        
+        // Create a copy of formData to modify
+        const submissionData = {
+            ...formData,
+            // Parse CourseId and ProfessorId to integers
+            CourseId: parseInt(formData.CourseId, 10),
+            ProfessorId: parseInt(formData.ProfessorId, 10),
+            // If DepartmentId should also be an integer, parse it too
+            DepartmentId: parseInt(formData.DepartmentId, 10)
+        };
+        
+        console.log("Submission data:", submissionData);
 
         try {
             const response = await axios.post(
                 "/assignation/addAssignation",
-                formData
+                submissionData
             );
 
             if (response.status !== 200 && response.status !== 201) {

@@ -1354,6 +1354,20 @@ const deleteSchedule = async (req, res, next) => {
     }
 };
 
+const toggleLock = async (req, res, next) => {
+    try {
+        const schedule = await Schedule.findByPk(req.params.id);
+        if (!schedule) {
+            return res.status(404).json({ successful: false, message: "Schedule not found." });
+        }
+        schedule.isLocked = !schedule.isLocked; // Toggle the lock status
+        await schedule.save()
+
+        return res.status(200).json({ successful: true, data: schedule });
+    } catch (error) {
+        return res.status(500).json({ successful: false, message: error.message || "An unexpected error; occurred." });
+    }
+};
 
 module.exports = {
     addSchedule,
@@ -1364,5 +1378,6 @@ module.exports = {
     deleteSchedule,
     getSchedsByRoom,
     getSchedsByProf,
-    getSchedsByDept
+    getSchedsByDept,
+    toggleLock
 };

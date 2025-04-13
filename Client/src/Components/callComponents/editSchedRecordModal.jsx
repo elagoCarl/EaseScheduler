@@ -3,6 +3,7 @@ import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
 const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assignations }) => {
+
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
     const [formData, setFormData] = useState({
@@ -13,8 +14,6 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         end_time: ""
     });
     const { user } = useAuth();
-    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [availableSections, setAvailableSections] = useState([]);
@@ -56,17 +55,21 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
     };
 
     // Fetch currently assigned sections
-    const fetchAssignedSections = async (scheduleId) => {
-        try {
-            const response = await axios.get(`/schedule/getSchedule/${scheduleId}`);
-            if (response.data.successful && response.data.data.ProgYrSecs) {
-                const sectionIds = response.data.data.ProgYrSecs.map(sec => sec.id);
-                setSelectedSections(sectionIds);
-            }
-        } catch (err) {
-            console.error("Error fetching assigned sections:", err);
+    useEffect(() => {
+        // Only proceed if we have both schedule data with ProgYrSecs and available sections
+        if (schedule?.ProgYrSecs && availableSections.length > 0) {
+            // Match existing ProgYrSecs with available sections
+            const matchedSectionIds = availableSections.filter(available => 
+                schedule.ProgYrSecs.some(section => 
+                    section.Program?.Code === available.Program?.Code &&
+                    section.Year === available.Year &&
+                    section.Section === available.Section
+                )
+            ).map(s => s.id);
+            
+            setSelectedSections(matchedSectionIds);
         }
-    };
+    }, [availableSections, schedule]);
 
     // Populate form data when the schedule prop changes, trimming seconds if necessary.
     useEffect(() => {
@@ -86,13 +89,26 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                     fetchSectionsForCourse(selectedAssignation.CourseId);
                 }
             }
-
-            // Fetch currently assigned sections
-            if (schedule.id) {
-                fetchAssignedSections(schedule.id);
-            }
         }
     }, [schedule, assignations]);
+
+    // Update selected sections when available sections change
+    useEffect(() => {
+        if (schedule && schedule.id && availableSections.length > 0) {
+            // Match ProgYrSecs with available sections
+            if (schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0) {
+                const matchedSectionIds = availableSections.filter(available =>
+                    schedule.ProgYrSecs.some(section =>
+                        section.Program?.Code === available.Program?.Code &&
+                        section.Year === available.Year &&
+                        section.Section === available.Section
+                    )
+                ).map(s => s.id);
+
+                setSelectedSections(matchedSectionIds);
+            }
+        }
+    }, [availableSections, schedule]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;

@@ -65,6 +65,15 @@ module.exports = (sequelize, DataTypes) => {
             uniqueKey: false
         });
 
+        // New association for DeptCourse
+        Course.belongsToMany(models.Department, {
+            through: 'DeptCourse',
+            as: 'DeptCourses',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        });
+
+
         Course.hasMany(models.Assignation, {
             foreignKey: 'CourseId'
         });
