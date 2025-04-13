@@ -13,5 +13,6 @@ router.put('/automateSchedule', schedule_ctrl.automateSchedule)
 router.get('/getSchedsByRoom/:id', schedule_ctrl.getSchedsByRoom)
 router.get('/getSchedsByProf/:id', schedule_ctrl.getSchedsByProf)
 router.get('/getSchedsByDept/:id', schedule_ctrl.getSchedsByDept)
+router.put('/toggleLock/:id', schedule_ctrl.toggleLock)
 
 module.exports = router;
