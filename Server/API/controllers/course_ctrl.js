@@ -96,7 +96,7 @@ const addCourse = async (req, res) => {
       });
 
       if (Type === "Professional") {
-        await newCourse.addCourseDepts(Dept_id);
+        await newCourse.addDeptCourses(Dept_id);
       }
 
       addedCourses.push(Code);
@@ -131,6 +131,7 @@ const addCourse = async (req, res) => {
       message: "Successfully added new course(s).",
     });
   } catch (err) {
+    console.log("errRRRRRRRRRRRRRRRRR ", err)
     return res.status(500).json({
       successful: false,
       message: err.message || "An unexpected error occurred.",
