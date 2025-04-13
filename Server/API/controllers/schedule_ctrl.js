@@ -1369,6 +1369,8 @@ const toggleLock = async (req, res, next) => {
     }
 };
 
+
+
 module.exports = {
     addSchedule,
     automateSchedule,
@@ -1381,3 +1383,6 @@ module.exports = {
     getSchedsByDept,
     toggleLock
 };
+
+//LOCK ALL & DELETE ALL
+//DISABLE CHANGES AND/OR BUTTONS WHILE AUTOMATION IS ON GOING
