@@ -51,6 +51,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     toggleSidebar(false);
   };
 
+  const isAdmin = user?.Roles === 'Admin';
+
   return (
     <div ref={sidebarRef}
       className={`fixed right-0 xs:right-0 min-h-screen bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
@@ -250,15 +252,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/deptProg');
-              toggleSidebar(false);
-            }}
-          >
-            Manage Depts & Programs
-          </button>
+          {isAdmin && (
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/deptProg');
+                toggleSidebar(false);
+              }}
+            >
+              Manage Depts & Programs
+            </button>
+          )}
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
@@ -266,7 +270,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               toggleSidebar(false);
             }}
           >
-            Program, Year, and Sections
+            Program, Year, & Sections
           </button>
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
@@ -312,15 +316,30 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           >
             Account Settings
           </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/createAccount');
-              toggleSidebar(false);
-            }}
-          >
-            Create Account
-          </button>
+
+          {isAdmin && (
+            <>
+              <button
+                className="hover:bg-gray-700 p-2 rounded w-full text-left"
+                onClick={() => {
+                  navigate('/createAccount');
+                  toggleSidebar(false);
+                }}
+              >
+                Create Account
+              </button>
+              <button
+                className="hover:bg-gray-700 p-2 rounded w-full text-left"
+                onClick={() => {
+                  navigate('/accountList');
+                  toggleSidebar(false);
+                }}
+              >
+                Account List
+              </button>
+            </>
+          )}
+
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {

@@ -556,4 +556,16 @@ const updateCourseProg = async (req, res, next) => {
   }
 };
 
-module.exports = { addProgram, getProgram, getAllProgram, updateProgram, deleteProgram, getAllProgramByCourse, addCourseProg, deleteCourseProg, getCoursesByProg, updateCourseProg, getAllProgramByDept };
+module.exports = {
+  addProgram,
+  getProgram,
+  getAllProgram,
+  updateProgram,
+  deleteProgram,
+  getAllProgramByCourse,
+  addCourseProg,
+  deleteCourseProg,
+  getCoursesByProg,
+  updateCourseProg,
+  getAllProgramByDept
+};
