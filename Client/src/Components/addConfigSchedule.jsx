@@ -174,33 +174,52 @@ const AddConfigSchedule = () => {
 
   const handleAutomateSchedule = async () => {
     setIsAutomating(true);
-
     try {
+      // Prepare payload (we remove prioritizedSections since we don't manage that state)
       const payload = {
         DepartmentId: deptId,
-        prioritizedProfessors: prioritizedProfessors.map(val => parseInt(val)),
-        prioritizedRooms: prioritizedRooms.map(val => parseInt(val))
+        // Use the first prioritized professor if available; otherwise, undefined
+        prioritizedProfessor: prioritizedProfessors.length > 0
+          ? prioritizedProfessors.map(value => parseInt(value, 10))
+          : undefined,
+        // Use the first prioritized room if available; otherwise, undefined
+        prioritizedRoom: prioritizedRooms.length > 0 ? parseInt(prioritizedRooms[0]) : undefined
       };
 
-      let endpoint = '/schedule/automate';
-      if (automateType === 'room' && formData.room_id) {
-        endpoint = `/schedule/automate/${formData.room_id}`;
-      }
 
-      const response = await axios.post(endpoint, payload);
+      const endpoint = '/schedule/automateSchedule';
+      const response = await axios.put(endpoint, payload);
 
       if (response.data.successful) {
-        setNotification({ type: 'success', message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} initiated successfully!` });
-        if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
+        setNotification({
+          type: 'success',
+          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} initiated successfully!`
+        });
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
       } else {
+        // Use the error message from the response if available
         setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
       }
     } catch (error) {
-      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred during schedule automation.") });
+      // Log out the full error response for debugging purposes.
+      console.error("Schedule automation error:", error.response || error);
+
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response && error.response.data && error.response.data.message
+            ? error.response.data.message
+            : "An error occurred during schedule automation."
+        )
+      });
     } finally {
       setIsAutomating(false);
     }
   };
+
+
 
   // Input handlers
   const handleInputChange = e => {
@@ -464,7 +483,7 @@ const AddConfigSchedule = () => {
             <option value="">Select Professor</option>
             {professors.map(prof => (
               <option key={prof.id} value={prof.id}>
-                {prof.Name} ({prof.Designation})
+                {prof.Name}
               </option>
             ))}
           </select>
@@ -478,7 +497,7 @@ const AddConfigSchedule = () => {
               const prof = professors.find(p => p.id.toString() === id.toString());
               return (
                 <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                  <span>{prof ? `${prof.Name} (${prof.Designation})` : id}</span>
+                  <span>{prof ? `${prof.Name}` : id}</span>
                   <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
                 </li>
               );
