@@ -4,8 +4,6 @@ import { useAuth } from '../authContext';
 
 const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
   const { user } = useAuth();
-  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-  console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const [courseCode, setCourseCode] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseType, setCourseType] = useState("");
