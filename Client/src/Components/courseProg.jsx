@@ -35,6 +35,8 @@ const CourseProg = () => {
     const fetchPrograms = async () => {
         try {
             const response = await axios.get(`/program/getAllProgByDept/${user.DepartmentId}`);
+            console.log("Programs response:", response.data);
+            console.log("User DepartmentId:", user.DepartmentId);
             setPrograms(response.data.successful ? response.data.data || [] : []);
         } catch (error) {
             console.error("Error fetching programs:", error);
@@ -57,7 +59,7 @@ const CourseProg = () => {
             setCoursesByProgram([]);
             return;
         }
-        
+
         try {
             const progId = parseInt(programId);
             const response = await axios.get(`/program/getCoursesByProg/${progId}`);
@@ -81,7 +83,7 @@ const CourseProg = () => {
 
     const handleFormChange = (e) => {
         const { name, value } = e.target;
-        const parsedValue = (name === "programId" || name === "courseId") 
+        const parsedValue = (name === "programId" || name === "courseId")
             ? (value ? parseInt(value) : "")
             : value;
         setCourseProgFormData(prev => ({ ...prev, [name]: parsedValue }));
@@ -94,7 +96,7 @@ const CourseProg = () => {
 
         try {
             let response;
-            
+
             if (isEditing) {
                 response = await axios.put("/program/updateCourseProg", {
                     oldCourseId: parseInt(oldCourseId),
@@ -151,26 +153,26 @@ const CourseProg = () => {
         setIsEditing(true);
         setOldCourseId(parseInt(course.id));
         setOldProgId(parseInt(programId));
-        
+
         if (window.innerWidth < 768) setActiveTab("courses-form");
     };
 
     const handleDelete = async (courseId, programId) => {
         if (!window.confirm("Are you sure you want to remove this course from the program?")) return;
-        
+
         try {
             const response = await axios.delete("/program/deleteCourseProg", {
-                data: { 
-                    courseId: parseInt(courseId), 
-                    progId: parseInt(programId) 
+                data: {
+                    courseId: parseInt(courseId),
+                    progId: parseInt(programId)
                 }
             });
-            
+
             setMessage({
                 type: "success",
                 text: response.data.message || "Course removed from program successfully.",
             });
-            
+
             if (selectedProgram) fetchCoursesByProgram(selectedProgram);
         } catch (error) {
             setMessage({
