@@ -1401,32 +1401,47 @@ const toggleLockAllSchedules = async (req, res) => {
     }
   };
   
-  // New controller function to delete multiple schedules at once
-  const deleteMultipleSchedules = async (req, res) => {
+  const deleteAllDepartmentSchedules = async (req, res) => {
     try {
-      const { scheduleIds } = req.body;
+      const { departmentId } = req.params;
       
-      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+      if (!departmentId) {
         return res.status(400).json({
           successful: false,
-          message: 'No schedule IDs provided'
+          message: 'Department ID is required'
         });
       }
   
-      // Delete all specified schedules
-      await Schedule.destroy({
-        where: { id: scheduleIds }
+      // First, find all rooms belonging to this department
+      const rooms = await Room.findAll({
+        where: { DepartmentId: departmentId },
+        attributes: ['id']
+      });
+  
+      if (!rooms || rooms.length === 0) {
+        return res.status(404).json({
+          successful: false,
+          message: 'No rooms found for this department'
+        });
+      }
+  
+      // Extract room IDs
+      const roomIds = rooms.map(room => room.id);
+  
+      // Delete all schedules for these rooms
+      const result = await Schedule.destroy({
+        where: { RoomId: roomIds }
       });
   
       return res.json({
         successful: true,
-        message: `Successfully deleted ${scheduleIds.length} schedules`
+        message: `Successfully deleted ${result} schedules from the department`
       });
     } catch (error) {
-      console.error('Error deleting multiple schedules:', error);
+      console.error('Error deleting department schedules:', error);
       return res.status(500).json({
         successful: false,
-        message: 'An error occurred while deleting schedules'
+        message: 'An error occurred while deleting department schedules'
       });
     }
   };
@@ -1443,7 +1458,7 @@ module.exports = {
     getSchedsByDept,
     toggleLock,
     toggleLockAllSchedules,
-    deleteMultipleSchedules
+    deleteAllDepartmentSchedules
     
 };
 

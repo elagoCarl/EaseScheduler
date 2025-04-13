@@ -292,92 +292,78 @@ const AddConfigSchedule = () => {
     }
   };
 
-// Rename function to reflect both locking and unlocking capability
-const handleToggleLockAllSchedules = async (lockAction = true) => {
-  if (!formData.room_id || schedules.length === 0) {
-    setNotification({ type: 'error', message: "No room selected or no schedules to toggle lock status." });
-    return;
-  }
-
-  try {
-    // Get relevant schedule IDs based on lockAction
-    const targetSchedules = lockAction 
-      ? schedules.filter(schedule => !schedule.isLocked).map(schedule => schedule.id)
-      : schedules.filter(schedule => schedule.isLocked).map(schedule => schedule.id);
-    
-    if (targetSchedules.length === 0) {
-      setNotification({ 
-        type: 'info', 
-        message: lockAction 
-          ? "All schedules are already locked." 
-          : "All schedules are already unlocked." 
-      });
+  // Rename function to reflect both locking and unlocking capability
+  const handleToggleLockAllSchedules = async (lockAction = true) => {
+    if (!formData.room_id || schedules.length === 0) {
+      setNotification({ type: 'error', message: "No room selected or no schedules to toggle lock status." });
       return;
     }
 
-    // Make a PUT request to toggle lock status for all relevant schedules
-    const response = await axios.put("/schedule/toggleLockAllSchedules", {
-      scheduleIds: targetSchedules,
-      isLocked: lockAction
-    });
+    try {
+      // Get relevant schedule IDs based on lockAction
+      const targetSchedules = lockAction
+        ? schedules.filter(schedule => !schedule.isLocked).map(schedule => schedule.id)
+        : schedules.filter(schedule => schedule.isLocked).map(schedule => schedule.id);
 
-    if (response.data.successful) {
-      setNotification({ 
-        type: 'success', 
-        message: `Successfully ${lockAction ? 'locked' : 'unlocked'} ${targetSchedules.length} schedules.` 
+      if (targetSchedules.length === 0) {
+        setNotification({
+          type: 'info',
+          message: lockAction
+            ? "All schedules are already locked."
+            : "All schedules are already unlocked."
+        });
+        return;
+      }
+
+      // Make a PUT request to toggle lock status for all relevant schedules
+      const response = await axios.put("/schedule/toggleLockAllSchedules", {
+        scheduleIds: targetSchedules,
+        isLocked: lockAction
       });
-      // Refresh schedules for the room
-      fetchSchedulesForRoom(formData.room_id);
-    } else {
-      setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: `Successfully ${lockAction ? 'locked' : 'unlocked'} ${targetSchedules.length} schedules.`
+        });
+        // Refresh schedules for the room
+        fetchSchedulesForRoom(formData.room_id);
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || `An error occurred while ${lockAction ? 'locking' : 'unlocking'} schedules.`
+        )
+      });
     }
-  } catch (error) {
-    setNotification({ 
-      type: 'error', 
-      message: transformErrorMessage(
-        error.response?.data?.message || `An error occurred while ${lockAction ? 'locking' : 'unlocking'} schedules.`
-      ) 
-    });
-  }
-};
+  };
 
-// Add this new function for deleting all schedules
-const handleDeleteAllSchedules = async () => {
-  if (!formData.room_id || schedules.length === 0) {
-    setNotification({ type: 'error', message: "No room selected or no schedules to delete." });
-    return;
-  }
+  const handleDeleteAllSchedules = async () => {
+    try {
+      // Instead of getting schedules for a specific room, we'll delete all for the department
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
 
-  try {
-    // Get all schedule IDs for the current room
-    const scheduleIds = schedules.map(schedule => schedule.id);
-    
-    if (scheduleIds.length === 0) {
-      setNotification({ type: 'info', message: "No schedules to delete." });
-      return;
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || "An error occurred while deleting schedules."
+        )
+      });
     }
-
-    // Make a DELETE request to remove all schedules for the current room
-    const response = await axios.delete("/schedule/deleteMultipleSchedules", {
-      data: { scheduleIds }
-    });
-
-    if (response.data.successful) {
-      setNotification({ type: 'success', message: `Successfully deleted ${scheduleIds.length} schedules.` });
-      // Refresh schedules for the room (should be empty now)
-      fetchSchedulesForRoom(formData.room_id);
-    } else {
-      setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
-    }
-  } catch (error) {
-    setNotification({ 
-      type: 'error', 
-      message: transformErrorMessage(
-        error.response?.data?.message || "An error occurred while deleting schedules."
-      ) 
-    });
-  }
-};
+  };
 
   const resetForm = () => {
     setFormData({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
@@ -391,70 +377,70 @@ const handleDeleteAllSchedules = async () => {
   // Components
   // Original ScheduleEvent component with fix
   const ScheduleEvent = ({ schedule }) => {
-  const [hovered, setHovered] = useState(false);
-  const pos = calculateEventPosition(schedule);
+    const [hovered, setHovered] = useState(false);
+    const pos = calculateEventPosition(schedule);
 
-  // Add a null check for ProgYrSecs before mapping
-  const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
-    ? schedule.ProgYrSecs
-      .filter(sec => sec && sec.Program) // Filter out entries with missing data
-      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-      .join(', ')
-    : 'No sections';
+    // Add a null check for ProgYrSecs before mapping
+    const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
+      ? schedule.ProgYrSecs
+        .filter(sec => sec && sec.Program) // Filter out entries with missing data
+        .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+        .join(', ')
+      : 'No sections';
 
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
-      style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
-    >
-      <div className="flex justify-between items-center">
-        <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
-        <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-      </div>
-      <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
-      <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
-      <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
-      {hovered && (
-        <div className="mt-2 text-xs">
-          <div className="flex justify-between items-center">
-            <div>
-              <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
-              <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
-            </div>
-            <div className="flex">
-              <button 
-                onClick={(e) => {
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+        </div>
+        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
+        {hovered && (
+          <div className="mt-2 text-xs">
+            <div className="flex justify-between items-center">
+              <div>
+                <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
+                <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
+              </div>
+              <div className="flex">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLockStatus(schedule.id, schedule.isLocked);
+                  }}
+                  className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
+                  title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+                >
+                  <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+                </button>
+                <button onClick={(e) => {
                   e.stopPropagation();
-                  toggleLockStatus(schedule.id, schedule.isLocked);
-                }} 
-                className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
-                title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
-              >
-                <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
-              </button>
-              <button onClick={(e) => {
-                e.stopPropagation();
-                setSelectedSchedule(schedule);
-                setIsEditModalOpen(true);
-              }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
-                <img src={editBtn} alt="Edit" className="w-10 h-10" />
-              </button>
-              <button onClick={(e) => {
-                e.stopPropagation();
-                setSelectedScheduleId(schedule.id);
-                setIsDeleteWarningOpen(true);
-              }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
-                <img src={delBtn} alt="Delete" className="w-10 h-10" />
-              </button>
+                  setSelectedSchedule(schedule);
+                  setIsEditModalOpen(true);
+                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
+                  <img src={editBtn} alt="Edit" className="w-10 h-10" />
+                </button>
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedScheduleId(schedule.id);
+                  setIsDeleteWarningOpen(true);
+                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
+                  <img src={delBtn} alt="Delete" className="w-10 h-10" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        )}
+      </div>
+    );
+  };
 
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedRoom) return null;
@@ -478,8 +464,8 @@ const handleDeleteAllSchedules = async () => {
             {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => toggleLockStatus(event.id, event.isLocked)} 
+            <button
+              onClick={() => toggleLockStatus(event.id, event.isLocked)}
               className="p-1 hover:bg-blue-100 rounded-full transition-colors"
               title={event.isLocked ? "Unlock schedule" : "Lock schedule"}
             >
@@ -549,161 +535,157 @@ const handleDeleteAllSchedules = async () => {
     )
   );
 
-  const renderAutomationSection = () => (
-    <div className="flex flex-col mt-4 border-t pt-4">
-      {/* Lock/Unlock/Delete All buttons section */}
-      {formData.room_id && schedules.length > 0 && (
-        <div className="mb-4 space-y-2">
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleToggleLockAllSchedules(true)}
-              className="flex items-center justify-center bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors flex-1"
-            >
-              <img src={lock} alt="Lock" className="w-4 h-4 mr-2" />
-              Lock All
-            </button>
-            <button
-              onClick={() => handleToggleLockAllSchedules(false)}
-              className="flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex-1"
-            >
-              <img src={unlock} alt="Unlock" className="w-4 h-4 mr-2" />
-              Unlock All
-            </button>
-          </div>
-          
+const renderAutomationSection = () => (
+  <div className="flex flex-col mt-4 border-t pt-4">
+    {/* Lock/Unlock/Delete All buttons section */}
+    {formData.room_id && schedules.length > 0 && (
+      <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
+        <div className="flex gap-10">
+          <button
+            onClick={() => handleToggleLockAllSchedules(true)}
+            className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+          >
+            Lock All
+          </button>
+          <button
+            onClick={() => handleToggleLockAllSchedules(false)}
+            className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+          >
+            Unlock All
+          </button>
+        </div>
+
           <button
             onClick={() => {
-              // Show a confirmation dialog
-              if (window.confirm("Are you sure you want to delete ALL schedules for this room? This action cannot be undone.")) {
+              if (window.confirm("Are you sure you want to delete ALL schedules in this department? This action cannot be undone.")) {
                 handleDeleteAllSchedules();
               }
             }}
-            className="flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors w-full"
+            className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
           >
-            <img src={delBtn} alt="Delete" className="w-4 h-4 mr-2" />
-            Delete All Schedules
+                        Delete All Department Schedules
           </button>
         </div>
       )}
-    
-    <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
-    
-    <div className="mb-3">
-      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
-      <div className="flex gap-4">
-        <div className="flex items-center">
-          <input
-            type="radio"
-            id="room-automation"
-            name="automate-type"
-            value="room"
-            checked={automateType === 'room'}
-            onChange={() => setAutomateType('room')}
-            className="mr-2"
-          />
-          <label htmlFor="room-automation" className="text-xs sm:text-sm text-gray-700">Single Room</label>
-        </div>
-        <div className="flex items-center">
-          <input
-            type="radio"
-            id="all-automation"
-            name="automate-type"
-            value="all"
-            checked={automateType === 'all'}
-            onChange={() => setAutomateType('all')}
-            className="mr-2"
-          />
-          <label htmlFor="all-automation" className="text-xs sm:text-sm text-gray-700">All Department Rooms</label>
+
+      <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
+
+      <div className="mb-3">
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
+        <div className="flex gap-4">
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="room-automation"
+              name="automate-type"
+              value="room"
+              checked={automateType === 'room'}
+              onChange={() => setAutomateType('room')}
+              className="mr-2"
+            />
+            <label htmlFor="room-automation" className="text-xs sm:text-sm text-gray-700">Single Room</label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="radio"
+              id="all-automation"
+              name="automate-type"
+              value="all"
+              checked={automateType === 'all'}
+              onChange={() => setAutomateType('all')}
+              className="mr-2"
+            />
+            <label htmlFor="all-automation" className="text-xs sm:text-sm text-gray-700">All Department Rooms</label>
+          </div>
         </div>
       </div>
-    </div>
 
-    {automateType === 'room' && (
+      {automateType === 'room' && (
+        <div className="mb-3">
+          <p className="text-xs text-gray-500 mb-1">Selected room will be used for automation</p>
+          {!formData.room_id && (
+            <p className="text-xs text-red-500">Please select a room first</p>
+          )}
+        </div>
+      )}
+
       <div className="mb-3">
-        <p className="text-xs text-gray-500 mb-1">Selected room will be used for automation</p>
-        {!formData.room_id && (
-          <p className="text-xs text-red-500">Please select a room first</p>
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Professors (Optional):</label>
+        <div className="flex items-center gap-2">
+          <select
+            value={newPriorityProfessor}
+            onChange={(e) => setNewPriorityProfessor(e.target.value)}
+            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Professor</option>
+            {professors.map(prof => (
+              <option key={prof.id} value={prof.id}>
+                {prof.Name}
+              </option>
+            ))}
+          </select>
+          <button onClick={handleAddPriorityProfessor} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded">
+            Add
+          </button>
+        </div>
+        {prioritizedProfessors.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {prioritizedProfessors.map((id) => {
+              const prof = professors.find(p => p.id.toString() === id.toString());
+              return (
+                <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
+                  <span>{prof ? `${prof.Name}` : id}</span>
+                  <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
-    )}
 
-    <div className="mb-3">
-      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Professors (Optional):</label>
-      <div className="flex items-center gap-2">
-        <select
-          value={newPriorityProfessor}
-          onChange={(e) => setNewPriorityProfessor(e.target.value)}
-          className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Select Professor</option>
-          {professors.map(prof => (
-            <option key={prof.id} value={prof.id}>
-              {prof.Name}
-            </option>
-          ))}
-        </select>
-        <button onClick={handleAddPriorityProfessor} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded">
-          Add
-        </button>
+      <div className="mb-3">
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Rooms (Optional):</label>
+        <div className="flex items-center gap-2">
+          <select
+            value={newPriorityRoom}
+            onChange={(e) => setNewPriorityRoom(e.target.value)}
+            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select Room</option>
+            {rooms.map(room => (
+              <option key={room.id} value={room.id}>
+                {room.Code} - {room.Building} {room.Floor} (Type: {room.Type})
+              </option>
+            ))}
+          </select>
+          <button onClick={handleAddPriorityRoom} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded">
+            Add
+          </button>
+        </div>
+        {prioritizedRooms.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {prioritizedRooms.map((id) => {
+              const room = rooms.find(r => r.id.toString() === id.toString());
+              return (
+                <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
+                  <span>{room ? `${room.Code} - ${room.Building}` : id}</span>
+                  <button onClick={() => handleRemovePriorityRoom(id)} className="text-red-600 hover:text-red-800">Remove</button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
-      {prioritizedProfessors.length > 0 && (
-        <ul className="mt-2 space-y-1">
-          {prioritizedProfessors.map((id) => {
-            const prof = professors.find(p => p.id.toString() === id.toString());
-            return (
-              <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                <span>{prof ? `${prof.Name}` : id}</span>
-                <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
 
-    <div className="mb-3">
-      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Rooms (Optional):</label>
-      <div className="flex items-center gap-2">
-        <select
-          value={newPriorityRoom}
-          onChange={(e) => setNewPriorityRoom(e.target.value)}
-          className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Select Room</option>
-          {rooms.map(room => (
-            <option key={room.id} value={room.id}>
-              {room.Code} - {room.Building} {room.Floor} (Type: {room.Type})
-            </option>
-          ))}
-        </select>
-        <button onClick={handleAddPriorityRoom} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded">
-          Add
-        </button>
-      </div>
-      {prioritizedRooms.length > 0 && (
-        <ul className="mt-2 space-y-1">
-          {prioritizedRooms.map((id) => {
-            const room = rooms.find(r => r.id.toString() === id.toString());
-            return (
-              <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                <span>{room ? `${room.Code} - ${room.Building}` : id}</span>
-                <button onClick={() => handleRemovePriorityRoom(id)} className="text-red-600 hover:text-red-800">Remove</button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <button
+        onClick={handleAutomateSchedule}
+        disabled={isAutomating || (automateType === 'room' && !formData.room_id)}
+        className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white px-4 py-2 rounded-lg transition-colors`}
+      >
+        {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
+      </button>
     </div>
-
-    <button
-      onClick={handleAutomateSchedule}
-      disabled={isAutomating || (automateType === 'room' && !formData.room_id)}
-      className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white px-4 py-2 rounded-lg transition-colors`}
-    >
-      {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
-    </button>
-  </div>
-);
+  );
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
