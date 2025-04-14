@@ -15,7 +15,7 @@ router.get('/getSchedsByProf/:id', schedule_ctrl.getSchedsByProf)
 router.get('/getSchedsByDept/:id', schedule_ctrl.getSchedsByDept)
 router.put('/toggleLock/:id', schedule_ctrl.toggleLock)
 router.put('/toggleLockAllSchedules', schedule_ctrl.toggleLockAllSchedules)
-router.delete('/deleteAllDepartmentSchedules', schedule_ctrl.deleteAllDepartmentSchedules)
+router.delete('/deleteAllDepartmentSchedules/:id', schedule_ctrl.deleteAllDepartmentSchedules)
 
 
 module.exports = router;

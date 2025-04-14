@@ -357,10 +357,8 @@ const AddConfigSchedule = () => {
       }
     } catch (error) {
       setNotification({
-        type: 'error',
-        message: transformErrorMessage(
-          error.response?.data?.message || "An error occurred while deleting schedules."
-        )
+        successful: 'false',
+        message: error.message
       });
     }
   };

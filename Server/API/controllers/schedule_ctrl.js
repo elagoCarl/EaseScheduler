@@ -222,6 +222,314 @@ const isSchedulePossible = async (
     return true;
 };
 
+const automateSchedule = async (req, res, next) => {
+    try {
+        const { DepartmentId, prioritizedProfessor, prioritizedRoom, prioritizedSections } = req.body;
+        if (!DepartmentId) {
+            return res.status(400).json({ successful: false, message: "Department ID is required." });
+        }
+
+        // Normalize priorities: always treat professor and room inputs as arrays.
+        const priorities = {};
+        if (prioritizedProfessor) {
+            priorities.professor = Array.isArray(prioritizedProfessor) ? prioritizedProfessor : [prioritizedProfessor];
+        }
+        if (prioritizedRoom) {
+            priorities.room = Array.isArray(prioritizedRoom) ? prioritizedRoom : [prioritizedRoom];
+        }
+        if (prioritizedSections && prioritizedSections.length) {
+            priorities.sections = prioritizedSections;
+        }
+
+        const settings = await Settings.findByPk(1);
+        const { StartHour, EndHour } = settings;
+    
+        const department = await Department.findByPk(DepartmentId, {
+            include: [
+                { 
+                    model: Assignation, 
+                    include: [
+                        Course, 
+                        { model: Professor, attributes: ['id', 'Name'] }
+                    ] 
+                },
+                { model: Room, as: 'DeptRooms' }
+            ]
+        });
+
+        if (!department) {
+            return res.status(404).json({ successful: false, message: "Department not found." });
+        }
+
+        // Extract assignations and rooms from the department
+        const assignations = department.Assignations;
+        const rooms = department.DeptRooms;
+        
+        console.log(`Total assignations: ${assignations.length}`);
+        console.log(`Total rooms: ${rooms.length}`);
+
+        // Fetch existing schedules for these assignations
+        const existingSchedules = await Schedule.findAll({
+            where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
+        });
+        
+        console.log(`Existing schedules: ${existingSchedules.length}`);
+
+        // Delete all unlocked schedules
+        const deletedCount = await Schedule.destroy({
+            where: {
+                AssignationId: { [Op.in]: assignations.map(a => a.id) },
+                isLocked: false
+            }
+        });
+        console.log(`Deleted ${deletedCount} unlocked schedules`);
+
+        // Filter out assignations with locked schedules
+        const lockedSchedules = existingSchedules.filter(schedule => schedule.isLocked);
+        const lockedAssignationIds = new Set(lockedSchedules.map(schedule => schedule.AssignationId));
+
+        const unscheduledAssignations = assignations.filter(assignation => 
+            !lockedAssignationIds.has(assignation.id)
+        );
+        
+        console.log(`Unscheduled assignations to process: ${unscheduledAssignations.length}`);
+        unscheduledAssignations.forEach(a => {
+            console.log(`- ${a.id}: ${a.Course?.Code || 'Unknown'} with ${a.Professor?.Name || 'Unknown'}`);
+        });
+
+        // Initialize tracking structures
+        const professorSchedule = {};
+        const courseSchedules = {};
+        const progYrSecSchedules = {};
+        const roomSchedules = {};
+        const report = [];
+        const failedAssignations = [];
+
+        // Initialize professor and course schedules
+        assignations.forEach(assignation => {
+            const { Professor: professorInfo, Course: courseInfo } = assignation;
+            if (!professorInfo || !courseInfo) {
+              return;
+            }
+            
+            if (!professorSchedule[professorInfo.id]) {
+              professorSchedule[professorInfo.id] = {};
+              for (let day = 1; day <= 6; day++) {  // Now days 1-6 (Monday–Saturday)
+                professorSchedule[professorInfo.id][day] = { hours: 0, dailyTimes: [] };
+              }
+            }
+            
+            if (!courseSchedules[courseInfo.id]) {
+              courseSchedules[courseInfo.id] = {};
+              for (let day = 1; day <= 6; day++) { // Now days 1-6
+                courseSchedules[courseInfo.id][day] = [];
+              }
+            }
+        });
+
+        const allProgYrSecs = await ProgYrSec.findAll();
+        allProgYrSecs.forEach(section => {
+            progYrSecSchedules[section.id] = {};
+            for (let day = 1; day <= 6; day++) {  // Now days 1-6
+                progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] }; 
+            }
+        });
+        
+        // Process locked schedules data into the tracking structures
+        for (const schedule of lockedSchedules) {
+            const associatedPYS = await schedule.getProgYrSecs();
+            const assignation = await Assignation.findByPk(schedule.AssignationId, {
+                include: [Course, Professor]
+            });
+
+            if (!assignation || !assignation.Course || !assignation.Professor) continue;
+
+            const { Course: courseInfo, Professor: professorInfo } = assignation;
+            const day = schedule.Day;
+            const startTimeHour = parseInt(schedule.Start_time.split(':')[0]);
+            const endTimeHour = parseInt(schedule.End_time.split(':')[0]);
+            const duration = endTimeHour - startTimeHour;
+
+            professorSchedule[professorInfo.id][day].hours += duration;
+            professorSchedule[professorInfo.id][day].dailyTimes.push({
+                start: startTimeHour,
+                end: endTimeHour
+            });
+
+            courseSchedules[courseInfo.id][day].push({
+                start: startTimeHour,
+                end: endTimeHour
+            });
+
+            if (!roomSchedules[schedule.RoomId]) roomSchedules[schedule.RoomId] = {};
+            if (!roomSchedules[schedule.RoomId][day]) roomSchedules[schedule.RoomId][day] = [];
+            roomSchedules[schedule.RoomId][day].push({
+                start: startTimeHour,
+                end: endTimeHour
+            });
+
+            for (const section of associatedPYS) {
+                if (!progYrSecSchedules[section.id]) {
+                    progYrSecSchedules[section.id] = {};
+                }
+                if (!progYrSecSchedules[section.id][day]) {
+                    progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] };
+                }
+                progYrSecSchedules[section.id][day].hours += duration;
+                progYrSecSchedules[section.id][day].dailyTimes.push({
+                    start: startTimeHour,
+                    end: endTimeHour
+                });
+            }
+        }
+
+        console.log(`Starting scheduling algorithm...`);
+        
+        // TWO-PHASE SCHEDULING APPROACH
+        
+        // ---- PHASE 1: Schedule the prioritized assignations ----
+        const prioritizedSuccessfulSchedules = [];
+        const prioritizedFailedAssignations = [];
+        
+        if (Object.keys(priorities).length > 0) {
+            console.log(`Phase 1: Scheduling prioritized assignations...`);
+            
+            // Filter assignations based on priorities
+            let prioritizedAssignations = [...unscheduledAssignations];
+            
+            if (priorities.professor) {
+                prioritizedAssignations = prioritizedAssignations.filter(a => 
+                    priorities.professor.includes(a.Professor?.id)
+                );
+            }
+            
+            // If we have prioritized assignations, schedule them first
+            if (prioritizedAssignations.length > 0) {
+                console.log(`Found ${prioritizedAssignations.length} prioritized assignations to schedule`);
+                
+                const prioritizedReport = [];
+                
+                await backtrackSchedule(
+                    prioritizedAssignations, rooms, professorSchedule, courseSchedules,
+                    progYrSecSchedules, roomSchedules, 0, prioritizedReport,
+                    StartHour, EndHour, settings, priorities, prioritizedFailedAssignations
+                );
+                
+                console.log(`Phase 1: Scheduled ${prioritizedReport.length} prioritized assignations`);
+                console.log(`Phase 1: Failed to schedule ${prioritizedFailedAssignations.length} prioritized assignations`);
+                
+                // Lock all the scheduled prioritized assignations
+                const prioritizedScheduleIds = [];
+                
+                // First, add all successful prioritized schedules to the main report
+                for (const scheduleItem of prioritizedReport) {
+                    report.push(scheduleItem);
+                    prioritizedSuccessfulSchedules.push(scheduleItem);
+                }
+                
+                // Get the IDs of the newly created schedules for prioritized assignations
+                const newPrioritizedSchedules = await Schedule.findAll({
+                    where: {
+                        AssignationId: { 
+                            [Op.in]: prioritizedAssignations
+                                .filter(a => !prioritizedFailedAssignations.some(f => f.id === a.id))
+                                .map(a => a.id) 
+                        },
+                        isLocked: false
+                    }
+                });
+                
+                // Lock these schedules
+                for (const schedule of newPrioritizedSchedules) {
+                    prioritizedScheduleIds.push(schedule.id);
+                    schedule.isLocked = true;
+                    await schedule.save();
+                }
+                
+                console.log(`Locked ${prioritizedScheduleIds.length} prioritized schedules`);
+            }
+        }
+        
+        // ---- PHASE 2: Schedule the remaining non-prioritized assignations ----
+        console.log(`Phase 2: Scheduling remaining non-prioritized assignations...`);
+        
+        // Remove already scheduled prioritized assignations
+        const remainingAssignations = unscheduledAssignations.filter(assignation => 
+            !report.some(item => 
+                item.Course === assignation.Course?.Code && 
+                item.Professor === assignation.Professor?.Name
+            )
+        );
+        
+        console.log(`Remaining assignations to schedule: ${remainingAssignations.length}`);
+        
+        // Clear priorities for phase 2
+        const noPriorities = {};
+        
+        await backtrackSchedule(
+            remainingAssignations, rooms, professorSchedule, courseSchedules,
+            progYrSecSchedules, roomSchedules, 0, report,
+            StartHour, EndHour, settings, noPriorities, failedAssignations
+        );
+        
+        const scheduledAssignationCount = report.length;
+        console.log(`Total scheduled: ${scheduledAssignationCount} assignations`);
+        console.log(`Total failed: ${failedAssignations.length + prioritizedFailedAssignations.length} assignations`);
+        
+        // Combine failed assignations from both phases
+        const allFailedAssignations = [...prioritizedFailedAssignations, ...failedAssignations];
+        
+        // Get all scheduled assignations for final report
+        const allSchedules = await Schedule.findAll({
+            where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } },
+            include: [
+                { model: Assignation, include: [Course, Professor] },
+                { model: Room },
+                { model: ProgYrSec }
+            ]
+        });
+        
+        const fullReport = allSchedules.map(schedule => {
+            const assignation = schedule.Assignation;
+            if (!assignation || !assignation.Course || !assignation.Professor) return null;
+            
+            return {
+                Professor: assignation.Professor.Name,
+                Course: assignation.Course.Code,
+                CourseType: assignation.Course.Type,
+                Sections: schedule.ProgYrSecs.map(sec => 
+                    `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`),
+                Room: schedule.Room.Code,
+                Day: schedule.Day,
+                Start_time: schedule.Start_time,
+                End_time: schedule.End_time,
+                isLocked: schedule.isLocked
+            };
+        }).filter(Boolean);
+
+        return res.status(200).json({
+            successful: true,
+            message: Object.keys(priorities).length > 0 ? 
+                `Two-phase scheduling completed. Prioritized: ${prioritizedSuccessfulSchedules.length} schedules (now locked). Total: ${scheduledAssignationCount} out of ${unscheduledAssignations.length} assignations scheduled.` :
+                `Schedule automation completed. Scheduled ${scheduledAssignationCount} out of ${unscheduledAssignations.length} assignations.`,
+            totalSchedules: fullReport.length,
+            newSchedules: report.length,
+            prioritizedSchedules: prioritizedSuccessfulSchedules.length,
+            scheduleReport: report,
+            fullScheduleReport: fullReport,
+            failedAssignations: allFailedAssignations,
+            prioritiesApplied: Object.keys(priorities).length > 0 ? priorities : null
+        });
+
+    } catch (error) {
+        console.error("Error in automateSchedule:", error);
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred."
+        });
+    }
+};
+
 /**
  * Backtracking function which recursively attempts to schedule each assignation.
  */
@@ -342,7 +650,7 @@ const backtrackSchedule = async (
                                 End_time: `${hour + duration}:00`,
                                 RoomId: room.id,
                                 AssignationId: assignation.id,
-                                isLocked: false
+                                isLocked: false // Always created as unlocked initially
                             });
 
                             await createdSchedule.addProgYrSecs(group);
@@ -437,244 +745,52 @@ const backtrackSchedule = async (
     }
 };
 
-/**
- * Main function to automate the schedule.
- */
-const automateSchedule = async (req, res, next) => {
+
+const toggleLock = async (req, res, next) => {
     try {
-        const { DepartmentId, prioritizedProfessor, prioritizedRoom, prioritizedSections } = req.body;
-        if (!DepartmentId) {
-            return res.status(400).json({ successful: false, message: "Department ID is required." });
+        const schedule = await Schedule.findByPk(req.params.id);
+        if (!schedule) {
+            return res.status(404).json({ successful: false, message: "Schedule not found." });
         }
+        schedule.isLocked = !schedule.isLocked; // Toggle the lock status
+        await schedule.save()
 
-        // Normalize priorities: always treat professor and room inputs as arrays.
-        const priorities = {};
-        if (prioritizedProfessor) {
-            priorities.professor = Array.isArray(prioritizedProfessor) ? prioritizedProfessor : [prioritizedProfessor];
-        }
-        if (prioritizedRoom) {
-            priorities.room = Array.isArray(prioritizedRoom) ? prioritizedRoom : [prioritizedRoom];
-        }
-        if (prioritizedSections && prioritizedSections.length) {
-            priorities.sections = prioritizedSections;
-        }
-
-        const settings = await Settings.findByPk(1);
-        const { StartHour, EndHour } = settings;
-    
-        const department = await Department.findByPk(DepartmentId, {
-            include: [
-                { 
-                    model: Assignation, 
-                    include: [
-                        Course, 
-                        { model: Professor, attributes: ['id', 'Name'] }
-                    ] 
-                },
-                { model: Room, as: 'DeptRooms' }
-            ]
-        });
-
-        if (!department) {
-            return res.status(404).json({ successful: false, message: "Department not found." });
-        }
-
-        // Extract assignations and rooms from the department
-        const assignations = department.Assignations;
-        const rooms = department.DeptRooms;
-        
-        console.log(`Total assignations: ${assignations.length}`);
-        console.log(`Total rooms: ${rooms.length}`);
-
-        // Sort assignations so that those with prioritized professors come first
-        if (priorities.professor) {
-            assignations.sort((a, b) => {
-                const aIsPrioritized = priorities.professor.includes(a.Professor?.id);
-                const bIsPrioritized = priorities.professor.includes(b.Professor?.id);
-                return (bIsPrioritized === aIsPrioritized) ? 0 : (bIsPrioritized ? 1 : -1);
-            });
-        }
-
-        // Fetch existing schedules for these assignations
-        const existingSchedules = await Schedule.findAll({
-            where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } }
-        });
-        
-        console.log(`Existing schedules: ${existingSchedules.length}`);
-
-        // Delete all unlocked schedules
-        const deletedCount = await Schedule.destroy({
-            where: {
-                AssignationId: { [Op.in]: assignations.map(a => a.id) },
-                isLocked: false
-            }
-        });
-        console.log(`Deleted ${deletedCount} unlocked schedules`);
-
-        // Filter out assignations with locked schedules
-        const lockedSchedules = existingSchedules.filter(schedule => schedule.isLocked);
-        const lockedAssignationIds = new Set(lockedSchedules.map(schedule => schedule.AssignationId));
-
-        const unscheduledAssignations = assignations.filter(assignation => 
-            !lockedAssignationIds.has(assignation.id)
-        );
-        
-        console.log(`Unscheduled assignations to process: ${unscheduledAssignations.length}`);
-        unscheduledAssignations.forEach(a => {
-            console.log(`- ${a.id}: ${a.Course?.Code || 'Unknown'} with ${a.Professor?.Name || 'Unknown'}`);
-        });
-
-        // Initialize tracking structures
-        const professorSchedule = {};
-        const courseSchedules = {};
-        const progYrSecSchedules = {};
-        const roomSchedules = {};
-        const report = [];
-        const failedAssignations = [];
-
-        // Initialize professor and course schedules
-        assignations.forEach(assignation => {
-            const { Professor: professorInfo, Course: courseInfo } = assignation;
-            if (!professorInfo || !courseInfo) {
-              return;
-            }
-            
-            if (!professorSchedule[professorInfo.id]) {
-              professorSchedule[professorInfo.id] = {};
-              for (let day = 1; day <= 6; day++) {  // Now days 1-6 (Monday–Saturday)
-                professorSchedule[professorInfo.id][day] = { hours: 0, dailyTimes: [] };
-              }
-            }
-            
-            if (!courseSchedules[courseInfo.id]) {
-              courseSchedules[courseInfo.id] = {};
-              for (let day = 1; day <= 6; day++) { // Now days 1-6
-                courseSchedules[courseInfo.id][day] = [];
-              }
-            }
-          });
-
-          const allProgYrSecs = await ProgYrSec.findAll();
-          allProgYrSecs.forEach(section => {
-              progYrSecSchedules[section.id] = {};
-              for (let day = 1; day <= 6; day++) {  // Now days 1-6
-                  progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] }; 
-              }
-          });
-          
-
-        // Process locked schedules data into the tracking structures
-        for (const schedule of lockedSchedules) {
-            const associatedPYS = await schedule.getProgYrSecs();
-            const assignation = await Assignation.findByPk(schedule.AssignationId, {
-                include: [Course, Professor]
-            });
-
-            if (!assignation || !assignation.Course || !assignation.Professor) continue;
-
-            const { Course: courseInfo, Professor: professorInfo } = assignation;
-            const day = schedule.Day;
-            const startTimeHour = parseInt(schedule.Start_time.split(':')[0]);
-            const endTimeHour = parseInt(schedule.End_time.split(':')[0]);
-            const duration = endTimeHour - startTimeHour;
-
-            professorSchedule[professorInfo.id][day].hours += duration;
-            professorSchedule[professorInfo.id][day].dailyTimes.push({
-                start: startTimeHour,
-                end: endTimeHour
-            });
-
-            courseSchedules[courseInfo.id][day].push({
-                start: startTimeHour,
-                end: endTimeHour
-            });
-
-            if (!roomSchedules[schedule.RoomId]) roomSchedules[schedule.RoomId] = {};
-            if (!roomSchedules[schedule.RoomId][day]) roomSchedules[schedule.RoomId][day] = [];
-            roomSchedules[schedule.RoomId][day].push({
-                start: startTimeHour,
-                end: endTimeHour
-            });
-
-            for (const section of associatedPYS) {
-                if (!progYrSecSchedules[section.id]) {
-                    progYrSecSchedules[section.id] = {};
-                }
-                if (!progYrSecSchedules[section.id][day]) {
-                    progYrSecSchedules[section.id][day] = { hours: 0, dailyTimes: [] };
-                }
-                progYrSecSchedules[section.id][day].hours += duration;
-                progYrSecSchedules[section.id][day].dailyTimes.push({
-                    start: startTimeHour,
-                    end: endTimeHour
-                });
-            }
-        }
-
-        console.log(`Starting backtracking algorithm with ${unscheduledAssignations.length} assignations...`);
-        const success = await backtrackSchedule(
-            unscheduledAssignations, rooms, professorSchedule, courseSchedules,
-            progYrSecSchedules, roomSchedules, 0, report,
-            StartHour, EndHour, settings, priorities, failedAssignations
-        );
-
-        const scheduledAssignationCount = report.length;
-        console.log(`Scheduled ${scheduledAssignationCount} assignations`);
-        console.log(`Failed to schedule ${failedAssignations.length} assignations`);
-        failedAssignations.forEach(failed => {
-            console.log(`- Failed: ${failed.Course} with ${failed.Professor}: ${failed.reason}`);
-        });
-
-        // Get all scheduled assignations for final report
-        const allSchedules = await Schedule.findAll({
-            where: { AssignationId: { [Op.in]: assignations.map(a => a.id) } },
-            include: [
-                { model: Assignation, include: [Course, Professor] },
-                { model: Room },
-                { model: ProgYrSec }
-            ]
-        });
-        
-        const fullReport = allSchedules.map(schedule => {
-            const assignation = schedule.Assignation;
-            if (!assignation || !assignation.Course || !assignation.Professor) return null;
-            
-            return {
-                Professor: assignation.Professor.Name,
-                Course: assignation.Course.Code,
-                CourseType: assignation.Course.Type,
-                Sections: schedule.ProgYrSecs.map(sec => 
-                    `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`),
-                Room: schedule.Room.Code,
-                Day: schedule.Day,
-                Start_time: schedule.Start_time,
-                End_time: schedule.End_time,
-                isLocked: schedule.isLocked
-            };
-        }).filter(Boolean);
-
-        return res.status(200).json({
-            successful: true,
-            message: priorities.professor || priorities.room || priorities.sections ? 
-                `Schedule automation completed with prioritization. Scheduled ${scheduledAssignationCount} out of ${unscheduledAssignations.length} assignations.` :
-                `Schedule automation completed. Scheduled ${scheduledAssignationCount} out of ${unscheduledAssignations.length} assignations.`,
-            totalSchedules: fullReport.length,
-            newSchedules: report.length,
-            scheduleReport: report,
-            fullScheduleReport: fullReport,
-            failedAssignations: failedAssignations,
-            prioritiesApplied: Object.keys(priorities).length > 0 ? priorities : null
-        });
-
+        return res.status(200).json({ successful: true, data: schedule });
     } catch (error) {
-        console.error("Error in automateSchedule:", error);
-        return res.status(500).json({
-            successful: false,
-            message: error.message || "An unexpected error occurred."
-        });
+        return res.status(500).json({ successful: false, message: error.message || "An unexpected error; occurred." });
     }
 };
 
+// Updated controller function to toggle lock status (lock or unlock)
+const toggleLockAllSchedules = async (req, res) => {
+    try {
+      const { scheduleIds, isLocked } = req.body;
+      
+      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+        return res.status(400).json({
+          successful: false,
+          message: 'No schedule IDs provided'
+        });
+      }
+  
+      // Update all schedules to the specified lock status
+      await Schedule.update(
+        { isLocked: !!isLocked }, // Convert to boolean
+        { where: { id: scheduleIds } }
+      );
+  
+      return res.json({
+        successful: true,
+        message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
+      });
+    } catch (error) {
+      console.error('Error toggling schedule lock status:', error);
+      return res.status(500).json({
+        successful: false,
+        message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
+      });
+    }
+  };
 
 // Add Schedule (Manual Version of automateSchedule)
 const addSchedule = async (req, res, next) => { 
@@ -1355,96 +1471,57 @@ const deleteSchedule = async (req, res, next) => {
     }
 };
 
-const toggleLock = async (req, res, next) => {
-    try {
-        const schedule = await Schedule.findByPk(req.params.id);
-        if (!schedule) {
-            return res.status(404).json({ successful: false, message: "Schedule not found." });
-        }
-        schedule.isLocked = !schedule.isLocked; // Toggle the lock status
-        await schedule.save()
-
-        return res.status(200).json({ successful: true, data: schedule });
-    } catch (error) {
-        return res.status(500).json({ successful: false, message: error.message || "An unexpected error; occurred." });
-    }
-};
-
-// Updated controller function to toggle lock status (lock or unlock)
-const toggleLockAllSchedules = async (req, res) => {
-    try {
-      const { scheduleIds, isLocked } = req.body;
-      
-      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
-        return res.status(400).json({
-          successful: false,
-          message: 'No schedule IDs provided'
-        });
-      }
-  
-      // Update all schedules to the specified lock status
-      await Schedule.update(
-        { isLocked: !!isLocked }, // Convert to boolean
-        { where: { id: scheduleIds } }
-      );
-  
-      return res.json({
-        successful: true,
-        message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
-      });
-    } catch (error) {
-      console.error('Error toggling schedule lock status:', error);
-      return res.status(500).json({
-        successful: false,
-        message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
-      });
-    }
-  };
   
   const deleteAllDepartmentSchedules = async (req, res) => {
     try {
-      const { departmentId } = req.params;
+      const {id} = req.params;
       
-      if (!departmentId) {
-        return res.status(400).json({
-          successful: false,
-          message: 'Department ID is required'
+      // Verify department exists
+      const department = await Department.findByPk(id);
+      if (!department) {
+        return res.status(404).json({ success: false, message: "Department not found" });
+      }
+      
+      // Find all assignations for this department
+      const departmentAssignations = await Assignation.findAll({
+        where: { DepartmentId: id }
+      });
+      
+      const assignationIds = departmentAssignations.map(assignation => assignation.id);
+      
+      if (assignationIds.length === 0) {
+        return res.status(200).json({ 
+          success: true, 
+          message: "No schedules found for this department", 
+          deletedCount: 0 
         });
       }
-  
-      // First, find all rooms belonging to this department
-      const rooms = await Room.findAll({
-        where: { DepartmentId: departmentId },
-        attributes: ['id']
+      
+      // Delete all schedules that reference these assignations
+      const deletedSchedules = await Schedule.destroy({
+        where: {
+          AssignationId: {
+            [Op.in]: assignationIds
+          }
+        }
       });
-  
-      if (!rooms || rooms.length === 0) {
-        return res.status(404).json({
-          successful: false,
-          message: 'No rooms found for this department'
-        });
-      }
-  
-      // Extract room IDs
-      const roomIds = rooms.map(room => room.id);
-  
-      // Delete all schedules for these rooms
-      const result = await Schedule.destroy({
-        where: { RoomId: roomIds }
+      
+      res.status(200).json({
+        success: true,
+        message: `Successfully deleted ${deletedSchedules} schedules from the department`,
+        deletedCount: deletedSchedules
       });
-  
-      return res.json({
-        successful: true,
-        message: `Successfully deleted ${result} schedules from the department`
-      });
+      
     } catch (error) {
-      console.error('Error deleting department schedules:', error);
-      return res.status(500).json({
-        successful: false,
-        message: 'An error occurred while deleting department schedules'
+      console.error("Error deleting department schedules:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete department schedules",
+        error: error.message
       });
     }
   };
+  
 
 module.exports = {
     addSchedule,
