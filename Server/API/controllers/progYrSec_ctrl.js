@@ -311,7 +311,7 @@ const getAllProgYrSecByProgram = async (req, res, next) => {
 const getProgYrSecByDept = async (req, res, next) => {
     try {
         const pys = await ProgYrSec.findAll({
-            attributes: ['Year', 'Section', 'ProgramId'],
+            attributes: ['id', 'Year', 'Section', 'ProgramId'],
             include: [
                 {
                     model: Program,

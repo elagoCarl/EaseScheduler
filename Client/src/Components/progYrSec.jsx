@@ -52,9 +52,10 @@ const ProgYrSec = () => {
                 // Map sections to ensure each section has an 'id' property.
                 const mappedSections = sectionsData.map(section => ({
                     ...section,
-                    id: section.id || section.ID || section._id  // fallback if needed
+                    id: section.id || section.ID || section._id || section.ProgYrSecId
                 }));
                 setSections(mappedSections);
+                console.log("Fetched sectionsSSSSSSSSSS:", mappedSections);
             } else {
                 setSections([]);
             }
@@ -62,6 +63,7 @@ const ProgYrSec = () => {
             setSections([]);
         }
     };
+
 
     const handleSectionChange = (e) => {
         const { name, value } = e.target;
