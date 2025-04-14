@@ -177,43 +177,58 @@ const AddConfigSchedule = () => {
   const handleAutomateSchedule = async () => {
     setIsAutomating(true);
     try {
-      // Prepare payload (we remove prioritizedSections since we don't manage that state)
+      // First, validate that a room is selected when automating a single room
+      if (automateType === 'room' && !formData.room_id) {
+        setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
+        return;
+      }
+  
+      // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
-        // Use the first prioritized professor if available; otherwise, undefined
+        // Use prioritized professors if available
         prioritizedProfessor: prioritizedProfessors.length > 0
           ? prioritizedProfessors.map(value => parseInt(value, 10))
           : undefined,
-        // Use the first prioritized room if available; otherwise, undefined
-        prioritizedRoom: prioritizedRooms.length > 0 ? parseInt(prioritizedRooms[0]) : undefined
+        // Use prioritized rooms if available 
+        prioritizedRoom: prioritizedRooms.length > 0 
+          ? prioritizedRooms.map(value => parseInt(value, 10))
+          : undefined
       };
-
-
+  
+      // If automating a single room, include the roomId in the payload
+      if (automateType === 'room') {
+        payload.roomId = parseInt(formData.room_id, 10);
+      }
+  
+      // Always use the same endpoint
       const endpoint = '/schedule/automateSchedule';
+  
       const response = await axios.put(endpoint, payload);
-
+  
       if (response.data.successful) {
         setNotification({
           type: 'success',
-          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} initiated successfully!`
+          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
         });
+        
+        // Refresh schedules for the current room if one is selected
         if (formData.room_id) {
           fetchSchedulesForRoom(formData.room_id);
         }
       } else {
-        // Use the error message from the response if available
-        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+        setNotification({ 
+          type: 'error', 
+          message: transformErrorMessage(response.data.message) 
+        });
       }
     } catch (error) {
-      // Log out the full error response for debugging purposes.
       console.error("Schedule automation error:", error.response || error);
-
+      
       setNotification({
         type: 'error',
         message: transformErrorMessage(
-          error.response && error.response.data && error.response.data.message
-            ? error.response.data.message
-            : "An error occurred during schedule automation."
+          error.response?.data?.message || `An error occurred during ${automateType === 'room' ? 'room' : 'department'} schedule automation.`
         )
       });
     } finally {
