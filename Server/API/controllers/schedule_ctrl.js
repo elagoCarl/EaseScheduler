@@ -1022,7 +1022,7 @@ const updateSchedule = async (req, res, next) => {
         const newStartHour = parseInt(Start_time.split(":")[0]);
 
         // Validate professor availability and workload using helper function
-        if (!(await canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day))) {
+        if (!canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day)) {
             return res.status(400).json({
                 successful: false,
                 message: `The professor ${assignation.Professor.Name} is not available at the specified time or would exceed the allowed teaching hours.`
