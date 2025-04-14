@@ -8,6 +8,8 @@ import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
 import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
+import lock from './Img/lock.svg';
+import unlock from './Img/unlock.svg';
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
@@ -174,33 +176,67 @@ const AddConfigSchedule = () => {
 
   const handleAutomateSchedule = async () => {
     setIsAutomating(true);
-
     try {
+      // First, validate that a room is selected when automating a single room
+      if (automateType === 'room' && !formData.room_id) {
+        setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
+        return;
+      }
+  
+      // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
-        prioritizedProfessors: prioritizedProfessors.map(val => parseInt(val)),
-        prioritizedRooms: prioritizedRooms.map(val => parseInt(val))
+        // Use prioritized professors if available
+        prioritizedProfessor: prioritizedProfessors.length > 0
+          ? prioritizedProfessors.map(value => parseInt(value, 10))
+          : undefined,
+        // Use prioritized rooms if available 
+        prioritizedRoom: prioritizedRooms.length > 0 
+          ? prioritizedRooms.map(value => parseInt(value, 10))
+          : undefined
       };
-
-      let endpoint = '/schedule/automate';
-      if (automateType === 'room' && formData.room_id) {
-        endpoint = `/schedule/automate/${formData.room_id}`;
+  
+      // If automating a single room, include the roomId in the payload
+      if (automateType === 'room') {
+        payload.roomId = parseInt(formData.room_id, 10);
       }
-
-      const response = await axios.post(endpoint, payload);
-
+  
+      // Always use the same endpoint
+      const endpoint = '/schedule/automateSchedule';
+  
+      const response = await axios.put(endpoint, payload);
+  
       if (response.data.successful) {
-        setNotification({ type: 'success', message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} initiated successfully!` });
-        if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
+        setNotification({
+          type: 'success',
+          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
+        });
+        
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
       } else {
-        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+        setNotification({ 
+          type: 'error', 
+          message: transformErrorMessage(response.data.message) 
+        });
       }
     } catch (error) {
-      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred during schedule automation.") });
+      console.error("Schedule automation error:", error.response || error);
+      
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || `An error occurred during ${automateType === 'room' ? 'room' : 'department'} schedule automation.`
+        )
+      });
     } finally {
       setIsAutomating(false);
     }
   };
+
+
 
   // Input handlers
   const handleInputChange = e => {
@@ -257,6 +293,91 @@ const AddConfigSchedule = () => {
     setPrioritizedRooms(prev => prev.filter(val => val !== id));
   };
 
+  const toggleLockStatus = async (scheduleId, currentLockStatus) => {
+    try {
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`);
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
+        if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred while toggling lock status.") });
+    }
+  };
+
+  // Rename function to reflect both locking and unlocking capability
+  const handleToggleLockAllSchedules = async (lockAction = true) => {
+    if (!formData.room_id || schedules.length === 0) {
+      setNotification({ type: 'error', message: "No room selected or no schedules to toggle lock status." });
+      return;
+    }
+
+    try {
+      // Get relevant schedule IDs based on lockAction
+      const targetSchedules = lockAction
+        ? schedules.filter(schedule => !schedule.isLocked).map(schedule => schedule.id)
+        : schedules.filter(schedule => schedule.isLocked).map(schedule => schedule.id);
+
+      if (targetSchedules.length === 0) {
+        setNotification({
+          type: 'info',
+          message: lockAction
+            ? "All schedules are already locked."
+            : "All schedules are already unlocked."
+        });
+        return;
+      }
+
+      // Make a PUT request to toggle lock status for all relevant schedules
+      const response = await axios.put("/schedule/toggleLockAllSchedules", {
+        scheduleIds: targetSchedules,
+        isLocked: lockAction
+      });
+
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: `Successfully ${lockAction ? 'locked' : 'unlocked'} ${targetSchedules.length} schedules.`
+        });
+        // Refresh schedules for the room
+        fetchSchedulesForRoom(formData.room_id);
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || `An error occurred while ${lockAction ? 'locking' : 'unlocking'} schedules.`
+        )
+      });
+    }
+  };
+
+  const handleDeleteAllSchedules = async () => {
+    try {
+      // Instead of getting schedules for a specific room, we'll delete all for the department
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
+
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({
+        successful: 'false',
+        message: error.message
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
     setCustomStartTime("");
@@ -302,6 +423,16 @@ const AddConfigSchedule = () => {
                 <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
               </div>
               <div className="flex">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLockStatus(schedule.id, schedule.isLocked);
+                  }}
+                  className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
+                  title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+                >
+                  <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+                </button>
                 <button onClick={(e) => {
                   e.stopPropagation();
                   setSelectedSchedule(schedule);
@@ -346,6 +477,13 @@ const AddConfigSchedule = () => {
             {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggleLockStatus(event.id, event.isLocked)}
+              className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+              title={event.isLocked ? "Unlock schedule" : "Lock schedule"}
+            >
+              <img src={event.isLocked ? lock : unlock} alt={event.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+            </button>
             <button onClick={() => { setSelectedSchedule(event); setIsEditModalOpen(true); }} className="p-1 hover:bg-blue-100 rounded-full transition-colors">
               <img src={editBtn} alt="Edit" className="w-10 h-10" />
             </button>
@@ -410,8 +548,39 @@ const AddConfigSchedule = () => {
     )
   );
 
-  const renderAutomationSection = () => (
-    <div className="flex flex-col mt-4 border-t pt-4">
+const renderAutomationSection = () => (
+  <div className="flex flex-col mt-4 border-t pt-4">
+    {/* Lock/Unlock/Delete All buttons section */}
+    {formData.room_id && schedules.length > 0 && (
+      <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
+        <div className="flex gap-10">
+          <button
+            onClick={() => handleToggleLockAllSchedules(true)}
+            className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+          >
+            Lock All
+          </button>
+          <button
+            onClick={() => handleToggleLockAllSchedules(false)}
+            className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+          >
+            Unlock All
+          </button>
+        </div>
+
+          <button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to delete ALL schedules in this department? This action cannot be undone.")) {
+                handleDeleteAllSchedules();
+              }
+            }}
+            className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
+          >
+                        Delete All Department Schedules
+          </button>
+        </div>
+      )}
+
       <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
 
       <div className="mb-3">
@@ -464,7 +633,7 @@ const AddConfigSchedule = () => {
             <option value="">Select Professor</option>
             {professors.map(prof => (
               <option key={prof.id} value={prof.id}>
-                {prof.Name} ({prof.Designation})
+                {prof.Name}
               </option>
             ))}
           </select>
@@ -478,7 +647,7 @@ const AddConfigSchedule = () => {
               const prof = professors.find(p => p.id.toString() === id.toString());
               return (
                 <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                  <span>{prof ? `${prof.Name} (${prof.Designation})` : id}</span>
+                  <span>{prof ? `${prof.Name}` : id}</span>
                   <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
                 </li>
               );
@@ -687,7 +856,10 @@ const AddConfigSchedule = () => {
           setSelectedSchedule(null);
         }}
         onUpdate={(updatedSchedule) => {
-          setSchedules(prev => prev.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
+          // Fetch the updated schedule with all relations after successful update
+          if (formData.room_id) {
+            fetchSchedulesForRoom(formData.room_id);
+          }
         }}
         rooms={rooms}
         assignations={assignations}

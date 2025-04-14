@@ -10,9 +10,12 @@ router.get('/getSchedule/:id', schedule_ctrl.getSchedule)
 router.delete('/deleteSchedule/:id', schedule_ctrl.deleteSchedule)
 router.put('/updateSchedule/:id', schedule_ctrl.updateSchedule)
 router.put('/automateSchedule', schedule_ctrl.automateSchedule)
-router.put('/automateRoomSpecificSchedule', schedule_ctrl.automateRoomSpecificSchedule)
 router.get('/getSchedsByRoom/:id', schedule_ctrl.getSchedsByRoom)
 router.get('/getSchedsByProf/:id', schedule_ctrl.getSchedsByProf)
 router.get('/getSchedsByDept/:id', schedule_ctrl.getSchedsByDept)
+router.put('/toggleLock/:id', schedule_ctrl.toggleLock)
+router.put('/toggleLockAllSchedules', schedule_ctrl.toggleLockAllSchedules)
+router.delete('/deleteAllDepartmentSchedules/:id', schedule_ctrl.deleteAllDepartmentSchedules)
+
 
 module.exports = router;

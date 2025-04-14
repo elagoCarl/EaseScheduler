@@ -8,15 +8,17 @@ module.exports = (sequelize, DataTypes) => {
         },
         School_Year: {
             type: DataTypes.STRING,
-            allowNull: false
-        },  
+            allowNull: false,
+            defaultValue: "2025-2026"  // Set a default value as needed
+        },
         Semester: {
             type: DataTypes.STRING,
-            allowNull: false
+            allowNull: false,
+            defaultValue: "Fall"  // Set a default value as needed
         },
         ProfessorId: {
             type: DataTypes.INTEGER,
-            allowNull: true, 
+            allowNull: true,
             references: {
                 model: 'Professors',
                 key: 'id'
@@ -24,7 +26,7 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'SET NULL',
             onUpdate: 'CASCADE'
         }
-        
+
     }, {
         timestamps: true,
         indexes: [
@@ -40,7 +42,7 @@ module.exports = (sequelize, DataTypes) => {
         Assignation.belongsTo(models.Professor, {
             foreignKey: {
                 name: 'ProfessorId',
-                allowNull: true, 
+                allowNull: true,
             },
             onDelete: 'SET NULL',
             onUpdate: 'CASCADE',
@@ -48,7 +50,7 @@ module.exports = (sequelize, DataTypes) => {
 
         Assignation.belongsTo(models.Course, {
             foreignKey: {
-                allowNull: false 
+                allowNull: false
             },
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
@@ -57,7 +59,7 @@ module.exports = (sequelize, DataTypes) => {
         Assignation.belongsTo(models.Department, {
             foreignKey: {
                 name: 'DepartmentId',
-                allowNull: true, 
+                allowNull: true,
             },
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'

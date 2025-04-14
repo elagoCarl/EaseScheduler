@@ -15,7 +15,7 @@ import EditRoomModal from "./callComponents/editRoomModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning.jsx";
 import DeleteDeptRoomWarning from "./callComponents/deleteDeptRoomWarning.jsx";
 import { useAuth } from '../Components/authContext.jsx';
-
+// PAG NULL ANG DEPTS PANG LAHATAN ANG PAG ADD NG ROOM, NOT PER DEPT
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [checkboxes, setCheckboxes] = useState([]);
@@ -56,23 +56,40 @@ const Room = () => {
       setLoading(true);
       const departmentId = deptId || (user.DepartmentId || (selectedDepartment !== "Select Department" ? selectedDepartment : null));
 
-      if (!departmentId) {
-        setRooms([]);
-        setFilteredRooms([]);
-        setLoading(false);
-        return;
-      }
-
-      const response = await axios.get(`/room/getRoomsByDept/${ departmentId }`);
-      if (response.data.successful) {
-        const roomData = response.data.data;
-        setRooms(roomData);
-        setFilteredRooms(roomData);
-        setCheckboxes(Array(roomData.length).fill(false));
-        const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
-        setAvailableFloors(uniqueFloors);
+      // If admin user (DepartmentId is null) and no specific department is selected, fetch all rooms
+      if (user && user.DepartmentId === null && (!departmentId || selectedDepartment === "Select Department")) {
+        const response = await axios.get('/room/getAllRoom');
+        if (response.data.successful) {
+          const roomData = response.data.data;
+          setRooms(roomData);
+          setFilteredRooms(roomData);
+          setCheckboxes(Array(roomData.length).fill(false));
+          const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
+          setAvailableFloors(uniqueFloors);
+        } else {
+          // Clear rooms when none found
+          setRooms([]);
+          setFilteredRooms([]);
+          setAvailableFloors([]);
+        }
+      } else if (departmentId) {
+        // If a department is selected or the user has a department, fetch rooms by department
+        const response = await axios.get(`/room/getRoomsByDept/${departmentId}`);
+        if (response.data.successful) {
+          const roomData = response.data.data;
+          setRooms(roomData);
+          setFilteredRooms(roomData);
+          setCheckboxes(Array(roomData.length).fill(false));
+          const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
+          setAvailableFloors(uniqueFloors);
+        } else {
+          // Clear rooms when none found
+          setRooms([]);
+          setFilteredRooms([]);
+          setAvailableFloors([]);
+        }
       } else {
-        // Clear rooms when none found
+        // No department selected and user is not admin
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
@@ -94,7 +111,7 @@ const Room = () => {
 
   const handleEditClick = async (roomId) => {
     try {
-      const response = await axios.get(`/room/getRoom/${ roomId }`);
+      const response = await axios.get(`/room/getRoom/${roomId}`);
       const roomData = response.data.data;
 
       if (roomData) {
@@ -142,7 +159,7 @@ const Room = () => {
       if (user && user.DepartmentId === null) {
         // Admin delete - completely remove rooms
         for (const room of selectedRooms) {
-          await axios.delete(`/room/deleteRoom/${ room.id }`);
+          await axios.delete(`/room/deleteRoom/${room.id}`);
         }
       } else {
         // Department user - remove association only
@@ -260,7 +277,7 @@ const Room = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}
+      style={{ backgroundImage: `url(${Background})` }}
     >
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
@@ -314,7 +331,7 @@ const Room = () => {
 
         <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
           <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
-            <img src={Door} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Room img" />
+            <img src={Door} className="w-12 h-12 md:w-25 md:h-25" alt="Room img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
               Room
             </h2>
