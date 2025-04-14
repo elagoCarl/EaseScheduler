@@ -1432,6 +1432,11 @@ const deleteSchedule = async (req, res, next) => {
         if (!schedule) {
             return res.status(404).json({ successful: false, message: "Schedule not found." });
         }
+        
+        // Check if schedule is locked
+        if (schedule.isLocked) {
+            return res.status(403).json({ successful: false, message: "Cannot delete locked schedule." });
+        }
 
         await schedule.destroy();
 
@@ -1441,56 +1446,56 @@ const deleteSchedule = async (req, res, next) => {
     }
 };
 
-  
-  const deleteAllDepartmentSchedules = async (req, res) => {
+const deleteAllDepartmentSchedules = async (req, res) => {
     try {
-      const {id} = req.params;
+        const {id} = req.params;
       
-      // Verify department exists
-      const department = await Department.findByPk(id);
-      if (!department) {
-        return res.status(404).json({ success: false, message: "Department not found" });
-      }
-      
-      // Find all assignations for this department
-      const departmentAssignations = await Assignation.findAll({
-        where: { DepartmentId: id }
-      });
-      
-      const assignationIds = departmentAssignations.map(assignation => assignation.id);
-      
-      if (assignationIds.length === 0) {
-        return res.status(200).json({ 
-          success: true, 
-          message: "No schedules found for this department", 
-          deletedCount: 0 
-        });
-      }
-      
-      // Delete all schedules that reference these assignations
-      const deletedSchedules = await Schedule.destroy({
-        where: {
-          AssignationId: {
-            [Op.in]: assignationIds
-          }
+        // Verify department exists
+        const department = await Department.findByPk(id);
+        if (!department) {
+            return res.status(404).json({ success: false, message: "Department not found" });
         }
-      });
       
-      res.status(200).json({
-        success: true,
-        message: `Successfully deleted ${deletedSchedules} schedules from the department`,
-        deletedCount: deletedSchedules
-      });
+        // Find all assignations for this department
+        const departmentAssignations = await Assignation.findAll({
+            where: { DepartmentId: id }
+        });
+      
+        const assignationIds = departmentAssignations.map(assignation => assignation.id);
+      
+        if (assignationIds.length === 0) {
+            return res.status(200).json({ 
+                success: true, 
+                message: "No schedules found for this department", 
+                deletedCount: 0 
+            });
+        }
+      
+        // Delete all schedules that reference these assignations and are not locked
+        const deletedSchedules = await Schedule.destroy({
+            where: {
+                AssignationId: {
+                    [Op.in]: assignationIds
+                },
+                isLocked: false  // Only delete unlocked schedules
+            }
+        });
+      
+        res.status(200).json({
+            success: true,
+            message: `Successfully deleted ${deletedSchedules} schedules from the department`,
+            deletedCount: deletedSchedules
+        });
       
     } catch (error) {
-      console.error("Error deleting department schedules:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to delete department schedules",
-        error: error.message
-      });
+        console.error("Error deleting department schedules:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to delete department schedules",
+            error: error.message
+        });
     }
-  };
+};
   
 
 module.exports = {
