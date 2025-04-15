@@ -118,6 +118,8 @@ const DeptProg = () => {
         setDeptEditingId(null);
     };
 
+    //old code in case need uncomment and comment confirmdelete 
+
     // const handleDeptDelete = async (id) => {
     //     if (window.confirm("Are you sure you want to delete this department?")) {
     //         try {
