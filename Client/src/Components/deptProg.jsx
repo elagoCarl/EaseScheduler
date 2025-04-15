@@ -169,7 +169,17 @@ const DeptProg = () => {
 
 
     const confirmDelete = async () => {
-        
+        if (
+            (deleteType === 'program' && !deletingProgId) ||
+            (deleteType === 'department' && !deletingDeptId)
+        ) {
+            setMessage({
+                type: 'error',
+                text: `Invalid ID for ${ deleteType } deletion.`,
+            });
+            return; // Exit early if ID is invalid
+        }
+
         try {
             if (deleteType === 'program') {
                 const response = await axios.delete(`/program/deleteProgram/${ deletingProgId }`);
