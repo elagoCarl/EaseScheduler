@@ -79,7 +79,7 @@ const Course = () => {
 
   const fetchCourse = async (deptId) => {
     try {
-      const response = await Axios.get(`/course/getCoursesByDept/${deptId}`);
+      const response = await Axios.get(`/course/getCoursesByDept/${ deptId }`);
       console.log('API Response:', response.data);
       if (response.data.successful) {
         setCourses(response.data.data);
@@ -88,7 +88,7 @@ const Course = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError(`Error fetching courses: ${err.message}`);
+      setError(`Error fetching courses: ${ err.message }`);
     }
   };
 
@@ -169,7 +169,7 @@ const Course = () => {
 
       await Promise.all(
         courseToDelete.map((course) =>
-          Axios.delete(`/course/deleteCourse/${course.id}`)
+          Axios.delete(`/course/deleteCourse/${ course.id }`)
         )
       );
 
@@ -192,7 +192,7 @@ const Course = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}>
+      style={{ backgroundImage: `url(${ Background })` }}>
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
@@ -240,7 +240,7 @@ const Course = () => {
         </div>
 
         {/* Table Container */}
-        <div className="bg-white p-4 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
+        <div className="bg-white p-6 rounded-lg flex flex-col items-center w-10/12 max-h-[60vh]">
           <div className="flex items-center bg-blue-600 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
             <img src={Book} className="w-12 h-12 md:w-25 md:h-25" alt="Course img" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
@@ -248,7 +248,7 @@ const Course = () => {
             </h2>
           </div>
           {/* Scrollable Table */}
-          <div className="overflow-auto w-full h-full flex-grow">
+          <div className="overflow-auto w-full h-full flex-grow pt-6">
             <table className="text-center w-full border-collapse">
               <thead>
                 <tr className="bg-blue-600/90">
