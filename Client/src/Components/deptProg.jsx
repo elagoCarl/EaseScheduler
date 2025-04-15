@@ -157,28 +157,34 @@ const DeptProg = () => {
 
     const handleDeptDelete = (id) => {
         setDeletingDeptId(id);
+        setDeleteType('department');
+        setShowDeleteModal(true);
+    };
+
+    const handleProgDelete = (id) => {
+        setDeletingProgId(id);
         setDeleteType('program');
         setShowDeleteModal(true);
     };
 
-    const confirmDelete = async () => {
-        try {
-            let response;
 
-            if (deleteType === 'department') {
-                response = await axios.delete(`/dept/deleteDept/${ deletingDeptId }`);
-                setMessage({
-                    type: "success",
-                    text: response.data.message || "Department deleted successfully.",
-                });
-                fetchDepartments();
-            } else if (deleteType === 'program') {
-                response = await axios.delete(`/program/deleteProgram/${id}`);
+    const confirmDelete = async () => {
+        
+        try {
+            if (deleteType === 'program') {
+                const response = await axios.delete(`/program/deleteProgram/${ deletingProgId }`);
                 setMessage({
                     type: "success",
                     text: response.data.message || "Program deleted successfully.",
                 });
                 fetchPrograms();
+            } else if (deleteType === 'department') {
+                const response = await axios.delete(`/dept/deleteDept/${ deletingDeptId }`);
+                setMessage({
+                    type: "success",
+                    text: response.data.message || "Department deleted successfully.",
+                });
+                fetchDepartments();
             }
         } catch (error) {
             setMessage({
@@ -186,16 +192,11 @@ const DeptProg = () => {
                 text: error.response?.data?.message || `Failed to delete ${ deleteType }.`,
             });
         } finally {
-            closeDeleteModal();
+            setShowDeleteModal(false);
+            setDeletingProgId(null);
+            setDeletingDeptId(null);
+            setDeleteType(null);
         }
-    };
-
-    // Function to close the modal and reset state
-    const closeDeleteModal = () => {
-        setShowDeleteModal(false);
-        setDeletingDeptId(null);
-        setDeletingProgId(null);
-        setDeleteType(null);
     };
 
     const handleProgChange = (e) => {
@@ -496,7 +497,7 @@ const DeptProg = () => {
                         </p>
                         <div className="flex justify-end space-x-3">
                             <button
-                                onClick={closeDeleteModal}
+                                onClick={() => setShowDeleteModal(false)}
                                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded">
                                 Cancel
                             </button>
