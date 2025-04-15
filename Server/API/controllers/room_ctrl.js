@@ -15,9 +15,9 @@ const addRoom = async (req, res, next) => {
         }
 
         for (const room of rooms) {
-            const { Code, Floor, Building, Type, Dept_id } = room;
+            const { Code, Floor, Building, Type,  } = room;
 
-            if (!util.checkMandatoryFields([Code, Floor, Building, Type, Dept_id])) {
+            if (!util.checkMandatoryFields([Code, Floor, Building, Type, ])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -52,7 +52,7 @@ const addRoom = async (req, res, next) => {
                 Building: Building,
                 Type: Type
             })
-            const newDeptRoom = await newRoom.addRoomDepts(Dept_id)
+            // const newDeptRoom = await newRoom.addRoomDepts(Dept_id)
 
             const token = req.cookies?.refreshToken;
             if (!token) {

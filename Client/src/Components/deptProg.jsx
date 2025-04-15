@@ -20,6 +20,11 @@ const DeptProg = () => {
     const [progEditingId, setProgEditingId] = useState(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deletingDeptId, setDeletingDeptId] = useState(null);
+    const [deletingProgId, setDeletingProgId] = useState(null);
+    const [deleteType, setDeleteType] = useState(null);
+    const [success, setSuccess] = useState(false);
     const [activeTab, setActiveTab] = useState("departments"); // For mobile tab switching
     const navigate = useNavigate();
 
@@ -69,7 +74,7 @@ const DeptProg = () => {
             let response;
             if (isDeptEditing) {
                 response = await axios.put(
-                    `/dept/updateDept/${deptEditingId}`,
+                    `/dept/updateDept/${ deptEditingId }`,
                     deptFormData
                 );
             } else {
@@ -77,6 +82,10 @@ const DeptProg = () => {
                     "/dept/addDept",
                     deptFormData
                 );
+                setSuccess(true);
+                setTimeout(() => {
+                    setSuccess(false);
+                }, 2000);
             }
 
             setMessage({
@@ -114,21 +123,96 @@ const DeptProg = () => {
         setDeptEditingId(null);
     };
 
-    const handleDeptDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this department?")) {
-            try {
-                const response = await axios.delete(`/dept/deleteDept/${id}`);
+    //old code in case need uncomment and comment confirmdelete 
+
+    // const handleDeptDelete = async (id) => {
+    //     if (window.confirm("Are you sure you want to delete this department?")) {
+    //         try {
+    //             const response = await axios.delete(`/dept/deleteDept/${id}`);
+    //             setMessage({
+    //                 type: "success",
+    //                 text: response.data.message || "Department deleted successfully.",
+    //             });
+    //             fetchDepartments();
+    //         } catch (error) {
+    //             setMessage({
+    //                 type: "error",
+    //                 text: error.response?.data?.message || "Failed to delete department.",
+    //             });
+    //         }
+    //     }
+    // };
+
+    // const confirmDeptDelete = async () => {
+    //     try {
+    //         const response = await axios.delete(`/dept/deleteDept/${deletingDeptId}`)
+    //         setMessage({
+    //             type: "success",
+    //             text: response.data.message || "Department deleted successfully."
+    //         });
+    //         fetchDepartments();
+    //     } catch (error) {
+    //         setMessage({
+    //             type:"error",
+    //             text: error.response?.data?.message || "Failed to delete department.",
+    //         });
+    //     } finally {
+    //         setShowDeleteModal(false);
+    //         setDeletingDeptId(null);
+    //     }
+    // }
+
+    const handleDeptDelete = (id) => {
+        setDeletingDeptId(id);
+        setDeleteType('department');
+        setShowDeleteModal(true);
+    };
+
+    const handleProgDelete = (id) => {
+        setDeletingProgId(id);
+        setDeleteType('program');
+        setShowDeleteModal(true);
+    };
+
+
+    const confirmDelete = async () => {
+        if ( // pang validation to ah wag delete thanks
+            (deleteType === 'program' && !deletingProgId) ||
+            (deleteType === 'department' && !deletingDeptId)
+        ) {
+            setMessage({
+                type: 'error',
+                text: `Invalid ID for ${ deleteType } deletion.`,
+            });
+            return; // Exit early if ID is invalid 
+        }
+
+        try {
+            if (deleteType === 'program') {
+                const response = await axios.delete(`/program/deleteProgram/${ deletingProgId }`);
+                setMessage({
+                    type: "success",
+                    text: response.data.message || "Program deleted successfully.",
+                });
+                fetchPrograms();
+            } else if (deleteType === 'department') {
+                const response = await axios.delete(`/dept/deleteDept/${ deletingDeptId }`);
                 setMessage({
                     type: "success",
                     text: response.data.message || "Department deleted successfully.",
                 });
                 fetchDepartments();
-            } catch (error) {
-                setMessage({
-                    type: "error",
-                    text: error.response?.data?.message || "Failed to delete department.",
-                });
             }
+        } catch (error) {
+            setMessage({
+                type: "error",
+                text: error.response?.data?.message || `Failed to delete ${ deleteType }.`,
+            });
+        } finally {
+            setShowDeleteModal(false);
+            setDeletingProgId(null);
+            setDeletingDeptId(null);
+            setDeleteType(null);
         }
     };
 
@@ -145,7 +229,7 @@ const DeptProg = () => {
             let response;
             if (isProgEditing) {
                 response = await axios.put(
-                    `/program/updateProgram/${progEditingId}`,
+                    `/program/updateProgram/${ progEditingId }`,
                     progFormData
                 );
             } else {
@@ -153,6 +237,10 @@ const DeptProg = () => {
                     "/program/addProgram",
                     progFormData
                 );
+                setSuccess(true);
+                setTimeout(() => {
+                    setSuccess(false);
+                }, 2000);
             }
 
             setMessage({
@@ -194,26 +282,8 @@ const DeptProg = () => {
         setProgEditingId(null);
     };
 
-    const handleProgDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this program?")) {
-            try {
-                const response = await axios.delete(`/program/deleteProgram/${id}`);
-                setMessage({
-                    type: "success",
-                    text: response.data.message || "Program deleted successfully.",
-                });
-                fetchPrograms();
-            } catch (error) {
-                setMessage({
-                    type: "error",
-                    text: error.response?.data?.message || "Failed to delete program.",
-                });
-            }
-        }
-    };
-
     return (
-        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center" style={{ backgroundImage: `url(${Background})` }}>
+        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center" style={{ backgroundImage: `url(${ Background })` }}>
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             <TopMenu toggleSidebar={toggleSidebar} />
 
@@ -225,7 +295,7 @@ const DeptProg = () => {
 
                     <div className="p-4 sm:p-6">
                         {message && (
-                            <div className={`mb-4 p-3 text-center rounded-lg text-white font-medium ${message.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
+                            <div className={`mb-4 p-3 text-center rounded-lg text-white font-medium ${ message.type === "success" ? "bg-green-500" : "bg-red-500" }`}>
                                 {message.text}
                             </div>
                         )}
@@ -233,13 +303,13 @@ const DeptProg = () => {
                         {/* Mobile Tab Navigation */}
                         <div className="flex md:hidden mb-4 border-b">
                             <button
-                                className={`w-1/2 py-2 text-center ${activeTab.startsWith('departments') ? 'border-b-2 border-blue-600 text-blue-600 font-medium' : 'text-gray-500'}`}
+                                className={`w-1/2 py-2 text-center ${ activeTab.startsWith('departments') ? 'border-b-2 border-blue-600 text-blue-600 font-medium' : 'text-gray-500' }`}
                                 onClick={() => setActiveTab("departments")}
                             >
                                 Departments
                             </button>
                             <button
-                                className={`w-1/2 py-2 text-center ${activeTab.startsWith('programs') ? 'border-b-2 border-purple-600 text-purple-600 font-medium' : 'text-gray-500'}`}
+                                className={`w-1/2 py-2 text-center ${ activeTab.startsWith('programs') ? 'border-b-2 border-purple-600 text-purple-600 font-medium' : 'text-gray-500' }`}
                                 onClick={() => setActiveTab("programs")}
                             >
                                 Programs
@@ -247,19 +317,19 @@ const DeptProg = () => {
                         </div>
 
                         {/* Departments Section */}
-                        <div className={`${!activeTab.startsWith('departments') && 'hidden md:block'}`}>
+                        <div className={`${ !activeTab.startsWith('departments') && 'hidden md:block' }`}>
                             <h2 className="text-xl sm:text-2xl font-bold text-gray-700 mb-4">Departments</h2>
 
                             {/* Mobile View - Department Forms vs List Tab */}
                             <div className="flex md:hidden mb-4">
                                 <button
-                                    className={`w-1/2 py-2 text-sm text-center ${activeTab === 'departments-form' ? 'bg-blue-100 text-blue-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600'}`}
+                                    className={`w-1/2 py-2 text-sm text-center ${ activeTab === 'departments-form' ? 'bg-blue-100 text-blue-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600' }`}
                                     onClick={() => setActiveTab("departments-form")}
                                 >
                                     {isDeptEditing ? "Edit Department" : "Create Department"}
                                 </button>
                                 <button
-                                    className={`w-1/2 py-2 text-sm text-center ${activeTab === 'departments' ? 'bg-blue-100 text-blue-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600'}`}
+                                    className={`w-1/2 py-2 text-sm text-center ${ activeTab === 'departments' ? 'bg-blue-100 text-blue-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600' }`}
                                     onClick={() => setActiveTab("departments")}
                                 >
                                     Departments List
@@ -267,7 +337,7 @@ const DeptProg = () => {
                             </div>
 
                             <div className="flex flex-col md:flex-row gap-4 md:gap-6 mb-8">
-                                <div className={`w-full md:w-1/3 bg-gray-50 p-4 sm:p-6 rounded-lg shadow ${activeTab !== 'departments-form' && activeTab !== 'departments' && 'hidden md:block'} ${activeTab === 'departments' && 'md:block hidden'}`}>
+                                <div className={`w-full md:w-1/3 bg-gray-50 p-4 sm:p-6 rounded-lg shadow ${ activeTab !== 'departments-form' && activeTab !== 'departments' && 'hidden md:block' } ${ activeTab === 'departments' && 'md:block hidden' }`}>
                                     <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">
                                         {isDeptEditing ? "Edit Department" : "Create Department"}
                                     </h3>
@@ -293,7 +363,7 @@ const DeptProg = () => {
                                     </form>
                                 </div>
 
-                                <div className={`w-full md:w-2/3 ${activeTab !== 'departments' && activeTab !== 'departments-form' && 'hidden md:block'} ${activeTab === 'departments-form' && 'md:block hidden'}`}>
+                                <div className={`w-full md:w-2/3 ${ activeTab !== 'departments' && activeTab !== 'departments-form' && 'hidden md:block' } ${ activeTab === 'departments-form' && 'md:block hidden' }`}>
                                     <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                                         <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">Departments List</h3>
                                         {departments.length === 0 ? (
@@ -333,19 +403,19 @@ const DeptProg = () => {
                         </div>
 
                         {/* Programs Section */}
-                        <div className={`${!activeTab.startsWith('programs') && 'hidden md:block'}`}>
+                        <div className={`${ !activeTab.startsWith('programs') && 'hidden md:block' }`}>
                             <h2 className="text-xl sm:text-2xl font-bold text-gray-700 mb-4">Programs</h2>
 
                             {/* Mobile View - Program Forms vs List Tab */}
                             <div className="flex md:hidden mb-4">
                                 <button
-                                    className={`w-1/2 py-2 text-sm text-center ${activeTab === 'programs-form' ? 'bg-purple-100 text-purple-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600'}`}
+                                    className={`w-1/2 py-2 text-sm text-center ${ activeTab === 'programs-form' ? 'bg-purple-100 text-purple-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600' }`}
                                     onClick={() => setActiveTab("programs-form")}
                                 >
                                     {isProgEditing ? "Edit Program" : "Create Program"}
                                 </button>
                                 <button
-                                    className={`w-1/2 py-2 text-sm text-center ${activeTab === 'programs' ? 'bg-purple-100 text-purple-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600'}`}
+                                    className={`w-1/2 py-2 text-sm text-center ${ activeTab === 'programs' ? 'bg-purple-100 text-purple-700 font-medium rounded-t-lg' : 'bg-gray-100 text-gray-600' }`}
                                     onClick={() => setActiveTab("programs")}
                                 >
                                     Programs List
@@ -353,7 +423,7 @@ const DeptProg = () => {
                             </div>
 
                             <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-                                <div className={`w-full md:w-1/3 bg-gray-50 p-4 sm:p-6 rounded-lg shadow ${activeTab !== 'programs-form' && activeTab !== 'programs' && 'hidden md:block'} ${activeTab === 'programs' && 'md:block hidden'}`}>
+                                <div className={`w-full md:w-1/3 bg-gray-50 p-4 sm:p-6 rounded-lg shadow ${ activeTab !== 'programs-form' && activeTab !== 'programs' && 'hidden md:block' } ${ activeTab === 'programs' && 'md:block hidden' }`}>
                                     <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">
                                         {isProgEditing ? "Edit Program" : "Create Program"}
                                     </h3>
@@ -396,7 +466,7 @@ const DeptProg = () => {
                                     </form>
                                 </div>
 
-                                <div className={`w-full md:w-2/3 ${activeTab !== 'programs' && activeTab !== 'programs-form' && 'hidden md:block'} ${activeTab === 'programs-form' && 'md:block hidden'}`}>
+                                <div className={`w-full md:w-2/3 ${ activeTab !== 'programs' && activeTab !== 'programs-form' && 'hidden md:block' } ${ activeTab === 'programs-form' && 'md:block hidden' }`}>
                                     <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                                         <h3 className="text-lg sm:text-xl font-bold mb-4 border-b pb-2">Programs List</h3>
                                         {programs.length === 0 ? (
@@ -439,6 +509,28 @@ const DeptProg = () => {
                     </div>
                 </div>
             </div>
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-lg p-12 max-w-sm mx-auto">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Delete</h3>
+                        <p className="text-gray-700 mb-6">
+                            Are you sure you want to delete this {deleteType}?
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={() => setShowDeleteModal(false)}
+                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 duration-300 text-gray-800 rounded">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 duration-300 text-white rounded">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

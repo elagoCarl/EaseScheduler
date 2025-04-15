@@ -56,23 +56,40 @@ const Room = () => {
       setLoading(true);
       const departmentId = deptId || (user.DepartmentId || (selectedDepartment !== "Select Department" ? selectedDepartment : null));
 
-      if (!departmentId) {
-        setRooms([]);
-        setFilteredRooms([]);
-        setLoading(false);
-        return;
-      }
-
-      const response = await axios.get(`/room/getRoomsByDept/${ departmentId }`);
-      if (response.data.successful) {
-        const roomData = response.data.data;
-        setRooms(roomData);
-        setFilteredRooms(roomData);
-        setCheckboxes(Array(roomData.length).fill(false));
-        const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
-        setAvailableFloors(uniqueFloors);
+      // If admin user (DepartmentId is null) and no specific department is selected, fetch all rooms
+      if (user && user.DepartmentId === null && (!departmentId || selectedDepartment === "Select Department")) {
+        const response = await axios.get('/room/getAllRoom');
+        if (response.data.successful) {
+          const roomData = response.data.data;
+          setRooms(roomData);
+          setFilteredRooms(roomData);
+          setCheckboxes(Array(roomData.length).fill(false));
+          const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
+          setAvailableFloors(uniqueFloors);
+        } else {
+          // Clear rooms when none found
+          setRooms([]);
+          setFilteredRooms([]);
+          setAvailableFloors([]);
+        }
+      } else if (departmentId) {
+        // If a department is selected or the user has a department, fetch rooms by department
+        const response = await axios.get(`/room/getRoomsByDept/${departmentId}`);
+        if (response.data.successful) {
+          const roomData = response.data.data;
+          setRooms(roomData);
+          setFilteredRooms(roomData);
+          setCheckboxes(Array(roomData.length).fill(false));
+          const uniqueFloors = [...new Set(roomData.map((room) => room.Floor))];
+          setAvailableFloors(uniqueFloors);
+        } else {
+          // Clear rooms when none found
+          setRooms([]);
+          setFilteredRooms([]);
+          setAvailableFloors([]);
+        }
       } else {
-        // Clear rooms when none found
+        // No department selected and user is not admin
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
@@ -94,7 +111,7 @@ const Room = () => {
 
   const handleEditClick = async (roomId) => {
     try {
-      const response = await axios.get(`/room/getRoom/${ roomId }`);
+      const response = await axios.get(`/room/getRoom/${roomId}`);
       const roomData = response.data.data;
 
       if (roomData) {
@@ -142,7 +159,7 @@ const Room = () => {
       if (user && user.DepartmentId === null) {
         // Admin delete - completely remove rooms
         for (const room of selectedRooms) {
-          await axios.delete(`/room/deleteRoom/${ room.id }`);
+          await axios.delete(`/room/deleteRoom/${room.id}`);
         }
       } else {
         // Department user - remove association only
@@ -260,7 +277,7 @@ const Room = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}
+      style={{ backgroundImage: `url(${Background})` }}
     >
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />

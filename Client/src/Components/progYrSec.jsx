@@ -48,9 +48,14 @@ const ProgYrSec = () => {
         try {
             const response = await axios.get(`/progYrSec/getProgYrSecByDept/${deptId}`);
             if (response.data.successful) {
-                // Ensure each section has a unique id
                 const sectionsData = response.data.data || [];
-                setSections(sectionsData);
+                // Map sections to ensure each section has an 'id' property.
+                const mappedSections = sectionsData.map(section => ({
+                    ...section,
+                    id: section.id || section.ID || section._id || section.ProgYrSecId
+                }));
+                setSections(mappedSections);
+                console.log("Fetched sectionsSSSSSSSSSS:", mappedSections);
             } else {
                 setSections([]);
             }
@@ -58,6 +63,7 @@ const ProgYrSec = () => {
             setSections([]);
         }
     };
+
 
     const handleSectionChange = (e) => {
         const { name, value } = e.target;

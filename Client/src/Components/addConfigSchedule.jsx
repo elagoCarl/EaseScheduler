@@ -176,33 +176,67 @@ const AddConfigSchedule = () => {
 
   const handleAutomateSchedule = async () => {
     setIsAutomating(true);
-
     try {
+      // First, validate that a room is selected when automating a single room
+      if (automateType === 'room' && !formData.room_id) {
+        setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
+        return;
+      }
+  
+      // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
-        prioritizedProfessors: prioritizedProfessors.map(val => parseInt(val)),
-        prioritizedRooms: prioritizedRooms.map(val => parseInt(val))
+        // Use prioritized professors if available
+        prioritizedProfessor: prioritizedProfessors.length > 0
+          ? prioritizedProfessors.map(value => parseInt(value, 10))
+          : undefined,
+        // Use prioritized rooms if available 
+        prioritizedRoom: prioritizedRooms.length > 0 
+          ? prioritizedRooms.map(value => parseInt(value, 10))
+          : undefined
       };
-
-      let endpoint = '/schedule/automate';
-      if (automateType === 'room' && formData.room_id) {
-        endpoint = `/schedule/automate/${formData.room_id}`;
+  
+      // If automating a single room, include the roomId in the payload
+      if (automateType === 'room') {
+        payload.roomId = parseInt(formData.room_id, 10);
       }
-
-      const response = await axios.post(endpoint, payload);
-
+  
+      // Always use the same endpoint
+      const endpoint = '/schedule/automateSchedule';
+  
+      const response = await axios.put(endpoint, payload);
+  
       if (response.data.successful) {
-        setNotification({ type: 'success', message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} initiated successfully!` });
-        if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
+        setNotification({
+          type: 'success',
+          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
+        });
+        
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
       } else {
-        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+        setNotification({ 
+          type: 'error', 
+          message: transformErrorMessage(response.data.message) 
+        });
       }
     } catch (error) {
-      setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred during schedule automation.") });
+      console.error("Schedule automation error:", error.response || error);
+      
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || `An error occurred during ${automateType === 'room' ? 'room' : 'department'} schedule automation.`
+        )
+      });
     } finally {
       setIsAutomating(false);
     }
   };
+
+
 
   // Input handlers
   const handleInputChange = e => {
@@ -273,6 +307,77 @@ const AddConfigSchedule = () => {
     }
   };
 
+  // Rename function to reflect both locking and unlocking capability
+  const handleToggleLockAllSchedules = async (lockAction = true) => {
+    if (!formData.room_id || schedules.length === 0) {
+      setNotification({ type: 'error', message: "No room selected or no schedules to toggle lock status." });
+      return;
+    }
+
+    try {
+      // Get relevant schedule IDs based on lockAction
+      const targetSchedules = lockAction
+        ? schedules.filter(schedule => !schedule.isLocked).map(schedule => schedule.id)
+        : schedules.filter(schedule => schedule.isLocked).map(schedule => schedule.id);
+
+      if (targetSchedules.length === 0) {
+        setNotification({
+          type: 'info',
+          message: lockAction
+            ? "All schedules are already locked."
+            : "All schedules are already unlocked."
+        });
+        return;
+      }
+
+      // Make a PUT request to toggle lock status for all relevant schedules
+      const response = await axios.put("/schedule/toggleLockAllSchedules", {
+        scheduleIds: targetSchedules,
+        isLocked: lockAction
+      });
+
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: `Successfully ${lockAction ? 'locked' : 'unlocked'} ${targetSchedules.length} schedules.`
+        });
+        // Refresh schedules for the room
+        fetchSchedulesForRoom(formData.room_id);
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || `An error occurred while ${lockAction ? 'locking' : 'unlocking'} schedules.`
+        )
+      });
+    }
+  };
+
+  const handleDeleteAllSchedules = async () => {
+    try {
+      // Instead of getting schedules for a specific room, we'll delete all for the department
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
+
+      if (response.data.successful) {
+        setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
+      }
+    } catch (error) {
+      setNotification({
+        successful: 'false',
+        message: error.message
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
     setCustomStartTime("");
@@ -285,70 +390,70 @@ const AddConfigSchedule = () => {
   // Components
   // Original ScheduleEvent component with fix
   const ScheduleEvent = ({ schedule }) => {
-  const [hovered, setHovered] = useState(false);
-  const pos = calculateEventPosition(schedule);
+    const [hovered, setHovered] = useState(false);
+    const pos = calculateEventPosition(schedule);
 
-  // Add a null check for ProgYrSecs before mapping
-  const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
-    ? schedule.ProgYrSecs
-      .filter(sec => sec && sec.Program) // Filter out entries with missing data
-      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-      .join(', ')
-    : 'No sections';
+    // Add a null check for ProgYrSecs before mapping
+    const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
+      ? schedule.ProgYrSecs
+        .filter(sec => sec && sec.Program) // Filter out entries with missing data
+        .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+        .join(', ')
+      : 'No sections';
 
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
-      style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
-    >
-      <div className="flex justify-between items-center">
-        <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
-        <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-      </div>
-      <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
-      <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
-      <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
-      {hovered && (
-        <div className="mt-2 text-xs">
-          <div className="flex justify-between items-center">
-            <div>
-              <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
-              <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
-            </div>
-            <div className="flex">
-              <button 
-                onClick={(e) => {
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+        </div>
+        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
+        {hovered && (
+          <div className="mt-2 text-xs">
+            <div className="flex justify-between items-center">
+              <div>
+                <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
+                <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
+              </div>
+              <div className="flex">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLockStatus(schedule.id, schedule.isLocked);
+                  }}
+                  className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
+                  title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+                >
+                  <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+                </button>
+                <button onClick={(e) => {
                   e.stopPropagation();
-                  toggleLockStatus(schedule.id, schedule.isLocked);
-                }} 
-                className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
-                title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
-              >
-                <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
-              </button>
-              <button onClick={(e) => {
-                e.stopPropagation();
-                setSelectedSchedule(schedule);
-                setIsEditModalOpen(true);
-              }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
-                <img src={editBtn} alt="Edit" className="w-10 h-10" />
-              </button>
-              <button onClick={(e) => {
-                e.stopPropagation();
-                setSelectedScheduleId(schedule.id);
-                setIsDeleteWarningOpen(true);
-              }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
-                <img src={delBtn} alt="Delete" className="w-10 h-10" />
-              </button>
+                  setSelectedSchedule(schedule);
+                  setIsEditModalOpen(true);
+                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
+                  <img src={editBtn} alt="Edit" className="w-10 h-10" />
+                </button>
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedScheduleId(schedule.id);
+                  setIsDeleteWarningOpen(true);
+                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
+                  <img src={delBtn} alt="Delete" className="w-10 h-10" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        )}
+      </div>
+    );
+  };
 
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedRoom) return null;
@@ -372,8 +477,8 @@ const AddConfigSchedule = () => {
             {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => toggleLockStatus(event.id, event.isLocked)} 
+            <button
+              onClick={() => toggleLockStatus(event.id, event.isLocked)}
               className="p-1 hover:bg-blue-100 rounded-full transition-colors"
               title={event.isLocked ? "Unlock schedule" : "Lock schedule"}
             >
@@ -443,8 +548,39 @@ const AddConfigSchedule = () => {
     )
   );
 
-  const renderAutomationSection = () => (
-    <div className="flex flex-col mt-4 border-t pt-4">
+const renderAutomationSection = () => (
+  <div className="flex flex-col mt-4 border-t pt-4">
+    {/* Lock/Unlock/Delete All buttons section */}
+    {formData.room_id && schedules.length > 0 && (
+      <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
+        <div className="flex gap-10">
+          <button
+            onClick={() => handleToggleLockAllSchedules(true)}
+            className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+          >
+            Lock All
+          </button>
+          <button
+            onClick={() => handleToggleLockAllSchedules(false)}
+            className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+          >
+            Unlock All
+          </button>
+        </div>
+
+          <button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to delete ALL schedules in this department? This action cannot be undone.")) {
+                handleDeleteAllSchedules();
+              }
+            }}
+            className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
+          >
+                        Delete All Department Schedules
+          </button>
+        </div>
+      )}
+
       <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
 
       <div className="mb-3">
@@ -497,7 +633,7 @@ const AddConfigSchedule = () => {
             <option value="">Select Professor</option>
             {professors.map(prof => (
               <option key={prof.id} value={prof.id}>
-                {prof.Name} ({prof.Designation})
+                {prof.Name}
               </option>
             ))}
           </select>
@@ -511,7 +647,7 @@ const AddConfigSchedule = () => {
               const prof = professors.find(p => p.id.toString() === id.toString());
               return (
                 <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                  <span>{prof ? `${prof.Name} (${prof.Designation})` : id}</span>
+                  <span>{prof ? `${prof.Name}` : id}</span>
                   <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
                 </li>
               );
