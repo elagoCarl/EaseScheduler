@@ -487,9 +487,8 @@ const automateSchedule = async (req, res, next) => {
     }
 };
 
-/**
- * Backtracking function which recursively attempts to schedule each assignation.
- */
+// Modify the backtrackSchedule function to filter valid sections by department
+
 const backtrackSchedule = async (
     assignations,
     rooms,
@@ -517,9 +516,25 @@ const backtrackSchedule = async (
     let assignationSuccessfullyScheduled = false;
     
     try {
-        // Determine valid sections for the course
+        // Get the department ID for validation
+        const departmentId = assignation.DepartmentId;
+        
+        // Find all programs under the current department
+        const departmentPrograms = await Program.findAll({
+            where: { DepartmentId: departmentId },
+            attributes: ['id']
+        });
+        
+        const validProgramIds = departmentPrograms.map(prog => prog.id);
+        
+        // Determine valid sections for the course, filtered by department
         if (courseParam.Type === "Core") {
-            validProgYrSecs = await ProgYrSec.findAll({ where: { Year: courseParam.Year } });
+            validProgYrSecs = await ProgYrSec.findAll({ 
+                where: { 
+                    Year: courseParam.Year,
+                    ProgramId: { [Op.in]: validProgramIds } // Filter by valid programs in the department
+                }
+            });
         } else if (courseParam.Type === "Professional") {
             const courseWithPrograms = await Course.findOne({
                 where: { id: courseParam.id },
@@ -527,18 +542,26 @@ const backtrackSchedule = async (
             });
 
             if (courseWithPrograms && courseWithPrograms.CourseProgs.length) {
-                const allowedProgramIds = courseWithPrograms.CourseProgs.map(program => program.id);
+                // Get allowed programs that are both associated with the course and belong to the department
+                const allowedProgramIds = courseWithPrograms.CourseProgs
+                    .map(program => program.id)
+                    .filter(id => validProgramIds.includes(id));
+                
                 validProgYrSecs = await ProgYrSec.findAll({
-                    where: { Year: courseParam.Year, ProgramId: { [Op.in]: allowedProgramIds } }
+                    where: { 
+                        Year: courseParam.Year, 
+                        ProgramId: { [Op.in]: allowedProgramIds }
+                    }
                 });
             }
         }
+        
         if (!validProgYrSecs.length) {
             failedAssignations.push({
                 id: assignation.id,
                 Course: courseParam.Code,
                 Professor: professorInfo.Name,
-                reason: "No valid sections found"
+                reason: "No valid sections found in the department"
             });
             return await backtrackSchedule(
                 assignations, rooms, professorSchedule, courseSchedules, progYrSecSchedules, roomSchedules,
@@ -546,6 +569,8 @@ const backtrackSchedule = async (
             );
         }
 
+        // Rest of the function remains the same...
+        
         // If prioritizing sections, filter valid sections
         if (priorities?.sections && priorities.sections.length > 0) {
             validProgYrSecs = validProgYrSecs.filter(section => 
