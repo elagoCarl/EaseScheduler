@@ -24,6 +24,7 @@ const DeptProg = () => {
     const [deletingDeptId, setDeletingDeptId] = useState(null);
     const [deletingProgId, setDeletingProgId] = useState(null);
     const [deleteType, setDeleteType] = useState(null);
+    const [success, setSuccess] = useState(false);
     const [activeTab, setActiveTab] = useState("departments"); // For mobile tab switching
     const navigate = useNavigate();
 
@@ -81,6 +82,10 @@ const DeptProg = () => {
                     "/dept/addDept",
                     deptFormData
                 );
+                setSuccess(true);
+                setTimeout(() => {
+                    setSuccess(false);
+                }, 2000);
             }
 
             setMessage({
@@ -232,6 +237,10 @@ const DeptProg = () => {
                     "/program/addProgram",
                     progFormData
                 );
+                setSuccess(true);
+                setTimeout(() => {
+                    setSuccess(false);
+                }, 2000);
             }
 
             setMessage({
