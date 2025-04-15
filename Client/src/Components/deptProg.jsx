@@ -169,7 +169,7 @@ const DeptProg = () => {
 
 
     const confirmDelete = async () => {
-        if (
+        if ( // pang validation to ah wag delete thanks
             (deleteType === 'program' && !deletingProgId) ||
             (deleteType === 'department' && !deletingDeptId)
         ) {
@@ -177,7 +177,7 @@ const DeptProg = () => {
                 type: 'error',
                 text: `Invalid ID for ${ deleteType } deletion.`,
             });
-            return; // Exit early if ID is invalid
+            return; // Exit early if ID is invalid 
         }
 
         try {
@@ -508,12 +508,12 @@ const DeptProg = () => {
                         <div className="flex justify-end space-x-3">
                             <button
                                 onClick={() => setShowDeleteModal(false)}
-                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded">
+                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 duration-300 text-gray-800 rounded">
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmDelete}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 duration-300 text-white rounded">
                                 Delete
                             </button>
                         </div>
