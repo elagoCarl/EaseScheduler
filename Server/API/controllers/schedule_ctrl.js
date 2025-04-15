@@ -980,13 +980,20 @@ const addSchedule = async (req, res, next) => {
 const updateSchedule = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Day, Start_time, RoomId, AssignationId, Sections } = req.body;
+        const { Day, Start_time, End_time, RoomId, AssignationId, Sections } = req.body;
 
         // Validate mandatory fields
         if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
+            });
+        }
+        const settings = await Settings.findByPk(1);
+        if (!settings) {
+            return res.status(500).json({
+                successful: false,
+                message: "Settings could not be retrieved. Please try again later."
             });
         }
 
