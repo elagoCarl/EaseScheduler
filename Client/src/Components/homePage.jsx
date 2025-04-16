@@ -182,7 +182,7 @@ const HomePage = () => {
 
         <div className='w-fit m-auto'>
           <section>
-            <div className='relative pt-4 mx-auto'>
+            <div className='relative pt-2 mx-auto'>
               <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button
