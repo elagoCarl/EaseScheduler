@@ -83,7 +83,6 @@ const MainPage = () => {
               className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"
               onClick={closeModal}
             >
-              &times;
             </button>
             <h2 className="text-lg md:text-2xl font-semibold text-gray-800 mb-3">Contact Us</h2>
             <p className="text-gray-600 text-sm md:text-base">
