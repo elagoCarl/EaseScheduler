@@ -1,64 +1,96 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import image from './Img/1.jpg';
 
 const MainPage = () => {
   const navigate = useNavigate();
-
-  // State to manage the modal visibility
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Function to close the modal
   const closeModal = () => setIsModalOpen(false);
-
-  // Function to open the modal
   const openModal = () => setIsModalOpen(true);
+  const modalRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (modalRef.current && !modalRef.current.contains(event.target)) {
+        closeModal();
+      }
+    };
+    if (isModalOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } return () => {
+      document.addEventListener('mousedown', handleClickOutside)
+    };
+  }, [isModalOpen])
 
   return (
     <div
-      className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${image})` }}
+      className="bg-cover bg-center bg-no-repeat min-h-screen flex flex-col justify-between"
+      style={{ backgroundImage: `url(${ image })` }}
     >
-      {/* Header with Login */}
-      <header className="w-full p-6 flex justify-end">
-        <button onClick={() => navigate('/loginPage')} className="p-20 text-white text-base md:text-xl font-semibold hover:text-blue-500">
-          Login
-        </button>
-      </header>
+      <div className="absolute inset-0 bg-black bg-opacity-40"></div>
 
-      {/* Main Content */}
-      <main className="flex-grow flex items-center justify-center">
-        <div className="w-fit md:flex p-40">
-          <div className=" w-full md:w-1/2">
-            <p className="text-2xl md:text-5xl xl:text-6xl font-bold text-blue-500 mb-5">EASE<span className="text-white">SCHEDULER</span></p>
-            <p className="mt-6 text-customWhite text-sm md:text-lg leading-relaxed">
+      {/* Content container */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        {/* Header with Login */}
+        <header className="w-full px-6 py-4 md:px-10 md:py-6 flex justify-end">
+          <button
+            onClick={() => navigate('/loginPage')}
+            className="text-white text-base md:text-xl lg:text-2xl p-20 font-semibold hover:text-blue-500 transition duration-300"
+          >
+            Login
+          </button>
+        </header>
+
+        {/* Main Content - Centered with reasonable padding */}
+        <main className="flex-grow flex items-center px-6 md:px-16 lg:px-24">
+          <div className="max-w-3xl">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold">
+              <span className="text-blue-500">EASE</span>
+              <span className="text-white">SCHEDULER</span>
+            </h1>
+            <p className="mt-6 text-white text-sm md:text-lg leading-relaxed max-w-2xl">
               EaseScheduler simplifies academic scheduling by automating timetabling processes for CEU Makati, ensuring conflict-free schedules tailored to the institutional needs. Giving you a better resource management, reducing manual errors, and saving you time.
             </p>
           </div>
-        </div>
-      </main>
+        </main>
 
-      {/* Footer with Contact Us */}
-      <footer className="w-full p-10 flex justify-end">
-        <button onClick={openModal} className="p-20 text-white text-sm md:text-xl font-semibold hover:text-blue-500">
-          Contact Us
-        </button>
-      </footer>
-
-      {/* Modal - Positioned at bottom right */}
-      {isModalOpen && (
-        <div className="fixed bottom-10 right-10 bg-customWhite rounded-lg shadow-lg p-6 max-w-sm z-50">
+        {/* Footer with Contact Us */}
+        <footer className="w-full px-6 py-4 md:px-10 md:py-6 flex justify-end">
           <button
-              className="absolute right-5 top-0 text-black rounded-md"
+            onClick={openModal}
+            className="text-white text-sm md:text-xl lg:text-2xl p-30 font-semibold hover:text-blue-500 transition duration-300"
+          >
+            Contact Us
+          </button>
+        </footer>
+      </div>
+
+      {/* Modal with Overlay */}
+      {isModalOpen && (
+        <>
+          {/* Dark overlay covering the entire screen */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={closeModal}
+          ></div>
+
+          {/* Modal content */}
+          <div
+            ref={modalRef}
+            className="fixed bottom-10 right-10 bg-white rounded-lg shadow-lg p-6 max-w-sm z-50"
+          >
+            <button
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-800"
               onClick={closeModal}
             >
               &times;
             </button>
-          <h2 className="text-lg md:text-2xl font-semibold text-gray-800 md:mb-4">Contact Us</h2>
-          <p className="text-gray-600 mb-3 text-sm md:text-base">
-            Please reach out to us at <a href="mailto:easescheduler@gmail.com" className="text-blue-500">easescheduler@gmail.com</a>.
-          </p>
-        </div>
+            <h2 className="text-lg md:text-2xl font-semibold text-gray-800 mb-3">Contact Us</h2>
+            <p className="text-gray-600 text-sm md:text-base">
+              Please reach out to us at <a href="mailto:easescheduler@gmail.com" className="text-blue-500 hover:underline">easescheduler@gmail.com</a>.
+            </p>
+          </div>
+        </>
       )}
     </div>
   );
