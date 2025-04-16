@@ -184,8 +184,6 @@ const Professor = () => {
     setIsDeleteWarningOpen(false);
   };
 
-
-
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
@@ -196,7 +194,7 @@ const Professor = () => {
 
       <div className="flex flex-col justify-center items-center h-screen w-full px-10">
         {/* HIWALAY NA CONTAINER FILTERS*/}
-        <div className="bg-white p-6 rounded-lg shadow-lg w-10/12 mb-8">
+        <div className="w-10/12 mb-8">
           <div className="w-full mt-2">
             <ProfessorSearchFilter professors={professors} onFilterChange={handleFilterChange} />
           </div>
