@@ -102,10 +102,10 @@ const HomePage = () => {
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
       style={{ backgroundImage: `url(${ image5 })` }}>
-      <div className="absolute hidden top-15 sm:right-[-1rem] justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
+      <div className="absolute top-15 right-15 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"
-          className="text-lg md:text-3xl font-bold block md:hidden text-blue-500"
+          className="hidden text-lg md:text-3xl font-bold md:hidden text-blue-500"
           onClick={() => navigate("/homePage")}>
           EASE<span className="text-white">SCHEDULER</span>
         </button>
@@ -182,7 +182,7 @@ const HomePage = () => {
 
         <div className='w-fit m-auto'>
           <section>
-            <div className='relative pt-2 mx-auto'>
+            <div className='relative pt-4 mx-auto'>
               <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button

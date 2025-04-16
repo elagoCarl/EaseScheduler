@@ -24,9 +24,10 @@ const Professor = () => {
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
   const [professors, setProfessors] = useState([]);
   const [filteredProfessors, setFilteredProfessors] = useState([]); // State for filtered professors
-  const [isDeleteBtnDisabled, setDeleteBtnDisabled] = useState(true);
+  const [, setDeleteBtnDisabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showSelectionWarning, setShowSelectionWarning] = useState(false);
 
   // Fetch professors. The axios instance automatically sends cookies.
   const fetchProfessors = async () => {
@@ -58,7 +59,7 @@ const Professor = () => {
   // Open edit modal and fetch specific professor's data
   const handleEditClick = async (profId) => {
     try {
-      const response = await axios.get(`/prof/getProf/${profId}`);
+      const response = await axios.get(`/prof/getProf/${ profId }`);
       const professorData = response.data.data;
 
       if (professorData && professorData.Name && professorData.Email) {
@@ -91,7 +92,6 @@ const Professor = () => {
     fetchProfessors(); // Refresh the list after update
   };
 
-  // Handle deleting professors
   const handleConfirmDelete = async () => {
     const selectedProfessors = filteredProfessors.filter((_, index) => checkboxes[index]);
     const idsToDelete = selectedProfessors.map((prof) => prof.id);
@@ -103,7 +103,7 @@ const Professor = () => {
 
     try {
       for (const id of idsToDelete) {
-        await axios.delete(`/prof/deleteProf/${id}`);
+        await axios.delete(`/prof/deleteProf/${ id }`);
       }
       // Refresh the professor list
       fetchProfessors();
@@ -113,6 +113,21 @@ const Professor = () => {
       console.error("Error deleting professors:", error.message);
     }
   };
+
+  useEffect(() => {
+    fetchProfessors();
+  }, []);
+
+  // Auto-hide selection warning after 3 seconds
+  useEffect(() => {
+    let timeout;
+    if (showSelectionWarning) {
+      timeout = setTimeout(() => {
+        setShowSelectionWarning(false);
+      }, 3000); // Hide after 3 seconds
+    }
+    return () => clearTimeout(timeout);
+  }, [showSelectionWarning]);
 
   useEffect(() => {
     fetchProfessors();
@@ -155,6 +170,13 @@ const Professor = () => {
   };
 
   const handleDeleteClick = () => {
+    const anySelected = checkboxes.some(isChecked => isChecked);
+
+    if (!anySelected) {
+      // Show warning if no professors are selected
+      setShowSelectionWarning(true);
+      return;
+    }
     setIsDeleteWarningOpen(true);
   };
 
@@ -162,26 +184,28 @@ const Professor = () => {
     setIsDeleteWarningOpen(false);
   };
 
+
+
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}
+      style={{ backgroundImage: `url(${ Background })` }}
     >
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
 
-      <div className="flex flex-col justify-center items-center h-screen w-full px-8">
-        <div className="flex justify-end w-10/12 mb-4"></div>
+      <div className="flex flex-col justify-center items-center h-screen w-full px-10">
+        {/* HIWALAY NA CONTAINER FILTERS*/}
+        <div className="bg-white p-6 rounded-lg shadow-lg w-10/12 mb-8">
+          <div className="w-full mt-2">
+            <ProfessorSearchFilter professors={professors} onFilterChange={handleFilterChange} />
+          </div>
+        </div>
 
-        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[80vh]">
-          <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
+        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
+          <div className="flex items-center bg-blue-600 text-white px-4 md:px-10 py-4 rounded-t-lg w-full mb-4">
             <img src={profV} className="w-12 h-12 md:w-25 md:h-25" alt="Professor Icon" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">Professors</h2>
-          </div>
-
-          {/* Add the search filter component */}
-          <div className="w-full mt-4">
-            <ProfessorSearchFilter professors={professors} onFilterChange={handleFilterChange} />
           </div>
 
           <div className="overflow-auto w-full h-full flex-grow">
@@ -244,10 +268,19 @@ const Professor = () => {
         <button className="py-2 px-4 text-white rounded" onClick={handleAddProfClick}>
           <img src={addBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Add Professor" />
         </button>
-        <button className="py-2 px-4 text-white rounded" onClick={handleDeleteClick} disabled={isDeleteBtnDisabled}>
-          <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Delete Professor" />
-        </button>
+        <div className="flex flex-col items-center">
+          <button className="py-2 px-4 text-white rounded" onClick={handleDeleteClick}>
+            <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Delete Professor" />
+          </button>
+        </div>
       </div>
+
+      {/* Place the warning at the bottom of the page in its own container */}
+      {showSelectionWarning && (
+        <div className="fixed bottom-10 right-4 bg-red-500 text-white py-3 px-5 text-sm shadow rounded z-10">
+          Please select one or more professors to delete.
+        </div>
+      )}
 
       <AddProfModal isOpen={isAddProfModalOpen} onClose={handleAddProfCloseModal} />
       <DeleteWarning isOpen={isDeleteWarningOpen} onClose={handleCloseDelWarning} onConfirm={handleConfirmDelete} />
