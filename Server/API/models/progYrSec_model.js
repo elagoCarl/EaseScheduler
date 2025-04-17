@@ -14,13 +14,14 @@ module.exports = (sequelize, DataTypes) => {
         },
 
         // Number of students validation is only used in automation, manual allows more no. of students than seats.
-        // No_Of_Students:{
-        //     type: DataTypes.INTEGER,
-        //     allowNull: false,
-        //     validate: {
-        //         notEmpty: { msg: "Number of students is required." }
-        //     }
-        // }
+        NumberOfStudents: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            validate: {
+                notEmpty: { msg: "Number of students is required." }
+            }
+        }
+
     }, {
         timestamps: true
     })
