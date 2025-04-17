@@ -12,6 +12,8 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Section is required." }
             }
         },
+
+        // Number of students validation is only used in automation, manual allows more no. of students than seats.
         // No_Of_Students:{
         //     type: DataTypes.INTEGER,
         //     allowNull: false,
