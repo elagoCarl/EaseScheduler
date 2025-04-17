@@ -96,7 +96,7 @@ const addCourse = async (req, res) => {
       });
 
       if (Type === "Professional") {
-        await newCourse.addDeptCourses(Dept_id);
+        await newCourse.addCourseDepts(Dept_id);
       }
 
       addedCourses.push(Code);
@@ -517,12 +517,12 @@ const getCoursesByDept = async (req, res, next) => {
       where: {
         [Op.or]: [
           { Type: "Core" },
-          { "$DeptCourses.id$": deptId }
+          { "$CourseDepts.id$": deptId }
         ]
       },
       include: {
         model: Department,
-        as: "DeptCourses",
+        as: "CourseDepts",
         attributes: [], // Exclude department attributes if you don't need them
         required: false,
         through: {
@@ -554,8 +554,6 @@ const getCoursesByDept = async (req, res, next) => {
     });
   }
 };
-
-
 
 const updateDeptCourse = async (req, res, next) => {
   try {
