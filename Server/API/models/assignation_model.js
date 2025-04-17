@@ -34,7 +34,17 @@ module.exports = (sequelize, DataTypes) => {
                 name: 'assignation_unique_idx',
                 unique: true,
                 fields: ['School_Year', 'Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
-            }
+            },
+            {
+                name: 'Assignations_DepartmentId_ProfessorId_index',
+                unique: false,
+                fields: ['ProfessorId']
+            },
+            {
+                name: 'Assignations_DepartmentId_CourseId_index',
+                unique: false,
+                fields: ['CourseId', 'DepartmentId']
+            },
         ]
     });
 
@@ -65,7 +75,7 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE'
         });
 
-        Assignation.belongsToMany(models.Room, { through: 'Schedule' });
+        Assignation.belongsToMany(models.Room, { through: {model: 'Schedule', unique: false}});
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
