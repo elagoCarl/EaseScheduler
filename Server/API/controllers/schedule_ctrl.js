@@ -213,6 +213,25 @@ const isSchedulePossible = async (
     // Original constraint checks
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) return false;
 
+    const sections = await ProgYrSec.findAll({ where: { id: sectionIds } });
+    // force numeric addition:
+    const totalStudents = sections.reduce(
+      (sum, sec) => sum + Number(sec.NumberOfStudents || 0),
+      0
+    );
+    const room = await Room.findByPk(roomId);
+    const roomSeats = Number(room.NumberOfSeats || 0);
+  
+    console.log(
+      `[SeatCheck] Room ${room.Code} has ${roomSeats} seats, ` +
+      `need ${totalStudents} seats for sections [${sectionIds.join(',')}]`
+    );
+  
+    if (totalStudents > roomSeats) {
+      // this will now reliably catch “too many students” and drop out
+      return false;
+    }
+
     if (!await canScheduleProfessor(professorSchedule[professorId][day], startHour, duration, settings, professorId, day)) return false;
 
     for (const sectionId of sectionIds) {

@@ -28,7 +28,17 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Room type is required." }
             }
+        },
+
+        NumberOfSeats: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            validate: {
+                notEmpty: { msg: "Number of seats is required." },
+                min: 1
+            }
         }
+
     }, {
         timestamps: true
     });

@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
-const AddAssignationModal = ({ isOpen, onClose }) => {
+const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
         School_Year: "",
@@ -16,6 +16,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
     const [successMessage, setSuccessMessage] = useState("");
     const [courses, setCourses] = useState([]);
     const [professors, setProfessors] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Fetch necessary data when the modal is opened
     useEffect(() => {
@@ -25,7 +26,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                     // Fetch courses by department ID instead of all courses
                     const coursesResponse = await axios.get(`course/getCoursesByDept/${user.DepartmentId}`)
                     if (coursesResponse.status === 200) {
-                        
+
                         setCourses(coursesResponse.data.data);
                     } else {
                         setErrorMessage(coursesResponse.data.message || "Failed to fetch courses.");
@@ -53,6 +54,21 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
         }
     }, [isOpen, user.DepartmentId]);
 
+    // Reset form when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setFormData({
+                School_Year: "",
+                Semester: "",
+                CourseId: "",
+                ProfessorId: "",
+                DepartmentId: user.DepartmentId,
+            });
+            setErrorMessage("");
+            setSuccessMessage("");
+        }
+    }, [isOpen, user.DepartmentId]);
+
     if (!isOpen) return null; // Prevent rendering if the modal is not open
 
     const handleInputChange = (e) => {
@@ -67,7 +83,8 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
         e.preventDefault();
         setErrorMessage("");
         setSuccessMessage("");
-        
+        setIsSubmitting(true);
+
         // Create a copy of formData to modify
         const submissionData = {
             ...formData,
@@ -77,7 +94,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
             // If DepartmentId should also be an integer, parse it too
             DepartmentId: parseInt(formData.DepartmentId, 10)
         };
-        
+
         console.log("Submission data:", submissionData);
 
         try {
@@ -88,20 +105,44 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
 
             if (response.status !== 200 && response.status !== 201) {
                 setErrorMessage(response.data.message || "Failed to add assignation.");
+                setIsSubmitting(false);
                 return;
             }
 
-            setSuccessMessage("Assignation added successfully! Reloading page...");
+            // Find the complete course and professor objects for the added assignation
+            const selectedCourse = courses.find(c => c.id === submissionData.CourseId);
+            const selectedProfessor = professors.find(p => p.id === submissionData.ProfessorId);
+
+            // Construct the new assignation with full objects
+            const newAssignation = {
+                ...response.data.data, // If the API returns the created assignation
+                id: response.data.data?.id,
+                Course: selectedCourse,
+                Professor: selectedProfessor,
+                School_Year: submissionData.School_Year,
+                Semester: submissionData.Semester
+            };
+
+            setSuccessMessage("Assignation added successfully!");
+
+            // Notify parent component about the new assignation
+            if (onAssignationAdded) {
+                onAssignationAdded(newAssignation);
+            }
+
+            // Close modal after a brief delay so user can see success message
             setTimeout(() => {
-                onClose(); // Close the modal after a short delay
-                window.location.reload(); // Reload the page to reflect the changes
-            }, 1000); // Wait 1 second before closing the modal and reloading the page
+                onClose();
+            }, 1500);
+
         } catch (error) {
             setErrorMessage(
                 error.response?.data?.message ||
                 error.message ||
                 "Failed to add assignation."
             );
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -120,6 +161,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                     <button
                         className="text-xl text-white hover:text-black"
                         onClick={onClose}
+                        disabled={isSubmitting}
                     >
                         &times;
                     </button>
@@ -134,6 +176,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                                 value={formData.School_Year}
                                 onChange={handleInputChange}
                                 required
+                                disabled={isSubmitting}
                             >
                                 <option value="" disabled>
                                     Select Academic Year
@@ -154,6 +197,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                                 value={formData.Semester}
                                 onChange={handleInputChange}
                                 required
+                                disabled={isSubmitting}
                             >
                                 <option value="" disabled>
                                     Select Semester
@@ -172,6 +216,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                                 value={formData.CourseId}
                                 onChange={handleInputChange}
                                 required
+                                disabled={isSubmitting}
                             >
                                 <option value="" disabled>
                                     Select Course
@@ -192,6 +237,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                                 value={formData.ProfessorId}
                                 onChange={handleInputChange}
                                 required
+                                disabled={isSubmitting}
                             >
                                 <option value="" disabled>
                                     Select Professor
@@ -224,13 +270,15 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
                         <button
                             type="submit"
                             className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+                            disabled={isSubmitting}
                         >
-                            Add Assignation
+                            {isSubmitting ? 'Adding...' : 'Add Assignation'}
                         </button>
                         <button
                             type="button"
                             className="bg-gray-500 text-white px-6 py-2 rounded-lg"
                             onClick={onClose}
+                            disabled={isSubmitting}
                         >
                             Cancel
                         </button>
@@ -244,6 +292,7 @@ const AddAssignationModal = ({ isOpen, onClose }) => {
 AddAssignationModal.propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
+    onAssignationAdded: PropTypes.func
 };
 
 export default AddAssignationModal;

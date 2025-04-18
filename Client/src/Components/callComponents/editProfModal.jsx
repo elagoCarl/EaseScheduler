@@ -13,6 +13,15 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Initialize form data when professor prop changes
+  useEffect(() => {
+    setFormData({
+      name: professor.Name,
+      email: professor.Email,
+      ProfStatusId: professor.StatusId,
+    });
+  }, [professor]);
+
   // Fetch statuses from the backend
   useEffect(() => {
     const fetchStatuses = async () => {
@@ -27,8 +36,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
     };
 
     fetchStatuses();
-  }, [professor]); // Depend on professor to trigger the effect
-
+  }, []); // Only fetch once when component mounts
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,7 +46,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("formData:", formData);
-    console.log("statuses:", statuses)
+    console.log("statuses:", statuses);
 
     if (!formData.name || !formData.email || !formData.ProfStatusId) {
       setError('Please fill out all fields.');
@@ -58,10 +66,18 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
         }
       );
 
-      onUpdate(response.data);
+      // Update the UI with the new professor data
+      if (onUpdate) {
+        onUpdate(response.data);
+      }
 
-      setSuccessMessage('Professor updated successfully! Reloading page...');
-      setTimeout(() => window.location.reload(), 1000);
+      setSuccessMessage('Professor updated successfully!');
+
+      // Close the modal after a short delay
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+
     } catch (error) {
       setError(error.response?.data?.message || 'An error occurred');
       setSuccessMessage('');
@@ -75,6 +91,12 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
       <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl text-white font-semibold mx-auto">Edit Professor</h2>
+          <button
+            className="text-xl text-white hover:text-black"
+            onClick={onClose}
+          >
+            &times;
+          </button>
         </div>
         <form className="space-y-10 px-20" onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -136,7 +158,6 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               type="submit"
               disabled={isLoading}
               className="bg-blue-500 text-white px-6 py-2 rounded-lg"
-
             >
               {isLoading ? 'Saving...' : 'Save'}
             </button>

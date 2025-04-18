@@ -64,7 +64,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
     
       // Handle successful response
       if (response.data.successful) {
-        setSuccessMessage("Course Added Successfully!d");
+        setSuccessMessage("Course Added Successfully!");
         fetchCourse();
         setTimeout(() => {
           resetForm();

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
+import ExportButton from './callComponents/exportButton.jsx'; // Added import
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
 
@@ -199,32 +200,44 @@ const ProfTimetable = () => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header with professor details */}
           <div className="relative bg-blue-600 p-4 sm:p-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Professor Timetable</h1>
-            {selectedProf ? (
-              <div className="text-blue-100 mt-1">
-                <p className="text-lg font-semibold">{selectedProf.Name}</p>
-                <div className="flex flex-col gap-x-4 text-sm mt-1">
-                  <span>Professor ID: {selectedProf.id}</span>
-                </div>
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">Professor Timetable</h1>
+                {selectedProf ? (
+                  <div className="text-blue-100 mt-1">
+                    <p className="text-lg font-semibold">{selectedProf.Name}</p>
+                    <div className="flex flex-col gap-x-4 text-sm mt-1">
+                      <span>Professor ID: {selectedProf.id}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-blue-100 mt-1">Loading professor details...</p>
+                )}
               </div>
-            ) : (
-              <p className="text-blue-100 mt-1">Loading professor details...</p>
-            )}
-            <div className="flex items-center gap-2 mt-4">
-              <select
-                value={selectedProf ? selectedProf.id : ''}
-                onChange={e =>
-                  setSelectedProf(professors.find(p => p.id === parseInt(e.target.value)))
-                }
-                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                disabled={loading}
-              >
-                {professors.map(prof => (
-                  <option key={prof.id} value={prof.id}>
-                    {prof.Name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-3">
+                {selectedProf && !loadingSchedules && (
+                  <ExportButton
+                    selectedProf={selectedProf} // Changed to selectedProf
+                    schedules={schedules}
+                    days={days}
+                    timeSlots={timeSlots}
+                  />
+                )}
+                <select
+                  value={selectedProf ? selectedProf.id : ''}
+                  onChange={e =>
+                    setSelectedProf(professors.find(p => p.id === parseInt(e.target.value)))
+                  }
+                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                  disabled={loading}
+                >
+                  {professors.map(prof => (
+                    <option key={prof.id} value={prof.id}>
+                      {prof.Name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           {/* Calendar */}
@@ -273,19 +286,29 @@ const ProfTimetable = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden">
-                <div className="flex justify-start bg-gray-50 border-b-2 border-gray-200 p-2 gap-8">
+                <div className="flex justify-between bg-gray-50 border-b-2 border-gray-200 p-2">
                   <span className="text-gray-700 font-medium text-sm">Time</span>
-                  <select
-                    className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
-                    value={selectedDay}
-                    onChange={e => setSelectedDay(parseInt(e.target.value))}
-                  >
-                    {days.map((day, idx) => (
-                      <option key={day} value={idx}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    {selectedProf && !loadingSchedules && (
+                      <ExportButton
+                        selectedProf={selectedProf} // Changed to selectedProf
+                        schedules={schedules}
+                        days={days}
+                        timeSlots={timeSlots}
+                      />
+                    )}
+                    <select
+                      className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
+                      value={selectedDay}
+                      onChange={e => setSelectedDay(parseInt(e.target.value))}
+                    >
+                      {days.map((day, idx) => (
+                        <option key={day} value={idx}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 {loadingSchedules ? (
                   <div className="flex items-center justify-center py-10">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import axios from '../../axiosConfig';
 
 const EditRoomModal = ({ room, onClose, onUpdate }) => {
@@ -11,7 +11,6 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -39,10 +38,17 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                 }
             );
 
+            // Update the parent component with the new data
             onUpdate(response.data);
 
-            setSuccessMessage('Room updated successfully! Reloading page...');
-            setTimeout(() => window.location.reload(), 1000);
+            // Show success message
+            setSuccessMessage('Room updated successfully!');
+
+            // Close the modal after a short delay
+            setTimeout(() => {
+                onClose();
+            }, 1000);
+
         } catch (error) {
             setError(error.response?.data?.message || 'An error occurred');
             setSuccessMessage('');
@@ -130,7 +136,6 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                             type="submit"
                             disabled={isLoading}
                             className="bg-blue-500 text-white px-6 py-2 rounded-lg"
-
                         >
                             {isLoading ? 'Saving...' : 'Save'}
                         </button>
