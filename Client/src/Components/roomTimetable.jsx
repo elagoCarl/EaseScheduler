@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
+import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
 
@@ -13,8 +14,6 @@ const RoomTimetable = () => {
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
   const { user } = useAuth();
-  // console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-  // console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
   const DeptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
@@ -136,7 +135,6 @@ const RoomTimetable = () => {
       <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header */}
-          {/* Header */}
           <div className="bg-blue-600 p-4 sm:p-6">
             <div className="flex justify-between items-start">
               <div>
@@ -156,7 +154,15 @@ const RoomTimetable = () => {
                   <p className="text-blue-100 mt-1">Loading room details...</p>
                 )}
               </div>
-              <div className="mt-1">
+              <div className="flex items-center gap-3">
+                {selectedRoom && !loadingSchedules && (
+                  <ExportButton
+                    selectedRoom={selectedRoom}
+                    schedules={schedules}
+                    days={days}
+                    timeSlots={timeSlots}
+                  />
+                )}
                 <select
                   value={selectedRoom?.id || ''}
                   onChange={e =>
@@ -219,19 +225,29 @@ const RoomTimetable = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden">
-                <div className="flex justify-start bg-gray-50 border-b-2 border-gray-200 p-2 gap-8">
+                <div className="flex justify-between bg-gray-50 border-b-2 border-gray-200 p-2">
                   <span className="text-gray-700 font-medium text-sm">Time</span>
-                  <select
-                    className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
-                    value={selectedDay}
-                    onChange={e => setSelectedDay(parseInt(e.target.value))}
-                  >
-                    {days.map((day, idx) => (
-                      <option key={day} value={idx}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    {selectedRoom && !loadingSchedules && (
+                      <ExportButton
+                        selectedRoom={selectedRoom}
+                        schedules={schedules}
+                        days={days}
+                        timeSlots={timeSlots}
+                      />
+                    )}
+                    <select
+                      className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
+                      value={selectedDay}
+                      onChange={e => setSelectedDay(parseInt(e.target.value))}
+                    >
+                      {days.map((day, idx) => (
+                        <option key={day} value={idx}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 {loadingSchedules ? (
                   <div className="flex items-center justify-center py-10">

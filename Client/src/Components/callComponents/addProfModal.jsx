@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import axios from "../../axiosConfig";
 
-const AddProfModal = ({ isOpen, onClose }) => {
+const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
   const [formData, setFormData] = useState({
     Name: "",
     Email: "",
@@ -27,6 +27,15 @@ const AddProfModal = ({ isOpen, onClose }) => {
       };
 
       fetchStatuses();
+
+      // Reset form when modal opens
+      setFormData({
+        Name: "",
+        Email: "",
+        Status: "",
+      });
+      setErrorMessage("");
+      setSuccessMessage("");
     }
   }, [isOpen]); // Re-run when `isOpen` changes
 
@@ -59,11 +68,17 @@ const AddProfModal = ({ isOpen, onClose }) => {
         }
       );
 
-      setSuccessMessage("Professor added successfully! Reloading page...");
+      setSuccessMessage("Professor added successfully!");
+
+      // Notify parent component that a professor was added
+      // This will trigger a data refresh in the parent
+      if (onProfessorAdded) {
+        onProfessorAdded(response.data.data); // Pass the newly added professor data
+      }
+
       setTimeout(() => {
         onClose(); // Close the modal after a short delay
-        window.location.reload(); // Reload the page to reflect the changes
-      }, 1000); // Wait 1 second before closing the modal and reloading the page
+      }, 1000); // Wait 1 second before closing the modal
     } catch (error) {
       setErrorMessage(error.response?.data?.message || "Failed to add professor.");
     }
@@ -162,6 +177,7 @@ const AddProfModal = ({ isOpen, onClose }) => {
 AddProfModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
+  onProfessorAdded: PropTypes.func,
 };
 
 export default AddProfModal;

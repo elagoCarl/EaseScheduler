@@ -8,7 +8,9 @@ const { refreshTokens } = require('./authMiddleware');
 const { USER,
     APP_PASSWORD,
     ACCESS_TOKEN_SECRET,
-    REFRESH_TOKEN_SECRET } = process.env
+    REFRESH_TOKEN_SECRET,
+    TEMP_PASS_PREFIX,
+    TEMP_PASS_SUFFIX, } = process.env
 
 
 //nodemailer
@@ -569,7 +571,7 @@ const forgotPass = async (req, res) => {
 
         // Generate a random temporary password
         const randomNumber = Math.floor(100000 + Math.random() * 900000);
-        const tempPassword = `Ceu!${randomNumber}!Admin`;
+        const tempPassword = `${TEMP_PASS_SUFFIX}${randomNumber}${TEMP_PASS_SUFFIX}`;
 
         // Hash the generated temporary password
         const salt = await bcrypt.genSalt();
@@ -582,9 +584,42 @@ const forgotPass = async (req, res) => {
                 address: process.env.USER
             },
             to: email,
-            subject: 'Forgot Password in EaseScheduler Account.',
-            text: 'Temporary Password:',
-            html: `<p>Your temporary password is <b>${tempPassword}</b>. Use this to log in.</p>`
+            subject: 'Reset Your EaseScheduler Password',
+            text: `Your temporary password is: ${tempPassword}. Use this to log in to your EaseScheduler account.`,
+            html: `
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background-color: #4285F4; padding: 20px; text-align: center; border-radius: 5px;">
+                    <h1 style="color: white; margin: 0;">EaseScheduler</h1>
+                </div>
+                
+                <div style="padding: 20px; background-color: #ffffff;">
+                    <h2>Password Reset</h2>
+                    <p>Hello,</p>
+                    <p>We received a request to reset your password. Here's your temporary password:</p>
+                    
+                    <div style="background-color: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 5px; padding: 15px; margin: 20px 0; text-align: center;">
+                        <span style="font-size: 24px; font-weight: bold;">${tempPassword}</span>
+                    </div>
+                    
+                    <p>Please use this temporary password to log in. You'll be prompted to create a new password after signing in.</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="https://ease-scheduler.vercel.app/loginPage" style="background-color: #4285F4; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In Now</a>
+                    </div>
+                    
+                    <p>If you didn't request a password reset, please contact our support team.</p>
+                    
+                    <p>Thank you,<br>Tropang EaseScheduler</p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #777777;">
+                    <p>© 2025 EaseScheduler. All rights reserved.</p>
+                </div>
+            </body>
+            </html>
+            `
         };
 
         // Update password with hashed password in Sequelize

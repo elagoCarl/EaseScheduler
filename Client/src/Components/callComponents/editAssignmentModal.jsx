@@ -168,10 +168,15 @@ const EditAssignmentModal = ({
                     Semester: formData.semester,
                 };
 
+                // Update the parent component with the changes
                 onUpdate(updatedAssignment);
 
-                setSuccessMessage('Assignment updated successfully! Reloading page...');
-                setTimeout(() => window.location.reload(), 1000);
+                setSuccessMessage('Assignment updated successfully!');
+
+                // Close the modal after a short delay so user can see success message
+                setTimeout(() => {
+                    onClose();
+                }, 1500);
             } else {
                 setError(response.data.message || "Failed to update assignment");
                 setSuccessMessage('');
