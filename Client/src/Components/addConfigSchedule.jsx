@@ -518,28 +518,38 @@ const AddConfigSchedule = () => {
       <div className="mb-3">
         <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Sections:</label>
         <div className="p-2 border border-gray-300 rounded-lg bg-white">
-          {availableSections.map(section => (
-            <div key={section.id} className="mb-1 flex items-center">
-              <input
-                type="checkbox"
-                id={section.id}
-                value={section.id}
-                checked={selectedSections.includes(section.id)}
-                onChange={handleSectionChange}
-                className="w-auto h-auto text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label htmlFor={section.id} className="ml-2 text-xs sm:text-sm text-gray-700 cursor-pointer">
-                {section.Program.Code} {section.Year}-{section.Section}
-              </label>
-            </div>
-          ))}
+          <div className="grid grid-cols-3 gap-1">
+            {availableSections.map(section => (
+              <div key={section.id} className="flex items-center">
+                <input
+                  type="checkbox"
+                  id={section.id}
+                  value={section.id}
+                  checked={selectedSections.includes(section.id)}
+                  onChange={handleSectionChange}
+                  className="w-auto h-auto text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor={section.id} className="ml-2 text-xs sm:text-sm text-gray-700 cursor-pointer truncate">
+                  {section.Program.Code} {section.Year}-{section.Section}
+                </label>
+              </div>
+            ))}
+          </div>
         </div>
         {availableSections.length > 0 && (
           <div className="flex justify-end mt-1">
-            <button type="button" onClick={() => setSelectedSections(availableSections.map(s => s.id))} className="text-xs text-blue-600 hover:text-blue-800 mr-2">
+            <button 
+              type="button" 
+              onClick={() => setSelectedSections(availableSections.map(s => s.id))} 
+              className="text-xs text-blue-600 hover:text-blue-800 mr-2"
+            >
               Select All
             </button>
-            <button type="button" onClick={() => setSelectedSections([])} className="text-xs text-blue-600 hover:text-blue-800">
+            <button 
+              type="button" 
+              onClick={() => setSelectedSections([])} 
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
               Clear All
             </button>
           </div>

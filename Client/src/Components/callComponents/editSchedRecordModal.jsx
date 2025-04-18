@@ -234,6 +234,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Sections</label>
                             <div className="mt-1 p-2 border border-gray-300 rounded-md">
+                                <div className="grid grid-cols-3 gap-1">
                                 {availableSections.map(section => (
                                     <div key={section.id} className="flex items-center mb-1">
                                         <input
@@ -249,6 +250,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                                         </label>
                                     </div>
                                 ))}
+                                </div>
                             </div>
                             {availableSections.length > 0 && (
                                 <div className="flex justify-end mt-1 text-xs">

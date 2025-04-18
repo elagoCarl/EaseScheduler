@@ -355,7 +355,7 @@ const getProgYrSecByCourse = async (req, res, next) => {
                 message: "A mandatory field is missing."
             });
         }
-
+        
         const course = await Course.findByPk(CourseId, {
             attributes: ['id', 'Year', 'Type'],
             include: [{
@@ -364,39 +364,44 @@ const getProgYrSecByCourse = async (req, res, next) => {
                 attributes: ['id']
             }]
         });
-
+        
         if (!course) {
             return res.status(404).json({
                 successful: false,
                 message: "Course not found."
             });
         }
-
-        // Define the base condition using the course year.
-        let whereCondition = { Year: course.Year };
-
-        // If the course type is Professional, add filtering by associated program IDs.
-        if (course.Type === 'Professional') {
-            const courseProgramIds = course.CourseProgs.map(prog => prog.id);
-            whereCondition = {
-                ...whereCondition,
-                ProgramId: { [Op.in]: courseProgramIds }
-            };
+        
+        // Initialize whereCondition as an empty object
+        let whereCondition = {};
+        
+        // Only filter by Year if course.Year is not null
+        if (course.Year !== null) {
+            whereCondition.Year = course.Year;
+            
+            // If the course type is Professional, add filtering by associated program IDs.
+            if (course.Type === 'Professional') {
+                const courseProgramIds = course.CourseProgs.map(prog => prog.id);
+                whereCondition = {
+                    ...whereCondition,
+                    ProgramId: { [Op.in]: courseProgramIds }
+                };
+            }
         }
-
+        
         const programInclude = {
             model: Program,
             attributes: ['id', 'Code'],
             // If departmentId is provided, filter programs by DepartmentId
             where: DepartmentId ? { DepartmentId: DepartmentId } : undefined
         };
-
+        
         const pys = await ProgYrSec.findAll({
             where: whereCondition,
             attributes: ['Year', 'Section', 'ProgramId', 'id'],
             include: [programInclude]
         });
-
+        
         if (!pys || pys.length === 0) {
             return res.status(200).send({
                 successful: true,
