@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import axios from "../../axiosConfig";
 
-const AddRoomModal = ({ isOpen, onClose }) => {
+const AddRoomModal = ({ isOpen, onClose, onRoomAdded }) => {
     const [formData, setFormData] = useState({
         Code: "",
         Floor: "",
@@ -11,6 +11,20 @@ const AddRoomModal = ({ isOpen, onClose }) => {
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+
+    // Reset form when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            setFormData({
+                Code: "",
+                Floor: "",
+                Building: "",
+                Type: "",
+            });
+            setErrorMessage("");
+            setSuccessMessage("");
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null; // Prevent rendering if the modal is not open
 
@@ -39,10 +53,15 @@ const AddRoomModal = ({ isOpen, onClose }) => {
             );
 
             if (response.data) {
-                setSuccessMessage("Room added successfully! Reloading page...");
+                setSuccessMessage("Room added successfully!");
+
+                // Notify parent component that a room was added
+                if (onRoomAdded) {
+                    onRoomAdded(response.data.data || response.data);
+                }
+
                 setTimeout(() => {
                     onClose();
-                    window.location.reload();
                 }, 1000);
             }
         } catch (error) {
@@ -136,9 +155,10 @@ const AddRoomModal = ({ isOpen, onClose }) => {
     );
 };
 
-// AddRoomModal.propTypes = {
-//     isOpen: PropTypes.bool.isRequired,
-//     onClose: PropTypes.func.isRequired,
-// };
+AddRoomModal.propTypes = {
+    isOpen: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    onRoomAdded: PropTypes.func,
+};
 
 export default AddRoomModal;
