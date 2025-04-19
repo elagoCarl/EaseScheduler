@@ -34,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         Year: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
             max: 4,
             min: 1
         }

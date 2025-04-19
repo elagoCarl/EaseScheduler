@@ -28,17 +28,7 @@ const addCourse = async (req, res) => {
       const { Code, Description, Duration, Units, Type, Dept_id, Year } = course;
 
       // Validate mandatory fields
-      if (
-        !util.checkMandatoryFields([
-          Code,
-          Description,
-          Duration,
-          Units,
-          Type,
-          Dept_id,
-          Year
-        ])
-      ) {
+      if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
         return res.status(400).json({
           successful: false,
           message: "A mandatory field is missing.",
@@ -92,7 +82,7 @@ const addCourse = async (req, res) => {
         Duration,
         Units,
         Type,
-        Year
+        Year: (Year >= 1) ? Year : null
       });
 
       if (Type === "Professional") {
@@ -259,7 +249,7 @@ const updateCourse = async (req, res) => {
 
     // Validate mandatory fields
     if (
-      !util.checkMandatoryFields([Code, Description, Duration, Units, Type, Year])
+      !util.checkMandatoryFields([Code, Description, Duration, Units, Type])
     ) {
       return res.status(400).json({
         successful: false,
@@ -332,8 +322,8 @@ const updateCourse = async (req, res) => {
       Duration,
       Units,
       Type,
-      Year
-    });
+      Year: (Year >= 1) ? Year : null
+    })
 
     // Log the archive action
     const token = req.cookies?.refreshToken;
