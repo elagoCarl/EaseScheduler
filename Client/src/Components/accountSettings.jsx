@@ -151,7 +151,7 @@ const AccountSettings = () => {
       {showConfirmDialog && <ConfirmationDialog />}
       {/* Main Content */}
       <div className="h-screen flex justify-center items-center">
-        <div className="relative py-30 mt-70 bg-blue-500 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
+        <div className="relative py-30 mt-70 bg-blue-600 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
           <button
             className="absolute top-3 right-10 text-white font-bold text-2xl hover:text-red-500"
             onClick={() => navigate('/')}>
@@ -254,7 +254,7 @@ const AccountSettings = () => {
             <div className="flex justify-end mt-20 space-x-8 mr-auto">
               <div>
                 <button
-                  className="bg-customRed hover:bg-red-800 text-white font-bold py-8 px-12 rounded duration-300"
+                  className="bg-red-600/90 hover:bg-red-700 text-white font-bold py-8 px-12 rounded duration-300"
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
@@ -266,7 +266,7 @@ const AccountSettings = () => {
               </div>
               <div>
                 <button
-                  className="bg-gray-200 hover:bg-blue-300 text-gray-600 font-bold py-7 px-23 rounded duration-300"
+                  className="bg-gray-200 hover:bg-gray-400 text-gray-600 font-bold py-7 px-23 rounded duration-300"
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();

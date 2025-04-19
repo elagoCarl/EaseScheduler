@@ -123,10 +123,8 @@ const HistoryLogs = () => {
       <TopMenu toggleSidebar={toggleSidebar} />
 
       <div className="container mx-auto px-4 py-8 pt-20">
-        <div className="bg-white bg-opacity-95 shadow-lg rounded-lg w-full p-4 md:p-8 my-60">
-          <h1 className="text-2xl md:text-3xl font-bold text-white text-center mb-4 bg-blue-600 p-5 rounded-lg">History Logs</h1>
-
-          <div className="mb-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div className="bg-gray-100 bg-opacity-95 shadow-lg rounded-lg w-full p-4 md:p-8 my-60">
+          <div className="mb-5 flex flex-col md:flex-row md:justify-end md:items-center gap-5">
             <div className="relative">
               <input
                 type="text"
@@ -138,7 +136,7 @@ const HistoryLogs = () => {
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  className="absolute right-6 top-3 text-gray-400 hover:text-gray-700 duration-300"
                 >
                   ✕
                 </button>
@@ -147,11 +145,14 @@ const HistoryLogs = () => {
 
             <button
               onClick={fetchHistoryLogs}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+              className="px-4 py-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-300"
             >
               <span className="mr-2">↻</span> Refresh
             </button>
           </div>
+          <h1 className="text-xl md:text-2xl font-bold text-white text-center mb-4 bg-blue-600 p-5 rounded-lg">History Logs</h1>
+
+
 
           {filteredLogs.length === 0 ? (
             <div className="text-center py-8 text-gray-500">

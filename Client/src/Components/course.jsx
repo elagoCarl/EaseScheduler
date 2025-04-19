@@ -14,23 +14,23 @@ import { useAuth } from '../Components/authContext.jsx';
 const Course = () => {
   const { user } = useAuth();
   const deptId = user.DepartmentId;
-  
+
   // UI States
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
-  
+
   // Data States
   const [courses, setCourses] = useState([]);
   const [filteredCourses, setFilteredCourses] = useState([]);
   const [checkboxes, setCheckboxes] = useState([]);
   const [isAllChecked, setAllChecked] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Search and Filter States
   const [searchTerm, setSearchTerm] = useState("");
   const [yearFilter, setYearFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
-  
+
   // Modal States
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
   const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false);
@@ -45,7 +45,7 @@ const Course = () => {
   // Fetch courses data
   const fetchCourse = async () => {
     try {
-      const response = await Axios.get(`/course/getCoursesByDept/${deptId}`);
+      const response = await Axios.get(`/course/getCoursesByDept/${ deptId }`);
       if (response.data.successful) {
         const courseData = response.data.data;
         setCourses(courseData);
@@ -55,7 +55,7 @@ const Course = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError(`Error fetching courses: ${err.message}`);
+      setError(`Error fetching courses: ${ err.message }`);
     }
   };
 
@@ -64,7 +64,7 @@ const Course = () => {
     const filtered = courseData.filter(course => {
       const matchesSearch = !searchTerm ||
         (course.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-         course.Description?.toLowerCase().includes(searchTerm.toLowerCase()));
+          course.Description?.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesYear =
         yearFilter === "All" ||
@@ -118,7 +118,7 @@ const Course = () => {
     const updatedCheckboxes = [...checkboxes];
     updatedCheckboxes[index] = !updatedCheckboxes[index];
     setCheckboxes(updatedCheckboxes);
-    
+
     // Update master checkbox state based on individual checkboxes
     const visibleCheckboxes = updatedCheckboxes.slice(0, filteredCourses.length);
     setAllChecked(visibleCheckboxes.every(Boolean) && visibleCheckboxes.length > 0);
@@ -138,7 +138,7 @@ const Course = () => {
       console.error("No course selected for editing.");
       return;
     }
-    
+
     setCourseToEdit(course);
     setIsEditCourseModalOpen(true);
   };
@@ -164,7 +164,7 @@ const Course = () => {
     try {
       await Promise.all(
         courseToDelete.map((course) =>
-          Axios.delete(`/course/deleteCourse/${course.id}`)
+          Axios.delete(`/course/deleteCourse/${ course.id }`)
         )
       );
 
@@ -173,7 +173,7 @@ const Course = () => {
       setIsDeleteWarningOpen(false);
     } catch (error) {
       console.error("Error deleting courses:", error.message);
-      setError(`Error deleting courses: ${error.message}`);
+      setError(`Error deleting courses: ${ error.message }`);
     }
   };
 
@@ -192,12 +192,12 @@ const Course = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}
+      style={{ backgroundImage: `url(${ Background })` }}
     >
       {/* Sidebar & Top Menu */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
-      
+
       {/* Main Content */}
       <div className="flex flex-col justify-center items-center h-screen w-full px-20">
         {/* Filters */}
@@ -247,7 +247,7 @@ const Course = () => {
               Course Configuration
             </h2>
           </div>
-          
+
           {/* Scrollable Table */}
           <div className="overflow-auto w-full h-full flex-grow pt-6">
             <table className="text-center w-full border-collapse">
@@ -310,11 +310,11 @@ const Course = () => {
                       <input
                         type="checkbox"
                         checked={checkboxes[index] || false}
-                        onChange={() => handleCheckboxChange(index)} 
+                        onChange={() => handleCheckboxChange(index)}
                       />
                     </td>
                     <td className="py-2 border border-gray-300">
-                      <button 
+                      <button
                         className="text-white rounded"
                         onClick={() => handleEditCourse(course)}
                       >
@@ -329,7 +329,7 @@ const Course = () => {
                 ))}
               </tbody>
             </table>
-            
+
             {/* Display "No courses found" message when filtered list is empty */}
             {filteredCourses.length === 0 && (
               <div className="text-center py-4 text-gray-500">
@@ -339,9 +339,9 @@ const Course = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Action Buttons */}
-      <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
+      <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 mr-5 flex flex-col gap-4">
         <button
           className="py-2 px-4 text-white rounded"
           onClick={handleAddCourseClick}
@@ -377,7 +377,7 @@ const Course = () => {
         onClose={handleAddCourseCloseModal}
         fetchCourse={fetchCourse}
       />
-      
+
       <EditCourseModal
         isOpen={isEditCourseModalOpen}
         onClose={() => setIsEditCourseModalOpen(false)}
@@ -385,7 +385,7 @@ const Course = () => {
         fetchCourse={fetchCourse}
         onUpdateSuccess={fetchCourse}
       />
-      
+
       <DelCourseWarn
         isOpen={isDeleteWarningOpen}
         onClose={() => setIsDeleteWarningOpen(false)}

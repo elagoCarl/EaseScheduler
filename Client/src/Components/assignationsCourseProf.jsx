@@ -54,7 +54,7 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         const fetchDepartment = async () => {
             try {
-                const response = await axios.get(`/dept/getDept/${DEPARTMENT_ID}`);
+                const response = await axios.get(`/dept/getDept/${ DEPARTMENT_ID }`);
                 if (response.data.successful) {
                     setDepartment(response.data.data);
                 } else {
@@ -71,7 +71,7 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         const fetchAssignations = async () => {
             try {
-                const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+                const response = await axios.get(`/assignation/getAllAssignationsByDept/${ DEPARTMENT_ID }`);
                 if (response.data.successful) {
                     const data = response.data.data;
                     setAssignedCourses(data);
@@ -103,7 +103,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     professorIds.map(id =>
-                        axios.get(`/prof/getProf/${id}`)
+                        axios.get(`/prof/getProf/${ id }`)
                     )
                 );
                 const detailsMap = {};
@@ -137,7 +137,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     courseIds.map(id =>
-                        axios.get(`/course/getCourse/${id}`)
+                        axios.get(`/course/getCourse/${ id }`)
                     )
                 );
                 const detailsMap = {};
@@ -211,7 +211,7 @@ const AssignationsCourseProf = () => {
             // Delete each assignation individually using the backend API
             for (const id of selectedCourseIds) {
                 try {
-                    const response = await axios.delete(`/assignation/deleteAssignation/${id}`);
+                    const response = await axios.delete(`/assignation/deleteAssignation/${ id }`);
                     results.push({
                         id,
                         success: response.data.successful,
@@ -234,7 +234,7 @@ const AssignationsCourseProf = () => {
             }
 
             // Refresh the assignations list
-            const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+            const response = await axios.get(`/assignation/getAllAssignationsByDept/${ DEPARTMENT_ID }`);
             if (response.data.successful) {
                 setAssignedCourses(response.data.data);
                 setCheckboxes(new Array(response.data.data.length).fill(false));
@@ -275,7 +275,7 @@ const AssignationsCourseProf = () => {
     return (
         <div
             className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${Background})` }}
+            style={{ backgroundImage: `url(${ Background })` }}
         >
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
             <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
@@ -295,7 +295,7 @@ const AssignationsCourseProf = () => {
                         >
                             <option value="">Select Professor</option>
                             {professors.map(prof => (
-                                <option key={`prof-${prof.id}`} value={prof.Name}>
+                                <option key={`prof-${ prof.id }`} value={prof.Name}>
                                     {prof.Name}
                                 </option>
                             ))}
@@ -369,7 +369,7 @@ const AssignationsCourseProf = () => {
                                         // Use detailed professor info based on ProfessorId
                                         const profDetail = professorDetails[assignment.ProfessorId];
                                         const professorDisplay = profDetail
-                                            ? `${profDetail.Name} (${profDetail.ProfStatus?.Status || "No Status"})`
+                                            ? `${ profDetail.Name } (${ profDetail.ProfStatus?.Status || "No Status" })`
                                             : 'N/A';
                                         // Use detailed course info based on CourseId
                                         const courseDetail = courseDetails[assignment.CourseId];
@@ -423,7 +423,7 @@ const AssignationsCourseProf = () => {
                 </div>
             </div>
 
-            <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-4 flex flex-col gap-4">
+            <div className="fixed top-1/4 right-4 border border-gray-900 bg-customWhite rounded p-7 mr-5 flex flex-col gap-4">
                 <button onClick={() => toggleModal('add', true)}>
                     <img
                         src={addBtn}
