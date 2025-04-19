@@ -88,6 +88,18 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
 
+      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
+        <button
+          className="hover:bg-gray-700 p-10 rounded w-full text-left"
+          onClick={() => {
+            navigate('/settings');
+            toggleSidebar(false);
+          }}
+        >
+          Schedule Settings
+        </button>
+      </div>
+
       {/* Timetables Section */}
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button

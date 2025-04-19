@@ -20,38 +20,21 @@ module.exports = (sequelize, DataTypes) => {
           max: 24,
         },
       },
-
-      // Professor's max hours of stay in school per day
       ProfessorMaxHours: {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 12,
       },
-
-      // Student's max hours of stay in school per day
       StudentMaxHours: {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 12,
       },
-
-      // Hours of break per continuous hours of schedule
       ProfessorBreak: {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 1,
       },
-
-      // instead of studentBreak, we will enforce nextScheduleBreak which adds a break after every
-      // course
-      // // Hours of break per continuous hours of schedule
-      // StudentBreak: {
-      //     type: DataTypes.INTEGER,
-      //     allowNull: false,
-      //     defaultValue: 1
-      // },
-
-      // remove the maxallowedgap and change it into nextScheduleBreak
       MaxAllowedGap: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -65,28 +48,63 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       timestamps: true,
+      indexes: [
+        {
+          unique: true,
+          fields: ['DepartmentId']
+        }
+      ]
     }
   );
-  // Hook to prevent multiple records
+
+  // Modified hook to prevent multiple records per department
   Settings.beforeCreate(async (settings, options) => {
-    const count = await Settings.count();
+    const count = await Settings.count({
+      where: { DepartmentId: settings.DepartmentId }
+    });
     if (count > 0) {
-      throw new Error("Only one settings record is allowed.");
+      throw new Error("Only one settings record is allowed per department.");
     }
   });
 
-  // Auto-create a single settings record if none exists after sync
+  Settings.associate = (models) => {
+    Settings.belongsTo(models.Department, {
+      foreignKey: 'DepartmentId',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+  };
+
+  // Auto-create a settings record for each department if none exists
   Settings.afterSync(async () => {
-    const count = await Settings.count();
-    if (count === 0) {
-      await Settings.create({
-        StartHour: 7,
-        EndHour: 19,
-        ProfessorMaxHours: 12,
-        StudentMaxHours: 12,
-        ProfessorBreak: 1,
-        StudentBreak: 1,
-      });
+    try {
+      const { Department } = sequelize.models;
+
+      // Get all departments
+      const departments = await Department.findAll();
+
+      // For each department, check if settings exist, create if not
+      for (const department of departments) {
+        const settingsExist = await Settings.findOne({
+          where: { DepartmentId: department.id }
+        });
+
+        if (!settingsExist) {
+          await Settings.create({
+            DepartmentId: department.id,
+            StartHour: 7,
+            EndHour: 19,
+            ProfessorMaxHours: 12,
+            StudentMaxHours: 12,
+            ProfessorBreak: 1,
+            MaxAllowedGap: 5,
+            nextScheduleBreak: 0.5
+          });
+          console.log(`Created default settings for department: ${department.Name}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error creating default settings:", error);
     }
   });
 

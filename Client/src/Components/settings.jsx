@@ -3,8 +3,11 @@ import Background from "./Img/5.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
 import Axios from '../axiosConfig.js';
+import { useAuth } from '../Components/authContext.jsx';
 
 const Settings = () => {
+  const { user } = useAuth();
+  const deptId = user?.DepartmentId;
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [settings, setSettings] = useState({
     StartHour: 7,
@@ -27,7 +30,8 @@ const Settings = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await Axios.get("/settings/getSettings");
+      // Use the new department-specific endpoint
+      const response = await Axios.get(`/settings/getSettingsByDept/${deptId}`);
       console.log('API Response:', response.data);
       if (response.data.successful) {
         setSettings(response.data.data);
@@ -36,13 +40,18 @@ const Settings = () => {
         setError(response.data.message);
       }
     } catch (err) {
-      setError(`Error fetching settings: ${ err.message }`);
+      setError(`Error fetching settings: ${err.message}`);
     }
   };
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    // Only fetch settings if we have a valid department ID
+    if (deptId) {
+      fetchSettings();
+    } else {
+      setError("No department ID found. Please ensure you're logged in with department access.");
+    }
+  }, [deptId]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -54,32 +63,33 @@ const Settings = () => {
 
   const handleSaveClick = (e) => {
     e.preventDefault();
-    // pang check if may changes
+    // Check if there are changes
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
     if (hasChanges) {
       setShowSaveModal(true);
     } else {
-      // pag wala binago wala modal
+      // If no changes, just exit edit mode
       setIsEditing(false);
     }
   };
 
   const handleCancelClick = () => {
-    // pang check if may changes
+    // Check if there are changes
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
     if (hasChanges) {
       setShowCancelModal(true);
     } else {
-      //pag wala binago wala modal
+      // If no changes, just exit edit mode
       setIsEditing(false);
     }
   };
 
   const handleSubmit = async () => {
     try {
-      const response = await Axios.put("/settings/updateSettings", settings);
+      // Use the new department-specific update endpoint
+      const response = await Axios.put(`/settings/updateSettingsByDept/${deptId}`, settings);
       if (response.data.successful) {
-        setSuccessMessage("Settings updated successfully!");
+        setSuccessMessage("Department settings updated successfully!");
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
@@ -87,11 +97,11 @@ const Settings = () => {
         setIsEditing(false);
         setShowSaveModal(false);
       } else {
-        setError(response.data.message);
+        setError(response.data.data.message);
         setShowSaveModal(false);
       }
     } catch (err) {
-      setError(`Error updating settings: ${ err.message }`);
+      setError(`Error updating settings: ${err.response.data.message}`);
       setShowSaveModal(false);
     }
   };
@@ -109,7 +119,7 @@ const Settings = () => {
     for (let i = start; i <= end; i++) {
       options.push(
         <option key={i} value={i}>
-          {i < 10 ? `0${ i }:00` : `${ i }:00`}
+          {i < 10 ? `0${i}:00` : `${i}:00`}
         </option>
       );
     }
@@ -124,7 +134,7 @@ const Settings = () => {
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
         <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
           <h3 className="text-lg font-semibold mb-4">Confirm Changes</h3>
-          <p className="mb-6">Are you sure you want to save these changes?</p>
+          <p className="mb-6">Are you sure you want to save these changes to department settings?</p>
           <div className="flex justify-end gap-4">
             <button
               onClick={() => setShowSaveModal(false)}
@@ -174,7 +184,7 @@ const Settings = () => {
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}
+      style={{ backgroundImage: `url(${Background})` }}
     >
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
@@ -192,9 +202,15 @@ const Settings = () => {
         <div className="bg-white rounded-lg flex flex-col items-center w-8/12 max-h-[80vh]">
           <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-8 rounded-t-lg w-full">
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">
-              System Settings Configuration
+              Department Settings Configuration
             </h2>
           </div>
+
+          {!deptId && (
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mt-4 w-full">
+              <span className="block sm:inline">No department ID found. Department-specific settings may not be available.</span>
+            </div>
+          )}
 
           {successMessage && (
             <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4 w-full">
@@ -229,7 +245,7 @@ const Settings = () => {
                       name="StartHour"
                       value={settings.StartHour}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-500 leading-tight focus:outline-none focus:shadow-outline"
                     >
                       {generateTimeOptions(0, 12)}
@@ -244,7 +260,7 @@ const Settings = () => {
                       name="EndHour"
                       value={settings.EndHour}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-500 leading-tight focus:outline-none focus:shadow-outline"
                     >
                       {generateTimeOptions(13, 24)}
@@ -265,7 +281,7 @@ const Settings = () => {
                       name="ProfessorMaxHours"
                       value={settings.ProfessorMaxHours}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       min="1"
                       max="24"
                       className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -281,7 +297,7 @@ const Settings = () => {
                       name="ProfessorBreak"
                       value={settings.ProfessorBreak}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       min="0"
                       max="12"
                       step="0.5"
@@ -302,7 +318,7 @@ const Settings = () => {
                       name="StudentMaxHours"
                       value={settings.StudentMaxHours}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       min="1"
                       max="24"
                       className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -322,7 +338,7 @@ const Settings = () => {
                       name="MaxAllowedGap"
                       value={settings.MaxAllowedGap}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       min="0"
                       max="12"
                       className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -338,7 +354,7 @@ const Settings = () => {
                       name="nextScheduleBreak"
                       value={settings.nextScheduleBreak}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!isEditing || !deptId}
                       min="0"
                       max="5"
                       step="0.5"
@@ -370,7 +386,8 @@ const Settings = () => {
                   <button
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="bg-blue-500 hover:bg-blue-800 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-300 cursor-pointer"
+                    disabled={!deptId}
+                    className="bg-blue-500 hover:bg-blue-800 text-white font-bold py-2 px-6 rounded focus:outline-none focus:shadow-outline transition duration-300 disabled:bg-blue-300 disabled:cursor-not-allowed"
                   >
                     Edit Settings
                   </button>
