@@ -17,9 +17,13 @@ const addProgYrSec = async (req, res, next) => {
 
         // Iterate through the array and check required fields
         for (const progYrSecData of progYrSecToAdd) {
-            const { Year, Section, ProgramId } = progYrSecData;
+            let { Year, Section, ProgramId, NumberOfStudents } = progYrSecData;
 
-            if (!util.checkMandatoryFields([Year, Section, ProgramId])) {
+            if (!NumberOfStudents) {
+                NumberOfStudents = 0; // Default value if not provided
+            }
+
+            if (!util.checkMandatoryFields([Year, Section, ProgramId, NumberOfStudents])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -47,7 +51,7 @@ const addProgYrSec = async (req, res, next) => {
             }
 
             // Create ProgYrSec record
-            await ProgYrSec.create({ Year, Section, ProgramId });
+            await ProgYrSec.create({ Year, Section, ProgramId, NumberOfStudents });
 
             // Log the archive action
             const token = req.cookies?.refreshToken;
@@ -71,7 +75,6 @@ const addProgYrSec = async (req, res, next) => {
             const details = `Added Program: ${program.Code}${Year}${Section}`;
 
             await addHistoryLog(accountId, page, details);
-
         }
 
         return res.status(200).json({
@@ -140,13 +143,19 @@ const getAllProgYrSec = async (req, res, next) => {
 const updateProgYrSec = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Year, Section, ProgramId } = req.body;
+        const { Year, Section, ProgramId, NumberOfStudents } = req.body;
 
         if (!util.checkMandatoryFields([Year, Section, ProgramId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
             });
+        }
+
+        // Set default value for NumberOfStudents if not provided
+        let updatedNumberOfStudents = NumberOfStudents;
+        if (updatedNumberOfStudents === undefined) {
+            updatedNumberOfStudents = 0; // Default value if not provided
         }
 
         const progYrSec = await ProgYrSec.findByPk(id);
@@ -182,10 +191,16 @@ const updateProgYrSec = async (req, res, next) => {
         const oldValues = {
             Year: progYrSec.Year,
             Section: progYrSec.Section,
-            ProgramName: oldProgram ? oldProgram.Name : "Unknown"
+            ProgramName: oldProgram ? oldProgram.Name : "Unknown",
+            NumberOfStudents: progYrSec.NumberOfStudents
         };
 
-        await progYrSec.update({ Year, Section, ProgramId });
+        await progYrSec.update({
+            Year,
+            Section,
+            ProgramId,
+            NumberOfStudents: updatedNumberOfStudents
+        });
 
         const newProgram = await Program.findByPk(ProgramId);
 
@@ -208,7 +223,7 @@ const updateProgYrSec = async (req, res, next) => {
         }
         const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'ProgYrSec';
-        const details = `Updated ProgYrSec: Old; Year: ${oldValues.Year}, Section: ${oldValues.Section}, Program: ${oldValues.ProgramName};;; New; Year: ${Year}, Section: ${Section}, Program: ${newProgram ? newProgram.Name : "Unknown"}`;
+        const details = `Updated ProgYrSec: Old; Year: ${oldValues.Year}, Section: ${oldValues.Section}, Program: ${oldValues.ProgramName}, Students: ${oldValues.NumberOfStudents};;; New; Year: ${Year}, Section: ${Section}, Program: ${newProgram ? newProgram.Name : "Unknown"}, Students: ${updatedNumberOfStudents}`;
 
         await addHistoryLog(accountId, page, details);
 
@@ -311,7 +326,7 @@ const getAllProgYrSecByProgram = async (req, res, next) => {
 const getProgYrSecByDept = async (req, res, next) => {
     try {
         const pys = await ProgYrSec.findAll({
-            attributes: ['id', 'Year', 'Section', 'ProgramId'],
+            attributes: ['id', 'Year', 'Section', 'ProgramId', 'NumberOfStudents'],
             include: [
                 {
                     model: Program,
@@ -355,7 +370,7 @@ const getProgYrSecByCourse = async (req, res, next) => {
                 message: "A mandatory field is missing."
             });
         }
-        
+
         const course = await Course.findByPk(CourseId, {
             attributes: ['id', 'Year', 'Type'],
             include: [{
@@ -364,21 +379,21 @@ const getProgYrSecByCourse = async (req, res, next) => {
                 attributes: ['id']
             }]
         });
-        
+
         if (!course) {
             return res.status(404).json({
                 successful: false,
                 message: "Course not found."
             });
         }
-        
+
         // Initialize whereCondition as an empty object
         let whereCondition = {};
-        
+
         // Only filter by Year if course.Year is not null
         if (course.Year !== null) {
             whereCondition.Year = course.Year;
-            
+
             // If the course type is Professional, add filtering by associated program IDs.
             if (course.Type === 'Professional') {
                 const courseProgramIds = course.CourseProgs.map(prog => prog.id);
@@ -388,20 +403,20 @@ const getProgYrSecByCourse = async (req, res, next) => {
                 };
             }
         }
-        
+
         const programInclude = {
             model: Program,
             attributes: ['id', 'Code'],
             // If departmentId is provided, filter programs by DepartmentId
             where: DepartmentId ? { DepartmentId: DepartmentId } : undefined
         };
-        
+
         const pys = await ProgYrSec.findAll({
             where: whereCondition,
             attributes: ['Year', 'Section', 'ProgramId', 'id'],
             include: [programInclude]
         });
-        
+
         if (!pys || pys.length === 0) {
             return res.status(200).send({
                 successful: true,

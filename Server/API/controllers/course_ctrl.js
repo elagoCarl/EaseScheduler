@@ -56,7 +56,7 @@ const addCourse = async (req, res) => {
         where: {
           [Op.or]: [
             { Code: { [Op.like]: Code } },
-            { Description: { [Op.like]: Description } },
+            // { Description: { [Op.like]: Description } },
           ],
         },
       });
@@ -64,7 +64,7 @@ const addCourse = async (req, res) => {
       if (existingCourse) {
         return res.status(400).json({
           successful: false,
-          message: `Course with code or description already exists.`,
+          message: `Course with code  already exists.`,
         });
       }
 
@@ -270,7 +270,7 @@ const updateCourse = async (req, res) => {
         id: { [Op.ne]: req.params.id }, // Exclude the current course by ID
         [Op.or]: [
           { Code: { [Op.like]: Code } },
-          { Description: { [Op.like]: Description } },
+          // { Description: { [Op.like]: Description } },
         ],
       },
     });
@@ -278,7 +278,7 @@ const updateCourse = async (req, res) => {
     if (existingCourse) {
       return res.status(406).json({
         successful: false,
-        message: `Course with code or description already exists.`,
+        message: `Course with code already exists.`,
       });
     }
 

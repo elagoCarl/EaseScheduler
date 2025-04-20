@@ -8,20 +8,20 @@ const addRoom = async (req, res, next) => {
     try {
         let rooms = req.body;
 
-        // Check if the request body contains an array of professors
+        // Check if the request body contains an array of rooms
         if (!Array.isArray(rooms)) {
-            // If not an array, convert the single professor to an array
+            // If not an array, convert the single room to an array
             rooms = [rooms];
         }
 
         for (const room of rooms) {
-            const { Code, Floor, Building, Type,  } = room;
+            const { Code, Floor, Building, Type, NumberOfSeats } = room;
 
-            if (!util.checkMandatoryFields([Code, Floor, Building, Type, ])) {
+            if (!util.checkMandatoryFields([Code, Floor, Building, Type, NumberOfSeats])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
-                })
+                });
             }
 
             const existingRoom = await Room.findOne({ where: { Code } });
@@ -29,7 +29,7 @@ const addRoom = async (req, res, next) => {
                 return res.status(406).json({
                     successful: false,
                     message: "Room code already exists."
-                })
+                });
             }
 
             if (!['LV', 'GP'].includes(Building)) {
@@ -46,13 +46,21 @@ const addRoom = async (req, res, next) => {
                 });
             }
 
+            // Validate NumberOfSeats is a positive integer
+            if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Number of seats must be a positive integer."
+                });
+            }
+
             const newRoom = await Room.create({
-                Code: Code,
-                Floor: Floor,
-                Building: Building,
-                Type: Type
-            })
-            // const newDeptRoom = await newRoom.addRoomDepts(Dept_id)
+                Code,
+                Floor,
+                Building,
+                Type,
+                NumberOfSeats
+            });
 
             const token = req.cookies?.refreshToken;
             if (!token) {
@@ -61,36 +69,36 @@ const addRoom = async (req, res, next) => {
                     message: "Unauthorized: refreshToken not found."
                 });
             }
+
             let decoded;
             try {
-                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
             } catch (err) {
                 return res.status(403).json({
                     successful: false,
                     message: "Invalid refreshToken."
                 });
             }
-            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+
+            const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Added Room: ${Building}${Code} floor: ${Floor}`;
+            const details = `Added Room: ${Building}${Code} floor: ${Floor}, seats: ${NumberOfSeats}`;
 
             await addHistoryLog(accountId, page, details);
-
         }
 
         return res.status(201).json({
             successful: true,
             message: "Successfully added new room."
-        })
-
+        });
     }
     catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
 
 const getAllRoom = async (req, res, next) => {
     try {
@@ -207,23 +215,22 @@ const deleteRoom = async (req, res, next) => {
 
 const updateRoom = async (req, res, next) => {
     try {
-        let room = await Room.findByPk(req.params.id)
-        const { Code, Floor, Building, Type } = req.body
-
+        let room = await Room.findByPk(req.params.id);
         if (!room) {
-            res.status(404).send({
+            return res.status(404).json({
                 successful: false,
                 message: "Room not found"
             });
         }
 
-        if (!util.checkMandatoryFields([Code, Floor, Building, Type])) {
+        const { Code, Floor, Building, Type, NumberOfSeats } = req.body;
+
+        if (!util.checkMandatoryFields([Code, Floor, Building, Type, NumberOfSeats])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
-            })
+            });
         }
-
 
         if (!['LV', 'GP'].includes(Building)) {
             return res.status(406).json({
@@ -239,23 +246,33 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
+        // Validate NumberOfSeats is a positive integer
+        if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
+            return res.status(406).json({
+                successful: false,
+                message: "Number of seats must be a positive integer."
+            });
+        }
+
         if (Code !== room.Code) {
-            const roomConflict = await Room.findOne({ where: { Code: Code } })
+            const roomConflict = await Room.findOne({ where: { Code } });
             if (roomConflict) {
                 return res.status(406).json({
                     successful: false,
                     message: "Room already exists."
-                })
+                });
             }
         }
 
-        const updateRoom = await room.update({
-            Code: Code,
-            Floor: Floor,
-            Building: Building,
-            Type: Type
-        })
-        // Log the archive action
+        const updatedRoom = await room.update({
+            Code,
+            Floor,
+            Building,
+            Type,
+            NumberOfSeats
+        });
+
+        // Log the update action
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({
@@ -263,33 +280,35 @@ const updateRoom = async (req, res, next) => {
                 message: "Unauthorized: refreshToken not found."
             });
         }
+
         let decoded;
         try {
-            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
         } catch (err) {
             return res.status(403).json({
                 successful: false,
                 message: "Invalid refreshToken."
             });
         }
-        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
-        const page = 'Professor';
-        const details = `Updated Room: Old; Code: ${room.Code}, Floor: ${room.Floor}, Building: ${room.Building}, Type: ${room.Type};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Type: ${Type}`;
+
+        const accountId = decoded.id || decoded.accountId;
+        const page = 'Room';  // Fixed page name from 'Professor' to 'Room'
+        const details = `Updated Room: Old; Code: ${room.Code}, Floor: ${room.Floor}, Building: ${room.Building}, Type: ${room.Type}, Seats: ${room.NumberOfSeats};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Type: ${Type}, Seats: ${NumberOfSeats}`;
 
         await addHistoryLog(accountId, page, details);
 
-        return res.status(201).json({
+        return res.status(200).json({  // Changed status code from 201 to 200 for updates
             successful: true,
             message: "Successfully updated room."
-        })
+        });
     }
     catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
 
 const addDeptRoom = async (req, res) => {
     try {
