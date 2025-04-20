@@ -65,7 +65,7 @@ const EditAssignmentModal = ({
                             ...prev,
                             professorId: assignment.ProfessorId
                         }));
-                        
+
                         // Set the selected professor name for display
                         const professor = response.data.data.find(
                             p => String(p.id) === String(assignment.ProfessorId)
@@ -155,12 +155,12 @@ const EditAssignmentModal = ({
                 courseId: assignment.CourseId || "",
                 roomTypeId: assignment.RoomTypeId || ""
             });
-            
+
             // Set the selected course name for display
             if (assignment.Course) {
                 setSelectedCourseName(`${assignment.Course.Code} - ${assignment.Course.Description}`);
             }
-            
+
             // Set the selected professor name for display
             if (assignment.Professor && assignment.Professor.Name) {
                 setSelectedProfessorName(assignment.Professor.Name);
@@ -175,7 +175,7 @@ const EditAssignmentModal = ({
             if (courseDropdown && !courseDropdown.contains(event.target)) {
                 setShowCourseDropdown(false);
             }
-            
+
             const professorDropdown = document.getElementById("professor-dropdown-container");
             if (professorDropdown && !professorDropdown.contains(event.target)) {
                 setShowProfessorDropdown(false);
@@ -229,13 +229,13 @@ const EditAssignmentModal = ({
     };
 
     // Filter courses based on search input
-    const filteredCourses = availableCourses.filter(course => 
-        course.Code?.toLowerCase().includes(courseSearch.toLowerCase()) || 
+    const filteredCourses = availableCourses.filter(course =>
+        course.Code?.toLowerCase().includes(courseSearch.toLowerCase()) ||
         course.Description?.toLowerCase().includes(courseSearch.toLowerCase())
     );
 
     // Filter professors based on search input
-    const filteredProfessors = allProfessors.filter(professor => 
+    const filteredProfessors = allProfessors.filter(professor =>
         professor.Name?.toLowerCase().includes(professorSearch.toLowerCase())
     );
 
@@ -350,11 +350,11 @@ const EditAssignmentModal = ({
                                     {selectedProfessorName && (
                                         <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
                                             <span>{selectedProfessorName}</span>
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={() => {
                                                     setSelectedProfessorName("");
-                                                    setFormData({...formData, professorId: ""});
+                                                    setFormData({ ...formData, professorId: "" });
                                                 }}
                                                 className="text-white hover:text-gray-300"
                                             >
@@ -362,7 +362,7 @@ const EditAssignmentModal = ({
                                             </button>
                                         </div>
                                     )}
-                                    
+
                                     {showProfessorDropdown && (
                                         <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
                                             {filteredProfessors.length > 0 ? (
@@ -382,10 +382,10 @@ const EditAssignmentModal = ({
                                     )}
                                 </div>
                             )}
-                            <input 
-                                type="hidden" 
-                                name="professorId" 
-                                value={formData.professorId} 
+                            <input
+                                type="hidden"
+                                name="professorId"
+                                value={formData.professorId}
                             />
                         </div>
                     </div>
@@ -414,11 +414,11 @@ const EditAssignmentModal = ({
                                     {selectedCourseName && (
                                         <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
                                             <span>{selectedCourseName}</span>
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 onClick={() => {
                                                     setSelectedCourseName("");
-                                                    setFormData({...formData, courseId: ""});
+                                                    setFormData({ ...formData, courseId: "" });
                                                 }}
                                                 className="text-white hover:text-gray-300"
                                             >
@@ -426,7 +426,7 @@ const EditAssignmentModal = ({
                                             </button>
                                         </div>
                                     )}
-                                    
+
                                     {showCourseDropdown && (
                                         <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
                                             {filteredCourses.length > 0 ? (
@@ -446,64 +446,12 @@ const EditAssignmentModal = ({
                                     )}
                                 </div>
                             )}
-                            <input 
-                                type="hidden" 
-                                name="courseId" 
-                                value={formData.courseId} 
+                            <input
+                                type="hidden"
+                                name="courseId"
+                                value={formData.courseId}
                             />
                         </div>
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="block font-semibold text-white" htmlFor="roomTypeId">
-                            Room Type
-                        </label>
-                        {loadingRoomTypes ? (
-                            <p className="text-white">Loading room types...</p>
-                        ) : errorRoomTypes ? (
-                            <p className="text-red-500">{errorRoomTypes}</p>
-                        ) : (
-                            <select
-                                id="roomTypeId"
-                                name="roomTypeId"
-                                value={formData.roomTypeId}
-                                onChange={handleChange}
-                                className="w-full p-8 border rounded bg-customWhite"
-                            >
-                                <option value="">Select Room Type (Optional)</option>
-                                {roomTypes.map(roomType => (
-                                    <option key={`roomType-${roomType.id}`} value={roomType.id}>
-                                        {roomType.Type}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="block font-semibold text-white" htmlFor="roomTypeId">
-                            Room Type
-                        </label>
-                        {loadingRoomTypes ? (
-                            <p className="text-white">Loading room types...</p>
-                        ) : errorRoomTypes ? (
-                            <p className="text-red-500">{errorRoomTypes}</p>
-                        ) : (
-                            <select
-                                id="roomTypeId"
-                                name="roomTypeId"
-                                value={formData.roomTypeId}
-                                onChange={handleChange}
-                                className="w-full p-8 border rounded bg-customWhite"
-                            >
-                                <option value="">Select Room Type (Optional)</option>
-                                {roomTypes.map(roomType => (
-                                    <option key={`roomType-${roomType.id}`} value={roomType.id}>
-                                        {roomType.Type}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
                     </div>
 
                     <div className="mb-4">
