@@ -7,7 +7,6 @@ import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
 import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
-import CourseModal from './callComponents/courseModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
@@ -195,11 +194,12 @@ const AddConfigSchedule = () => {
 
       if (nullYearAssignations.length > 0) {
         // Ask user if they want to assign sections first
-        if (window.confirm("There are courses without assigned years. Would you like to assign sections to them first?")) {
-          setIsAutomating(false);
-          findAssignationsWithNullYear();
-          return;
-        }
+        setIsAutomating(false);
+        // Collect IDs of assignations with null year
+        const ids = nullYearAssignations.map(a => a.id);
+        setNullYearAssignationIds(ids);
+        setIsNullYearModalOpen(true);
+        return;
       }
       // First, validate that a room is selected when automating a single room
       if (automateType === 'room' && !formData.room_id) {
@@ -360,7 +360,81 @@ const AddConfigSchedule = () => {
     } catch (error) {
       setNotification({ type: 'error', message: transformErrorMessage(error.response?.data?.message || "An error occurred while toggling lock status.") });
     }
-  };
+  }
+  const handleNullYearSelectionsAndAutomate = (selections) => {
+    // Save the selections to the state for reference if needed
+    let allSectionsUpdated = {};
+
+    selections.forEach(selection => {
+      allSectionsUpdated[selection.assignationId] = selection.sectionIds;
+    });
+
+    // Now directly start the automation process
+    handleAutomateScheduleAfterSelections(allSectionsUpdated);
+  }
+  const handleAutomateScheduleAfterSelections = async (sectionSelections) => {
+    setIsAutomating(true);
+    try {
+      // First, validate that a room is selected when automating a single room
+      if (automateType === 'room' && !formData.room_id) {
+        setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
+        return;
+      }
+  
+      // Prepare basic payload
+      const payload = {
+        DepartmentId: deptId,
+        // Use prioritized professors if available
+        prioritizedProfessor: prioritizedProfessors.length > 0
+          ? prioritizedProfessors.map(value => parseInt(value, 10))
+          : undefined,
+        // Use prioritized rooms if available 
+        prioritizedRoom: prioritizedRooms.length > 0
+          ? prioritizedRooms.map(value => parseInt(value, 10))
+          : undefined,
+        // Add the section selections
+        sectionSelections: sectionSelections
+      };
+  
+      // If automating a single room, include the roomId in the payload
+      if (automateType === 'room') {
+        payload.roomId = parseInt(formData.room_id, 10);
+      }
+  
+      // Always use the same endpoint
+      const endpoint = '/schedule/automateSchedule';
+  
+      const response = await axios.put(endpoint, payload);
+  
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
+        });
+  
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message)
+        });
+      }
+    } catch (error) {
+      console.error("Schedule automation error:", error.response || error);
+  
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || `An error occurred during ${automateType === 'room' ? 'room' : 'department'} schedule automation.`
+        )
+      });
+    } finally {
+      setIsAutomating(false);
+    }
+  }
 
   // Rename function to reflect both locking and unlocking capability
   const handleToggleLockAllSchedules = async (lockAction = true) => {
@@ -784,13 +858,6 @@ const AddConfigSchedule = () => {
       </div>
 
       <button
-        onClick={findAssignationsWithNullYear}
-        className="flex w-full justify-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 mb-4 text-xs sm:text-sm rounded-lg transition-colors"
-      >
-        Assign Sections to Courses Without Year
-      </button>
-
-      <button
         onClick={handleAutomateSchedule}
         disabled={isAutomating || (automateType === 'room' && !formData.room_id)}
         className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white px-4 py-2 rounded-lg transition-colors`}
@@ -952,7 +1019,7 @@ const AddConfigSchedule = () => {
         onClose={() => setIsNullYearModalOpen(false)}
         assignationIds={nullYearAssignationIds}
         deptId={deptId}
-        onSelectSections={handleNullYearSectionSelect}
+        onSelectSections={handleNullYearSelectionsAndAutomate}
       />
 
       <EditSchedRecordModal

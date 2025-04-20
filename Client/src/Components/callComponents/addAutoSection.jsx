@@ -129,13 +129,11 @@ const AssignationsWithNullYearModal = ({ isOpen, onClose, assignationIds, deptId
         sectionIds
       }));
     
-    // Call the parent component's handler for each selection
-    selections.forEach(selection => {
-      onSelectSections(selection.assignationId, selection.sectionIds);
-    });
+    // Call the parent component's handler with all selections at once
+    onSelectSections(selections);
     onClose();
   };
-
+  
   if (!isOpen) return null;
 
   return (
@@ -259,7 +257,7 @@ const AssignationsWithNullYearModal = ({ isOpen, onClose, assignationIds, deptId
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              Confirm Selections
+              Automate Schedules
             </button>
           </div>
         </div>
