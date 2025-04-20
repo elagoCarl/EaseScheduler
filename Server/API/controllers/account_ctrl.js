@@ -571,7 +571,7 @@ const forgotPass = async (req, res) => {
 
         // Generate a random temporary password
         const randomNumber = Math.floor(100000 + Math.random() * 900000);
-        const tempPassword = `${TEMP_PASS_SUFFIX}${randomNumber}${TEMP_PASS_SUFFIX}`;
+        const tempPassword = `${TEMP_PASS_PREFIX}${randomNumber}${TEMP_PASS_SUFFIX}`;
 
         // Hash the generated temporary password
         const salt = await bcrypt.genSalt();

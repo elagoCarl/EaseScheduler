@@ -8,7 +8,6 @@ import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
 import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
-import CourseModal from './callComponents/courseModal.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
 
@@ -43,11 +42,6 @@ const AddConfigSchedule = () => {
   const [prioritizedRooms, setPrioritizedRooms] = useState([]);
   const [newPriorityProfessor, setNewPriorityProfessor] = useState("");
   const [newPriorityRoom, setNewPriorityRoom] = useState("");
-  const [courseTypeSelection, setCourseTypeSelection] = useState({
-    core: false,
-    professional: false
-  });
-  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
 
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
@@ -193,7 +187,6 @@ const AddConfigSchedule = () => {
       const payload = {
         DepartmentId: deptId,
         // Use prioritized professors if available
-        courseType: courseTypeSelection.professional ? 'professional' : 'all',
         prioritizedProfessor: prioritizedProfessors.length > 0
           ? prioritizedProfessors.map(value => parseInt(value, 10))
           : undefined,
@@ -243,67 +236,7 @@ const AddConfigSchedule = () => {
     }
   };
 
-  const handleCourseModalClose = (selectedCourses) => {
-    setIsCourseModalOpen(false);
 
-    // If no courses were selected, just return
-    if (!selectedCourses || selectedCourses.length === 0) {
-      return;
-    }
-
-    // Re-trigger automation with the selected core courses
-    setIsAutomating(true);
-
-    // Create the payload with selected courses
-    const payload = {
-      DepartmentId: deptId,
-      courseType: 'core',
-      coreCourses: selectedCourses,
-      prioritizedProfessor: prioritizedProfessors.length > 0
-        ? prioritizedProfessors.map(value => parseInt(value, 10))
-        : undefined,
-      prioritizedRoom: prioritizedRooms.length > 0
-        ? prioritizedRooms.map(value => parseInt(value, 10))
-        : undefined
-    };
-
-    // Add roomId if single room automation
-    if (automateType === 'room') {
-      payload.roomId = parseInt(formData.room_id, 10);
-    }
-
-    // Send the request
-    axios.put('/schedule/automateSchedule', payload)
-      .then(response => {
-        if (response.data.successful) {
-          setNotification({
-            type: 'success',
-            message: `Core course schedule automation completed successfully!`
-          });
-
-          if (formData.room_id) {
-            fetchSchedulesForRoom(formData.room_id);
-          }
-        } else {
-          setNotification({
-            type: 'error',
-            message: transformErrorMessage(response.data.message)
-          });
-        }
-      })
-      .catch(error => {
-        console.error("Core schedule automation error:", error.response || error);
-        setNotification({
-          type: 'error',
-          message: transformErrorMessage(
-            error.response?.data?.message || `An error occurred during core course schedule automation.`
-          )
-        });
-      })
-      .finally(() => {
-        setIsAutomating(false);
-      });
-  };
 
   // Input handlers
   const handleInputChange = e => {
@@ -625,41 +558,11 @@ const AddConfigSchedule = () => {
     )
   );
 
-  const renderCourseTypeSelection = () => (
-    <div className="mb-3">
-      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Course Type:</label>
-      <div className="flex gap-4">
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="core-course-type"
-            name="core-course-type"
-            checked={courseTypeSelection.core}
-            onChange={(e) => setCourseTypeSelection(prev => ({ ...prev, core: e.target.checked }))}
-            className="mr-2"
-          />
-          <label htmlFor="core-course-type" className="text-xs sm:text-sm text-gray-700">Core</label>
-        </div>
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="professional-course-type"
-            name="professional-course-type"
-            checked={courseTypeSelection.professional}
-            onChange={(e) => setCourseTypeSelection(prev => ({ ...prev, professional: e.target.checked }))}
-            className="mr-2"
-          />
-          <label htmlFor="professional-course-type" className="text-xs sm:text-sm text-gray-700">Professional</label>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderAutomationSection = () => (
     <div className="flex flex-col mt-4 border-t pt-4">
       {/* Lock/Unlock/Delete All buttons section */}
       {formData.room_id && schedules.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
           <div className="flex gap-10">
             <button
               onClick={() => handleToggleLockAllSchedules(true)}
@@ -690,7 +593,6 @@ const AddConfigSchedule = () => {
 
       <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
 
-
       <div className="mb-3">
         <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
         <div className="flex gap-4">
@@ -720,8 +622,6 @@ const AddConfigSchedule = () => {
           </div>
         </div>
       </div>
-
-      {renderCourseTypeSelection()}
 
       {automateType === 'room' && (
         <div className="mb-3">
@@ -973,12 +873,6 @@ const AddConfigSchedule = () => {
         }}
         rooms={rooms}
         assignations={assignations}
-      />
-
-      <CourseModal
-        isOpen={isCourseModalOpen}
-        onClose={handleCourseModalClose}
-        departmentId={deptId}
       />
     </div>
   );

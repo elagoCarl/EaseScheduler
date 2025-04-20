@@ -52,6 +52,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   };
 
   const isAdmin = user?.Roles === 'Admin';
+  const isProgramHead = user?.Roles === 'Program Head';
+  const isAdminOrProgramHead = isAdmin || isProgramHead;
 
   return (
     <div ref={sidebarRef}
@@ -264,6 +266,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
+          {/* Admin-only access to Manage Depts & Programs as per ProtectedRoute */}
           {isAdmin && (
             <button
               className="hover:bg-gray-700 p-2 rounded w-full text-left"
@@ -329,27 +332,30 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             Account Settings
           </button>
 
+          {/* Program Head or Admin can access Create Account as per ProtectedRoute */}
+          {isAdminOrProgramHead && (
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/createAccount');
+                toggleSidebar(false);
+              }}
+            >
+              Create Account
+            </button>
+          )}
+
+          {/* Admin-only access to Account List as per ProtectedRoute */}
           {isAdmin && (
-            <>
-              <button
-                className="hover:bg-gray-700 p-2 rounded w-full text-left"
-                onClick={() => {
-                  navigate('/createAccount');
-                  toggleSidebar(false);
-                }}
-              >
-                Create Account
-              </button>
-              <button
-                className="hover:bg-gray-700 p-2 rounded w-full text-left"
-                onClick={() => {
-                  navigate('/accountList');
-                  toggleSidebar(false);
-                }}
-              >
-                Account List
-              </button>
-            </>
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/accountList');
+                toggleSidebar(false);
+              }}
+            >
+              Account List
+            </button>
           )}
 
           <button
