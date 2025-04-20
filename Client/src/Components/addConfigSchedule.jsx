@@ -8,6 +8,7 @@ import Sidebar from './callComponents/sideBar.jsx';
 import DeleteWarning from './callComponents/deleteWarning.jsx';
 import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
+import CourseModal from './callComponents/courseModal.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
 
@@ -42,28 +43,33 @@ const AddConfigSchedule = () => {
   const [prioritizedRooms, setPrioritizedRooms] = useState([]);
   const [newPriorityProfessor, setNewPriorityProfessor] = useState("");
   const [newPriorityRoom, setNewPriorityRoom] = useState("");
+  const [courseTypeSelection, setCourseTypeSelection] = useState({
+    core: false,
+    professional: false
+  });
+  const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
 
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
   // Helper functions
-  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+  const formatTimeRange = (start, end) => `${ start.slice(0, 5) } - ${ end.slice(0, 5) }`;
 
   const calculateEventPosition = event => {
     const [sH, sM] = event.Start_time.split(':').map(Number);
     const [eH, eM] = event.End_time.split(':').map(Number);
     const duration = (eH - sH) + (eM - sM) / 60;
-    return { top: `${(sM / 60) * 100}%`, height: `${duration * 100}%` };
+    return { top: `${ (sM / 60) * 100 }%`, height: `${ duration * 100 }%` };
   };
 
   const transformErrorMessage = (message) => {
     if (!message) return message;
     let newMessage = message.replace(/Room\s+(\d+)\b/, (match, roomId) => {
       const room = rooms.find(r => r.id.toString() === roomId);
-      return room?.Code ? `Room ${room.Code}` : match;
+      return room?.Code ? `Room ${ room.Code }` : match;
     });
     return newMessage.replace(/on\s+(\d+)\b/, (match, dayNum) => {
       const dayIndex = parseInt(dayNum, 10) - 1;
-      return days[dayIndex] ? `on ${days[dayIndex]}` : match;
+      return days[dayIndex] ? `on ${ days[dayIndex] }` : match;
     });
   };
 
@@ -79,9 +85,9 @@ const AddConfigSchedule = () => {
     const fetchData = async () => {
       try {
         const [roomsRes, assignationsRes, professorsRes] = await Promise.all([
-          axios.get(`/room/getRoomsByDept/${deptId}`),
-          axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`),
-          axios.get(`/prof/getProfByDept/${deptId}`)
+          axios.get(`/room/getRoomsByDept/${ deptId }`),
+          axios.get(`/assignation/getAllAssignationsByDeptInclude/${ deptId }`),
+          axios.get(`/prof/getProfByDept/${ deptId }`)
         ]);
         if (roomsRes.data.successful) setRooms(roomsRes.data.data);
         if (assignationsRes.data.successful) setAssignations(assignationsRes.data.data);
@@ -99,7 +105,7 @@ const AddConfigSchedule = () => {
 
   // API handlers
   const fetchSchedulesForRoom = (roomId) => {
-    axios.get(`/schedule/getSchedsByRoom/${roomId}`)
+    axios.get(`/schedule/getSchedsByRoom/${ roomId }`)
       .then(({ data }) => setSchedules(data.successful ? data.data : []))
       .catch(err => {
         console.error("Error fetching schedules:", err);
@@ -127,7 +133,7 @@ const AddConfigSchedule = () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
-      const response = await axios.delete(`/schedule/deleteSchedule/${scheduleId}`);
+      const response = await axios.delete(`/schedule/deleteSchedule/${ scheduleId }`);
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -182,53 +188,54 @@ const AddConfigSchedule = () => {
         setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
         return;
       }
-  
+
       // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
         // Use prioritized professors if available
+        courseType: courseTypeSelection.professional ? 'professional' : 'all',
         prioritizedProfessor: prioritizedProfessors.length > 0
           ? prioritizedProfessors.map(value => parseInt(value, 10))
           : undefined,
         // Use prioritized rooms if available 
-        prioritizedRoom: prioritizedRooms.length > 0 
+        prioritizedRoom: prioritizedRooms.length > 0
           ? prioritizedRooms.map(value => parseInt(value, 10))
           : undefined
       };
-  
+
       // If automating a single room, include the roomId in the payload
       if (automateType === 'room') {
         payload.roomId = parseInt(formData.room_id, 10);
       }
-  
+
       // Always use the same endpoint
       const endpoint = '/schedule/automateSchedule';
-  
+
       const response = await axios.put(endpoint, payload);
-  
+
       if (response.data.successful) {
         setNotification({
           type: 'success',
-          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
+          message: `Schedule automation ${ automateType === 'room' ? 'for selected room' : 'for all rooms' } completed successfully!`
         });
-        
+
         // Refresh schedules for the current room if one is selected
         if (formData.room_id) {
           fetchSchedulesForRoom(formData.room_id);
         }
       } else {
-        setNotification({ 
-          type: 'error', 
-          message: transformErrorMessage(response.data.message) 
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message)
         });
       }
     } catch (error) {
       console.error("Schedule automation error:", error.response || error);
-      
+
       setNotification({
         type: 'error',
         message: transformErrorMessage(
-          error.response?.data?.message || `An error occurred during ${automateType === 'room' ? 'room' : 'department'} schedule automation.`
+          error.response?.data?.message || `An error occurred during ${ automateType === 'room' ? 'room' : 'department' } schedule automation.`
         )
       });
     } finally {
@@ -236,7 +243,67 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const handleCourseModalClose = (selectedCourses) => {
+    setIsCourseModalOpen(false);
 
+    // If no courses were selected, just return
+    if (!selectedCourses || selectedCourses.length === 0) {
+      return;
+    }
+
+    // Re-trigger automation with the selected core courses
+    setIsAutomating(true);
+
+    // Create the payload with selected courses
+    const payload = {
+      DepartmentId: deptId,
+      courseType: 'core',
+      coreCourses: selectedCourses,
+      prioritizedProfessor: prioritizedProfessors.length > 0
+        ? prioritizedProfessors.map(value => parseInt(value, 10))
+        : undefined,
+      prioritizedRoom: prioritizedRooms.length > 0
+        ? prioritizedRooms.map(value => parseInt(value, 10))
+        : undefined
+    };
+
+    // Add roomId if single room automation
+    if (automateType === 'room') {
+      payload.roomId = parseInt(formData.room_id, 10);
+    }
+
+    // Send the request
+    axios.put('/schedule/automateSchedule', payload)
+      .then(response => {
+        if (response.data.successful) {
+          setNotification({
+            type: 'success',
+            message: `Core course schedule automation completed successfully!`
+          });
+
+          if (formData.room_id) {
+            fetchSchedulesForRoom(formData.room_id);
+          }
+        } else {
+          setNotification({
+            type: 'error',
+            message: transformErrorMessage(response.data.message)
+          });
+        }
+      })
+      .catch(error => {
+        console.error("Core schedule automation error:", error.response || error);
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(
+            error.response?.data?.message || `An error occurred during core course schedule automation.`
+          )
+        });
+      })
+      .finally(() => {
+        setIsAutomating(false);
+      });
+  };
 
   // Input handlers
   const handleInputChange = e => {
@@ -295,9 +362,9 @@ const AddConfigSchedule = () => {
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
     try {
-      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`);
+      const response = await axios.put(`/schedule/toggleLock/${ scheduleId }`);
       if (response.data.successful) {
-        setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
+        setNotification({ type: 'success', message: `Schedule ${ currentLockStatus ? 'unlocked' : 'locked' } successfully!` });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
       } else {
         setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
@@ -339,7 +406,7 @@ const AddConfigSchedule = () => {
       if (response.data.successful) {
         setNotification({
           type: 'success',
-          message: `Successfully ${lockAction ? 'locked' : 'unlocked'} ${targetSchedules.length} schedules.`
+          message: `Successfully ${ lockAction ? 'locked' : 'unlocked' } ${ targetSchedules.length } schedules.`
         });
         // Refresh schedules for the room
         fetchSchedulesForRoom(formData.room_id);
@@ -350,7 +417,7 @@ const AddConfigSchedule = () => {
       setNotification({
         type: 'error',
         message: transformErrorMessage(
-          error.response?.data?.message || `An error occurred while ${lockAction ? 'locking' : 'unlocking'} schedules.`
+          error.response?.data?.message || `An error occurred while ${ lockAction ? 'locking' : 'unlocking' } schedules.`
         )
       });
     }
@@ -359,7 +426,7 @@ const AddConfigSchedule = () => {
   const handleDeleteAllSchedules = async () => {
     try {
       // Instead of getting schedules for a specific room, we'll delete all for the department
-      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${ deptId }`);
 
       if (response.data.successful) {
         setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
@@ -397,7 +464,7 @@ const AddConfigSchedule = () => {
     const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
       ? schedule.ProgYrSecs
         .filter(sec => sec && sec.Program) // Filter out entries with missing data
-        .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
+        .map(sec => `${ sec.Program.Code } ${ sec.Year }-${ sec.Section }`)
         .join(', ')
       : 'No sections';
 
@@ -405,7 +472,7 @@ const AddConfigSchedule = () => {
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${ hovered ? 'z-[9999] scale-110' : 'z-10' }`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -413,7 +480,7 @@ const AddConfigSchedule = () => {
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
         <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+        <div className={`text-xs ${ hovered ? '' : 'truncate' }`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
         <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
         {hovered && (
           <div className="mt-2 text-xs">
@@ -538,16 +605,16 @@ const AddConfigSchedule = () => {
         </div>
         {availableSections.length > 0 && (
           <div className="flex justify-end mt-1">
-            <button 
-              type="button" 
-              onClick={() => setSelectedSections(availableSections.map(s => s.id))} 
+            <button
+              type="button"
+              onClick={() => setSelectedSections(availableSections.map(s => s.id))}
               className="text-xs text-blue-600 hover:text-blue-800 mr-2"
             >
               Select All
             </button>
-            <button 
-              type="button" 
-              onClick={() => setSelectedSections([])} 
+            <button
+              type="button"
+              onClick={() => setSelectedSections([])}
               className="text-xs text-blue-600 hover:text-blue-800"
             >
               Clear All
@@ -558,25 +625,55 @@ const AddConfigSchedule = () => {
     )
   );
 
-const renderAutomationSection = () => (
-  <div className="flex flex-col mt-4 border-t pt-4">
-    {/* Lock/Unlock/Delete All buttons section */}
-    {formData.room_id && schedules.length > 0 && (
-      <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
-        <div className="flex gap-10">
-          <button
-            onClick={() => handleToggleLockAllSchedules(true)}
-            className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-          >
-            Lock All
-          </button>
-          <button
-            onClick={() => handleToggleLockAllSchedules(false)}
-            className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-          >
-            Unlock All
-          </button>
+  const renderCourseTypeSelection = () => (
+    <div className="mb-3">
+      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Course Type:</label>
+      <div className="flex gap-4">
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="core-course-type"
+            name="core-course-type"
+            checked={courseTypeSelection.core}
+            onChange={(e) => setCourseTypeSelection(prev => ({ ...prev, core: e.target.checked }))}
+            className="mr-2"
+          />
+          <label htmlFor="core-course-type" className="text-xs sm:text-sm text-gray-700">Core</label>
         </div>
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="professional-course-type"
+            name="professional-course-type"
+            checked={courseTypeSelection.professional}
+            onChange={(e) => setCourseTypeSelection(prev => ({ ...prev, professional: e.target.checked }))}
+            className="mr-2"
+          />
+          <label htmlFor="professional-course-type" className="text-xs sm:text-sm text-gray-700">Professional</label>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAutomationSection = () => (
+    <div className="flex flex-col mt-4 border-t pt-4">
+      {/* Lock/Unlock/Delete All buttons section */}
+      {formData.room_id && schedules.length > 0 && (
+        <div className="mb-4">
+          <div className="flex gap-10">
+            <button
+              onClick={() => handleToggleLockAllSchedules(true)}
+              className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+            >
+              Lock All
+            </button>
+            <button
+              onClick={() => handleToggleLockAllSchedules(false)}
+              className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+            >
+              Unlock All
+            </button>
+          </div>
 
           <button
             onClick={() => {
@@ -586,12 +683,13 @@ const renderAutomationSection = () => (
             }}
             className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
           >
-                        Delete All Department Schedules
+            Delete All Department Schedules
           </button>
         </div>
       )}
 
       <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
+
 
       <div className="mb-3">
         <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
@@ -622,6 +720,8 @@ const renderAutomationSection = () => (
           </div>
         </div>
       </div>
+
+      {renderCourseTypeSelection()}
 
       {automateType === 'room' && (
         <div className="mb-3">
@@ -657,7 +757,7 @@ const renderAutomationSection = () => (
               const prof = professors.find(p => p.id.toString() === id.toString());
               return (
                 <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                  <span>{prof ? `${prof.Name}` : id}</span>
+                  <span>{prof ? `${ prof.Name }` : id}</span>
                   <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800">Remove</button>
                 </li>
               );
@@ -691,7 +791,7 @@ const renderAutomationSection = () => (
               const room = rooms.find(r => r.id.toString() === id.toString());
               return (
                 <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                  <span>{room ? `${room.Code} - ${room.Building}` : id}</span>
+                  <span>{room ? `${ room.Code } - ${ room.Building }` : id}</span>
                   <button onClick={() => handleRemovePriorityRoom(id)} className="text-red-600 hover:text-red-800">Remove</button>
                 </li>
               );
@@ -703,15 +803,15 @@ const renderAutomationSection = () => (
       <button
         onClick={handleAutomateSchedule}
         disabled={isAutomating || (automateType === 'room' && !formData.room_id)}
-        className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white px-4 py-2 rounded-lg transition-colors`}
+        className={`flex flex-1 justify-center mt-2 ${ automateType === 'room' && !formData.room_id ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700' } text-white px-4 py-2 rounded-lg transition-colors`}
       >
-        {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
+        {isAutomating ? "Automating..." : `Automate ${ automateType === 'room' ? 'Selected Room' : 'All Rooms' }`}
       </button>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundImage: `url(${ bg })`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       </div>
@@ -724,7 +824,7 @@ const renderAutomationSection = () => (
           </div>
 
           {notification && (
-            <div className={`mx-4 my-4 p-3 rounded-lg text-sm font-medium border ${notification.type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
+            <div className={`mx-4 my-4 p-3 rounded-lg text-sm font-medium border ${ notification.type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300' }`}>
               {notification.message}
             </div>
           )}
@@ -826,7 +926,7 @@ const renderAutomationSection = () => (
                         {timeSlots.map(hour => (
                           <tr key={hour} className="hover:bg-gray-50">
                             <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                              {`${hour.toString().padStart(2, '0')}:00`}
+                              {`${ hour.toString().padStart(2, '0') }:00`}
                             </td>
                             {days.map((_, idx) => (
                               <td key={idx} className="p-2 border-b border-gray-200 relative h-24">
@@ -873,6 +973,12 @@ const renderAutomationSection = () => (
         }}
         rooms={rooms}
         assignations={assignations}
+      />
+
+      <CourseModal
+        isOpen={isCourseModalOpen}
+        onClose={handleCourseModalClose}
+        departmentId={deptId}
       />
     </div>
   );
