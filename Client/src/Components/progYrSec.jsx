@@ -15,14 +15,22 @@ const ProgYrSec = () => {
     const [sectionFormData, setSectionFormData] = useState({
         Year: "",
         Section: "",
-        ProgramId: ""
+        ProgramId: "",
+        NumberOfStudents: 0
     });
     const [isSectionEditing, setIsSectionEditing] = useState(false);
     const [sectionEditingId, setSectionEditingId] = useState(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
-    const [activeTab, setActiveTab] = useState("sections"); // For mobile tab switching
+    const [activeTab, setActiveTab] = useState("sections");
     const navigate = useNavigate();
+
+    // New state for delete confirmation
+    const [deleteConfirmation, setDeleteConfirmation] = useState({
+        isOpen: false,
+        sectionId: null,
+        sectionName: ""
+    });
 
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
@@ -49,13 +57,12 @@ const ProgYrSec = () => {
             const response = await axios.get(`/progYrSec/getProgYrSecByDept/${deptId}`);
             if (response.data.successful) {
                 const sectionsData = response.data.data || [];
-                // Map sections to ensure each section has an 'id' property.
                 const mappedSections = sectionsData.map(section => ({
                     ...section,
                     id: section.id || section.ID || section._id || section.ProgYrSecId
                 }));
                 setSections(mappedSections);
-                console.log("Fetched sectionsSSSSSSSSSS:", mappedSections);
+                console.log("Fetched sections:", mappedSections);
             } else {
                 setSections([]);
             }
@@ -64,11 +71,9 @@ const ProgYrSec = () => {
         }
     };
 
-
     const handleSectionChange = (e) => {
         const { name, value } = e.target;
-        // Convert Year to integer when appropriate
-        if (name === "Year") {
+        if (name === "Year" || name === "NumberOfStudents") {
             setSectionFormData({ ...sectionFormData, [name]: value === "" ? "" : parseInt(value) });
         } else {
             setSectionFormData({ ...sectionFormData, [name]: value });
@@ -115,7 +120,8 @@ const ProgYrSec = () => {
         setSectionFormData({
             Year: "",
             Section: "",
-            ProgramId: ""
+            ProgramId: "",
+            NumberOfStudents: 0
         });
         setIsSectionEditing(false);
         setSectionEditingId(null);
@@ -126,10 +132,10 @@ const ProgYrSec = () => {
             Year: section.Year,
             Section: section.Section,
             ProgramId: section.ProgramId,
+            NumberOfStudents: section.NumberOfStudents || 0,
         });
         setIsSectionEditing(true);
         setSectionEditingId(section.id);
-        // On mobile, switch to form view when editing
         if (window.innerWidth < 768) {
             setActiveTab("sections-form");
         }
@@ -139,21 +145,43 @@ const ProgYrSec = () => {
         resetSectionForm();
     };
 
-    const handleSectionDelete = async (id) => {
-        if (window.confirm("Are you sure you want to delete this section?")) {
-            try {
-                const response = await axios.delete(`/progYrSec/deleteProgYrSec/${id}`);
-                setMessage({
-                    type: "success",
-                    text: response.data.message || "Section deleted successfully.",
-                });
-                fetchSections();
-            } catch (error) {
-                setMessage({
-                    type: "error",
-                    text: error.response?.data?.message || "Failed to delete section.",
-                });
-            }
+    // Modified to open confirmation dialog instead of using window.confirm
+    const openDeleteConfirmation = (section) => {
+        const programName = getProgramName(section.ProgramId);
+        const sectionName = `${programName} - Year ${section.Year} Section ${section.Section}`;
+
+        setDeleteConfirmation({
+            isOpen: true,
+            sectionId: section.id,
+            sectionName: sectionName
+        });
+    };
+
+    // Close the confirmation dialog
+    const closeDeleteConfirmation = () => {
+        setDeleteConfirmation({
+            isOpen: false,
+            sectionId: null,
+            sectionName: ""
+        });
+    };
+
+    // Actually perform the deletion when confirmed
+    const confirmSectionDelete = async () => {
+        try {
+            const response = await axios.delete(`/progYrSec/deleteProgYrSec/${deleteConfirmation.sectionId}`);
+            setMessage({
+                type: "success",
+                text: response.data.message || "Section deleted successfully.",
+            });
+            fetchSections();
+        } catch (error) {
+            setMessage({
+                type: "error",
+                text: error.response?.data?.message || "Failed to delete section.",
+            });
+        } finally {
+            closeDeleteConfirmation();
         }
     };
 
@@ -250,6 +278,20 @@ const ProgYrSec = () => {
                                             required
                                         />
                                     </div>
+                                    <div className="mb-4">
+                                        <label htmlFor="numberOfStudents" className="block font-medium text-gray-700 mb-2">Number of Students</label>
+                                        <input
+                                            id="numberOfStudents"
+                                            name="NumberOfStudents"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Enter number of students"
+                                            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                            value={sectionFormData.NumberOfStudents}
+                                            onChange={handleSectionChange}
+                                            required
+                                        />
+                                    </div>
                                     <div className="flex justify-end mt-6 space-x-3">
                                         {isSectionEditing && (
                                             <button
@@ -287,6 +329,7 @@ const ProgYrSec = () => {
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Program</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Year</th>
                                                         <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                                                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Students</th>
                                                         <th className="px-2 sm:px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -298,6 +341,7 @@ const ProgYrSec = () => {
                                                             </td>
                                                             <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.Year}</td>
                                                             <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.Section}</td>
+                                                            <td className="px-2 sm:px-4 py-2 text-sm text-gray-600">{section.NumberOfStudents || 0}</td>
                                                             <td className="px-2 sm:px-4 py-2 text-sm text-center">
                                                                 <button
                                                                     className="inline-block px-2 sm:px-3 py-1 bg-blue-100 text-blue-700 rounded mr-1 sm:mr-2 hover:bg-blue-200"
@@ -307,7 +351,7 @@ const ProgYrSec = () => {
                                                                 </button>
                                                                 <button
                                                                     className="inline-block px-2 sm:px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
-                                                                    onClick={() => handleSectionDelete(section.id)}
+                                                                    onClick={() => openDeleteConfirmation(section)}
                                                                 >
                                                                     Delete
                                                                 </button>
@@ -324,6 +368,33 @@ const ProgYrSec = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmation.isOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-lg font-bold mb-4">Confirm Deletion</h3>
+                        <p className="mb-6 text-gray-700">
+                            Are you sure you want to delete <span className="font-semibold">{deleteConfirmation.sectionName}</span>?
+                            This action cannot be undone.
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={closeDeleteConfirmation}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmSectionDelete}
+                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

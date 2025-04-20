@@ -80,7 +80,7 @@ const HomePage = () => {
   const handleLogout = async () => {
     try {
       // Using regular axios with BASE_URL directly to bypass the refresh interceptor
-      const response = await axios.post(`${ BASE_URL }/accounts/logoutAccount`, {}, {
+      const response = await axios.post(`${BASE_URL}/accounts/logoutAccount`, {}, {
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json'
@@ -101,7 +101,7 @@ const HomePage = () => {
 
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
-      style={{ backgroundImage: `url(${ image5 })` }}>
+      style={{ backgroundImage: `url(${image5})` }}>
       <div className="absolute top-15 right-15 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"
@@ -177,7 +177,10 @@ const HomePage = () => {
         <div className="mb-8 text-center">
           <h2 className="text-white text-2xl md:text-3xl font-bold mb-1">Welcome, {user?.Name || 'User'}!</h2>
           <p className="text-white text-md md:text-lg opacity-90">{user?.Email || 'user@example.com'}</p>
-          <p className="text-white text-md md:text-lg">{user?.Department?.Name || 'Department'}</p>
+          <p className="text-white text-md md:text-lg">
+            {user?.Department?.Name ? `${user.Department.Name} Department` : 'Department'}
+          </p>
+
         </div>
 
         <div className='w-fit m-auto'>
@@ -231,7 +234,7 @@ const HomePage = () => {
 
               {/* Modal */}
               {isModalOpen && (
-                <div className={`absolute top-1/2 left-1/2 text-xl transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${ fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95' }`}>
+                <div className={`absolute top-1/2 left-1/2 text-xl transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-8 w-fit z-10 shadow-xl flex flex-col items-center justify-center transition-all duration-300 ${fadeIn ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
                   <button
                     ref={modalRef}
                     className="absolute top-0 right-0 text-xl font-bold text-red-500 hover:text-red-700 cursor-pointer duration-300"

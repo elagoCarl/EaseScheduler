@@ -28,13 +28,22 @@ const ProtectedRoute = ({ children }) => {
     // Normalize the pathname to avoid issues with trailing slashes or casing
     const normalizedPath = location.pathname.replace(/\/$/, '').toLowerCase();
 
-    // Admin-only route check for /createAccount
-    const restrictedPaths = ['/createaccount', '/accountlist', '/deptprog'];
+    // Routes accessible by Program Head and Admin
+    const programHeadAndAdminPaths = ['/createaccount'];
 
-    if (restrictedPaths.includes(normalizedPath) && user.Roles !== 'Admin') {
+    // Routes accessible only by Admin
+    const adminOnlyPaths = ['/accountlist', '/deptprog'];
+
+    // Check for Program Head and Admin routes
+    if (programHeadAndAdminPaths.includes(normalizedPath) &&
+        user.Roles !== 'Admin' && user.Roles !== 'Program Head') {
         return <Navigate to="/403" state={{ from: location }} />;
     }
 
+    // Check for Admin-only routes
+    if (adminOnlyPaths.includes(normalizedPath) && user.Roles !== 'Admin') {
+        return <Navigate to="/403" state={{ from: location }} />;
+    }
 
     // If the user is logged in and verified, render the child component(s)
     return children;
