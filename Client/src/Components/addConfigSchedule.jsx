@@ -10,6 +10,7 @@ import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
+import AssignationsWithNullYearModal from './callComponents/addAutoSection.jsx';
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
@@ -42,8 +43,12 @@ const AddConfigSchedule = () => {
   const [prioritizedRooms, setPrioritizedRooms] = useState([]);
   const [newPriorityProfessor, setNewPriorityProfessor] = useState("");
   const [newPriorityRoom, setNewPriorityRoom] = useState("");
-
+  const [isCoreSelected, setIsCoreSelected] = useState(false);
+  const [isProfessionalSelected, setIsProfessionalSelected] = useState(false);
+  const [isNullYearModalOpen, setIsNullYearModalOpen] = useState(false);
+  const [nullYearAssignationIds, setNullYearAssignationIds] = useState([]);
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
+
 
   // Helper functions
   const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
@@ -174,15 +179,33 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const handleCoreChange = (e) => {
+    setIsCoreSelected(e.target.checked);
+  };
+
+  const handleProfessionalChange = (e) => {
+    setIsProfessionalSelected(e.target.checked);
+  };
+
   const handleAutomateSchedule = async () => {
     setIsAutomating(true);
     try {
+      const nullYearAssignations = assignations.filter(a => a.Course?.Year === null);
+
+      if (nullYearAssignations.length > 0) {
+        // Ask user if they want to assign sections first
+        if (window.confirm("There are courses without assigned years. Would you like to assign sections to them first?")) {
+          setIsAutomating(false);
+          findAssignationsWithNullYear();
+          return;
+        }
+      }
       // First, validate that a room is selected when automating a single room
       if (automateType === 'room' && !formData.room_id) {
         setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
         return;
       }
-  
+
       // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
@@ -191,40 +214,40 @@ const AddConfigSchedule = () => {
           ? prioritizedProfessors.map(value => parseInt(value, 10))
           : undefined,
         // Use prioritized rooms if available 
-        prioritizedRoom: prioritizedRooms.length > 0 
+        prioritizedRoom: prioritizedRooms.length > 0
           ? prioritizedRooms.map(value => parseInt(value, 10))
           : undefined
       };
-  
+
       // If automating a single room, include the roomId in the payload
       if (automateType === 'room') {
         payload.roomId = parseInt(formData.room_id, 10);
       }
-  
+
       // Always use the same endpoint
       const endpoint = '/schedule/automateSchedule';
-  
+
       const response = await axios.put(endpoint, payload);
-  
+
       if (response.data.successful) {
         setNotification({
           type: 'success',
           message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
         });
-        
+
         // Refresh schedules for the current room if one is selected
         if (formData.room_id) {
           fetchSchedulesForRoom(formData.room_id);
         }
       } else {
-        setNotification({ 
-          type: 'error', 
-          message: transformErrorMessage(response.data.message) 
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message)
         });
       }
     } catch (error) {
       console.error("Schedule automation error:", error.response || error);
-      
+
       setNotification({
         type: 'error',
         message: transformErrorMessage(
@@ -236,7 +259,38 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const findAssignationsWithNullYear = () => {
+    const ids = assignations
+      .filter(a => a.Course?.Year === null)
+      .map(a => a.id);
 
+    if (ids.length > 0) {
+      setNullYearAssignationIds(ids);
+      setIsNullYearModalOpen(true);
+    } else {
+      setNotification({ type: 'info', message: "No assignations with null year found." });
+    }
+  };
+
+  const handleNullYearSectionSelect = (assignationId, sectionIds) => {
+    // Set the assignation in the form
+    setFormData(prev => ({ ...prev, assignation_id: assignationId.toString() }));
+
+    // Set the selected sections
+    setSelectedSections(sectionIds);
+
+    // Get the assignation details to fetch related sections
+    const selectedAssignation = assignations.find(a => a.id === parseInt(assignationId));
+    if (selectedAssignation?.CourseId) {
+      fetchSectionsForCourse(selectedAssignation.CourseId);
+    }
+    
+    // Show success notification
+    setNotification({
+      type: 'success',
+      message: "Sections selected successfully. You can now add a schedule or automate."
+    });
+  };
 
   // Input handlers
   const handleInputChange = e => {
@@ -538,16 +592,16 @@ const AddConfigSchedule = () => {
         </div>
         {availableSections.length > 0 && (
           <div className="flex justify-end mt-1">
-            <button 
-              type="button" 
-              onClick={() => setSelectedSections(availableSections.map(s => s.id))} 
+            <button
+              type="button"
+              onClick={() => setSelectedSections(availableSections.map(s => s.id))}
               className="text-xs text-blue-600 hover:text-blue-800 mr-2"
             >
               Select All
             </button>
-            <button 
-              type="button" 
-              onClick={() => setSelectedSections([])} 
+            <button
+              type="button"
+              onClick={() => setSelectedSections([])}
               className="text-xs text-blue-600 hover:text-blue-800"
             >
               Clear All
@@ -558,25 +612,25 @@ const AddConfigSchedule = () => {
     )
   );
 
-const renderAutomationSection = () => (
-  <div className="flex flex-col mt-4 border-t pt-4">
-    {/* Lock/Unlock/Delete All buttons section */}
-    {formData.room_id && schedules.length > 0 && (
-      <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
-        <div className="flex gap-10">
-          <button
-            onClick={() => handleToggleLockAllSchedules(true)}
-            className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-          >
-            Lock All
-          </button>
-          <button
-            onClick={() => handleToggleLockAllSchedules(false)}
-            className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-          >
-            Unlock All
-          </button>
-        </div>
+  const renderAutomationSection = () => (
+    <div className="flex flex-col mt-4 border-t pt-4">
+      {/* Lock/Unlock/Delete All buttons section */}
+      {formData.room_id && schedules.length > 0 && (
+        <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
+          <div className="flex gap-10">
+            <button
+              onClick={() => handleToggleLockAllSchedules(true)}
+              className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+            >
+              Lock All
+            </button>
+            <button
+              onClick={() => handleToggleLockAllSchedules(false)}
+              className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+            >
+              Unlock All
+            </button>
+          </div>
 
           <button
             onClick={() => {
@@ -586,13 +640,41 @@ const renderAutomationSection = () => (
             }}
             className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
           >
-                        Delete All Department Schedules
+            Delete All Department Schedules
           </button>
         </div>
       )}
 
       <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
-
+      <div className="mb-3">
+        <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Course Types:</label>
+        <div className="flex gap-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="core-course"
+              name="course-type"
+              value="core"
+              checked={isCoreSelected}
+              onChange={handleCoreChange}
+              className="mr-2"
+            />
+            <label htmlFor="core-course" className="text-xs sm:text-sm text-gray-700">Core</label>
+          </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="professional-course"
+              name="course-type"
+              value="professional"
+              checked={isProfessionalSelected}
+              onChange={handleProfessionalChange}
+              className="mr-2"
+            />
+            <label htmlFor="professional-course" className="text-xs sm:text-sm text-gray-700">Professional</label>
+          </div>
+        </div>
+      </div>
       <div className="mb-3">
         <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
         <div className="flex gap-4">
@@ -699,6 +781,13 @@ const renderAutomationSection = () => (
           </ul>
         )}
       </div>
+
+      <button
+        onClick={findAssignationsWithNullYear}
+        className="flex w-full justify-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 mb-4 text-xs sm:text-sm rounded-lg transition-colors"
+      >
+        Assign Sections to Courses Without Year
+      </button>
 
       <button
         onClick={handleAutomateSchedule}
@@ -856,6 +945,13 @@ const renderAutomationSection = () => (
           setIsDeleteWarningOpen(false);
           setSelectedScheduleId(null);
         }}
+      />
+      <AssignationsWithNullYearModal
+        isOpen={isNullYearModalOpen}
+        onClose={() => setIsNullYearModalOpen(false)}
+        assignationIds={nullYearAssignationIds}
+        deptId={deptId}
+        onSelectSections={handleNullYearSectionSelect}
       />
 
       <EditSchedRecordModal

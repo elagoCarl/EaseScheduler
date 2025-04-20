@@ -510,6 +510,7 @@ const getCoursesByDept = async (req, res, next) => {
           { "$CourseDepts.id$": deptId }
         ]
       },
+      order: [['Year', 'ASC'], ['Code', 'DESC']],
       include: {
         model: Department,
         as: "CourseDepts",

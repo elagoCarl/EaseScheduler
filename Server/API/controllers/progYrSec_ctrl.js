@@ -333,7 +333,8 @@ const getProgYrSecByDept = async (req, res, next) => {
                     attributes: ['id', 'Code'],
                     where: { DepartmentId: req.params.id }
                 }
-            ]
+            ],
+            order: [['Year', 'ASC'],['Section', 'ASC']]
         });
 
         if (!pys || pys.length === 0) {

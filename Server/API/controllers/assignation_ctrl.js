@@ -400,7 +400,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
         const assignations = await Assignation.findAll({
             where: { DepartmentId: departmentId },
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
+                { model: Course, attributes: ['Code', 'Description', 'Units', 'Year'] },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
                 { model: Department, attributes: ['Name'] },
             ],

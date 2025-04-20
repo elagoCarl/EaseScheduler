@@ -17,6 +17,11 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
     const [courses, setCourses] = useState([]);
     const [professors, setProfessors] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // New state variables for searchable course dropdown
+    const [courseSearch, setCourseSearch] = useState("");
+    const [showCourseDropdown, setShowCourseDropdown] = useState(false);
+    const [selectedCourseName, setSelectedCourseName] = useState("");
 
     // Fetch necessary data when the modal is opened
     useEffect(() => {
@@ -26,7 +31,6 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                     // Fetch courses by department ID instead of all courses
                     const coursesResponse = await axios.get(`course/getCoursesByDept/${user.DepartmentId}`)
                     if (coursesResponse.status === 200) {
-
                         setCourses(coursesResponse.data.data);
                     } else {
                         setErrorMessage(coursesResponse.data.message || "Failed to fetch courses.");
@@ -66,8 +70,23 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             });
             setErrorMessage("");
             setSuccessMessage("");
+            setCourseSearch("");
+            setSelectedCourseName("");
         }
     }, [isOpen, user.DepartmentId]);
+
+    // Close course dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            const courseDropdown = document.getElementById("course-dropdown-container");
+            if (courseDropdown && !courseDropdown.contains(event.target)) {
+                setShowCourseDropdown(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     if (!isOpen) return null; // Prevent rendering if the modal is not open
 
@@ -78,6 +97,29 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             [name]: value,
         });
     };
+
+    // Handle course search input change
+    const handleCourseSearchChange = (e) => {
+        setCourseSearch(e.target.value);
+        setShowCourseDropdown(true);
+    };
+
+    // Select a course from the dropdown
+    const handleCourseSelect = (course) => {
+        setFormData({
+            ...formData,
+            CourseId: course.id.toString(),
+        });
+        setSelectedCourseName(`${course.Code} - ${course.Description} (${course.Units} units)`);
+        setCourseSearch("");
+        setShowCourseDropdown(false);
+    };
+
+    // Filter courses based on search input
+    const filteredCourses = courses.filter(course => 
+        course.Code.toLowerCase().includes(courseSearch.toLowerCase()) || 
+        course.Description.toLowerCase().includes(courseSearch.toLowerCase())
+    );
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -208,25 +250,58 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                             </select>
                         </div>
 
-                        <div>
+                        <div id="course-dropdown-container" className="relative">
                             <label className="block font-semibold text-white">Course</label>
-                            <select
-                                name="CourseId"
-                                className="w-full p-3 border rounded bg-customWhite"
-                                value={formData.CourseId}
-                                onChange={handleInputChange}
-                                required
-                                disabled={isSubmitting}
-                            >
-                                <option value="" disabled>
-                                    Select Course
-                                </option>
-                                {courses.map((course) => (
-                                    <option key={course.id} value={course.id}>
-                                        {course.Code} - {course.Description} ({course.Units} units)
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="flex flex-col">
+                                <input
+                                    type="text"
+                                    placeholder="Search for a course..."
+                                    className="w-full p-3 border rounded bg-customWhite"
+                                    value={courseSearch}
+                                    onChange={handleCourseSearchChange}
+                                    onFocus={() => setShowCourseDropdown(true)}
+                                    disabled={isSubmitting}
+                                />
+                                {selectedCourseName && (
+                                    <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
+                                        <span>{selectedCourseName}</span>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => {
+                                                setSelectedCourseName("");
+                                                setFormData({...formData, CourseId: ""});
+                                            }}
+                                            className="text-white hover:text-gray-300"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                )}
+                                
+                                {showCourseDropdown && (
+                                    <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
+                                        {filteredCourses.length > 0 ? (
+                                            filteredCourses.map(course => (
+                                                <div
+                                                    key={course.id}
+                                                    className="p-2 hover:bg-gray-100 cursor-pointer"
+                                                    onClick={() => handleCourseSelect(course)}
+                                                >
+                                                    {course.Code} - {course.Description} ({course.Units} units)
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-2 text-gray-500">No courses found</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <input 
+                                type="hidden" 
+                                name="CourseId" 
+                                value={formData.CourseId} 
+                                required 
+                            />
                         </div>
 
                         <div>
