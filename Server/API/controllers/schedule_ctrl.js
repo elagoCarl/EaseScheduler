@@ -245,7 +245,9 @@ const isSchedulePossible = async (
         prioritizedProfessor,
         prioritizedRoom,
         prioritizedSections,
-        roomId
+        roomId,
+        courseType, // New parameter: 'Core' or 'Professional'
+        selectedSections // New parameter: array of progYrSec IDs selected for core courses
       } = req.body;
   
       if (!DepartmentId) {
@@ -267,9 +269,16 @@ const isSchedulePossible = async (
           ? prioritizedRoom
           : [prioritizedRoom];
       }
-      if (prioritizedSections && prioritizedSections.length) {
+      
+      // For Core courses, use the selectedSections as prioritizedSections
+      if (courseType === 'Core' && selectedSections && selectedSections.length) {
+        priorities.sections = selectedSections;
+      } 
+      // For normal operation, use the prioritizedSections parameter
+      else if (prioritizedSections && prioritizedSections.length) {
         priorities.sections = prioritizedSections;
       }
+      
       // If we're forcing a specific room, drop any prioritizedRoom filter
       if (roomId) {
         delete priorities.room;
@@ -295,7 +304,23 @@ const isSchedulePossible = async (
           message: "Department not found."
         });
       }
-      const assignations = department.Assignations;
+      
+      // Filter assignations based on courseType
+      let assignations = department.Assignations;
+      if (courseType === 'Core') {
+        assignations = assignations.filter(a => a.Course && a.Course.Type === 'Core');
+      } else if (courseType === 'Professional') {
+        assignations = assignations.filter(a => a.Course && a.Course.Type === 'Professional');
+      }
+      
+      // If no assignations match the filter, return early
+      if (assignations.length === 0) {
+        return res.status(400).json({
+          successful: false,
+          message: `No ${courseType || 'matching'} courses found in this department.`
+        });
+      }
+      
       let rooms = department.DeptRooms;
       if (roomId) {
         rooms = rooms.filter(r => r.id === roomId);
@@ -316,8 +341,7 @@ const isSchedulePossible = async (
         });
       }
   
-      // 5) FIXED: Delete all unlocked schedules for this department first
-      // Get all assignations for this department
+      // 5) Delete all unlocked schedules for this department and course type first
       const assignationIds = assignations.map(a => a.id);
       
       // Define the where clause for deletion
@@ -329,17 +353,17 @@ const isSchedulePossible = async (
       const schedulesToDelete = await Schedule.findAll({
         where: whereClause,
         include: [{ model: ProgYrSec }]
-    });
+      });
     
-    // For each schedule, remove associations before deleting
-    for (const schedule of schedulesToDelete) {
+      // For each schedule, remove associations before deleting
+      for (const schedule of schedulesToDelete) {
         // Remove all associations with ProgYrSec
         await schedule.setProgYrSecs([]);
-    }
-    
-    // Now delete the schedules
-    const deletedCount = await Schedule.destroy({ where: whereClause });
-    console.log(`Deleted ${deletedCount} unlocked schedules`);
+      }
+      
+      // Now delete the schedules
+      const deletedCount = await Schedule.destroy({ where: whereClause });
+      console.log(`Deleted ${deletedCount} unlocked schedules`);
   
       // Now fetch all remaining schedules (should only be locked ones)
       const existingSchedules = await Schedule.findAll({
@@ -370,7 +394,16 @@ const isSchedulePossible = async (
           }
         }
       }
-      const allSecs = await ProgYrSec.findAll();
+      
+      // For Core type, only load the selected sections
+      let sectionsToLoad;
+      if (courseType === 'Core' && selectedSections && selectedSections.length) {
+        sectionsToLoad = { id: { [Op.in]: selectedSections } };
+      } else {
+        sectionsToLoad = {}; // Load all sections
+      }
+      
+      const allSecs = await ProgYrSec.findAll({ where: sectionsToLoad });
       for (const sec of allSecs) {
         progYrSecSchedules[sec.id] = {};
         for (let d = 1; d <= 6; d++) {
@@ -426,7 +459,9 @@ const isSchedulePossible = async (
         settings,
         priorities,
         failedAssignations,
-        roomId
+        roomId,
+        courseType, // Pass the courseType to backtrackSchedule
+        selectedSections // Pass the selected sections for core courses
       );
   
       // 10) Build final schedule report for response
@@ -457,11 +492,11 @@ const isSchedulePossible = async (
       // 11) Form response message
       let message;
       if (roomId) {
-        message = `Schedule automation completed for ${rooms[0].Code}. Scheduled ${report.length} assignations.`;
+        message = `${courseType || 'All courses'} schedule automation completed for ${rooms[0].Code}. Scheduled ${report.length} assignations.`;
       } else if (Object.keys(priorities).length) {
-        message = `Schedule automation completed with prioritization. Scheduled ${report.length} out of ${unscheduledAssignations.length} assignations.`;
+        message = `${courseType || 'All courses'} schedule automation completed with prioritization. Scheduled ${report.length} out of ${unscheduledAssignations.length} assignations.`;
       } else {
-        message = `Schedule automation completed. Scheduled ${report.length} out of ${unscheduledAssignations.length} assignations.`;
+        message = `${courseType || 'All courses'} schedule automation completed. Scheduled ${report.length} out of ${unscheduledAssignations.length} assignations.`;
       }
   
       return res.status(200).json({
@@ -473,7 +508,8 @@ const isSchedulePossible = async (
         fullScheduleReport: fullReport,
         failedAssignations,
         prioritiesApplied: Object.keys(priorities).length ? priorities : null,
-        roomSpecific: Boolean(roomId)
+        roomSpecific: Boolean(roomId),
+        courseTypeFilter: courseType || 'All'
       });
   
     } catch (error) {
@@ -484,9 +520,6 @@ const isSchedulePossible = async (
       });
     }
   };
-  
-  
-  // Modify the backtrackSchedule function to filter valid sections by department
   
   const backtrackSchedule = async (
     assignations,
@@ -502,7 +535,9 @@ const isSchedulePossible = async (
     settings,
     priorities,
     failedAssignations,
-    roomId // New parameter
+    roomId,
+    courseType, // New parameter
+    selectedSections // New parameter for core courses
   ) => {
     // Base case: all assignations are scheduled
     if (index === assignations.length) return true;
@@ -528,12 +563,22 @@ const isSchedulePossible = async (
         
         // Determine valid sections for the course, filtered by department
         if (courseParam.Type === "Core") {
-            validProgYrSecs = await ProgYrSec.findAll({ 
-                where: { 
-                    Year: courseParam.Year,
-                    ProgramId: { [Op.in]: validProgramIds } // Filter by valid programs in the department
-                }
-            });
+            // For Core courses, if specific sections are selected, use only those
+            if (courseType === 'Core' && selectedSections && selectedSections.length) {
+                validProgYrSecs = await ProgYrSec.findAll({ 
+                    where: { 
+                        id: { [Op.in]: selectedSections },
+                        ProgramId: { [Op.in]: validProgramIds } // Still ensure they're in department
+                    }
+                });
+            } else {
+                // Default behavior for Core courses - all sections in the department
+                validProgYrSecs = await ProgYrSec.findAll({ 
+                    where: { 
+                        ProgramId: { [Op.in]: validProgramIds }
+                    }
+                });
+            }
         } else if (courseParam.Type === "Professional") {
             const courseWithPrograms = await Course.findOne({
                 where: { id: courseParam.id },
@@ -564,7 +609,8 @@ const isSchedulePossible = async (
             });
             return await backtrackSchedule(
                 assignations, rooms, professorSchedule, courseSchedules, progYrSecSchedules, roomSchedules,
-                index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId
+                index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId,
+                courseType, selectedSections
             );
         }
   
@@ -582,7 +628,8 @@ const isSchedulePossible = async (
                 });
                 return await backtrackSchedule(
                     assignations, rooms, professorSchedule, courseSchedules, progYrSecSchedules, roomSchedules,
-                    index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId
+                    index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId,
+                    courseType, selectedSections
                 );
             }
         }
@@ -670,14 +717,16 @@ const isSchedulePossible = async (
                                 return await backtrackSchedule(
                                     assignations, rooms, professorSchedule, courseSchedules,
                                     progYrSecSchedules, roomSchedules, index + 1, report,
-                                    startHour, endHour, settings, priorities, failedAssignations, roomId
+                                    startHour, endHour, settings, priorities, failedAssignations, roomId,
+                                    courseType, selectedSections
                                 );
                             }
   
                             if (await backtrackSchedule(
                                 assignations, rooms, professorSchedule, courseSchedules,
                                 progYrSecSchedules, roomSchedules, index + 1, report,
-                                startHour, endHour, settings, priorities, failedAssignations, roomId
+                                startHour, endHour, settings, priorities, failedAssignations, roomId,
+                                courseType, selectedSections
                             )) {
                                 return true;
                             }
@@ -719,7 +768,8 @@ const isSchedulePossible = async (
   
         return await backtrackSchedule(
             assignations, rooms, professorSchedule, courseSchedules, progYrSecSchedules, roomSchedules,
-            index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId
+            index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId,
+            courseType, selectedSections
         );
   
     } catch (error) {
@@ -732,7 +782,8 @@ const isSchedulePossible = async (
         });
         return await backtrackSchedule(
             assignations, rooms, professorSchedule, courseSchedules, progYrSecSchedules, roomSchedules,
-            index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId
+            index + 1, report, startHour, endHour, settings, priorities, failedAssignations, roomId,
+            courseType, selectedSections
         );
     }
   };
