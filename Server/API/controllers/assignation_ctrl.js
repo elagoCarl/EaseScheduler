@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -8,6 +8,7 @@ const util = require('../../utils');
 const isExceedingUnitLimit = (Max_units, newTotalUnits) => {
     return newTotalUnits > (Max_units || 0);
 }
+
 const addAssignation = async (req, res, next) => {
     try {
         let assignations = req.body;
@@ -19,10 +20,10 @@ const addAssignation = async (req, res, next) => {
         let createdAssignations = [];
 
         for (let assignation of assignations) {
-            const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = assignation;
+            const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = assignation;
 
-            // Check mandatory fields
-            if (!util.checkMandatoryFields([School_Year, Semester, CourseId, ProfessorId, DepartmentId])) {
+            // Check mandatory fields - note ProfessorId can be null based on the model
+            if (!util.checkMandatoryFields([School_Year, Semester, CourseId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
@@ -35,21 +36,38 @@ const addAssignation = async (req, res, next) => {
                 return res.status(404).json({ successful: false, message: "Course not found." });
             }
 
-            // Validate Professor
-            const professor = await Professor.findByPk(ProfessorId);
-            if (!professor) {
-                return res.status(404).json({ successful: false, message: "Professor not found." });
-            }
-
             // Validate Department
             const department = await Department.findByPk(DepartmentId);
             if (!department) {
                 return res.status(404).json({ successful: false, message: "Department not found." });
             }
 
+            // Validate Professor if provided
+            let professor = null;
+            if (ProfessorId) {
+                professor = await Professor.findByPk(ProfessorId);
+                if (!professor) {
+                    return res.status(404).json({ successful: false, message: "Professor not found." });
+                }
+            }
+
+            // Validate RoomType if provided
+            if (RoomTypeId) {
+                const roomType = await RoomType.findByPk(RoomTypeId);
+                if (!roomType) {
+                    return res.status(404).json({ successful: false, message: "Room type not found." });
+                }
+            }
+
             // Check for duplicate assignation based on schedule
             const existingAssignation = await Assignation.findOne({
-                where: { School_Year, Semester, CourseId, ProfessorId, DepartmentId },
+                where: {
+                    School_Year,
+                    Semester,
+                    CourseId,
+                    DepartmentId,
+                    ProfessorId: ProfessorId || null
+                },
             });
 
             if (existingAssignation) {
@@ -59,35 +77,49 @@ const addAssignation = async (req, res, next) => {
                 });
             }
 
-            // Get professor's status to check unit limits
-            const status = await ProfStatus.findByPk(professor.ProfStatusId);
-            if (!status) {
-                return res.status(404).json({ successful: false, message: "Professor status not found." });
+            // If professor is provided, check unit limits
+            if (professor) {
+                // Get professor's status to check unit limits
+                const status = await ProfStatus.findByPk(professor.ProfStatusId);
+                if (!status) {
+                    return res.status(404).json({ successful: false, message: "Professor status not found." });
+                }
+
+                // Calculate new total units
+                const unitsToAdd = course.Units;
+                const newTotalUnits = professor.Total_units + unitsToAdd;
+
+                // Check that the total new units will not exceed the limit
+                if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
+                    });
+                }
+
+                // Update professor's Total_units with the new calculated value
+                await professor.update({ Total_units: newTotalUnits });
             }
-
-            // Calculate new total units
-            const unitsToAdd = course.Units;
-            const newTotalUnits = professor.Total_units + unitsToAdd;
-
-            // Check that the total new units will not exceed the limit
-            if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
-                });
-            }
-
-            // Update professor's Total_units with the new calculated value
-            await professor.update({ Total_units: newTotalUnits });
 
             // Create Assignation
-            const newAssignation = await Assignation.create({
+            const assignationData = {
                 School_Year,
                 Semester,
                 CourseId,
-                ProfessorId,
                 DepartmentId,
-            });
+            };
+
+            // Add ProfessorId if it was provided
+            if (ProfessorId) {
+                assignationData.ProfessorId = ProfessorId;
+            }
+
+            // Add RoomTypeId if it was provided
+            if (RoomTypeId) {
+                assignationData.RoomTypeId = RoomTypeId;
+            }
+
+            const newAssignation = await Assignation.create(assignationData);
 
             createdAssignations.push(newAssignation);
         }
@@ -117,7 +149,7 @@ const addAssignation = async (req, res, next) => {
         }
         const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Assignation';
-        const details = `Added Assignations: ${createdAssignations.map(assignation => assignation.id).join(', ')}`;
+        const details = `Added Assignation ID(s): ${createdAssignations.map(a => a.id).join(', ')}`;
         await addHistoryLog(accountId, page, details);
         return res.status(201).json({
             successful: true,
@@ -151,10 +183,10 @@ const addAssignation = async (req, res, next) => {
 const updateAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = req.body;
+        const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = req.body;
 
-        // Check mandatory fields
-        if (!util.checkMandatoryFields([School_Year, Semester, CourseId, ProfessorId, DepartmentId])) {
+        // Check mandatory fields - ProfessorId can be null based on the model
+        if (!util.checkMandatoryFields([School_Year, Semester, CourseId, DepartmentId])) {
             return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
         }
 
@@ -164,17 +196,31 @@ const updateAssignation = async (req, res, next) => {
             return res.status(404).json({ successful: false, message: "Assignation not found." });
         }
 
-        const oldA = assignation
+        const oldA = assignation;
 
         // Validate related models
         const course = await Course.findByPk(CourseId);
         if (!course) return res.status(404).json({ successful: false, message: "Course not found." });
 
-        const professor = await Professor.findByPk(ProfessorId);
-        if (!professor) return res.status(404).json({ successful: false, message: "Professor not found." });
-
         const department = await Department.findByPk(DepartmentId);
         if (!department) return res.status(404).json({ successful: false, message: "Department not found." });
+
+        // Validate RoomType if provided
+        if (RoomTypeId) {
+            const roomType = await RoomType.findByPk(RoomTypeId);
+            if (!roomType) {
+                return res.status(404).json({ successful: false, message: "Room type not found." });
+            }
+        }
+
+        // Validate Professor if provided
+        let professor = null;
+        if (ProfessorId) {
+            professor = await Professor.findByPk(ProfessorId);
+            if (!professor) {
+                return res.status(404).json({ successful: false, message: "Professor not found." });
+            }
+        }
 
         // Check if the assignation already exists
         const existingAssignation = await Assignation.findOne({
@@ -182,7 +228,8 @@ const updateAssignation = async (req, res, next) => {
                 School_Year,
                 Semester,
                 CourseId,
-                ProfessorId,
+                DepartmentId,
+                ProfessorId: ProfessorId || null,
                 id: { [Op.ne]: id } // Exclude current assignation
             }
         });
@@ -200,69 +247,82 @@ const updateAssignation = async (req, res, next) => {
             oldCourse = await Course.findByPk(assignation.CourseId);
         }
 
-        // Get professor's status to check unit limits
-        const status = await ProfStatus.findByPk(professor.ProfStatusId);
-        if (!status) {
-            return res.status(404).json({ successful: false, message: "Professor status not found." });
-        }
-
-        // Calculate unit changes
+        // Handle professor unit calculations
         let currentProfessorUnitChange = 0;
 
-        // If changing to a new professor
-        if (assignation.ProfessorId !== ProfessorId) {
-            // New professor gets additional units
-            currentProfessorUnitChange = course.Units;
-
-            // Handle old professor's units (will be done later in the code)
-        }
-        // If same professor but different course
-        else if (assignation.CourseId !== CourseId && oldCourse) {
-            // Remove old course units and add new course units
-            currentProfessorUnitChange = course.Units - oldCourse.Units;
+        // Get old professor if exists
+        let oldProfessor = null;
+        if (assignation.ProfessorId) {
+            oldProfessor = await Professor.findByPk(assignation.ProfessorId);
         }
 
-        // Calculate new total units for current professor
-        const newTotalUnits = professor.Total_units + currentProfessorUnitChange;
+        // Unit calculation logic
+        if (professor) {
+            // If changing from null professor to a professor
+            if (!assignation.ProfessorId) {
+                currentProfessorUnitChange = course.Units;
+            }
+            // If changing to a new professor
+            else if (assignation.ProfessorId !== ProfessorId) {
+                // New professor gets additional units
+                currentProfessorUnitChange = course.Units;
+            }
+            // If same professor but different course
+            else if (assignation.CourseId !== CourseId && oldCourse) {
+                // Remove old course units and add new course units
+                currentProfessorUnitChange = course.Units - oldCourse.Units;
+            }
 
-        // Check that the total new units will not exceed the limit for the new/current professor
-        if (currentProfessorUnitChange > 0 && isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-            return res.status(400).json({
-                successful: false,
-                message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
-            });
-        }
+            // Get professor's status to check unit limits
+            const status = await ProfStatus.findByPk(professor.ProfStatusId);
+            if (!status) {
+                return res.status(404).json({ successful: false, message: "Professor status not found." });
+            }
 
-        // Handle old professor units if professor is changing
-        if (assignation.ProfessorId !== ProfessorId) {
-            const oldProfessor = await Professor.findByPk(assignation.ProfessorId);
-            if (oldProfessor) {
-                // Get old course
-                const oldCourseForUnitCalc = oldCourse || course;
+            // Calculate new total units for current professor
+            const newTotalUnits = professor.Total_units + currentProfessorUnitChange;
 
-                // Update old professor's units
-                const oldProfNewUnits = oldProfessor.Total_units - oldCourseForUnitCalc.Units;
-                await oldProfessor.update({ Total_units: Math.max(0, oldProfNewUnits) });
+            // Check that the total new units will not exceed the limit for the new/current professor
+            if (currentProfessorUnitChange > 0 && isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
+                });
+            }
+
+            // Update current professor's total units if needed
+            if (currentProfessorUnitChange !== 0) {
+                await professor.update({ Total_units: newTotalUnits });
             }
         }
-        // Handle unit update if same professor but course changed
-        else if (assignation.CourseId !== CourseId && oldCourse) {
-            // Units adjustment will be handled in the update below
-        }
 
-        // Update current professor's total units if needed
-        if (currentProfessorUnitChange !== 0) {
-            await professor.update({ Total_units: newTotalUnits });
+        // Handle old professor units if professor is changing or being removed
+        if (oldProfessor && (ProfessorId !== assignation.ProfessorId || ProfessorId === null)) {
+            // Get old course
+            const oldCourseForUnitCalc = oldCourse || course;
+
+            // Update old professor's units
+            const oldProfNewUnits = oldProfessor.Total_units - oldCourseForUnitCalc.Units;
+            await oldProfessor.update({ Total_units: Math.max(0, oldProfNewUnits) });
         }
 
         // Update Assignation
-        await assignation.update({
+        const updateData = {
             School_Year,
             Semester,
             CourseId,
-            ProfessorId,
             DepartmentId,
-        });
+        };
+
+        // Add ProfessorId if it was provided (can be null)
+        updateData.ProfessorId = ProfessorId;
+
+        // Add RoomTypeId if it was provided
+        if (RoomTypeId !== undefined) {
+            updateData.RoomTypeId = RoomTypeId;
+        }
+
+        await assignation.update(updateData);
 
         const token = req.cookies?.refreshToken;
         if (!token) {
@@ -282,7 +342,7 @@ const updateAssignation = async (req, res, next) => {
         }
         const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Assignation';
-        const details = `Updated Assignation: ${oldA} to ${assignation}`;
+        const details = `Updated Assignation ID: ${id}, Course: ${CourseId}, Prof: ${ProfessorId || 'None'}`;
         await addHistoryLog(accountId, page, details);
 
         return res.status(200).json({
@@ -322,6 +382,7 @@ const getAssignation = async (req, res, next) => {
                 { model: Course, attributes: ['Code', 'Description', 'Units'] },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
                 { model: Department, attributes: ['Name'] },
+                { model: RoomType, attributes: ['id', 'Type'] }
             ],
         });
 
@@ -346,6 +407,7 @@ const getAllAssignations = async (req, res, next) => {
                 { model: Course, attributes: ['Code', 'Description', 'Units'] },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
                 { model: Department, attributes: ['Name'] },
+                { model: RoomType, attributes: ['id', 'Type'] }
             ],
         });
 
@@ -370,8 +432,12 @@ const getAllAssignationsByDept = async (req, res, next) => {
 
         const assignations = await Assignation.findAll({
             where: { DepartmentId: departmentId },
-            // Optionally, include associated models if needed:
-            // include: [models.Professor, models.Course, models.Departmet, models.Schedule]
+            include: [
+                {
+                    model: RoomType,
+                    attributes: ['id', 'Type']
+                }
+            ]
         });
 
         return res.status(200).json({
@@ -379,7 +445,6 @@ const getAllAssignationsByDept = async (req, res, next) => {
             data: assignations,
         });
     } catch (error) {
-        n
         return res.status(500).json({
             successful: false,
             message: error.message || "An unexpected error occurred.",
@@ -403,6 +468,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                 { model: Course, attributes: ['Code', 'Description', 'Units', 'Year'] },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
                 { model: Department, attributes: ['Name'] },
+                { model: RoomType, attributes: ['id', 'Type'] }
             ],
         });
 
@@ -414,7 +480,6 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
         next(error);
     }
 };
-
 
 // Delete Assignation by ID
 const deleteAssignation = async (req, res, next) => {
@@ -431,21 +496,23 @@ const deleteAssignation = async (req, res, next) => {
             return res.status(404).json({ successful: false, message: "Assignation not found." });
         }
 
-        const oldA = assignation
+        const oldA = JSON.stringify(assignation);
 
         const { CourseId, ProfessorId } = assignation;
 
         // Get Course and Professor
         const course = await Course.findByPk(CourseId);
-        const professor = await Professor.findByPk(ProfessorId);
 
         // Delete the Assignation
         await assignation.destroy();
 
         // Update professor's Total_units if professor exists
-        if (professor) {
-            const decrementedUnit = professor.Total_units - course.Units;
-            await professor.update({ Total_units: Math.max(0, decrementedUnit) });
+        if (ProfessorId) {
+            const professor = await Professor.findByPk(ProfessorId);
+            if (professor) {
+                const decrementedUnit = professor.Total_units - course.Units;
+                await professor.update({ Total_units: Math.max(0, decrementedUnit) });
+            }
         }
 
         const token = req.cookies?.refreshToken;
@@ -466,7 +533,7 @@ const deleteAssignation = async (req, res, next) => {
         }
         const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Assignation';
-        const details = `Deleted Assignation: ${oldA}`;
+        const details = `Deleted Assignation ID: ${id}, Course: ${assignation.CourseId}, Prof: ${assignation.ProfessorId || 'None'}`;
         await addHistoryLog(accountId, page, details);
 
         return res.status(200).json({
@@ -483,6 +550,33 @@ const deleteAssignation = async (req, res, next) => {
     }
 };
 
+// Get assignments with room schedules
+const getAssignationsWithSchedules = async (req, res, next) => {
+    try {
+        const assignations = await Assignation.findAll({
+            include: [
+                { model: Course, attributes: ['Code', 'Description', 'Units'] },
+                { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
+                { model: Department, attributes: ['Name'] },
+                { model: RoomType, attributes: ['id', 'Type'] },
+                {
+                    model: Room,
+                    through: {
+                        attributes: ['Day', 'StartTime', 'EndTime']
+                    }
+                }
+            ],
+        });
+
+        return res.status(200).json({
+            successful: true,
+            data: assignations,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     addAssignation,
     updateAssignation,
@@ -490,8 +584,6 @@ module.exports = {
     getAllAssignations,
     deleteAssignation,
     getAllAssignationsByDept,
-    getAllAssignationsByDeptInclude
+    getAllAssignationsByDeptInclude,
+    getAssignationsWithSchedules
 };
-
-
-

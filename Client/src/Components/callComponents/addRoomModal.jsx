@@ -7,11 +7,14 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
         Code: "",
         Floor: "1st",
         Building: "LV",
-        Type: "Lec",
+        Type: "",
+        RoomTypeId: "",
         NumberOfSeats: ""
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
+    const [roomTypes, setRoomTypes] = useState([]);
+    const [loading, setLoading] = useState(false);
 
     // Options for dropdowns
     const floorOptions = [
@@ -19,15 +22,40 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
         "9th", "10th", "11th", "12th", "13th", "14th", "15th"
     ];
     const buildingOptions = ["LV", "GP"];
-    const typeOptions = ["Lec", "Lab", "Clinic"];
+
+    // Fetch room types from API
+    const fetchRoomTypes = async () => {
+        try {
+            setLoading(true);
+            const response = await axios.get("/roomType/getAllRoomTypes");
+            if (response.data.successful) {
+                setRoomTypes(response.data.data);
+                // Set default value to first room type if available
+                if (response.data.data.length > 0) {
+                    setFormData(prev => ({
+                        ...prev,
+                        RoomTypeId: response.data.data[0].id,
+                        Type: response.data.data[0].Type // Also set the Type field
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching room types:", error);
+            setErrorMessage("Failed to load room types.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (isOpen) {
+            fetchRoomTypes();
             setFormData({
                 Code: "",
                 Floor: "1st",
                 Building: "LV",
-                Type: "Lec",
+                Type: "",
+                RoomTypeId: "",
                 NumberOfSeats: ""
             });
             setErrorMessage("");
@@ -50,19 +78,48 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
         }
 
         try {
+            // Send both Type and RoomTypeId, but the backend will use Type
             const response = await axios.post("/room/addRoom", {
-                ...formData,
+                Code: formData.Code,
+                Floor: formData.Floor,
+                Building: formData.Building,
+                Type: formData.Type,
+                RoomTypeId: formData.RoomTypeId,
                 NumberOfSeats: seats
             }, {
                 headers: { "Content-Type": "application/json" }
             });
 
             setSuccessMessage("Room added successfully!");
-            if (onAdd) onAdd(response.data.data || response.data);
-            setTimeout(onClose, 1000);
+
+            // Get the complete room data with the RoomType relationship
+            try {
+                const roomResponse = await axios.get(`/room/getRoom/${response.data.data?.id || response.data.id}`);
+                if (roomResponse.data.successful && roomResponse.data.data) {
+                    if (onAdd) onAdd(roomResponse.data.data);
+                }
+            } catch (error) {
+                console.error("Error fetching new room details:", error);
+                // Fall back to the original response data if we can't get the complete data
+                if (onAdd) onAdd(response.data.data || response.data);
+            }
+
+            // Don't close the modal immediately so the user can see the success message
+            setTimeout(onClose, 2000);
         } catch (error) {
             setErrorMessage(error.response?.data?.message || error.message || "Failed to add room.");
         }
+    };
+
+    const handleRoomTypeChange = (e) => {
+        const selectedId = e.target.value;
+        const selectedType = roomTypes.find(type => type.id.toString() === selectedId.toString());
+
+        setFormData({
+            ...formData,
+            RoomTypeId: selectedId,
+            Type: selectedType ? selectedType.Type : ""
+        });
     };
 
     const handleChange = (e) => {
@@ -124,19 +181,28 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                         </select>
                     </div>
 
-                    {/* Type Field as Dropdown */}
+                    {/* Room Type Field as Dropdown - Now populated from API */}
                     <div>
-                        <label className="block font-semibold text-white">Type</label>
+                        <label className="block font-semibold text-white">Room Type</label>
                         <select
-                            name="Type"
+                            name="RoomTypeId"
                             className="w-full p-2 border rounded bg-customWhite"
-                            value={formData.Type}
-                            onChange={handleChange}
+                            value={formData.RoomTypeId}
+                            onChange={handleRoomTypeChange}
                             required
+                            disabled={loading || roomTypes.length === 0}
                         >
-                            {typeOptions.map((type) => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
+                            {loading ? (
+                                <option value="">Loading room types...</option>
+                            ) : roomTypes.length === 0 ? (
+                                <option value="">No room types available</option>
+                            ) : (
+                                roomTypes.map((type) => (
+                                    <option key={type.id} value={type.id}>
+                                        {type.Type}
+                                    </option>
+                                ))
+                            )}
                         </select>
                     </div>
 
@@ -155,12 +221,34 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                         />
                     </div>
 
-                    {errorMessage && <p className="text-red-500 text-center">{errorMessage}</p>}
-                    {successMessage && <p className="text-green-500 text-center">{successMessage}</p>}
+                    {/* Success/Error Messages - Enhanced styling */}
+                    {errorMessage && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                            <span className="block sm:inline">{errorMessage}</span>
+                        </div>
+                    )}
+
+                    {successMessage && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+                            <span className="block sm:inline">{successMessage}</span>
+                        </div>
+                    )}
 
                     <div className="flex justify-center mt-4 gap-4">
-                        <button type="submit" className="bg-blue-500 text-white px-6 py-2 rounded-lg">Add</button>
-                        <button type="button" className="bg-gray-500 text-white px-6 py-2 rounded-lg" onClick={onClose}>Cancel</button>
+                        <button
+                            type="submit"
+                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
+                            disabled={loading || roomTypes.length === 0}
+                        >
+                            Add
+                        </button>
+                        <button
+                            type="button"
+                            className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
+                            onClick={onClose}
+                        >
+                            Cancel
+                        </button>
                     </div>
                 </form>
             </div>

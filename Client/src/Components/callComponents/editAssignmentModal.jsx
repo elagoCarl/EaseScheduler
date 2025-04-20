@@ -15,12 +15,11 @@ const EditAssignmentModal = ({
         professorId: "",
         schoolYear: "",
         semester: "",
-        courseId: ""
+        courseId: "",
+        roomTypeId: ""
     });
     // Using a constant department id; you can pass this via props as needed
     const { user } = useAuth();
-    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const DEPARTMENT_ID = user.DepartmentId;
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState('');
@@ -42,12 +41,17 @@ const EditAssignmentModal = ({
     const [showProfessorDropdown, setShowProfessorDropdown] = useState(false);
     const [selectedProfessorName, setSelectedProfessorName] = useState("");
 
-    // New state for all professors from getAllProfs
+    // State for all professors
     const [allProfessors, setAllProfessors] = useState([]);
     const [loadingProfessors, setLoadingProfessors] = useState(true);
     const [errorProfessors, setErrorProfessors] = useState("");
 
-    // Fetch all professors from getAllProfs API
+    // New state for room types
+    const [roomTypes, setRoomTypes] = useState([]);
+    const [loadingRoomTypes, setLoadingRoomTypes] = useState(true);
+    const [errorRoomTypes, setErrorRoomTypes] = useState("");
+
+    // Fetch all professors
     useEffect(() => {
         const fetchAllProfessors = async () => {
             try {
@@ -80,6 +84,33 @@ const EditAssignmentModal = ({
             }
         };
         fetchAllProfessors();
+    }, [assignment]);
+
+    // Fetch all room types
+    useEffect(() => {
+        const fetchRoomTypes = async () => {
+            try {
+                const response = await axios.get('/roomType/getAllRoomTypes');
+                if (response.data.successful) {
+                    setRoomTypes(response.data.data);
+
+                    // Update formData with correct roomTypeId if available
+                    if (assignment && assignment.RoomTypeId) {
+                        setFormData(prev => ({
+                            ...prev,
+                            roomTypeId: assignment.RoomTypeId
+                        }));
+                    }
+                } else {
+                    setErrorRoomTypes(response.data.message || "Failed to fetch room types");
+                }
+            } catch (err) {
+                setErrorRoomTypes(err.message || "An error occurred while fetching room types");
+            } finally {
+                setLoadingRoomTypes(false);
+            }
+        };
+        fetchRoomTypes();
     }, [assignment]);
 
     // Fetch courses from API if propCourses is empty
@@ -121,7 +152,8 @@ const EditAssignmentModal = ({
                 professorId: assignment.ProfessorId || "",
                 schoolYear: assignment.School_Year || "",
                 semester: assignment.Semester || "",
-                courseId: assignment.CourseId || ""
+                courseId: assignment.CourseId || "",
+                roomTypeId: assignment.RoomTypeId || ""
             });
             
             // Set the selected course name for display
@@ -227,7 +259,8 @@ const EditAssignmentModal = ({
                 DepartmentId: Number(assignment.DepartmentId || assignment.Department?.id || DEPARTMENT_ID),
                 School_Year: formData.schoolYear,
                 Semester: formData.semester,
-                CourseId: Number(formData.courseId)
+                CourseId: Number(formData.courseId),
+                RoomTypeId: formData.roomTypeId ? Number(formData.roomTypeId) : null
             };
 
             console.log("Sending update data:", updateData);
@@ -248,6 +281,9 @@ const EditAssignmentModal = ({
                     }
                 }
 
+                // Find the selected room type
+                const selectedRoomType = roomTypes.find(rt => String(rt.id) === String(formData.roomTypeId));
+
                 // Create updated assignment object for the UI.
                 const updatedAssignment = {
                     ...assignment,
@@ -257,6 +293,8 @@ const EditAssignmentModal = ({
                     Course: updatedCourse,
                     School_Year: formData.schoolYear,
                     Semester: formData.semester,
+                    RoomTypeId: formData.roomTypeId || null,
+                    RoomType: selectedRoomType || null
                 };
 
                 // Update the parent component with the changes
@@ -417,6 +455,86 @@ const EditAssignmentModal = ({
                     </div>
 
                     <div className="mb-4">
+                        <label className="block font-semibold text-white" htmlFor="roomTypeId">
+                            Room Type
+                        </label>
+                        {loadingRoomTypes ? (
+                            <p className="text-white">Loading room types...</p>
+                        ) : errorRoomTypes ? (
+                            <p className="text-red-500">{errorRoomTypes}</p>
+                        ) : (
+                            <select
+                                id="roomTypeId"
+                                name="roomTypeId"
+                                value={formData.roomTypeId}
+                                onChange={handleChange}
+                                className="w-full p-8 border rounded bg-customWhite"
+                            >
+                                <option value="">Select Room Type (Optional)</option>
+                                {roomTypes.map(roomType => (
+                                    <option key={`roomType-${roomType.id}`} value={roomType.id}>
+                                        {roomType.Type}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block font-semibold text-white" htmlFor="roomTypeId">
+                            Room Type
+                        </label>
+                        {loadingRoomTypes ? (
+                            <p className="text-white">Loading room types...</p>
+                        ) : errorRoomTypes ? (
+                            <p className="text-red-500">{errorRoomTypes}</p>
+                        ) : (
+                            <select
+                                id="roomTypeId"
+                                name="roomTypeId"
+                                value={formData.roomTypeId}
+                                onChange={handleChange}
+                                className="w-full p-8 border rounded bg-customWhite"
+                            >
+                                <option value="">Select Room Type (Optional)</option>
+                                {roomTypes.map(roomType => (
+                                    <option key={`roomType-${roomType.id}`} value={roomType.id}>
+                                        {roomType.Type}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block font-semibold text-white" htmlFor="roomTypeId">
+                            Room Type
+                        </label>
+                        {loadingRoomTypes ? (
+                            <p className="text-white">Loading room types...</p>
+                        ) : errorRoomTypes ? (
+                            <p className="text-red-500">{errorRoomTypes}</p>
+                        ) : (
+                            <select
+                                id="roomTypeId"
+                                name="roomTypeId"
+                                value={formData.roomTypeId}
+                                onChange={handleChange}
+                                className="w-full p-8 border rounded bg-customWhite"
+                            >
+                                <option value="">Select Room Type (Optional)</option>
+                                {roomTypes.map(roomType => (
+                                    <option key={`roomType-${roomType.id}`} value={roomType.id}>
+                                        {roomType.Type}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
+
+
+                    <div className="mb-4">
                         <label className="block font-semibold text-white" htmlFor="schoolYear">
                             School Year
                         </label>
@@ -496,6 +614,11 @@ EditAssignmentModal.propTypes = {
             id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
             Code: PropTypes.string,
             Description: PropTypes.string
+        }),
+        RoomTypeId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        RoomType: PropTypes.shape({
+            id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+            Type: PropTypes.string
         }),
         School_Year: PropTypes.string,
         Semester: PropTypes.string

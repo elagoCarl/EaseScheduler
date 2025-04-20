@@ -49,6 +49,11 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     Assignation.associate = (models) => {
+        Assignation.belongsTo(models.RoomType, {
+            onDelete: 'RESTRICT',
+            onUpdate: 'CASCADE'
+        });
+
         Assignation.belongsTo(models.Professor, {
             foreignKey: {
                 name: 'ProfessorId',
@@ -75,7 +80,7 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE'
         });
 
-        Assignation.belongsToMany(models.Room, { through: {model: 'Schedule', unique: false}});
+        Assignation.belongsToMany(models.Room, { through: { model: 'Schedule', unique: false } });
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'

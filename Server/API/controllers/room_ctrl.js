@@ -1,4 +1,4 @@
-const { Room, Department } = require('../models')
+const { Room, Department, RoomType } = require('../models')
 const jwt = require('jsonwebtoken')
 const { REFRESH_TOKEN_SECRET } = process.env
 const util = require('../../utils')
@@ -39,7 +39,9 @@ const addRoom = async (req, res, next) => {
                 });
             }
 
-            if (!['Lab', 'Lec'].includes(Type)) {
+            // Find the RoomType instead of validating the string directly
+            const roomType = await RoomType.findOne({ where: { Type } });
+            if (!roomType) {
                 return res.status(406).json({
                     successful: false,
                     message: "Invalid Room Type."
@@ -58,8 +60,8 @@ const addRoom = async (req, res, next) => {
                 Code,
                 Floor,
                 Building,
-                Type,
-                NumberOfSeats
+                NumberOfSeats,
+                RoomTypeId: roomType.id  // Associate with the RoomType through its ID
             });
 
             const token = req.cookies?.refreshToken;
@@ -82,7 +84,7 @@ const addRoom = async (req, res, next) => {
 
             const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Added Room: ${Building}${Code} floor: ${Floor}, seats: ${NumberOfSeats}`;
+            const details = `Added Room: ${Building}${Code} floor: ${Floor}, type: ${Type}, seats: ${NumberOfSeats}`;
 
             await addHistoryLog(accountId, page, details);
         }
@@ -100,9 +102,17 @@ const addRoom = async (req, res, next) => {
     }
 };
 
+module.exports = { addRoom };
+
 const getAllRoom = async (req, res, next) => {
     try {
-        let room = await Room.findAll()
+        let room = await Room.findAll({
+            include: [{
+                model: RoomType,
+                attributes: ['id', 'Type']
+            }]
+        });
+
         if (!room || room.length === 0) {
             res.status(200).send({
                 successful: true,
@@ -130,7 +140,12 @@ const getAllRoom = async (req, res, next) => {
 
 const getRoom = async (req, res, next) => {
     try {
-        let room = await Room.findByPk(req.params.id);
+        let room = await Room.findByPk(req.params.id, {
+            include: [{
+                model: RoomType,
+                attributes: ['id', 'Type']
+            }]
+        });
 
         if (!room) {
             res.status(404).send({
@@ -215,7 +230,10 @@ const deleteRoom = async (req, res, next) => {
 
 const updateRoom = async (req, res, next) => {
     try {
-        let room = await Room.findByPk(req.params.id);
+        let room = await Room.findByPk(req.params.id, {
+            include: [{ model: RoomType }]
+        });
+
         if (!room) {
             return res.status(404).json({
                 successful: false,
@@ -223,9 +241,9 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        const { Code, Floor, Building, Type, NumberOfSeats } = req.body;
+        const { Code, Floor, Building, RoomTypeId, NumberOfSeats } = req.body;
 
-        if (!util.checkMandatoryFields([Code, Floor, Building, Type, NumberOfSeats])) {
+        if (!util.checkMandatoryFields([Code, Floor, Building, RoomTypeId, NumberOfSeats])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -239,7 +257,9 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        if (!['Lab', 'Lec'].includes(Type)) {
+        // Check if the RoomTypeId is valid
+        const roomType = await RoomType.findByPk(RoomTypeId);
+        if (!roomType) {
             return res.status(406).json({
                 successful: false,
                 message: "Invalid Room Type."
@@ -264,11 +284,20 @@ const updateRoom = async (req, res, next) => {
             }
         }
 
+        // Store old values for history log
+        const oldRoom = {
+            Code: room.Code,
+            Floor: room.Floor,
+            Building: room.Building,
+            RoomType: room.RoomType ? room.RoomType.Type : 'N/A',
+            NumberOfSeats: room.NumberOfSeats
+        };
+
         const updatedRoom = await room.update({
             Code,
             Floor,
             Building,
-            Type,
+            RoomTypeId,  // Update the foreign key to RoomType
             NumberOfSeats
         });
 
@@ -291,15 +320,24 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
+        // Get the new room type for history log
+        const newRoomType = await RoomType.findByPk(RoomTypeId);
+
         const accountId = decoded.id || decoded.accountId;
-        const page = 'Room';  // Fixed page name from 'Professor' to 'Room'
-        const details = `Updated Room: Old; Code: ${room.Code}, Floor: ${room.Floor}, Building: ${room.Building}, Type: ${room.Type}, Seats: ${room.NumberOfSeats};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Type: ${Type}, Seats: ${NumberOfSeats}`;
+        const page = 'Room';
+        const details = `Updated Room: Old; Code: ${oldRoom.Code}, Floor: ${oldRoom.Floor}, Building: ${oldRoom.Building}, Type: ${oldRoom.RoomType}, Seats: ${oldRoom.NumberOfSeats};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Type: ${newRoomType.Type}, Seats: ${NumberOfSeats}`;
 
         await addHistoryLog(accountId, page, details);
 
-        return res.status(200).json({  // Changed status code from 201 to 200 for updates
+        // Return the updated room with its associated RoomType
+        const refreshedRoom = await Room.findByPk(updatedRoom.id, {
+            include: [{ model: RoomType }]
+        });
+
+        return res.status(200).json({
             successful: true,
-            message: "Successfully updated room."
+            message: "Successfully updated room.",
+            data: refreshedRoom
         });
     }
     catch (err) {
@@ -415,17 +453,23 @@ const getRoomsByDept = async (req, res, next) => {
         const rooms = await Room.findAll({
             order: [['Building', 'ASC'], ['Floor', 'ASC'], ['Code', 'ASC']],
             attributes: { exclude: ['RoomDepts'] },
-            include: {
-                model: Department,
-                as: 'RoomDepts',
-                where: {
-                    id: deptId,
+            include: [
+                {
+                    model: Department,
+                    as: 'RoomDepts',
+                    where: {
+                        id: deptId,
+                    },
+                    attributes: [],
+                    through: {
+                        attributes: []
+                    }
                 },
-                attributes: [],
-                through: {
-                    attributes: []
+                {
+                    model: RoomType,
+                    attributes: ['id', 'Type']
                 }
-            }
+            ]
         })
         if (!rooms || rooms.length == 0) {
             res.status(400).send({

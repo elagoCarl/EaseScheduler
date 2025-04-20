@@ -23,7 +23,8 @@ const AssignationsCourseProf = () => {
     const [filters, setFilters] = useState({
         professor: "",
         schoolYear: "",
-        semester: ""
+        semester: "",
+        roomType: "" // New filter for room type
     });
     const [modals, setModals] = useState({
         add: false,
@@ -39,6 +40,7 @@ const AssignationsCourseProf = () => {
     const [professors, setProfessors] = useState([]); // for the dropdown filter
     const [semesters, setSemesters] = useState([]);
     const [schoolYears, setSchoolYears] = useState([]);
+    const [roomTypes, setRoomTypes] = useState([]); // New state for room types
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -46,15 +48,19 @@ const AssignationsCourseProf = () => {
     // This will be a mapping: { professorId: { ...professorData } }
     const [professorDetails, setProfessorDetails] = useState({});
 
-    // New state for detailed course info (from getCourse)
+    // State for detailed course info (from getCourse)
     // Mapping: { courseId: { ...courseData } }
     const [courseDetails, setCourseDetails] = useState({});
+
+    // State for room type details
+    // Mapping: { roomTypeId: { ...roomTypeData } }
+    const [roomTypeDetails, setRoomTypeDetails] = useState({});
 
     // Fetch the current department using the getDept API
     useEffect(() => {
         const fetchDepartment = async () => {
             try {
-                const response = await axios.get(`/dept/getDept/${ DEPARTMENT_ID }`);
+                const response = await axios.get(`/dept/getDept/${DEPARTMENT_ID}`);
                 if (response.data.successful) {
                     setDepartment(response.data.data);
                 } else {
@@ -67,11 +73,35 @@ const AssignationsCourseProf = () => {
         fetchDepartment();
     }, [DEPARTMENT_ID]);
 
+    // Fetch all room types
+    useEffect(() => {
+        const fetchRoomTypes = async () => {
+            try {
+                const response = await axios.get('/roomType/getAllRoomTypes');
+                if (response.data.successful) {
+                    const roomTypesData = response.data.data;
+                    setRoomTypes(roomTypesData);
+
+                    // Create a mapping for quick access
+                    const roomTypeMap = {};
+                    roomTypesData.forEach(type => {
+                        roomTypeMap[type.id] = type;
+                    });
+                    setRoomTypeDetails(roomTypeMap);
+                }
+            } catch (err) {
+                console.error("Error fetching room types:", err);
+            }
+        };
+
+        fetchRoomTypes();
+    }, []);
+
     // Fetch assignations for the department using getAllAssignationsByDept
     useEffect(() => {
         const fetchAssignations = async () => {
             try {
-                const response = await axios.get(`/assignation/getAllAssignationsByDept/${ DEPARTMENT_ID }`);
+                const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
                 if (response.data.successful) {
                     const data = response.data.data;
                     setAssignedCourses(data);
@@ -103,7 +133,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     professorIds.map(id =>
-                        axios.get(`/prof/getProf/${ id }`)
+                        axios.get(`/prof/getProf/${id}`)
                     )
                 );
                 const detailsMap = {};
@@ -137,7 +167,7 @@ const AssignationsCourseProf = () => {
             try {
                 const responses = await Promise.all(
                     courseIds.map(id =>
-                        axios.get(`/course/getCourse/${ id }`)
+                        axios.get(`/course/getCourse/${id}`)
                     )
                 );
                 const detailsMap = {};
@@ -211,7 +241,7 @@ const AssignationsCourseProf = () => {
             // Delete each assignation individually using the backend API
             for (const id of selectedCourseIds) {
                 try {
-                    const response = await axios.delete(`/assignation/deleteAssignation/${ id }`);
+                    const response = await axios.delete(`/assignation/deleteAssignation/${id}`);
                     results.push({
                         id,
                         success: response.data.successful,
@@ -234,7 +264,7 @@ const AssignationsCourseProf = () => {
             }
 
             // Refresh the assignations list
-            const response = await axios.get(`/assignation/getAllAssignationsByDept/${ DEPARTMENT_ID }`);
+            const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
             if (response.data.successful) {
                 setAssignedCourses(response.data.data);
                 setCheckboxes(new Array(response.data.data.length).fill(false));
@@ -264,6 +294,15 @@ const AssignationsCourseProf = () => {
         }
         if (filters.schoolYear && course.School_Year !== filters.schoolYear) return false;
         if (filters.semester && course.Semester !== filters.semester) return false;
+
+        // New filter for room type
+        if (filters.roomType && course.RoomTypeId) {
+            const roomType = roomTypeDetails[course.RoomTypeId];
+            if (!roomType || roomType.Type !== filters.roomType) return false;
+        } else if (filters.roomType && !course.RoomTypeId) {
+            return false; // If a room type is selected but the course has none
+        }
+
         return true;
     });
 
@@ -275,7 +314,7 @@ const AssignationsCourseProf = () => {
     return (
         <div
             className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${ Background })` }}
+            style={{ backgroundImage: `url(${Background})` }}
         >
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
             <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
@@ -295,7 +334,7 @@ const AssignationsCourseProf = () => {
                         >
                             <option value="">Select Professor</option>
                             {professors.map(prof => (
-                                <option key={`prof-${ prof.id }`} value={prof.Name}>
+                                <option key={`prof-${prof.id}`} value={prof.Name}>
                                     {prof.Name}
                                 </option>
                             ))}
@@ -326,6 +365,20 @@ const AssignationsCourseProf = () => {
                                 </option>
                             ))}
                         </select>
+
+                        {/* New Room Type filter */}
+                        <select
+                            value={filters.roomType}
+                            onChange={(e) => handleFilterChange('roomType', e.target.value)}
+                            className="px-4 py-2 border rounded text-sm md:text-base"
+                        >
+                            <option value="">All Room Types</option>
+                            {roomTypes.map(type => (
+                                <option key={type.id} value={type.Type}>
+                                    {type.Type}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
@@ -345,11 +398,12 @@ const AssignationsCourseProf = () => {
                         <table className="text-center w-full border-collapse">
                             <thead>
                                 <tr className="bg-blue-600">
-                                    <th className="px-4 py-2 text-white font-medium border ">Code</th>
+                                    <th className="px-4 py-2 text-white font-medium border">Code</th>
                                     <th className="px-4 py-2 text-white font-medium border">Description</th>
                                     <th className="px-4 py-2 text-white font-medium border">School Year</th>
                                     <th className="px-4 py-2 text-white font-medium border">Semester</th>
                                     <th className="px-4 py-2 text-white font-medium border">Professor</th>
+                                    <th className="px-4 py-2 text-white font-medium border">Room Type</th> {/* New header */}
                                     <th className="px-4 py-2 text-white font-medium border">
                                         <input
                                             type="checkbox"
@@ -369,10 +423,14 @@ const AssignationsCourseProf = () => {
                                         // Use detailed professor info based on ProfessorId
                                         const profDetail = professorDetails[assignment.ProfessorId];
                                         const professorDisplay = profDetail
-                                            ? `${ profDetail.Name } (${ profDetail.ProfStatus?.Status || "No Status" })`
+                                            ? `${profDetail.Name} (${profDetail.ProfStatus?.Status || "No Status"})`
                                             : 'N/A';
                                         // Use detailed course info based on CourseId
                                         const courseDetail = courseDetails[assignment.CourseId];
+                                        // Use detailed room type info
+                                        const roomTypeDetail = roomTypeDetails[assignment.RoomTypeId];
+                                        const roomTypeDisplay = roomTypeDetail ? roomTypeDetail.Type : 'Not Specified';
+
                                         return (
                                             <tr
                                                 key={assignment.id}
@@ -391,6 +449,7 @@ const AssignationsCourseProf = () => {
                                                     {assignment.Semester}
                                                 </td>
                                                 <td className="px-4 py-2 border">{professorDisplay}</td>
+                                                <td className="px-4 py-2 border">{roomTypeDisplay}</td> {/* New cell */}
                                                 <td className="py-2 border">
                                                     <input
                                                         type="checkbox"
@@ -412,7 +471,7 @@ const AssignationsCourseProf = () => {
                                     })
                                 ) : (
                                     <tr>
-                                        <td colSpan="7" className="px-4 py-2 text-center border">
+                                        <td colSpan="8" className="px-4 py-2 text-center border">
                                             No assignations found with the selected filters
                                         </td>
                                     </tr>
@@ -440,7 +499,12 @@ const AssignationsCourseProf = () => {
                 </button>
             </div>
 
-            <AddAssignationModal isOpen={modals.add} onClose={() => toggleModal('add', false)} />
+            {/* Note: You'll need to update AddAssignationModal to include room type selection */}
+            <AddAssignationModal
+                isOpen={modals.add}
+                onClose={() => toggleModal('add', false)}
+                roomTypes={roomTypes}
+            />
 
             {modals.edit && selectedAssignment && (
                 <EditAssignmentModal
@@ -451,6 +515,7 @@ const AssignationsCourseProf = () => {
                     departments={[]} // Department filter removed
                     schoolYears={schoolYears}
                     semesters={semesters}
+                    roomTypes={roomTypes} // Pass room types to the edit modal
                 />
             )}
 

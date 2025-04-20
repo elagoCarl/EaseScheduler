@@ -14,6 +14,7 @@ import AddDeptRoomModal from "./callComponents/addDeptRoomModal.jsx";
 import EditRoomModal from "./callComponents/editRoomModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning.jsx";
 import DeleteDeptRoomWarning from "./callComponents/deleteDeptRoomWarning.jsx";
+import RoomTypesModal from "./callComponents/roomTypesModal.jsx";
 import { useAuth } from '../Components/authContext.jsx';
 
 const Room = () => {
@@ -35,6 +36,8 @@ const Room = () => {
   const [isDeleteBtnDisabled, setDeleteBtnDisabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isRoomTypesModalOpen, setIsRoomTypesModalOpen] = useState(false);
+  const [dataFetched, setDataFetched] = useState(false); // New state to track if data has been fetched
   const { user } = useAuth();
   const campuses = ["LV", "GP"];
   const isAdmin = user && user.DepartmentId === null;
@@ -58,24 +61,44 @@ const Room = () => {
         response = await axios.get('/room/getAllRoom');
       } else if (departmentId) {
         response = await axios.get(`/room/getRoomsByDept/${departmentId}`);
+      } else {
+        // Handle case where no department is selected yet for non-admin users
+        setRooms([]);
+        setFilteredRooms([]);
+        setAvailableFloors([]);
+        setLoading(false);
+        setDataFetched(true); // Mark as fetched even if empty
+        return;
       }
 
       if (response?.data.successful) {
-        const roomData = response.data.data;
+        const roomData = response.data.data || [];
         setRooms(roomData);
-        setFilteredRooms(roomData);
-        setCheckboxes(Array(roomData.length).fill(false));
+
+        // Apply filters if they are selected
+        let filtered = roomData;
+        if (selectedCampus !== "Select Campus") {
+          filtered = filtered.filter(room => room.Building === selectedCampus);
+        }
+        if (selectedFloor !== "Select Floor") {
+          filtered = filtered.filter(room => room.Floor === selectedFloor);
+        }
+
+        setFilteredRooms(filtered);
+        setCheckboxes(Array(filtered.length).fill(false));
         setAvailableFloors([...new Set(roomData.map((room) => room.Floor))]);
       } else {
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
       }
+      setDataFetched(true); // Mark data as fetched regardless of result
     } catch (error) {
       if (error.response?.status === 400 && error.response.data.message === "No rooms found") {
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
+        setDataFetched(true); // Mark as fetched even if error
       } else {
         setError("Error fetching rooms: " + error.message);
       }
@@ -97,7 +120,7 @@ const Room = () => {
   };
 
   const handleConfirmDelete = async () => {
-    const selectedRooms = rooms.filter((_, index) => checkboxes[index]);
+    const selectedRooms = filteredRooms.filter((_, index) => checkboxes[index]);
     if (!selectedRooms.length) return;
 
     try {
@@ -111,33 +134,54 @@ const Room = () => {
         }
       }
 
-      const idsToDelete = selectedRooms.map(room => room.id);
-      setRooms(prev => prev.filter(room => !idsToDelete.includes(room.id)));
-      setFilteredRooms(prev => prev.filter(room => !idsToDelete.includes(room.id)));
-      setCheckboxes(Array(rooms.length - idsToDelete.length).fill(false));
+      // After successful deletion, refresh the rooms data
+      fetchRooms();
       setAllChecked(false);
       setDeleteBtnDisabled(true);
       setIsDeleteWarningOpen(false);
       setIsDeleteDeptRoomWarningOpen(false);
     } catch (error) {
       console.error("Error deleting rooms:", error.message);
+      setError("Error deleting rooms: " + error.message);
     }
   };
 
+  // Initial data fetch when component mounts
   useEffect(() => {
-    if (isAdmin) fetchDepartments();
-    fetchRooms();
+    const initData = async () => {
+      if (isAdmin) await fetchDepartments();
+      await fetchRooms();
+    };
+
+    initData();
   }, [isAdmin]);
 
+  // Effect to update filtered rooms when filters or rooms change
   useEffect(() => {
+    if (!dataFetched) return; // Skip if data hasn't been fetched yet
+
     let filtered = rooms;
-    if (selectedCampus !== "Select Campus") filtered = filtered.filter(room => room.Building === selectedCampus);
-    if (selectedFloor !== "Select Floor") filtered = filtered.filter(room => room.Floor === selectedFloor);
+    if (selectedCampus !== "Select Campus") {
+      filtered = filtered.filter(room => room.Building === selectedCampus);
+    }
+    if (selectedFloor !== "Select Floor") {
+      filtered = filtered.filter(room => room.Floor === selectedFloor);
+    }
+
     setFilteredRooms(filtered);
     setCheckboxes(Array(filtered.length).fill(false));
-  }, [selectedCampus, selectedFloor, rooms]);
+    setAllChecked(false);
+    setDeleteBtnDisabled(true);
+  }, [selectedCampus, selectedFloor, rooms, dataFetched]);
 
-  if (loading) return <LoadingSpinner />;
+  // Handle department change
+  const handleDepartmentChange = (e) => {
+    const value = e.target.value;
+    setSelectedDepartment(value);
+    fetchRooms(value);
+  };
+
+  if (loading && !dataFetched) return <LoadingSpinner />;
   if (error) return <ErrorDisplay error={error} />;
 
   return (
@@ -148,10 +192,24 @@ const Room = () => {
 
       <div className="flex flex-col justify-center items-center h-screen w-full px-8">
         <div className="flex justify-end w-10/12 mb-4">
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            {/* Room Types button */}
             {isAdmin && (
-              <select value={selectedDepartment} onChange={(e) => { setSelectedDepartment(e.target.value); fetchRooms(e.target.value); }}
-                className="px-4 py-2 border rounded text-sm md:text-base">
+              <button
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm md:text-base transition duration-200"
+                onClick={() => setIsRoomTypesModalOpen(true)}
+              >
+                Room Types
+              </button>
+            )}
+
+            {/* Department selector for admins */}
+            {isAdmin && (
+              <select
+                value={selectedDepartment}
+                onChange={handleDepartmentChange}
+                className="px-4 py-2 border rounded text-sm md:text-base"
+              >
                 <option value="Select Department">Select Department</option>
                 {departments.map((dept) => (
                   <option key={dept.id} value={dept.id}>{dept.Name}</option>
@@ -159,16 +217,24 @@ const Room = () => {
               </select>
             )}
 
-            <select value={selectedCampus} onChange={(e) => setSelectedCampus(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base">
+            {/* Campus selector */}
+            <select
+              value={selectedCampus}
+              onChange={(e) => setSelectedCampus(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base"
+            >
               <option>Select Campus</option>
               {campuses.map((campus, index) => (
                 <option key={index} value={campus}>{campus}</option>
               ))}
             </select>
 
-            <select value={selectedFloor} onChange={(e) => setSelectedFloor(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base">
+            {/* Floor selector */}
+            <select
+              value={selectedFloor}
+              onChange={(e) => setSelectedFloor(e.target.value)}
+              className="px-4 py-2 border rounded text-sm md:text-base"
+            >
               <option>Select Floor</option>
               {availableFloors.map((floor, index) => (
                 <option key={index} value={floor}>{floor}</option>
@@ -195,33 +261,52 @@ const Room = () => {
                     <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border font-medium border-gray-300">Seats</th>
                   )}
                   <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
-                    <input type="checkbox" checked={isAllChecked} onChange={() => {
-                      const newState = !isAllChecked;
-                      setAllChecked(newState);
-                      setCheckboxes(checkboxes.map(() => newState));
-                      setDeleteBtnDisabled(!newState);
-                    }} />
+                    <input
+                      type="checkbox"
+                      checked={isAllChecked && filteredRooms.length > 0}
+                      onChange={() => {
+                        const newState = !isAllChecked;
+                        setAllChecked(newState);
+                        setCheckboxes(Array(filteredRooms.length).fill(newState));
+                        setDeleteBtnDisabled(!newState || filteredRooms.length === 0);
+                      }}
+                      disabled={filteredRooms.length === 0}
+                    />
                   </th>
                   {isAdmin && (<th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300"></th>)}
                 </tr>
               </thead>
               <tbody>
-                {filteredRooms.length > 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={isAdmin ? "7" : "5"} className="px-6 py-8 text-center">
+                      <div className="flex justify-center">
+                        <LoadingSpinner />
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredRooms.length > 0 ? (
                   filteredRooms.map((room, index) => (
                     <tr key={room.id || room.Code} className="hover:bg-customLightBlue2 border-t border-gray-300">
                       <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Building}</td>
                       <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Code}</td>
                       <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Floor}</td>
-                      <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Type}</td>
+                      <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                        {room.RoomType ? room.RoomType.Type : "N/A"}
+                      </td>
                       {isAdmin && (<td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.NumberOfSeats}</td>)}
                       <td className="py-2 border border-gray-300">
-                        <input type="checkbox" checked={checkboxes[index]} onChange={() => {
-                          const updatedCheckboxes = [...checkboxes];
-                          updatedCheckboxes[index] = !updatedCheckboxes[index];
-                          setCheckboxes(updatedCheckboxes);
-                          setAllChecked(updatedCheckboxes.every((isChecked) => isChecked));
-                          setDeleteBtnDisabled(!updatedCheckboxes.some((isChecked) => isChecked));
-                        }} />
+                        <input
+                          type="checkbox"
+                          checked={checkboxes[index]}
+                          onChange={() => {
+                            const updatedCheckboxes = [...checkboxes];
+                            updatedCheckboxes[index] = !updatedCheckboxes[index];
+                            setCheckboxes(updatedCheckboxes);
+                            setAllChecked(updatedCheckboxes.every((isChecked) => isChecked) && updatedCheckboxes.length > 0);
+                            setDeleteBtnDisabled(!updatedCheckboxes.some((isChecked) => isChecked));
+                          }}
+                        />
                       </td>
                       {isAdmin && (
                         <td className="py-2 border border-gray-300">
@@ -255,40 +340,74 @@ const Room = () => {
         <button className="py-2 px-4 text-white rounded" onClick={() => setIsAddRoomModalOpen(true)}>
           <img src={addBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Add Room" />
         </button>
-        <button className="py-2 px-4 text-white rounded" onClick={() => isAdmin ? setIsDeleteWarningOpen(true) : setIsDeleteDeptRoomWarningOpen(true)}
-          disabled={isDeleteBtnDisabled}>
-          <img src={delBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Delete Room" />
+        <button
+          className="py-2 px-4 text-white rounded"
+          onClick={() => isAdmin ? setIsDeleteWarningOpen(true) : setIsDeleteDeptRoomWarningOpen(true)}
+          disabled={isDeleteBtnDisabled}
+        >
+          <img
+            src={delBtn}
+            className={`w-12 h-12 md:w-25 md:h-25 ${isDeleteBtnDisabled ? 'opacity-50' : 'hover:scale-110'}`}
+            alt="Delete Room"
+          />
         </button>
       </div>
 
+      {/* Modals */}
       {isAdmin ? (
-        <AddRoomModal isOpen={isAddRoomModalOpen} onClose={() => setIsAddRoomModalOpen(false)}
+        <AddRoomModal
+          isOpen={isAddRoomModalOpen}
+          onClose={() => setIsAddRoomModalOpen(false)}
           onAdd={(newRoom) => {
-            setRooms(prev => [...prev, newRoom]);
-            if (!availableFloors.includes(newRoom.Floor)) setAvailableFloors(prev => [...prev, newRoom.Floor]);
+            // After adding a room, refresh the room data to ensure consistency
+            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
             setIsAddRoomModalOpen(false);
-          }} />
+          }}
+        />
       ) : (
-        <AddDeptRoomModal isOpen={isAddRoomModalOpen} onClose={() => setIsAddRoomModalOpen(false)}
+        <AddDeptRoomModal
+          isOpen={isAddRoomModalOpen}
+          onClose={() => setIsAddRoomModalOpen(false)}
           onSelect={(newRoom) => {
-            setRooms(prev => [...prev, newRoom]);
-            if (!availableFloors.includes(newRoom.Floor)) setAvailableFloors(prev => [...prev, newRoom.Floor]);
+            // After adding a department room, refresh the room data
+            fetchRooms();
             setIsAddRoomModalOpen(false);
-          }} />
+          }}
+        />
       )}
 
       {isEditModalOpen && selectedRoom && (
-        <EditRoomModal room={selectedRoom} onClose={() => setIsEditModalOpen(false)}
+        <EditRoomModal
+          room={selectedRoom}
+          onClose={() => setIsEditModalOpen(false)}
           onUpdate={(updatedRoom) => {
-            setRooms(prev => prev.map(room => (room.id === updatedRoom.id ? updatedRoom : room)));
+            // After updating a room, refresh the room data
+            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
             setIsEditModalOpen(false);
-          }} />
+          }}
+        />
       )}
 
       {isAdmin ? (
-        <DeleteWarning isOpen={isDeleteWarningOpen} onClose={() => setIsDeleteWarningOpen(false)} onConfirm={handleConfirmDelete} />
+        <DeleteWarning
+          isOpen={isDeleteWarningOpen}
+          onClose={() => setIsDeleteWarningOpen(false)}
+          onConfirm={handleConfirmDelete}
+        />
       ) : (
-        <DeleteDeptRoomWarning isOpen={isDeleteDeptRoomWarningOpen} onClose={() => setIsDeleteDeptRoomWarningOpen(false)} onConfirm={handleConfirmDelete} />
+        <DeleteDeptRoomWarning
+          isOpen={isDeleteDeptRoomWarningOpen}
+          onClose={() => setIsDeleteDeptRoomWarningOpen(false)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
+
+      {/* Room Types Modal */}
+      {isAdmin && (
+        <RoomTypesModal
+          isOpen={isRoomTypesModalOpen}
+          onClose={() => setIsRoomTypesModalOpen(false)}
+        />
       )}
     </div>
   );

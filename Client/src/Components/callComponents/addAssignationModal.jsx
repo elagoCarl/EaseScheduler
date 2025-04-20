@@ -11,11 +11,13 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
         CourseId: "",
         ProfessorId: "",
         DepartmentId: user.DepartmentId,
+        RoomTypeId: ""
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [courses, setCourses] = useState([]);
     const [professors, setProfessors] = useState([]);
+    const [roomTypes, setRoomTypes] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // New state variables for searchable course dropdown
@@ -45,6 +47,15 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                         setErrorMessage(professorsResponse.data.message || "Failed to fetch professors.");
                         return;
                     }
+
+                    // Fetch room types
+                    const roomTypesResponse = await axios.get("/roomType/getAllRoomTypes");
+                    if (roomTypesResponse.status === 200) {
+                        setRoomTypes(roomTypesResponse.data.data);
+                    } else {
+                        setErrorMessage(roomTypesResponse.data.message || "Failed to fetch room types.");
+                        return;
+                    }
                 } catch (error) {
                     setErrorMessage(
                         error.response?.data?.message ||
@@ -67,6 +78,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                 CourseId: "",
                 ProfessorId: "",
                 DepartmentId: user.DepartmentId,
+                RoomTypeId: ""
             });
             setErrorMessage("");
             setSuccessMessage("");
@@ -130,11 +142,11 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
         // Create a copy of formData to modify
         const submissionData = {
             ...formData,
-            // Parse CourseId and ProfessorId to integers
+            // Parse IDs to integers
             CourseId: parseInt(formData.CourseId, 10),
             ProfessorId: parseInt(formData.ProfessorId, 10),
-            // If DepartmentId should also be an integer, parse it too
-            DepartmentId: parseInt(formData.DepartmentId, 10)
+            DepartmentId: parseInt(formData.DepartmentId, 10),
+            RoomTypeId: formData.RoomTypeId ? parseInt(formData.RoomTypeId, 10) : null
         };
 
         console.log("Submission data:", submissionData);
@@ -154,6 +166,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             // Find the complete course and professor objects for the added assignation
             const selectedCourse = courses.find(c => c.id === submissionData.CourseId);
             const selectedProfessor = professors.find(p => p.id === submissionData.ProfessorId);
+            const selectedRoomType = roomTypes.find(r => r.id === submissionData.RoomTypeId);
 
             // Construct the new assignation with full objects
             const newAssignation = {
@@ -161,6 +174,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                 id: response.data.data?.id,
                 Course: selectedCourse,
                 Professor: selectedProfessor,
+                RoomType: selectedRoomType,
                 School_Year: submissionData.School_Year,
                 Semester: submissionData.Semester
             };
@@ -320,6 +334,24 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                                 {professors.map((professor) => (
                                     <option key={professor.id} value={professor.id}>
                                         {professor.Name} (Current Units: {professor.Total_units})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block font-semibold text-white">Room Type</label>
+                            <select
+                                name="RoomTypeId"
+                                className="w-full p-3 border rounded bg-customWhite"
+                                value={formData.RoomTypeId}
+                                onChange={handleInputChange}
+                                disabled={isSubmitting}
+                            >
+                                <option value="">Select Room Type (Optional)</option>
+                                {roomTypes.map((roomType) => (
+                                    <option key={roomType.id} value={roomType.id}>
+                                        {roomType.Type}
                                     </option>
                                 ))}
                             </select>

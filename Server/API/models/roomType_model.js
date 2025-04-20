@@ -17,6 +17,10 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'RESTRICT', // Prevent deletion of a room type if rooms are using it
             onUpdate: 'CASCADE'
         });
+        RoomType.hasMany(models.Assignation, {
+            onDelete: 'RESTRICT', // Prevent deletion of a room type if rooms are using it
+            onUpdate: 'CASCADE'
+        });
     };
 
     return RoomType;
