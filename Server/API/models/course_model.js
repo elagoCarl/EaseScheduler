@@ -34,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         Year: {
             type: DataTypes.INTEGER,
-            allowNull: false,
+            allowNull: true,
             max: 4,
             min: 1
         }
@@ -51,24 +51,12 @@ module.exports = (sequelize, DataTypes) => {
         });
 
         Course.belongsToMany(models.Professor, {
-            through: models.Assignation,
-            foreignKey: 'CourseId',
-            uniqueKey: false
+            through: { model: 'Assignation', unique: false}
         });
 
-        Course.belongsToMany(models.Department, {
-            through: models.Assignation,
-            as: 'CourseDepts',
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE',
-            foreignKey: 'CourseId',
-            uniqueKey: false
-        });
-
-        // New association for DeptCourse
         Course.belongsToMany(models.Department, {
             through: 'DeptCourse',
-            as: 'DeptCourses',
+            as: 'CourseDepts',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });

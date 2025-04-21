@@ -102,10 +102,10 @@ const HomePage = () => {
   return (
     <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
       style={{ backgroundImage: `url(${image5})` }}>
-      <div className="absolute top-15 right-18 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
+      <div className="absolute top-15 right-15 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"
-          className="text-lg md:text-3xl font-bold block md:hidden text-blue-500"
+          className="hidden text-lg md:text-3xl font-bold md:hidden text-blue-500"
           onClick={() => navigate("/homePage")}>
           EASE<span className="text-white">SCHEDULER</span>
         </button>
@@ -159,14 +159,16 @@ const HomePage = () => {
       )}
 
       {/* LEFT SIDE CALENDAR IMG */}
-      <div className="hidden md:block w-1/2 mx-auto">
+      <div className="hidden md:block w-1/2 mx-auto text-center">
         {/* EASESCHEDULER LOGO */}
-        <div className='pb-4 flex justify-center'>
+        <div className='pb-8 flex justify-center mt-6'>
           <button id="logoBtn" className="md:text-4xl sm:text-2xl font-bold text-blue-500" onClick={() => navigate("/homepage")}>
-            EASE<span className="text-white">SCHEDULER</span>
+            EASE<span className="text-white hover:text-gray-500 duration-300">SCHEDULER</span>
           </button>
         </div>
-        <img src={bigpic} alt="Calendar" className="w-full h-auto" />
+        <div className="flex justify-center">
+          <img src={bigpic} alt="Calendar" className="w-auto max-w-full max-h-[500px] object-contain" />
+        </div>
       </div>
 
       {/* RIGHT SIDE */}
@@ -175,7 +177,10 @@ const HomePage = () => {
         <div className="mb-8 text-center">
           <h2 className="text-white text-2xl md:text-3xl font-bold mb-1">Welcome, {user?.Name || 'User'}!</h2>
           <p className="text-white text-md md:text-lg opacity-90">{user?.Email || 'user@example.com'}</p>
-          <p className="text-white text-md md:text-lg">{user?.Department?.Name || 'Department'}</p>
+          <p className="text-white text-md md:text-lg">
+            {user?.Department?.Name ? `${user.Department.Name} Department` : 'Department'}
+          </p>
+
         </div>
 
         <div className='w-fit m-auto'>

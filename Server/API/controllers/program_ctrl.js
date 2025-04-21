@@ -439,6 +439,7 @@ const getCoursesByProg = async (req, res, next) => {
     const progId = req.params.id;
     const courses = await Course.findAll({
       attributes: { exclude: ["CourseProgs"] },
+      order: [['Year', 'ASC'], ['Code', 'DESC']],
       include: {
         model: Program,
         as: "CourseProgs",

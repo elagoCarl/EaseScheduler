@@ -15,12 +15,11 @@ const EditAssignmentModal = ({
         professorId: "",
         schoolYear: "",
         semester: "",
-        courseId: ""
+        courseId: "",
+        roomTypeId: ""
     });
     // Using a constant department id; you can pass this via props as needed
     const { user } = useAuth();
-    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const DEPARTMENT_ID = user.DepartmentId;
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState('');
@@ -32,12 +31,27 @@ const EditAssignmentModal = ({
     const [coursesError, setCoursesError] = useState(null);
     const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
-    // New state for all professors from getAllProfs
+    // State for searchable course dropdown
+    const [courseSearch, setCourseSearch] = useState("");
+    const [showCourseDropdown, setShowCourseDropdown] = useState(false);
+    const [selectedCourseName, setSelectedCourseName] = useState("");
+
+    // State for searchable professor dropdown
+    const [professorSearch, setProfessorSearch] = useState("");
+    const [showProfessorDropdown, setShowProfessorDropdown] = useState(false);
+    const [selectedProfessorName, setSelectedProfessorName] = useState("");
+
+    // State for all professors
     const [allProfessors, setAllProfessors] = useState([]);
     const [loadingProfessors, setLoadingProfessors] = useState(true);
     const [errorProfessors, setErrorProfessors] = useState("");
 
-    // Fetch all professors from getAllProfs API
+    // New state for room types
+    const [roomTypes, setRoomTypes] = useState([]);
+    const [loadingRoomTypes, setLoadingRoomTypes] = useState(true);
+    const [errorRoomTypes, setErrorRoomTypes] = useState("");
+
+    // Fetch all professors
     useEffect(() => {
         const fetchAllProfessors = async () => {
             try {
@@ -51,6 +65,14 @@ const EditAssignmentModal = ({
                             ...prev,
                             professorId: assignment.ProfessorId
                         }));
+
+                        // Set the selected professor name for display
+                        const professor = response.data.data.find(
+                            p => String(p.id) === String(assignment.ProfessorId)
+                        );
+                        if (professor) {
+                            setSelectedProfessorName(professor.Name);
+                        }
                     }
                 } else {
                     setErrorProfessors(response.data.message || "Failed to fetch professors");
@@ -62,6 +84,33 @@ const EditAssignmentModal = ({
             }
         };
         fetchAllProfessors();
+    }, [assignment]);
+
+    // Fetch all room types
+    useEffect(() => {
+        const fetchRoomTypes = async () => {
+            try {
+                const response = await axios.get('/roomType/getAllRoomTypes');
+                if (response.data.successful) {
+                    setRoomTypes(response.data.data);
+
+                    // Update formData with correct roomTypeId if available
+                    if (assignment && assignment.RoomTypeId) {
+                        setFormData(prev => ({
+                            ...prev,
+                            roomTypeId: assignment.RoomTypeId
+                        }));
+                    }
+                } else {
+                    setErrorRoomTypes(response.data.message || "Failed to fetch room types");
+                }
+            } catch (err) {
+                setErrorRoomTypes(err.message || "An error occurred while fetching room types");
+            } finally {
+                setLoadingRoomTypes(false);
+            }
+        };
+        fetchRoomTypes();
     }, [assignment]);
 
     // Fetch courses from API if propCourses is empty
@@ -103,10 +152,39 @@ const EditAssignmentModal = ({
                 professorId: assignment.ProfessorId || "",
                 schoolYear: assignment.School_Year || "",
                 semester: assignment.Semester || "",
-                courseId: assignment.CourseId || ""
+                courseId: assignment.CourseId || "",
+                roomTypeId: assignment.RoomTypeId || ""
             });
+
+            // Set the selected course name for display
+            if (assignment.Course) {
+                setSelectedCourseName(`${assignment.Course.Code} - ${assignment.Course.Description}`);
+            }
+
+            // Set the selected professor name for display
+            if (assignment.Professor && assignment.Professor.Name) {
+                setSelectedProfessorName(assignment.Professor.Name);
+            }
         }
     }, [assignment]);
+
+    // Close dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            const courseDropdown = document.getElementById("course-dropdown-container");
+            if (courseDropdown && !courseDropdown.contains(event.target)) {
+                setShowCourseDropdown(false);
+            }
+
+            const professorDropdown = document.getElementById("professor-dropdown-container");
+            if (professorDropdown && !professorDropdown.contains(event.target)) {
+                setShowProfessorDropdown(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     // Use the prop courses if available, otherwise use the fetched courses
     const availableCourses = (propCourses && propCourses.length > 0) ? propCourses : fetchedCourses;
@@ -115,6 +193,51 @@ const EditAssignmentModal = ({
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
+
+    // Handle course search input change
+    const handleCourseSearchChange = (e) => {
+        setCourseSearch(e.target.value);
+        setShowCourseDropdown(true);
+    };
+
+    // Select a course from the dropdown
+    const handleCourseSelect = (course) => {
+        setFormData({
+            ...formData,
+            courseId: course.id.toString(),
+        });
+        setSelectedCourseName(`${course.Code} - ${course.Description}`);
+        setCourseSearch("");
+        setShowCourseDropdown(false);
+    };
+
+    // Handle professor search input change
+    const handleProfessorSearchChange = (e) => {
+        setProfessorSearch(e.target.value);
+        setShowProfessorDropdown(true);
+    };
+
+    // Select a professor from the dropdown
+    const handleProfessorSelect = (professor) => {
+        setFormData({
+            ...formData,
+            professorId: professor.id.toString(),
+        });
+        setSelectedProfessorName(professor.Name);
+        setProfessorSearch("");
+        setShowProfessorDropdown(false);
+    };
+
+    // Filter courses based on search input
+    const filteredCourses = availableCourses.filter(course =>
+        course.Code?.toLowerCase().includes(courseSearch.toLowerCase()) ||
+        course.Description?.toLowerCase().includes(courseSearch.toLowerCase())
+    );
+
+    // Filter professors based on search input
+    const filteredProfessors = allProfessors.filter(professor =>
+        professor.Name?.toLowerCase().includes(professorSearch.toLowerCase())
+    );
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -136,7 +259,8 @@ const EditAssignmentModal = ({
                 DepartmentId: Number(assignment.DepartmentId || assignment.Department?.id || DEPARTMENT_ID),
                 School_Year: formData.schoolYear,
                 Semester: formData.semester,
-                CourseId: Number(formData.courseId)
+                CourseId: Number(formData.courseId),
+                RoomTypeId: formData.roomTypeId ? Number(formData.roomTypeId) : null
             };
 
             console.log("Sending update data:", updateData);
@@ -157,6 +281,9 @@ const EditAssignmentModal = ({
                     }
                 }
 
+                // Find the selected room type
+                const selectedRoomType = roomTypes.find(rt => String(rt.id) === String(formData.roomTypeId));
+
                 // Create updated assignment object for the UI.
                 const updatedAssignment = {
                     ...assignment,
@@ -166,12 +293,19 @@ const EditAssignmentModal = ({
                     Course: updatedCourse,
                     School_Year: formData.schoolYear,
                     Semester: formData.semester,
+                    RoomTypeId: formData.roomTypeId || null,
+                    RoomType: selectedRoomType || null
                 };
 
+                // Update the parent component with the changes
                 onUpdate(updatedAssignment);
 
-                setSuccessMessage('Assignment updated successfully! Reloading page...');
-                setTimeout(() => window.location.reload(), 1000);
+                setSuccessMessage('Assignment updated successfully!');
+
+                // Close the modal after a short delay so user can see success message
+                setTimeout(() => {
+                    onClose();
+                }, 1500);
             } else {
                 setError(response.data.message || "Failed to update assignment");
                 setSuccessMessage('');
@@ -193,56 +327,161 @@ const EditAssignmentModal = ({
                 </div>
                 <form className="space-y-10 px-20" onSubmit={handleSubmit}>
                     <div className="mb-4">
-                        <label className="block font-semibold text-white" htmlFor="professorId">
+                        <label className="block font-semibold text-white" htmlFor="professorSearch">
                             Professor
                         </label>
-                        <select
-                            id="professorId"
-                            name="professorId"
-                            value={formData.professorId}
-                            onChange={handleChange}
-                            className="w-full p-8 border rounded bg-customWhite"
-                        >
-                            <option value="">Select Professor</option>
+                        <div id="professor-dropdown-container" className="relative">
                             {loadingProfessors ? (
-                                <option disabled>Loading professors...</option>
+                                <p className="text-white">Loading professors...</p>
                             ) : errorProfessors ? (
-                                <option disabled>{errorProfessors}</option>
+                                <p className="text-red-500">{errorProfessors}</p>
                             ) : (
-                                allProfessors.map((prof) => (
-                                    <option key={`prof-${prof.id}`} value={prof.id}>
-                                        {prof.Name}
-                                    </option>
-                                ))
+                                <div className="flex flex-col">
+                                    <input
+                                        type="text"
+                                        id="professorSearch"
+                                        placeholder="Search for a professor..."
+                                        className="w-full p-3 border rounded bg-customWhite"
+                                        value={professorSearch}
+                                        onChange={handleProfessorSearchChange}
+                                        onFocus={() => setShowProfessorDropdown(true)}
+                                        disabled={isLoading}
+                                    />
+                                    {selectedProfessorName && (
+                                        <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
+                                            <span>{selectedProfessorName}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedProfessorName("");
+                                                    setFormData({ ...formData, professorId: "" });
+                                                }}
+                                                className="text-white hover:text-gray-300"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {showProfessorDropdown && (
+                                        <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
+                                            {filteredProfessors.length > 0 ? (
+                                                filteredProfessors.map(professor => (
+                                                    <div
+                                                        key={professor.id}
+                                                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                                                        onClick={() => handleProfessorSelect(professor)}
+                                                    >
+                                                        {professor.Name} {professor.Total_units ? `(Current Units: ${professor.Total_units})` : ''}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-2 text-gray-500">No professors found</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             )}
-                        </select>
+                            <input
+                                type="hidden"
+                                name="professorId"
+                                value={formData.professorId}
+                            />
+                        </div>
                     </div>
 
                     <div className="mb-4">
-                        <label className="block font-semibold text-white" htmlFor="courseId">
+                        <label className="block font-semibold text-white" htmlFor="courseSearch">
                             Course
                         </label>
-                        {coursesLoading ? (
-                            <p className="text-white">Loading courses...</p>
-                        ) : coursesError ? (
-                            <p className="text-red-500">{coursesError}</p>
-                        ) : (
-                            <select
-                                id="courseId"
+                        <div id="course-dropdown-container" className="relative">
+                            {coursesLoading ? (
+                                <p className="text-white">Loading courses...</p>
+                            ) : coursesError ? (
+                                <p className="text-red-500">{coursesError}</p>
+                            ) : (
+                                <div className="flex flex-col">
+                                    <input
+                                        type="text"
+                                        id="courseSearch"
+                                        placeholder="Search for a course..."
+                                        className="w-full p-3 border rounded bg-customWhite"
+                                        value={courseSearch}
+                                        onChange={handleCourseSearchChange}
+                                        onFocus={() => setShowCourseDropdown(true)}
+                                        disabled={isLoading}
+                                    />
+                                    {selectedCourseName && (
+                                        <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
+                                            <span>{selectedCourseName}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedCourseName("");
+                                                    setFormData({ ...formData, courseId: "" });
+                                                }}
+                                                className="text-white hover:text-gray-300"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {showCourseDropdown && (
+                                        <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
+                                            {filteredCourses.length > 0 ? (
+                                                filteredCourses.map(course => (
+                                                    <div
+                                                        key={course.id}
+                                                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                                                        onClick={() => handleCourseSelect(course)}
+                                                    >
+                                                        {course.Code} - {course.Description}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="p-2 text-gray-500">No courses found</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            <input
+                                type="hidden"
                                 name="courseId"
                                 value={formData.courseId}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block font-semibold text-white" htmlFor="roomTypeId">
+                            Room Type
+                        </label>
+                        {loadingRoomTypes ? (
+                            <p className="text-white">Loading room types...</p>
+                        ) : errorRoomTypes ? (
+                            <p className="text-red-500">{errorRoomTypes}</p>
+                        ) : (
+                            <select
+                                id="roomTypeId"
+                                name="roomTypeId"
+                                value={formData.roomTypeId}
                                 onChange={handleChange}
                                 className="w-full p-8 border rounded bg-customWhite"
                             >
-                                <option value="">Select Course</option>
-                                {availableCourses.map(course => (
-                                    <option key={`course-${course.id}`} value={course.id}>
-                                        {course.Code} - {course.Description}
+                                <option value="">Select Room Type (Optional)</option>
+                                {roomTypes.map(roomType => (
+                                    <option key={`roomType-${roomType.id}`} value={roomType.id}>
+                                        {roomType.Type}
                                     </option>
                                 ))}
                             </select>
                         )}
                     </div>
+
+
+
                     <div className="mb-4">
                         <label className="block font-semibold text-white" htmlFor="schoolYear">
                             School Year
@@ -323,6 +562,11 @@ EditAssignmentModal.propTypes = {
             id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
             Code: PropTypes.string,
             Description: PropTypes.string
+        }),
+        RoomTypeId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        RoomType: PropTypes.shape({
+            id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+            Type: PropTypes.string
         }),
         School_Year: PropTypes.string,
         Semester: PropTypes.string

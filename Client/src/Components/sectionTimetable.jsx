@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
+import ExportButton from './callComponents/exportButton.jsx'; // Added import
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
 
 const SectionTimetable = () => {
   const { user } = useAuth();
-  console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-  console.log("useridDDDDDDDDDDDDDDept: ", user?.DepartmentId);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +42,6 @@ const SectionTimetable = () => {
 
         const deptId = user.DepartmentId;
         const { data } = await axios.get(`/schedule/getSchedsByDept/${deptId}`);
-        console.log("Fetched schedulesssSSSSSSS: ", data.data);
 
         if (data.successful && data.data && data.data.length) {
           const scheds = data.data;
@@ -213,7 +211,31 @@ const SectionTimetable = () => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header with filters */}
           <div className="relative bg-blue-600 p-4 sm:p-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
+            <div className="flex justify-between items-start">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
+                {selectedProgram && selectedYear && selectedSection && (
+                  <div className="text-blue-100 mt-1">
+                    <p className="text-lg font-semibold">{getSelectedProgramCode()} Year {selectedYear} Section {selectedSection}</p>
+                  </div>
+                )}
+              </div>
+              {/* Add ExportButton in desktop view */}
+              <div className="hidden md:block">
+                {selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+                  <ExportButton
+                    selectedSection={{
+                      Program: getSelectedProgramCode(),
+                      Year: selectedYear,
+                      Section: selectedSection
+                    }}
+                    schedules={filteredSchedules}
+                    days={days}
+                    timeSlots={timeSlots}
+                  />
+                )}
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-4">
               {/* Program Dropdown */}
               <div className="flex flex-col">
@@ -273,11 +295,6 @@ const SectionTimetable = () => {
                 </select>
               </div>
             </div>
-            {selectedProgram && selectedYear && selectedSection && (
-              <div className="text-blue-100 mt-3 text-lg">
-                Viewing: {getSelectedProgramCode()} Year {selectedYear} Section {selectedSection}
-              </div>
-            )}
           </div>
           {/* Calendar */}
           <div className="overflow-x-auto">
@@ -331,19 +348,34 @@ const SectionTimetable = () => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden">
-                <div className="flex justify-start bg-gray-50 border-b-2 border-gray-200 p-2 gap-8">
+                <div className="flex justify-between bg-gray-50 border-b-2 border-gray-200 p-2">
                   <span className="text-gray-700 font-medium text-sm">Time</span>
-                  <select
-                    className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
-                    value={selectedDay}
-                    onChange={e => setSelectedDay(parseInt(e.target.value))}
-                  >
-                    {days.map((day, idx) => (
-                      <option key={day} value={idx}>
-                        {day}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    {/* Add ExportButton in mobile view */}
+                    {selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+                      <ExportButton
+                        selectedSection={{
+                          Program: getSelectedProgramCode(),
+                          Year: selectedYear,
+                          Section: selectedSection
+                        }}
+                        schedules={filteredSchedules}
+                        days={days}
+                        timeSlots={timeSlots}
+                      />
+                    )}
+                    <select
+                      className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
+                      value={selectedDay}
+                      onChange={e => setSelectedDay(parseInt(e.target.value))}
+                    >
+                      {days.map((day, idx) => (
+                        <option key={day} value={idx}>
+                          {day}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 {loading ? (
                   <div className="flex items-center justify-center py-10">

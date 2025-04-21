@@ -22,30 +22,36 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Building is required." }
             }
         },
-        Type: {
-            type: DataTypes.STRING,
+        NumberOfSeats: {
+            type: DataTypes.INTEGER,
             allowNull: false,
             validate: {
-                notEmpty: { msg: "Room type is required." }
+                notEmpty: { msg: "Number of seats is required." },
+                min: 1
             }
         }
     }, {
         timestamps: true
     });
+
     Room.associate = (models) => {
+        Room.belongsTo(models.RoomType, {
+            onDelete: 'RESTRICT',
+            onUpdate: 'CASCADE'
+        });
+
         Room.belongsToMany(models.Department, {
             through: 'DeptRoom',
             as: 'RoomDepts',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        }),
+        });
+
         Room.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        })
-    }
+        });
+    };
 
-    return Room
-}
-
-
+    return Room;
+};

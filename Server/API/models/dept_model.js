@@ -19,16 +19,16 @@ module.exports = (sequelize, DataTypes) => {
         });
         // Change this relationship definition
         Department.belongsToMany(models.Professor, {
-            through: models.Assignation,  // Use the model reference
-            foreignKey: 'DepartmentId',
-            uniqueKey: false
+            through: { model: 'Assignation', unique: false }
         });
         Department.belongsToMany(models.Course, {
-            through: models.Assignation,  // Use the model reference
-            foreignKey: 'DepartmentId',
-            uniqueKey: false
+            through: { model: 'Assignation', unique: false }
         });
         Department.hasMany(models.Program, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        });
+        Department.hasMany(models.Settings, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });

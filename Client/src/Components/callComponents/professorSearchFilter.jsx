@@ -67,60 +67,46 @@ const ProfessorSearchFilter = ({ professors, onFilterChange }) => {
     };
 
     return (
-        <div className="bg-white p-4 rounded-lg shadow-md mb-4 w-full">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Search input */}
-                <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">Search</label>
-                    <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search by name or email..."
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-customBlue1 focus:border-customBlue1 text-xs md:text-sm"
-                    />
-                </div>
+        <div className="w-full flex justify-end gap-5">
+            {/* Search input */}
+            <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search for professors"
+                className="p-2 pl-5 border border-gray-300 rounded bg-white text-xs md:text-sm w-200"
+            />
 
-                {/* Status filter */}
-                <div>
-                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">Teaching Status</label>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-customBlue1 focus:border-customBlue1 text-xs md:text-sm"
-                    >
-                        <option value="all">All Statuses</option>
-                        {uniqueStatuses.map(status => (
-                            <option key={status} value={status}>{status}</option>
-                        ))}
-                    </select>
-                </div>
+            {/* Status filter */}
+            <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="p-2 border border-gray-300 rounded bg-white text-xs md:text-sm"
+            >
+                <option value="all">All Statuses</option>
+                {uniqueStatuses.map(status => (
+                    <option key={status} value={status}>{status}</option>
+                ))}
+            </select>
 
-                {/* Unit filter */}
-                <div>
-                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">Total Units</label>
-                    <select
-                        value={unitFilter}
-                        onChange={(e) => setUnitFilter(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-customBlue1 focus:border-customBlue1 text-xs md:text-sm"
-                    >
-                        <option value="all">All Units</option>
-                        <option value="lessThan3">Less than 3</option>
-                        <option value="3to6">3 to 6</option>
-                        <option value="moreThan6">More than 6</option>
-                    </select>
-                </div>
-            </div>
+            {/* Unit filter */}
+            <select
+                value={unitFilter}
+                onChange={(e) => setUnitFilter(e.target.value)}
+                className="p-2 border border-gray-300 rounded bg-white text-xs md:text-sm"
+            >
+                <option value="all">All Units</option>
+                <option value="lessThan3">Less than 3</option>
+                <option value="3to6">3 to 6</option>
+                <option value="moreThan6">More than 6</option>
+            </select>
 
-            {/* Reset button */}
-            <div className="mt-4 flex justify-end">
-                <button
-                    onClick={handleReset}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-xs md:text-sm"
-                >
-                    Reset Filters
-                </button>
-            </div>
+            <button
+                onClick={handleReset}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded text-xs md:text-sm"
+            >
+                Reset Filters
+            </button>
         </div>
     );
 };

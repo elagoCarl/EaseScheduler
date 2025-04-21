@@ -28,17 +28,7 @@ const addCourse = async (req, res) => {
       const { Code, Description, Duration, Units, Type, Dept_id, Year } = course;
 
       // Validate mandatory fields
-      if (
-        !util.checkMandatoryFields([
-          Code,
-          Description,
-          Duration,
-          Units,
-          Type,
-          Dept_id,
-          Year
-        ])
-      ) {
+      if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
         return res.status(400).json({
           successful: false,
           message: "A mandatory field is missing.",
@@ -66,7 +56,7 @@ const addCourse = async (req, res) => {
         where: {
           [Op.or]: [
             { Code: { [Op.like]: Code } },
-            { Description: { [Op.like]: Description } },
+            // { Description: { [Op.like]: Description } },
           ],
         },
       });
@@ -74,7 +64,7 @@ const addCourse = async (req, res) => {
       if (existingCourse) {
         return res.status(400).json({
           successful: false,
-          message: `Course with code or description already exists.`,
+          message: `Course with code  already exists.`,
         });
       }
 
@@ -92,11 +82,11 @@ const addCourse = async (req, res) => {
         Duration,
         Units,
         Type,
-        Year
+        Year: (Year >= 1) ? Year : null
       });
 
       if (Type === "Professional") {
-        await newCourse.addDeptCourses(Dept_id);
+        await newCourse.addCourseDepts(Dept_id);
       }
 
       addedCourses.push(Code);
@@ -259,7 +249,7 @@ const updateCourse = async (req, res) => {
 
     // Validate mandatory fields
     if (
-      !util.checkMandatoryFields([Code, Description, Duration, Units, Type, Year])
+      !util.checkMandatoryFields([Code, Description, Duration, Units, Type])
     ) {
       return res.status(400).json({
         successful: false,
@@ -280,7 +270,7 @@ const updateCourse = async (req, res) => {
         id: { [Op.ne]: req.params.id }, // Exclude the current course by ID
         [Op.or]: [
           { Code: { [Op.like]: Code } },
-          { Description: { [Op.like]: Description } },
+          // { Description: { [Op.like]: Description } },
         ],
       },
     });
@@ -288,7 +278,7 @@ const updateCourse = async (req, res) => {
     if (existingCourse) {
       return res.status(406).json({
         successful: false,
-        message: `Course with code or description already exists.`,
+        message: `Course with code already exists.`,
       });
     }
 
@@ -332,8 +322,8 @@ const updateCourse = async (req, res) => {
       Duration,
       Units,
       Type,
-      Year
-    });
+      Year: (Year >= 1) ? Year : null
+    })
 
     // Log the archive action
     const token = req.cookies?.refreshToken;
@@ -517,12 +507,13 @@ const getCoursesByDept = async (req, res, next) => {
       where: {
         [Op.or]: [
           { Type: "Core" },
-          { "$DeptCourses.id$": deptId }
+          { "$CourseDepts.id$": deptId }
         ]
       },
+      order: [['Year', 'ASC'], ['Code', 'DESC']],
       include: {
         model: Department,
-        as: "DeptCourses",
+        as: "CourseDepts",
         attributes: [], // Exclude department attributes if you don't need them
         required: false,
         through: {
@@ -554,8 +545,6 @@ const getCoursesByDept = async (req, res, next) => {
     });
   }
 };
-
-
 
 const updateDeptCourse = async (req, res, next) => {
   try {

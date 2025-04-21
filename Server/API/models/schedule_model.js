@@ -27,8 +27,8 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: true,
         indexes: [
             {
-                name: 'Schedules_RoomId_AssignationId_index',
-                fields: ['RoomId', 'AssignationId'],
+                name: 'Schedules_AssignationId_RoomId_index',
+                fields: ['AssignationId', 'RoomId'],
                 unique: false
             }
         ]

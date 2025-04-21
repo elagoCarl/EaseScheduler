@@ -24,12 +24,26 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
 
     useEffect(() => {
         if (searchTerm) {
-            const filtered = rooms.filter(room =>
-                room.Code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                room.Building.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                room.Floor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                room.Type.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            const filtered = rooms.filter(room => {
+                // Add null checks for each property before using toLowerCase()
+                const codeMatch = room.Code && typeof room.Code === 'string'
+                    ? room.Code.toLowerCase().includes(searchTerm.toLowerCase())
+                    : false;
+
+                const buildingMatch = room.Building && typeof room.Building === 'string'
+                    ? room.Building.toLowerCase().includes(searchTerm.toLowerCase())
+                    : false;
+
+                const floorMatch = room.Floor && typeof room.Floor === 'string'
+                    ? room.Floor.toLowerCase().includes(searchTerm.toLowerCase())
+                    : false;
+
+                const typeMatch = room.RoomType && room.RoomType.Type && typeof room.RoomType.Type === 'string'
+                    ? room.RoomType.Type.toLowerCase().includes(searchTerm.toLowerCase())
+                    : false;
+
+                return codeMatch || buildingMatch || floorMatch || typeMatch;
+            });
             setFilteredRooms(filtered);
         } else {
             setFilteredRooms(rooms);
@@ -57,8 +71,21 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
             const response = await axios.get("/room/getAllRoom");
 
             if (response.data.successful && response.data.data) {
-                setRooms(response.data.data);
-                setFilteredRooms(response.data.data);
+                // Make sure we have valid room data
+                const validRooms = response.data.data.filter(room =>
+                    room && room.id && room.Code && room.Building && room.Floor);
+
+                // Map room data to ensure consistent structure
+                const formattedRooms = validRooms.map(room => ({
+                    id: room.id,
+                    Code: room.Code || 'Unknown',
+                    Building: room.Building || 'Unknown',
+                    Floor: room.Floor || 'Unknown',
+                    Type: room.RoomType ? room.RoomType.Type : 'Unknown'
+                }));
+
+                setRooms(formattedRooms);
+                setFilteredRooms(formattedRooms);
             } else {
                 setRooms([]);
                 setFilteredRooms([]);
