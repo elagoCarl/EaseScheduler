@@ -23,6 +23,11 @@ const CourseProg = () => {
     const [selectedProgram, setSelectedProgram] = useState("");
     const { user } = useAuth();
 
+    // Confirmation modal state
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [itemToDelete, setItemToDelete] = useState(null);
+
     // Fetch initial data when user changes
     useEffect(() => {
         if (user?.DepartmentId) {
@@ -140,7 +145,6 @@ const CourseProg = () => {
         setOldProgId(null);
     };
 
-    // Define handleCancel function
     const handleCancel = () => {
         resetForm();
     };
@@ -157,9 +161,19 @@ const CourseProg = () => {
         if (window.innerWidth < 768) setActiveTab("courses-form");
     };
 
-    const handleDelete = async (courseId, programId) => {
-        if (!window.confirm("Are you sure you want to remove this course from the program?")) return;
+    // Updated delete handling with confirmation modal
+    const initiateDelete = (courseId, programId) => {
+        // Store item to delete for reference
+        setItemToDelete({ courseId, programId });
 
+        // Set the confirm action function
+        setConfirmAction(() => () => executeDelete(courseId, programId));
+
+        // Show the confirmation modal
+        setShowConfirmModal(true);
+    };
+
+    const executeDelete = async (courseId, programId) => {
         try {
             const response = await axios.delete("/program/deleteCourseProg", {
                 data: {
@@ -179,13 +193,29 @@ const CourseProg = () => {
                 type: "error",
                 text: error.response?.data?.message || "Failed to remove course from program.",
             });
+        } finally {
+            // Reset confirmation state
+            setShowConfirmModal(false);
+            setConfirmAction(null);
+            setItemToDelete(null);
         }
+    };
+
+    const cancelDelete = () => {
+        setShowConfirmModal(false);
+        setConfirmAction(null);
+        setItemToDelete(null);
     };
 
     // Helper function
     const getProgramName = (programId) => {
         const program = programs.find(p => p.id === parseInt(programId));
         return program ? `${program.Code} - ${program.Name}` : "Unknown Program";
+    };
+
+    const getCourseName = (courseId) => {
+        const course = courses.find(c => c.id === parseInt(courseId));
+        return course ? `${course.Code} - ${course.Description}` : "Unknown Course";
     };
 
     return (
@@ -347,7 +377,7 @@ const CourseProg = () => {
                                                                 </button>
                                                                 <button
                                                                     className="inline-block px-2 sm:px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
-                                                                    onClick={() => handleDelete(course.id, selectedProgram)}
+                                                                    onClick={() => initiateDelete(course.id, selectedProgram)}
                                                                 >
                                                                     Remove
                                                                 </button>
@@ -364,6 +394,38 @@ const CourseProg = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Custom Confirmation Modal */}
+            {showConfirmModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-fade-in">
+                        <div className="text-center">
+                            <div className="flex items-center justify-center mb-4">
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Removal</h3>
+                            {itemToDelete && (
+                                <p className="text-sm text-gray-500 mb-6">
+                                    Are you sure you want to remove this course from the program? This action cannot be undone.
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex justify-center space-x-4">
+                            <button
+                                onClick={cancelDelete}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmAction}
+                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
