@@ -28,7 +28,7 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT,
     
     // DISABLE LOGGING FOR EXECUTIONS
-    logging: true
+    logging: false
   }
 );
 
