@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import ScheduleReportModal from '../Components/callComponents/scheduleReport.jsx';
+
 import axios from '../axiosConfig.js';
 import bg from './Img/bg.jpg';
 import delBtn from './Img/delBtn.png';
@@ -18,6 +20,11 @@ const AddConfigSchedule = () => {
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
   // State management
+
+  // first 2 are for report modal
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportData, setReportData]     = useState(null);
+
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
   const [rooms, setRooms] = useState([]);
@@ -179,7 +186,11 @@ const AddConfigSchedule = () => {
     try {
       // First, validate that a room is selected when automating a single room
       if (automateType === 'room' && !formData.room_id) {
-        setNotification({ type: 'error', message: "Please select a room before automating a single room schedule." });
+        setNotification({
+          type: 'error',
+          message: "Please select a room before automating a single room schedule."
+        });
+        setIsAutomating(false);
         return;
       }
   
@@ -187,13 +198,15 @@ const AddConfigSchedule = () => {
       const payload = {
         DepartmentId: deptId,
         // Use prioritized professors if available
-        prioritizedProfessor: prioritizedProfessors.length > 0
-          ? prioritizedProfessors.map(value => parseInt(value, 10))
-          : undefined,
-        // Use prioritized rooms if available 
-        prioritizedRoom: prioritizedRooms.length > 0 
-          ? prioritizedRooms.map(value => parseInt(value, 10))
-          : undefined
+        prioritizedProfessor:
+          prioritizedProfessors.length > 0
+            ? prioritizedProfessors.map((value) => parseInt(value, 10))
+            : undefined,
+        // Use prioritized rooms if available
+        prioritizedRoom:
+          prioritizedRooms.length > 0
+            ? prioritizedRooms.map((value) => parseInt(value, 10))
+            : undefined,
       };
   
       // If automating a single room, include the roomId in the payload
@@ -204,37 +217,54 @@ const AddConfigSchedule = () => {
       // Always use the same endpoint
       const endpoint = '/schedule/automateSchedule';
   
+      // Fire the request
       const response = await axios.put(endpoint, payload);
   
+      console.log("Automate schedule response:", response.data);
+
       if (response.data.successful) {
+        // Notify user of success
         setNotification({
           type: 'success',
-          message: `Schedule automation ${automateType === 'room' ? 'for selected room' : 'for all rooms'} completed successfully!`
+          message: `Schedule automation ${
+            automateType === 'room' ? 'for selected room' : 'for all rooms'
+          } completed successfully!`,
         });
-        
+  
+        // --- Show the report modal ---
+        // assume your backend returns the full report under `data`
+        setReportData(response.data);
+        setIsReportOpen(true);
+  
         // Refresh schedules for the current room if one is selected
         if (formData.room_id) {
           fetchSchedulesForRoom(formData.room_id);
         }
       } else {
-        setNotification({ 
-          type: 'error', 
-          message: transformErrorMessage(response.data.message) 
+        // Backend returned a controlled failure
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message),
         });
       }
     } catch (error) {
-      console.error("Schedule automation error:", error.response || error);
-      
+      console.error('Schedule automation error:', error.response || error);
+  
+      // Network / unexpected error
       setNotification({
         type: 'error',
         message: transformErrorMessage(
-          error.response?.data?.message || `An error occurred during ${automateType === 'room' ? 'room' : 'department'} schedule automation.`
-        )
+          error.response?.data?.message ||
+            `An error occurred during ${
+              automateType === 'room' ? 'room' : 'department'
+            } schedule automation.`
+        ),
       });
     } finally {
       setIsAutomating(false);
     }
   };
+  
 
 
 
@@ -863,6 +893,12 @@ const renderAutomationSection = () => (
         }}
         rooms={rooms}
         assignations={assignations}
+      />
+
+      <ScheduleReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        scheduleData={reportData}
       />
     </div>
   );
