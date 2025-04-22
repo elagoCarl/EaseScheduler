@@ -502,7 +502,6 @@ const automateSchedule = async (req, res, next) => {
         return res.status(200).json({
             successful: true,
             message,
-            executionTime,
             totalSchedules: fullReport.length,
             newSchedules:   report.length,
             scheduleReport: report,
