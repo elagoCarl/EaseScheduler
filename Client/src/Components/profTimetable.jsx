@@ -78,25 +78,20 @@ const ProfTimetable = () => {
   };
 
   // Get room info based on the actual data structure
-  const getRoomInfo = (schedule) => {
-    // Check if room exists in the Assignation.Rooms array
-    if (schedule.Assignation?.Rooms && schedule.Assignation.Rooms.length > 0) {
-      const room = schedule.Assignation.Rooms[0];
-      return {
-        code: room.Code || 'Unknown',
-        building: room.Building || 'Unknown',
-        floor: room.Floor || '',
-        type: room.Type || ''
-      };
-    }
-
-    // Fallback to RoomId if available
-    if (schedule.RoomId) {
-      return { code: `Room ${schedule.RoomId}`, building: 'Unknown', floor: '', type: '' };
-    }
-
+  // OLD: was reading from schedule.Assignation?.Rooms[0]
+const getRoomInfo = (schedule) => {
+  const room = schedule.Room;
+  if (!room) {
     return { code: 'Unknown', building: 'Unknown', floor: '', type: '' };
+  }
+  return {
+    code: room.Code || 'Unknown',
+    building: room.Building || 'Unknown',
+    floor: room.Floor || '',
+    type: room.RoomType?.Type || ''
   };
+};
+
 
   // Safely get sections info from the actual data structure
   const getSectionsInfo = (schedule) => {
@@ -143,10 +138,11 @@ const ProfTimetable = () => {
           {courseDesc}
         </div>
         <div className="text-xs">
-          Room: {room.code} {room.building && `- ${room.building}`}
-          {room.floor && `, ${room.floor}`}
-          {room.type && ` (${room.type})`}
-        </div>
+  Room: {room.code}
+  {room.building && ` - ${room.building}`}
+  {room.floor && `, ${room.floor}`}
+  {room.type && ` (${room.type})`}
+</div>
       </div>
     );
   };
