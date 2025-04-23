@@ -13,6 +13,7 @@ import editBtn from "./Img/editBtn.png";
 import delBtn from "./Img/delBtn.png";
 import LoadingSpinner from "./callComponents/loadingSpinner.jsx";
 import ErrorDisplay from "./callComponents/errDisplay.jsx";
+import { AlertTriangle, ArrowDown, ArrowUp } from "lucide-react"; // Import icons from lucide-react
 
 const Professor = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -28,6 +29,28 @@ const Professor = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showSelectionWarning, setShowSelectionWarning] = useState(false);
+  const [profStatusMap, setProfStatusMap] = useState({}); // Store status details including Max_units
+
+  // Fetch professor statuses to get Max_units for each status
+  const fetchProfStatuses = async () => {
+    try {
+      const response = await axios.get("/profStatus/getAllStatus");
+      if (response.data.successful) {
+        const statusData = response.data.data;
+        const statusMap = {};
+        statusData.forEach(status => {
+          statusMap[status.id] = {
+            status: status.Status,
+            maxUnits: status.Max_units
+          };
+        });
+        setProfStatusMap(statusMap);
+        console.log("Status map loaded:", statusMap);
+      }
+    } catch (error) {
+      console.error("Failed to fetch professor statuses:", error.message);
+    }
+  };
 
   // Fetch professors. The axios instance automatically sends cookies.
   const fetchProfessors = async () => {
@@ -47,6 +70,30 @@ const Professor = () => {
     }
   };
 
+  // Function to check if a professor is underloaded or overloaded
+  const getLoadingStatus = (professor) => {
+    // Find status ID by matching status name
+    const statusName = professor.Status;
+    let statusId = null;
+
+    // Loop through status map to find matching status
+    for (const [id, statusInfo] of Object.entries(profStatusMap)) {
+      if (statusInfo.status === statusName) {
+        statusId = id;
+        break;
+      }
+    }
+
+    if (!statusId) return null;
+
+    const maxUnits = profStatusMap[statusId].maxUnits;
+    const totalUnits = professor.Total_units;
+
+    if (totalUnits < maxUnits) return "underloaded";
+    if (totalUnits > maxUnits) return "overloaded";
+    return "normal";
+  };
+
   // Memoize the handleFilterChange function to prevent recreating it on every render
   const handleFilterChange = useCallback((filtered) => {
     setFilteredProfessors(filtered);
@@ -59,7 +106,7 @@ const Professor = () => {
   // Open edit modal and fetch specific professor's data
   const handleEditClick = async (profId) => {
     try {
-      const response = await axios.get(`/prof/getProf/${ profId }`);
+      const response = await axios.get(`/prof/getProf/${profId}`);
       const professorData = response.data.data;
 
       if (professorData && professorData.Name && professorData.Email) {
@@ -103,7 +150,7 @@ const Professor = () => {
 
     try {
       for (const id of idsToDelete) {
-        await axios.delete(`/prof/deleteProf/${ id }`);
+        await axios.delete(`/prof/deleteProf/${id}`);
       }
       // Refresh the professor list
       fetchProfessors();
@@ -115,7 +162,8 @@ const Professor = () => {
   };
 
   useEffect(() => {
-    fetchProfessors();
+    fetchProfStatuses(); // First fetch statuses to get max units info
+    fetchProfessors(); // Then fetch professors
   }, []);
 
   // Auto-hide selection warning after 3 seconds
@@ -128,10 +176,6 @@ const Professor = () => {
     }
     return () => clearTimeout(timeout);
   }, [showSelectionWarning]);
-
-  useEffect(() => {
-    fetchProfessors();
-  }, []);
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay error={error} />;
@@ -184,10 +228,30 @@ const Professor = () => {
     setIsDeleteWarningOpen(false);
   };
 
+  // Render loading indicator for each professor
+  const renderLoadingIndicator = (professor) => {
+    const loadingStatus = getLoadingStatus(professor);
+
+    if (loadingStatus === "underloaded") {
+      return (
+        <span className="text-yellow-600 flex items-center ml-2" title="Underloaded">
+          <ArrowDown size={18} />
+        </span>
+      );
+    } else if (loadingStatus === "overloaded") {
+      return (
+        <span className="text-red-600 flex items-center ml-2" title="Overloaded">
+          <AlertTriangle size={18} />
+        </span>
+      );
+    }
+    return null;
+  };
+
   return (
     <div
       className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${ Background })` }}
+      style={{ backgroundImage: `url(${Background})` }}
     >
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
@@ -225,7 +289,12 @@ const Professor = () => {
                   <tr key={professor.id} className="hover:bg-customLightBlue2 border-t border-gray-300">
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{professor.Name}</td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{professor.Email}</td>
-                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{professor.Total_units}</td>
+                    <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
+                      <div className="flex items-center justify-center space-x-2">
+                        <span>{professor.Total_units}</span>
+                        {renderLoadingIndicator(professor)}
+                      </div>
+                    </td>
                     <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{professor.Status}</td>
                     <td className="py-2 border border-gray-300">
                       <input
