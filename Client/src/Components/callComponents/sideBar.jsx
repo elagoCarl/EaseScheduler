@@ -122,7 +122,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </svg>
         </button>
         <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
+          className={`pl-12 space-y-5 overflow-hidden transition-all duration-500 ${activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
           <button
@@ -184,7 +184,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </svg>
         </button>
         <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
+          className={`pl-12 space-y-4 overflow-hidden transition-all duration-500 ${activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
           <button
@@ -213,6 +213,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             }}
           >
             Professor Assignations
+          </button>
+          <button
+            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            onClick={() => {
+              navigate('/profStatus');
+              toggleSidebar(false);
+            }}
+          >
+            Professor Status
           </button>
         </div>
       </div>
