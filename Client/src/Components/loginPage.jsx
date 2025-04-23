@@ -70,7 +70,7 @@ const LoginPage = () => {
           className="hover:scale-105 text-xl md:text-3xl lg:text-4xl font-bold text-blue-500 mb-50"
           onClick={() => navigate('/')}
         >
-          EASE<span className="text-white">SCHEDULER</span>
+          EASE<span className="text-white hover:text-gray-500 duration-300">SCHEDULER</span>
         </button>
 
         <form

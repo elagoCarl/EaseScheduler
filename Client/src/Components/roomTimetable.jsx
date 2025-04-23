@@ -181,7 +181,7 @@ const RoomTimetable = () => {
           </div>
           {/* Timetable */}
           <div className="overflow-x-auto">
-            <div className="p-2 sm:p-4 min-w-[600px]">
+            <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
                 {loadingSchedules ? (

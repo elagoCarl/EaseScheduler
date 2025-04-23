@@ -41,7 +41,7 @@ const SectionTimetable = () => {
         }
 
         const deptId = user.DepartmentId;
-        const { data } = await axios.get(`/schedule/getSchedsByDept/${deptId}`);
+        const { data } = await axios.get(`/schedule/getSchedsByDept/${ deptId }`);
 
         if (data.successful && data.data && data.data.length) {
           const scheds = data.data;
@@ -103,7 +103,7 @@ const SectionTimetable = () => {
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
-  const formatTimeRange = (start, end) => `${start?.slice(0, 5) || ''} - ${end?.slice(0, 5) || ''}`;
+  const formatTimeRange = (start, end) => `${ start?.slice(0, 5) || '' } - ${ end?.slice(0, 5) || '' }`;
 
   const calculateEventPosition = (event) => {
     if (!event || !event.Start_time || !event.End_time) return { top: '0%', height: '0%' };
@@ -111,7 +111,7 @@ const SectionTimetable = () => {
     const [startHour, startMin] = event.Start_time.split(':').map(Number);
     const [endHour, endMin] = event.End_time.split(':').map(Number);
     const duration = (endHour - startHour) + (endMin - startMin) / 60;
-    return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
+    return { top: `${ (startMin / 60) * 100 }%`, height: `${ duration * 100 }%` };
   };
 
   // Get room info from Assignation.Rooms
@@ -131,7 +131,7 @@ const SectionTimetable = () => {
     // Add null checks for all data access
     const sectionsStr = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
       ? schedule.ProgYrSecs
-        .map(sec => `${sec.Program?.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`)
+        .map(sec => `${ sec.Program?.Code || 'Unknown' } ${ sec.Year || '?' }-${ sec.Section || '?' }`)
         .join(', ')
       : 'Unknown';
 
@@ -141,7 +141,7 @@ const SectionTimetable = () => {
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${ hovered ? 'z-[9999] scale-110' : 'z-10' }`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -149,7 +149,7 @@ const SectionTimetable = () => {
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sectionsStr}</span>
         </div>
         <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'Unknown'}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+        <div className={`text-xs ${ hovered ? '' : 'truncate' }`}>
           {schedule.Assignation?.Course?.Description || 'No description'}
         </div>
         <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'Unknown'}</div>
@@ -197,7 +197,7 @@ const SectionTimetable = () => {
     <div
       className="min-h-screen flex flex-col"
       style={{
-        backgroundImage: `url(${Image3})`,
+        backgroundImage: `url(${ Image3 })`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -298,7 +298,7 @@ const SectionTimetable = () => {
           </div>
           {/* Calendar */}
           <div className="overflow-x-auto">
-            <div className="p-2 sm:p-4 min-w-[600px]">
+            <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
                 {loading ? (
@@ -332,7 +332,7 @@ const SectionTimetable = () => {
                         {timeSlots.map(hour => (
                           <tr key={hour} className="hover:bg-gray-50">
                             <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                              {`${hour.toString().padStart(2, '0')}:00`}
+                              {`${ hour.toString().padStart(2, '0') }:00`}
                             </td>
                             {days.map((_, dayIndex) => (
                               <td key={dayIndex} className="p-0 border-b border-gray-200 relative h-24 sm:h-28">
@@ -394,7 +394,7 @@ const SectionTimetable = () => {
                           {timeSlots.map(hour => (
                             <tr key={hour} className="hover:bg-gray-50">
                               <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
-                                {`${hour.toString().padStart(2, '0')}:00`}
+                                {`${ hour.toString().padStart(2, '0') }:00`}
                               </td>
                               <td className="p-0 border-b border-gray-200 relative h-24">
                                 {renderMobileEvent(hour, selectedDay)}
