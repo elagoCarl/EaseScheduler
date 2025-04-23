@@ -19,11 +19,18 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
     const [professors, setProfessors] = useState([]);
     const [roomTypes, setRoomTypes] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     // New state variables for searchable course dropdown
     const [courseSearch, setCourseSearch] = useState("");
     const [showCourseDropdown, setShowCourseDropdown] = useState(false);
     const [selectedCourseName, setSelectedCourseName] = useState("");
+
+    // New state for load warning
+    const [willOverload, setWillOverload] = useState(false);
+    const [selectedCourseUnits, setSelectedCourseUnits] = useState(0);
+    const [selectedProfessorLoad, setSelectedProfessorLoad] = useState(0);
+    const [profStatuses, setProfStatuses] = useState([]);
+    const [maxAllowedUnits, setMaxAllowedUnits] = useState(0);
 
     // Fetch necessary data when the modal is opened
     useEffect(() => {
@@ -56,6 +63,14 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                         setErrorMessage(roomTypesResponse.data.message || "Failed to fetch room types.");
                         return;
                     }
+
+                    // Fetch professor statuses
+                    const statusesResponse = await axios.get("/profStatus/getAllStatus");
+                    if (statusesResponse.status === 200) {
+                        setProfStatuses(statusesResponse.data.data);
+                    } else {
+                        setErrorMessage(statusesResponse.data.message || "Failed to fetch professor statuses.");
+                    }
                 } catch (error) {
                     setErrorMessage(
                         error.response?.data?.message ||
@@ -84,8 +99,44 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             setSuccessMessage("");
             setCourseSearch("");
             setSelectedCourseName("");
+            setWillOverload(false);
+            setSelectedCourseUnits(0);
+            setSelectedProfessorLoad(0);
+            setMaxAllowedUnits(0);
         }
     }, [isOpen, user.DepartmentId]);
+
+    // Check for overload when course or professor changes
+    useEffect(() => {
+        if (formData.CourseId && formData.ProfessorId) {
+            const selectedCourse = courses.find(c => c.id === parseInt(formData.CourseId, 10));
+            const selectedProfessor = professors.find(p => p.id === parseInt(formData.ProfessorId, 10));
+
+            if (selectedCourse && selectedProfessor) {
+                const courseUnits = selectedCourse.Units || 0;
+                const professorCurrentLoad = selectedProfessor.Total_units || 0;
+
+                setSelectedCourseUnits(courseUnits);
+                setSelectedProfessorLoad(professorCurrentLoad);
+
+                // Find the professor's status max units
+                const professorStatus = profStatuses.find(status =>
+                    status.Status === selectedProfessor.Status
+                );
+
+                const maxUnits = professorStatus ? professorStatus.Max_units : 24; // Default to 24 if not found
+                setMaxAllowedUnits(maxUnits);
+
+                // Check if this will cause an overload
+                setWillOverload(professorCurrentLoad + courseUnits > maxUnits);
+            }
+        } else {
+            setWillOverload(false);
+            setSelectedCourseUnits(0);
+            setSelectedProfessorLoad(0);
+            setMaxAllowedUnits(0);
+        }
+    }, [formData.CourseId, formData.ProfessorId, courses, professors, profStatuses]);
 
     // Close course dropdown when clicking outside
     useEffect(() => {
@@ -128,8 +179,8 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
     };
 
     // Filter courses based on search input
-    const filteredCourses = courses.filter(course => 
-        course.Code.toLowerCase().includes(courseSearch.toLowerCase()) || 
+    const filteredCourses = courses.filter(course =>
+        course.Code.toLowerCase().includes(courseSearch.toLowerCase()) ||
         course.Description.toLowerCase().includes(courseSearch.toLowerCase())
     );
 
@@ -209,6 +260,9 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
         academicYears.push(`${year}-${year + 1}`);
     }
 
+    // Calculate new total load
+    const newTotalLoad = selectedProfessorLoad + selectedCourseUnits;
+
     return (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
             <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-2/3">
@@ -279,11 +333,11 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                                 {selectedCourseName && (
                                     <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
                                         <span>{selectedCourseName}</span>
-                                        <button 
-                                            type="button" 
+                                        <button
+                                            type="button"
                                             onClick={() => {
                                                 setSelectedCourseName("");
-                                                setFormData({...formData, CourseId: ""});
+                                                setFormData({ ...formData, CourseId: "" });
                                             }}
                                             className="text-white hover:text-gray-300"
                                         >
@@ -291,7 +345,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                                         </button>
                                     </div>
                                 )}
-                                
+
                                 {showCourseDropdown && (
                                     <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
                                         {filteredCourses.length > 0 ? (
@@ -310,33 +364,55 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                                     </div>
                                 )}
                             </div>
-                            <input 
-                                type="hidden" 
-                                name="CourseId" 
-                                value={formData.CourseId} 
-                                required 
+                            <input
+                                type="hidden"
+                                name="CourseId"
+                                value={formData.CourseId}
+                                required
                             />
                         </div>
 
                         <div>
                             <label className="block font-semibold text-white">Professor</label>
-                            <select
-                                name="ProfessorId"
-                                className="w-full p-3 border rounded bg-customWhite"
-                                value={formData.ProfessorId}
-                                onChange={handleInputChange}
-                                required
-                                disabled={isSubmitting}
-                            >
-                                <option value="" disabled>
-                                    Select Professor
-                                </option>
-                                {professors.map((professor) => (
-                                    <option key={professor.id} value={professor.id}>
-                                        {professor.Name} (Current Units: {professor.Total_units})
+                            <div className="relative">
+                                <select
+                                    name="ProfessorId"
+                                    className={`w-full p-3 border rounded bg-customWhite ${willOverload ? 'border-yellow-500' : ''}`}
+                                    value={formData.ProfessorId}
+                                    onChange={handleInputChange}
+                                    required
+                                    disabled={isSubmitting}
+                                >
+                                    <option value="" disabled>
+                                        Select Professor
                                     </option>
-                                ))}
-                            </select>
+                                    {professors.map((professor) => (
+                                        <option key={professor.id} value={professor.id}>
+                                            {professor.Name} ({professor.Status}, Current Units: {professor.Total_units})
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {willOverload && formData.ProfessorId && formData.CourseId && (
+                                    <div className="absolute top-0 right-0 h-full flex items-center pr-3">
+                                        <div className="bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center" title={`Will exceed maximum load (${maxAllowedUnits} units)`}>
+                                            !
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Loading warning indicator */}
+                            {willOverload && formData.ProfessorId && formData.CourseId && (
+                                <div className="mt-2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-2 rounded flex items-center">
+                                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>
+                                        This will overload the professor ({selectedProfessorLoad} + {selectedCourseUnits} = {newTotalLoad} units, exceeds {maxAllowedUnits})
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div>
