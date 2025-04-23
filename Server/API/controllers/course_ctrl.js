@@ -34,6 +34,12 @@ const addCourse = async (req, res) => {
           message: "A mandatory field is missing.",
         });
       }
+      if (Duration <= 0 || Units <= 0) {
+        return res.status(406).json({
+          successful: false,
+          message: "Duration or Units must be greater than 0.",
+        });
+      }
 
       const department = await Department.findByPk(Dept_id);
       if (!department) {

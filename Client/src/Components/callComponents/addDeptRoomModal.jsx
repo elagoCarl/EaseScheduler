@@ -14,9 +14,15 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
     const [errorMessage, setErrorMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [addingRoom, setAddingRoom] = useState(false);
+    const [validationError, setValidationError] = useState("");
 
     useEffect(() => {
         if (isOpen) {
+            // Reset form when modal opens
+            setSelectedRoom(null);
+            setSearchTerm("");
+            setErrorMessage("");
+            setValidationError("");
             fetchRooms();
             fetchDepartmentName();
         }
@@ -100,23 +106,32 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
     const handleSearch = (e) => {
         setSearchTerm(e.target.value);
         setIsDropdownOpen(true);
+        // Clear validation error when user starts typing
+        setValidationError("");
     };
 
     const handleSelectRoom = (room) => {
         setSelectedRoom(room);
         setSearchTerm(`${room.Code} - ${room.Building}, Floor ${room.Floor} (${room.Type})`);
         setIsDropdownOpen(false);
+        // Clear validation error when room is selected
+        setValidationError("");
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        // Clear previous errors
+        setErrorMessage("");
+        setValidationError("");
+
         if (!selectedRoom) {
-            setErrorMessage("Please select a room");
+            setValidationError("Please select a room before adding");
+            // Focus on the search input to draw attention
+            document.getElementById("room-search").focus();
             return;
         }
 
         setAddingRoom(true);
-        setErrorMessage("");
 
         try {
             // Call the API to add department room
@@ -159,6 +174,20 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
         };
     }, [isDropdownOpen]);
 
+    // Handle click outside to close modal
+    useEffect(() => {
+        const handleEscapeKey = (e) => {
+            if (e.key === 'Escape' && !addingRoom) {
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleEscapeKey);
+        return () => {
+            window.removeEventListener('keydown', handleEscapeKey);
+        };
+    }, [onClose, addingRoom]);
+
     if (!isOpen) return null;
 
     return (
@@ -169,6 +198,9 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                     <button
                         className="text-3xl text-white hover:text-red-500 duration-300"
                         onClick={onClose}
+                        disabled={addingRoom}
+                        type="button"
+                        aria-label="Close"
                     >
                         &times;
                     </button>
@@ -187,16 +219,27 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                     </div>
 
                     <div className="relative dropdown-container">
-                        <label className="block font-semibold text-white mb-2">Search and select room to add to your Department</label>
+                        <label className="block font-semibold text-white mb-2">
+                            Search and select room to add to your Department
+                            {validationError && (
+                                <span className="ml-2 text-red-400">*</span>
+                            )}
+                        </label>
                         <input
+                            id="room-search"
                             type="text"
                             placeholder="Search for a room by code, building, floor, or type..."
-                            className="w-full p-4 border rounded bg-customWhite"
+                            className="w-full p-2 border rounded bg-customWhite"
                             value={searchTerm}
                             onChange={handleSearch}
                             onClick={() => setIsDropdownOpen(true)}
-                            required
                         />
+                        
+                        {validationError && (
+                            <p className="text-red-400 text-sm mt-1">
+                                {validationError}
+                            </p>
+                        )}
 
                         {isDropdownOpen && (
                             <div
@@ -226,24 +269,28 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                     </div>
 
                     {loading && (
-                        <p className="text-white text-center">Loading rooms...</p>
+                        <div className="text-white text-center">
+                            <p>Loading rooms...</p>
+                        </div>
                     )}
 
                     {errorMessage && (
-                        <p className="text-red-500 text-center">{errorMessage}</p>
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <p className="text-center">{errorMessage}</p>
+                        </div>
                     )}
 
                     <div className="flex justify-end mt-10 gap-8 p-4">
                         <button
                             type="submit"
-                            className="bg-blue-500 hover:bg-blue-600 duration-300 text-white mt-5 px-14 py-4 rounded-lg"
+                            className="bg-blue-500 text-white px-6 py-2 rounded-lg"
                             disabled={!selectedRoom || addingRoom}
                         >
                             {addingRoom ? "Adding..." : "Add"}
                         </button>
                         <button
                             type="button"
-                            className="bg-gray-500 hover:bg-gray-600 duration-300 text-white mt-5 px-6 py-4 rounded-lg"
+                            className="bg-gray-500 text-white px-6 py-2 rounded-lg"
                             onClick={onClose}
                             disabled={addingRoom}
                         >
