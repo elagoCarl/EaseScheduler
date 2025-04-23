@@ -1,5 +1,5 @@
 // Import required models and dependencies
-const { Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course, ProfAvail } = require('../models');
+const { Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course, ProfAvail, RoomType } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
@@ -2160,128 +2160,151 @@ const getSchedsByRoom = async (req, res, next) => {
 }
 
 const getSchedsByProf = async (req, res, next) => {
-    try {
-        const sched = await Schedule.findAll({
-            attributes: { exclude: ['createdAt', 'updatedAt'] },
-            include: [
-                {
-                    model: Assignation,
-                    where: { ProfessorId: req.params.id },
-                    attributes: ['id', 'School_Year', 'Semester'],
-                    include: [
-                        {
-                            model: Course,
-                            attributes: ['Code', 'Description']
-                        },
-                        {
-                            model: Room,
-                            attributes: ['Code', 'Floor', 'Building', 'Type'],
-                            through: { attributes: [] }
-                        }
-                    ]
-                },
-                {
-                    model: ProgYrSec,
-                    include: [
-                        {
-                            model: Program,
-                            attributes: ['Code']
-                        }
-                    ],
-                    through: { attributes: [] },
-                    attributes: ['Year', 'Section']
-                }
-            ]
-        });
+  try {
+    const profId = req.params.id;
 
-        if (!sched || sched.length === 0) {
-            res.status(200).send({
-                successful: true,
-                message: "No schedule found",
-                count: 0,
-                data: []
-            });
+    const scheds = await Schedule.findAll({
+      attributes: { exclude: ['createdAt', 'updatedAt'] },
+      include: [
+        {
+          // only include schedules linked to this professor
+          model: Assignation,
+          where: { ProfessorId: profId },
+          attributes: ['id', 'School_Year', 'Semester'],
+          include: [
+            {
+              model: Course,
+              attributes: ['Code', 'Description']
+            }
+          ]
+        },
+        {
+          // now pull in the room directly off Schedule
+          model: Room,
+          attributes: ['Code', 'Floor', 'Building'],
+          include: [
+            {
+              model: RoomType,
+              attributes: ['Type']
+            }
+          ]
+        },
+        {
+          model: ProgYrSec,
+          through: { attributes: [] },
+          attributes: ['Year', 'Section'],
+          include: [
+            {
+              model: Program,
+              attributes: ['Code']
+            }
+          ]
         }
-        else {
-            res.status(200).send({
-                successful: true,
-                message: "Retrieved all schedules",
-                count: sched.length,
-                data: sched
-            });
-        }
+      ],
+      order: [
+        ['Day', 'ASC'],
+        ['Start_time', 'ASC']
+      ]
+    });
+
+    if (!scheds.length) {
+      return res.status(200).json({
+        successful: true,
+        message: 'No schedule found',
+        count: 0,
+        data: []
+      });
     }
-    catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        });
-    }
-}
+
+    res.status(200).json({
+      successful: true,
+      message: 'Retrieved all schedules',
+      count: scheds.length,
+      data: scheds
+    });
+  } catch (err) {
+    console.error('Error in getSchedsByProf:', err);
+    return res.status(500).json({
+      successful: false,
+      message: err.message || 'An unexpected error occurred.'
+    });
+  }
+};
 
 const getSchedsByDept = async (req, res, next) => {
-    try {
-        const sched = await Schedule.findAll({
-            attributes: { exclude: ['createdAt', 'updatedAt'] },
-            include: [
-                {
-                    model: Assignation,
-                    where: { DepartmentId: req.params.id },
-                    attributes: ['id', 'School_Year', 'Semester'],
-                    include: [
-                        {
-                            model: Course,
-                            attributes: ['Code', 'Description']
-                        },
-                        {
-                            model: Professor,
-                            attributes: ['id', 'Name']
-                        },
-                        {
-                            model: Room,
-                            attributes: ['Code', 'Floor', 'Building', 'Type'],
-                            through: { attributes: [] }
-                        }
-                    ]
-                },
-                {
-                    model: ProgYrSec,
-                    include: [
-                        {
-                            model: Program,
-                            attributes: ['id', 'Code']
-                        }
-                    ],
-                    through: { attributes: [] },
-                    attributes: ['Year', 'Section']
-                }
-            ]
-        });
+  try {
+    const deptId = req.params.id;
 
-        if (!sched || sched.length === 0) {
-            res.status(200).send({
-                successful: true,
-                message: "No schedule found",
-                count: 0,
-                data: []
-            });
+    const scheds = await Schedule.findAll({
+      attributes: { exclude: ['createdAt', 'updatedAt'] },
+      include: [
+        {
+          model: Assignation,
+          where: { DepartmentId: deptId },
+          attributes: ['id', 'School_Year', 'Semester'],
+          include: [
+            {
+              model: Course,
+              attributes: ['Code', 'Description']
+            },
+            {
+              model: Professor,
+              attributes: ['id', 'Name']
+            }
+          ]
+        },
+        {
+          // pull in the Room directly off Schedule
+          model: Room,
+          attributes: ['Code', 'Floor', 'Building'],
+          include: [
+            {
+              model: RoomType,
+              attributes: ['Type']
+            }
+          ]
+        },
+        {
+          model: ProgYrSec,
+          through: { attributes: [] },
+          attributes: ['Year', 'Section'],
+          include: [
+            {
+              model: Program,
+              attributes: ['id', 'Code']
+            }
+          ]
         }
-        else {
-            res.status(200).send({
-                successful: true,
-                message: "Retrieved all schedules",
-                count: sched.length,
-                data: sched
-            });
-        }
+      ],
+      order: [
+        ['Day', 'ASC'],
+        ['Start_time', 'ASC']
+      ]
+    });
+
+    if (!scheds.length) {
+      return res.status(200).json({
+        successful: true,
+        message: 'No schedule found',
+        count: 0,
+        data: []
+      });
     }
-    catch (err) {
-        return res.status(500).json({
-            successful: false,
-            message: err.message || "An unexpected error occurred."
-        });
-    }
-}
+
+    res.status(200).json({
+      successful: true,
+      message: 'Retrieved all schedules',
+      count: scheds.length,
+      data: scheds
+    });
+  } catch (err) {
+    console.error('Error in getSchedsByDept:', err);
+    return res.status(500).json({
+      successful: false,
+      message: err.message || 'An unexpected error occurred.'
+    });
+  }
+};
 
 
 
