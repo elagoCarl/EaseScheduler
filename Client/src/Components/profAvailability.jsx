@@ -101,7 +101,13 @@ const ProfAvailability = () => {
   };
 
   const resetForm = () => {
-    setFormData({ professor: "", day: "", timeIn: "", timeOut: "" });
+    // Keep the professor value but reset other fields
+    setFormData({
+      professor: formData.professor,
+      day: "",
+      timeIn: "",
+      timeOut: ""
+    });
     if (notification) setNotification(null);
   };
 
@@ -195,30 +201,49 @@ const ProfAvailability = () => {
 
     try {
       setLoading(true);
-      const response = await axios.delete(`/profAvail/deleteProfAvail/${selectedAvailabilityId}`);
-      if (response.data.successful) {
-        setScheduleData(scheduleData.filter(item => {
-          const itemId = item.id.split('-')[1];
-          return itemId !== selectedAvailabilityId;
-        }));
-        setNotification({ type: 'success', message: "Availability deleted successfully!" });
-      } else {
-        setNotification({ type: 'error', message: `Failed to delete: ${response.data.message || "Unknown error"}` });
-      }
+      await axios.delete(`/profAvail/deleteProfAvail/${selectedAvailabilityId}`);
+      setNotification({ type: 'success', message: "Availability deleted successfully!" });
     } catch (error) {
-      if (error.response && error.response.status === 404) {
-        setScheduleData(scheduleData.filter(item => {
-          const itemId = item.id.split('-')[1];
-          return itemId !== selectedAvailabilityId;
-        }));
-        setNotification({ type: 'error', message: "Item was already deleted on the server." });
-      } else {
-        setNotification({ type: 'error', message: error.response?.data?.message || "Failed to delete availability." });
-      }
+      setNotification({ type: 'error', message: error.response?.data?.message || "Failed to delete availability." });
     } finally {
       setLoading(false);
       setIsDeleteWarningOpen(false);
       setSelectedAvailabilityId(null);
+
+      // Always refetch the professor's availability after deletion attempt
+      if (formData.professor) {
+        const fetchAvailability = async () => {
+          try {
+            const response = await axios.get(`/profAvail/getProfAvailByProf/${formData.professor}`);
+            if (response.data.successful) {
+              // Clear existing data for this professor
+              setScheduleData(prevData => prevData.filter(item => item.professorId !== formData.professor));
+
+              // Add new data from server
+              const availabilityData = response.data.data;
+              if (availabilityData) {
+                const processedData = Array.isArray(availabilityData) ? availabilityData : [availabilityData];
+                const formattedAvailability = processedData.map(avail => {
+                  const selectedProfessor = professors.find(prof => prof.id === parseInt(formData.professor));
+                  return {
+                    id: `existing-${avail.id}`,
+                    professorId: formData.professor,
+                    professorName: selectedProfessor?.Name || "Unknown Professor",
+                    day: avail.Day,
+                    timeIn: avail.Start_time.split(':')[0],
+                    timeOut: avail.End_time.split(':')[0],
+                    isExisting: true
+                  };
+                });
+                setScheduleData(prev => [...prev, ...formattedAvailability]);
+              }
+            }
+          } catch (error) {
+            console.error("Error refetching availability:", error);
+          }
+        };
+        fetchAvailability();
+      }
     }
   };
 
