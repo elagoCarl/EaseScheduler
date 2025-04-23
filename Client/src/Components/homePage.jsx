@@ -296,6 +296,12 @@ const HomePage = () => {
                             Professor Assignations
                           </a>
                         </li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                            onClick={() => navigate('/profStatus')}>
+                            Professor Status
+                          </a>
+                        </li>
                       </>
                     )}
                   </ul>
