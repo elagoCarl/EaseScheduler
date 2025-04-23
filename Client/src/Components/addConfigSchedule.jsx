@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ScheduleReportModal from '../Components/callComponents/scheduleReport.jsx';
+import ScheduleVariantModal from '../Components/callComponents/variantSelectHandler.jsx';
 
 import axios from '../axiosConfig.js';
 import bg from './Img/bg.jpg';
@@ -24,6 +25,10 @@ const AddConfigSchedule = () => {
   // first 2 are for report modal
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportData, setReportData]     = useState(null);
+
+  // new automate
+  const [scheduleVariants, setScheduleVariants] = useState([]);
+  const [showVariantModal, setShowVariantModal] = useState(false);
 
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
@@ -197,6 +202,7 @@ const AddConfigSchedule = () => {
       // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
+        variantCount: 2,  // Generate 2 variants
         // Use prioritized professors if available
         prioritizedProfessor:
           prioritizedProfessors.length > 0
@@ -214,54 +220,99 @@ const AddConfigSchedule = () => {
         payload.roomId = parseInt(formData.room_id, 10);
       }
   
-      // Always use the same endpoint
-      const endpoint = '/schedule/automateSchedule';
+      // Use the schedules/variants endpoint instead of automateSchedule
+      const endpoint = '/schedule/generateScheduleVariants';
   
+      // Show modal early to indicate loading to user
+      setShowVariantModal(true);
+      
       // Fire the request
-      const response = await axios.put(endpoint, payload);
+      const response = await axios.post(endpoint, payload);
   
-      console.log("Automate schedule response:", response.data);
-
+      console.log("Schedule variants response:", response.data);
+  
       if (response.data.successful) {
+        // Store the variants
+        const variants = response.data.variants;
+        setScheduleVariants(variants);
+        
+        // Save to localStorage
+        localStorage.setItem('scheduleVariants', JSON.stringify({
+          variants: variants,
+          departmentId: deptId,
+          timestamp: Date.now()
+        }));
+        
         // Notify user of success
         setNotification({
           type: 'success',
-          message: `Schedule automation ${
-            automateType === 'room' ? 'for selected room' : 'for all rooms'
-          } completed successfully!`,
+          message: `Successfully generated ${variants.length} schedule variants. Please select one to save.`
         });
-  
-        // --- Show the report modal ---
-        // assume your backend returns the full report under `data`
-        setReportData(response.data);
-        setIsReportOpen(true);
-  
-        // Refresh schedules for the current room if one is selected
-        if (formData.room_id) {
-          fetchSchedulesForRoom(formData.room_id);
-        }
       } else {
         // Backend returned a controlled failure
         setNotification({
           type: 'error',
-          message: transformErrorMessage(response.data.message),
+          message: transformErrorMessage(response.data.message)
         });
+        // Hide the modal if we got an error
+        setShowVariantModal(false);
       }
     } catch (error) {
-      console.error('Schedule automation error:', error.response || error);
+      console.error('Schedule variant generation error:', error.response || error);
   
       // Network / unexpected error
       setNotification({
         type: 'error',
         message: transformErrorMessage(
           error.response?.data?.message ||
-            `An error occurred during ${
-              automateType === 'room' ? 'room' : 'department'
-            } schedule automation.`
-        ),
+          `An error occurred while generating schedule variants.`
+        )
       });
+      
+      // Hide the modal if we got an error
+      setShowVariantModal(false);
     } finally {
       setIsAutomating(false);
+    }
+  };
+  
+  // Add this function to handle saving the selected variant
+  const handleSelectVariant = async (variantIndex) => {
+    try {
+      const selectedVariant = scheduleVariants[variantIndex];
+      
+      const response = await axios.post('/schedule/saveScheduleVariants', {
+        variant: selectedVariant,
+        DepartmentId: deptId
+      });
+      
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: 'Schedule variant saved successfully to the database!'
+        });
+        
+        setShowVariantModal(false);
+        
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
+        });
+      }
+    } catch (error) {
+      console.error('Error saving variant:', error);
+      setNotification({
+        type: 'error',
+        message: transformErrorMessage(
+          error.response?.data?.message || 
+          'An error occurred while saving the schedule variant'
+        )
+      });
     }
   };
   
@@ -900,6 +951,15 @@ const renderAutomationSection = () => (
         onClose={() => setIsReportOpen(false)}
         scheduleData={reportData}
       />
+
+    <ScheduleVariantModal
+      show={showVariantModal}
+      onHide={() => setShowVariantModal(false)}
+      variants={scheduleVariants}
+      loading={isAutomating}
+      onSelectVariant={handleSelectVariant}
+      departmentId={deptId}
+    />
     </div>
   );
 };
