@@ -88,6 +88,7 @@ const AddConfigSchedule = () => {
   }, [notification]);
 
   useEffect(() => {
+    console.log(rooms)
     const fetchData = async () => {
       try {
         const [roomsRes, assignationsRes, professorsRes] = await Promise.all([
@@ -276,46 +277,45 @@ const AddConfigSchedule = () => {
     }
   };
   
-  // Add this function to handle saving the selected variant
-  const handleSelectVariant = async (variantIndex) => {
-    try {
-      const selectedVariant = scheduleVariants[variantIndex];
-      
-      const response = await axios.post('/schedule/saveScheduleVariants', {
-        variant: selectedVariant,
-        DepartmentId: deptId
+ // Add this function to handle saving the selected variant
+ const handleSelectVariant = async (variantIndex) => {
+  try {
+    const selectedVariant = scheduleVariants[variantIndex];
+
+    const response = await axios.post('/schedule/saveScheduleVariants', {
+      variant: selectedVariant,
+      DepartmentId: deptId
+    });
+
+    if (response.data.successful) {
+      setNotification({
+        type: 'success',
+        message: 'Schedule variant saved successfully to the database!'
       });
-      
-      if (response.data.successful) {
-        setNotification({
-          type: 'success',
-          message: 'Schedule variant saved successfully to the database!'
-        });
-        
-        setShowVariantModal(false);
-        
-        // Refresh schedules for the current room if one is selected
-        if (formData.room_id) {
-          fetchSchedulesForRoom(formData.room_id);
-        }
-      } else {
-        setNotification({
-          type: 'error',
-          message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
-        });
+
+      setShowVariantModal(false);
+
+      // Refresh schedules for the current room if one is selected
+      if (formData.room_id) {
+        fetchSchedulesForRoom(formData.room_id);
       }
-    } catch (error) {
-      console.error('Error saving variant:', error);
+    } else {
       setNotification({
         type: 'error',
-        message: transformErrorMessage(
-          error.response?.data?.message || 
-          'An error occurred while saving the schedule variant'
-        )
+        message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
       });
     }
-  };
-  
+  } catch (error) {
+    console.error('Error saving variant:', error);
+    setNotification({
+      type: 'error',
+      message: transformErrorMessage(
+        error.response?.data?.message || 
+        'An error occurred while saving the schedule variant'
+      )
+    });
+  }
+};
 
 
 
@@ -748,7 +748,7 @@ const renderAutomationSection = () => (
             <option value="">Select Room</option>
             {rooms.map(room => (
               <option key={room.id} value={room.id}>
-                {room.Code} - {room.Building} {room.Floor} (Type: {room.Type})
+                {room.Code} - {room.Building} {room.Floor} (Type: {room.RoomType.Type})
               </option>
             ))}
           </select>
@@ -808,7 +808,7 @@ const renderAutomationSection = () => (
                   <option value="">Select Room</option>
                   {rooms.map(r => (
                     <option key={r.id} value={r.id}>
-                      {r.Code} - {r.Building} {r.Floor} (Type: {r.Type})
+                      {r.Code} - {r.Building} {r.Floor} (Type: {r.RoomType.Type})
                     </option>
                   ))}
                 </select>

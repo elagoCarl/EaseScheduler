@@ -211,7 +211,9 @@ const ScheduleVariantModal = ({
     tab: {
       padding: '0.5rem 1rem',
       cursor: 'pointer',
-      borderBottom: '2px solid transparent'
+      borderBottomWidth: '2px',
+      borderBottomStyle: 'solid',
+      borderBottomColor: 'transparent'
     },
     activeTab: {
       borderBottomColor: '#0d6efd',
@@ -383,7 +385,9 @@ const ScheduleVariantModal = ({
       display: 'inline-block',
       cursor: 'pointer',
       margin: '0.25rem',
-      border: '1px solid transparent'
+      borderWidth: '1px',
+      borderStyle: 'solid',
+      borderColor: 'transparent'
     },
     activeRoomBadge: {
       backgroundColor: '#0d6efd',
@@ -429,18 +433,23 @@ const ScheduleVariantModal = ({
           ) : variants && variants.length > 0 ? (
             <>
               <div style={modalStyles.tabs}>
-                {variants.map((variant, idx) => (
-                  <div 
-                    key={idx} 
-                    style={{
-                      ...modalStyles.tab,
-                      ...(selectedVariant === idx ? modalStyles.activeTab : {})
-                    }}
-                    onClick={() => setSelectedVariant(idx)}
-                  >
-                    {variant.variantName}
-                  </div>
-                ))}
+                {variants.map((variant, idx) => {
+                  // Create the tab style properly, avoiding the shorthand and specific property conflict
+                  const tabStyle = {
+                    ...modalStyles.tab,
+                    ...(selectedVariant === idx ? modalStyles.activeTab : {})
+                  };
+                  
+                  return (
+                    <div 
+                      key={idx} 
+                      style={tabStyle}
+                      onClick={() => setSelectedVariant(idx)}
+                    >
+                      {variant.variantName}
+                    </div>
+                  );
+                })}
               </div>
               
               <div>
@@ -460,18 +469,28 @@ const ScheduleVariantModal = ({
                       <div style={modalStyles.roomFilter}>
                         <label htmlFor="roomFilter">Room Filter:</label>
                         <div>
-                          {availableRooms.map(room => (
-                            <span 
-                              key={room}
-                              style={{
-                                ...modalStyles.roomBadge,
-                                ...(selectedRoom === room ? modalStyles.activeRoomBadge : {})
-                              }}
-                              onClick={() => setSelectedRoom(room)}
-                            >
-                              {room}
-                            </span>
-                          ))}
+                          {availableRooms.map(room => {
+                            // Create a new style object for each room badge
+                            // IMPORTANT: Use individual border properties instead of the shorthand
+                            const roomBadgeStyle = {
+                              ...modalStyles.roomBadge,
+                              ...(selectedRoom === room ? {
+                                backgroundColor: '#0d6efd',
+                                color: 'white',
+                                borderColor: '#0d6efd'
+                              } : {})
+                            };
+                            
+                            return (
+                              <span 
+                                key={room}
+                                style={roomBadgeStyle}
+                                onClick={() => setSelectedRoom(room)}
+                              >
+                                {room}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                       
@@ -512,7 +531,7 @@ const ScheduleVariantModal = ({
                                           {schedule.Start_time} - {schedule.End_time}
                                         </div>
                                         <div>
-                                          {Array.isArray(schedule.Sections) 
+                                        {Array.isArray(schedule.Sections) 
                                             ? schedule.Sections.join(", ")
                                             : schedule.Sections}
                                         </div>
