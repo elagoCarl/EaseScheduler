@@ -158,15 +158,18 @@ const ScheduleVariantModal = ({
             </div>
           ) : variants && variants.length > 0 ? (
             <>
-              <div className="variantTabs">
+              <div style={modalStyles.tabs}>
                 {variants.map((variant, idx) => (
-                  <button 
+                  <div 
                     key={idx} 
-                    className={`variantTab ${selectedVariant === idx ? 'activeTab' : ''}`}
+                    style={{
+                      ...modalStyles.tab,
+                      ...(selectedVariant === idx ? modalStyles.activeTab : {})
+                    }}
                     onClick={() => setSelectedVariant(idx)}
                   >
                     {variant.variantName}
-                  </button>
+                  </div>
                 ))}
               </div>
               
@@ -184,77 +187,78 @@ const ScheduleVariantModal = ({
                       </div>
                       
                       {/* Room Filter */}
-                      <div className="roomFilterContainer">
-                        <div className="roomFilterLabel">Room Filter:</div>
-                        <div className="roomFilterOptions">
+                      <div style={modalStyles.roomFilter}>
+                        <label htmlFor="roomFilter">Room Filter:</label>
+                        <div>
                           {availableRooms.map(room => (
-                            <button 
+                            <span 
                               key={room}
-                              className={`roomFilterBtn ${selectedRoom === room ? 'selectedRoom' : ''}`}
+                              style={{
+                                ...modalStyles.roomBadge,
+                                ...(selectedRoom === room ? modalStyles.activeRoomBadge : {})
+                              }}
                               onClick={() => setSelectedRoom(room)}
                             >
                               {room}
-                            </button>
+                            </span>
                           ))}
                         </div>
                       </div>
                       
                       {/* Calendar View */}
-                      <div className="calendarWrapper">
-                        <div className="calendarContainer">
-                          {/* Calendar Header */}
-                          <div className="calendarHeader">
-                            <div className="timeColumn">Time</div>
-                            {days.map(day => (
-                              <div key={day} className="dayColumn">
-                                {day}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {/* Calendar Body */}
-                          <div className="calendarBody">
-                            {calendarView.map(timeSlot => (
-                              <div key={timeSlot} className="timeRow">
-                                <div className="timeCell">
-                                  {formatTime(timeSlot)}
-                                </div>
-                                
-                                {days.map(day => {
-                                  const schedules = getSchedulesForSlot(day, timeSlot);
-                                  
-                                  return (
-                                    <div key={`${day}-${timeSlot}`} className="dayCell">
-                                      {schedules.map((schedule, i) => (
-                                        isFirstHourOfClass(schedule, timeSlot) && (
-                                          <div 
-                                            key={i} 
-                                            className="scheduleBlock"
-                                            style={{
-                                              height: `${getClassDuration(schedule.Start_time, schedule.End_time) * 60}px`
-                                            }}
-                                          >
-                                            <div className="scheduleTime">
-                                              {schedule.Start_time} - {schedule.End_time}
-                                            </div>
-                                            <div className="scheduleSections">
-                                              {Array.isArray(schedule.Sections) 
-                                                ? schedule.Sections.join(", ")
-                                                : schedule.Sections}
-                                            </div>
-                                            <div className="scheduleCourse">{schedule.Course}</div>
-                                            <div className="scheduleProfessor">{schedule.Professor}</div>
-                                            <div className="scheduleRoom">Room: {schedule.Room}</div>
-                                          </div>
-                                        )
-                                      ))}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ))}
-                          </div>
+                      <div style={modalStyles.calendarContainer}>
+                        {/* Calendar Header */}
+                        <div style={modalStyles.calendarHeader}>
+                          <div style={modalStyles.calendarTimeColumn}>Time</div>
+                          {days.map(day => (
+                            <div key={day} style={modalStyles.calendarHeaderCell}>
+                              {day}
+                            </div>
+                          ))}
                         </div>
+                        
+                        {/* Calendar Body */}
+                        {calendarView.map(timeSlot => (
+                          <div key={timeSlot} style={modalStyles.calendarRow}>
+                            <div style={modalStyles.calendarTimeColumn}>
+                              {formatTime(timeSlot)}
+                            </div>
+                            
+                            {days.map(day => {
+                              const schedules = getSchedulesForSlot(day, timeSlot);
+                              
+                              return (
+                                <div key={`${day}-${timeSlot}`} style={modalStyles.calendarCell}>
+                                  {schedules.map((schedule, i) => (
+                                    isFirstHourOfClass(schedule, timeSlot) && (
+                                      <div 
+                                        key={i} 
+                                        style={{
+                                          ...modalStyles.classBlock,
+                                          height: `calc(${getClassDuration(schedule.Start_time, schedule.End_time)} * 100%)`
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 'bold' }}>
+                                          {schedule.Start_time} - {schedule.End_time}
+                                        </div>
+                                        <div>
+                                          {Array.isArray(schedule.Sections) 
+                                            ? schedule.Sections.join(", ")
+                                            : schedule.Sections}
+                                        </div>
+                                        <div style={{ fontWeight: 'bold' }}>{schedule.Course}</div>
+                                        <div>{schedule.Professor}</div>
+                                        <div>
+                                          <strong>Room:</strong> {schedule.Room}
+                                        </div>
+                                      </div>
+                                    )
+                                  ))}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
                       
                       {variant.failedAssignations?.length > 0 && (
