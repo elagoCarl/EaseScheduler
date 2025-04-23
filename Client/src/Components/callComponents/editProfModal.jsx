@@ -26,7 +26,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const response = await axios.get('/profStatus/getAllProfStatus');
+        const response = await axios.get('/profStatus/getAllStatus');
         console.log("Fetched data:", response.data);
         setStatuses(response.data.data);
       } catch (error) {
@@ -92,7 +92,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl text-white font-semibold mx-auto">Edit Professor</h2>
           <button
-            className="text-xl text-white hover:text-black"
+            className="text-3xl text-white hover:text-red-500 duration-300"
             onClick={onClose}
           >
             &times;

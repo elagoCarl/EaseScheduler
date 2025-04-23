@@ -88,10 +88,10 @@ const CreateAccount = () => {
       <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Form Container */}
-      <div className="relative bg-customBlue1 p-10 rounded-lg shadow-lg w-full lg:max-w-lg">
+      <div className="relative bg-blue-700/70 p-10 rounded-lg shadow-lg w-full lg:max-w-lg">
         {/* Close Button */}
         <button
-          className="absolute top-3 right-10 text-white font-bold text-2xl hover:text-red-500"
+          className="absolute top-5 right-15 text-white font-bold text-3xl hover:text-red-500 duration-300"
           onClick={() => navigate("/")}
         >
           &times;
@@ -194,7 +194,7 @@ const CreateAccount = () => {
           </div>
 
           {/* Buttons */}
-          <div className="flex justify-end mt-6 space-x-4">
+          <div className="flex justify-end mt-10 mb-2 space-x-4">
             <button
               className="bg-customLightBlue2 hover:bg-blue-300 text-gray-700 font-bold py-4 px-8 rounded duration-300"
               type="submit"

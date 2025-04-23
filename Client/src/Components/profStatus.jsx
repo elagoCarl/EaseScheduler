@@ -238,7 +238,7 @@ const ProfStatus = () => {
       </div>
       <TopMenu toggleSidebar={toggleSidebar} />
       
-      <div className="container mx-auto p-10 flex-1 max-w-4xl w-full">
+      <div className="container mx-auto p-10 flex-1 max-w-8xl w-full">
         <div className="bg-gray-100 rounded-xl shadow-lg overflow-hidden mx-auto my-4">
           {/* Header */}
           <div className="bg-blue-600 p-8 sm:p-6">
@@ -325,7 +325,7 @@ const ProfStatus = () => {
       
       {showModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-white p-10 rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 {isEditing ? 'Edit Professor Status' : 'Add New Professor Status'}
@@ -340,7 +340,7 @@ const ProfStatus = () => {
                     name="Status"
                     value={formData.Status}
                     onChange={handleChange}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full px-8 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         error.Status ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="e.g., Full-time, Part-time"
@@ -364,7 +364,7 @@ const ProfStatus = () => {
                     value={formData.Max_units}
                     onChange={handleChange}
                     min="1"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full px-8 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       error.Max_units ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
@@ -372,17 +372,17 @@ const ProfStatus = () => {
                     <p className="text-red-500 text-xs mt-1">{error.Max_units}</p>
                   )}
                 </div>
-                <div className="flex justify-end space-x-3">
+                <div className="flex justify-end space-x-6">
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 duration-300 hover:bg-gray-100"
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 duration-300 hover:bg-gray-300"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 duration-300"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-900 duration-300"
                   >
                     {isEditing ? 'Update' : 'Add'} Status
                   </button>

@@ -163,11 +163,11 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
 
     return (
         <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/2">
+            <div className="bg-customBlue1 p-8 rounded-lg md:w-1/2 w-6/12">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl text-white font-semibold mx-auto">Department Room</h2>
                     <button
-                        className="text-xl text-white hover:text-black"
+                        className="text-3xl text-white hover:text-red-500 duration-300"
                         onClick={onClose}
                     >
                         &times;
@@ -180,7 +180,7 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                         <input
                             type="text"
                             value={departmentName}
-                            className="w-full p-2 border rounded bg-gray-100 text-gray-800"
+                            className="w-full p-4 border rounded bg-gray-100 text-gray-800"
                             disabled
                             readOnly
                         />
@@ -191,7 +191,7 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                         <input
                             type="text"
                             placeholder="Search for a room by code, building, floor, or type..."
-                            className="w-full p-2 border rounded bg-customWhite"
+                            className="w-full p-4 border rounded bg-customWhite"
                             value={searchTerm}
                             onChange={handleSearch}
                             onClick={() => setIsDropdownOpen(true)}
@@ -233,17 +233,17 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                         <p className="text-red-500 text-center">{errorMessage}</p>
                     )}
 
-                    <div className="flex justify-center mt-4 gap-4">
+                    <div className="flex justify-center mt-6 gap-8">
                         <button
                             type="submit"
-                            className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+                            className="bg-blue-500 hover:bg-blue-600 duration-300 text-white px-14 py-2 rounded-lg"
                             disabled={!selectedRoom || addingRoom}
                         >
                             {addingRoom ? "Adding..." : "Add"}
                         </button>
                         <button
                             type="button"
-                            className="bg-gray-500 text-white px-6 py-2 rounded-lg"
+                            className="bg-gray-500 hover:bg-gray-600 duration-300 text-white px-6 py-2 rounded-lg"
                             onClick={onClose}
                             disabled={addingRoom}
                         >

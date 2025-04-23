@@ -98,7 +98,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
       <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl text-white font-semibold mx-auto">Edit Course</h2>
-          <button className="text-xl text-white hover:text-black" onClick={closeModal}>
+          <button className="text-3xl text-white hover:text-red-500 duration-300" onClick={closeModal}>
             &times;
           </button>
         </div>
@@ -170,10 +170,10 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           />
 
           <div className="flex justify-center gap-6 py-6">
-            <button type="submit" className="bg-blue-500 text-white hover:bg-blue-700 duration-300 px-6 font-semibold py-2 rounded-lg">
+            <button type="submit" className="bg-blue-500 text-white hover:bg-blue-700 duration-300 px-12 font-semibold py-2 rounded-lg">
               Save
             </button>
-            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-700 duration-300 px-6 py-2 rounded-lg" onClick={closeModal}>
+            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-600 duration-300 px-6 py-2 rounded-lg" onClick={closeModal}>
               Cancel
             </button>
           </div>

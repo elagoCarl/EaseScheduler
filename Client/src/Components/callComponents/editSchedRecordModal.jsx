@@ -185,7 +185,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-lg shadow-lg w-11/12 max-w-md p-6">
+            <div className="bg-white rounded-lg shadow-lg w-11/12 max-w-md p-10">
                 <h2 className="text-xl font-semibold mb-4">Edit Schedule Record</h2>
                 {error && (
                     <div className="mb-4 text-sm text-red-600">
@@ -320,14 +320,14 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 rounded-md text-gray-700 bg-gray-200"
+                            className="px-4 py-2 rounded-md text-gray-800 bg-gray-300/80 hover:bg-gray-400 duration-300"
                             disabled={loading}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 rounded-md text-white bg-blue-600"
+                            className="px-10 py-2 rounded-md text-white bg-blue-500 hover:bg-blue-700 duration-300"
                             disabled={loading}
                         >
                             {loading ? "Saving..." : "Save"}

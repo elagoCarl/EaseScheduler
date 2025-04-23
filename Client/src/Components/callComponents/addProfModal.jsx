@@ -17,7 +17,7 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
     if (isOpen) {
       const fetchStatuses = async () => {
         try {
-          const response = await axios.get("/profStatus/getAllProfStatus", {
+          const response = await axios.get("/profStatus/getAllStatus", {
             withCredentials: true
           });
           setStatuses(response.data.data); // Assuming 'data' contains the status records
@@ -90,7 +90,7 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl text-white font-semibold mx-auto">Add Professor</h2>
           <button
-            className="text-xl text-white hover:text-black"
+            className="text-3xl text-white hover:text-red-500 duration-300"
             onClick={onClose}
           >
             &times;
@@ -153,16 +153,16 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
             <p className="text-green-500 text-center">{successMessage}</p>
           )}
 
-          <div className="flex justify-center mt-4 gap-4">
+          <div className="flex justify-center mt-4 gap-6">
             <button
               type="submit"
-              className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+              className="bg-blue-500 hover:bg-blue-600 duration-300 text-white text-center px-14 py-2 rounded-lg"
             >
               Add
             </button>
             <button
               type="button"
-              className="bg-gray-500 text-white px-6 py-2 rounded-lg"
+              className="bg-gray-400 hover:bg-gray-600 duration-300 text-white text-center px-6 py-2 rounded-lg"
               onClick={onClose}
             >
               Cancel

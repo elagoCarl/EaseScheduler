@@ -186,7 +186,7 @@ const HomePage = () => {
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
+              <div className='grid xs:grid-cols-2 sm:grid-cols-2 gap-15 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'

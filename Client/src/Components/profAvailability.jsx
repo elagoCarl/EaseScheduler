@@ -299,8 +299,8 @@ const ProfAvailability = () => {
       <div className="container mx-auto my-50 px-2 sm:px-4 pt-20 sm:pt-54 pb-6 sm:pb-10 flex-1 flex justify-center items-center">
         <div className="bg-white rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
           <div className="bg-blue-600 p-3 sm:p-5">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Professor Availability</h1>
-            <p className="text-blue-100 mt-1 text-xs sm:text-sm">Manage professor availability schedules</p>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Professor Availability</h1>
+            <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Manage professor availability schedules</p>
           </div>
 
           {notification && (
@@ -309,7 +309,7 @@ const ProfAvailability = () => {
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row">
+          <div className="flex flex-col lg:flex-row p-2">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
                 <div>
@@ -456,7 +456,7 @@ const ProfAvailability = () => {
                             Time
                           </th>
                           {days.map(d => (
-                            <th key={d} className="p-2 sm:p-3 border-b-2 border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm text-left">
+                            <th key={d} className="p-2 sm:p-3 border-b-2 text-center border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm">
                               {d}
                             </th>
                           ))}

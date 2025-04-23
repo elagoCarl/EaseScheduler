@@ -398,27 +398,27 @@ const CourseProg = () => {
             {/* Custom Confirmation Modal */}
             {showConfirmModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-fade-in">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-8 animate-fade-in">
                         <div className="text-center">
                             <div className="flex items-center justify-center mb-4">
                             </div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Removal</h3>
+                            <h3 className="text-lg text-start font-medium text-gray-900 mb-2">Confirm Removal</h3>
                             {itemToDelete && (
-                                <p className="text-sm text-gray-500 mb-6">
+                                <p className="text-md w-11/12 text-start text-gray-500 mb-6">
                                     Are you sure you want to remove this course from the program? This action cannot be undone.
                                 </p>
                             )}
                         </div>
-                        <div className="flex justify-center space-x-4">
+                        <div className="flex justify-end space-x-4 mb-2">
                             <button
                                 onClick={cancelDelete}
-                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition"
+                                className="px-8 py-2 bg-gray-300 duration-300 text-gray-800 rounded hover:bg-gray-400 transition"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmAction}
-                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                                className="px-4 py-2 bg-red-600 duration-300 text-white rounded hover:bg-red-700 transition"
                             >
                                 Remove
                             </button>
