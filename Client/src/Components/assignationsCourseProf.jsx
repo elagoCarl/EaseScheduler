@@ -14,8 +14,8 @@ import { useAuth } from '../Components/authContext.jsx';
 
 const AssignationsCourseProf = () => {
     const { user } = useAuth();
-    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
+    // console.log("UUUUUUUUUUUUUSSSSERR: ", user);
+    // console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const DEPARTMENT_ID = user.DepartmentId;
 
     const [department, setDepartment] = useState(null);
@@ -77,12 +77,12 @@ const AssignationsCourseProf = () => {
     useEffect(() => {
         let timer;
         if (warningMessage) {
-          timer = setTimeout(() => {
-            setWarningMessage(null);
-          }, 3000); // Warning disappears after 3 seconds
+            timer = setTimeout(() => {
+                setWarningMessage(null);
+            }, 3000); // Warning disappears after 3 seconds
         }
         return () => clearTimeout(timer);
-      }, [warningMessage]);
+    }, [warningMessage]);
 
     // Fetch all room types
     useEffect(() => {
@@ -290,11 +290,11 @@ const AssignationsCourseProf = () => {
 
     const handleDeleteClick = () => {
         if (!checkboxes.some(Boolean)) {
-          setWarningMessage("Please select at least one course to delete");
+            setWarningMessage("Please select at least one course to delete");
         } else {
-          toggleModal('delete', true);
+            toggleModal('delete', true);
         }
-      };
+    };
 
     const toggleModal = (modalName, isOpen) => {
         setModals(prev => ({ ...prev, [modalName]: isOpen }));
@@ -413,10 +413,10 @@ const AssignationsCourseProf = () => {
                         </h2>
                     </div>
                     {warningMessage && (
-              <div className="sticky text-center mb-5 w-full mt-3 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
-                {warningMessage}
-              </div>
-            )}
+                        <div className="sticky text-center mb-5 w-full mt-3 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+                            {warningMessage}
+                        </div>
+                    )}
                     <div className="overflow-auto w-full h-full flex-grow">
                         <table className="text-center w-full border-collapse">
                             <thead>
@@ -514,11 +514,11 @@ const AssignationsCourseProf = () => {
                     />
                 </button>
                 <button onClick={handleDeleteClick}>
-                <img
-                    src={delBtn}
-                    className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-                    alt="Delete"
-                />
+                    <img
+                        src={delBtn}
+                        className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+                        alt="Delete"
+                    />
                 </button>
             </div>
 

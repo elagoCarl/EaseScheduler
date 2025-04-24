@@ -34,6 +34,9 @@ const ProtectedRoute = ({ children }) => {
     // Routes accessible only by Admin
     const adminOnlyPaths = ['/accountlist', '/deptprog'];
 
+    // Routes that Admin cannot access (accessible by other roles)
+    const adminRestrictedPaths = ['/courseprog', '/progyrsec', '/assignationscourseprof', '/course', '/settings', '/addconfigschedule', '/roomtimetable', '/proftimetable', '/sectiontimetable'];
+
     // Check for Program Head and Admin routes
     if (programHeadAndAdminPaths.includes(normalizedPath) &&
         user.Roles !== 'Admin' && user.Roles !== 'Program Head') {
@@ -42,6 +45,11 @@ const ProtectedRoute = ({ children }) => {
 
     // Check for Admin-only routes
     if (adminOnlyPaths.includes(normalizedPath) && user.Roles !== 'Admin') {
+        return <Navigate to="/403" state={{ from: location }} />;
+    }
+
+    // Check for routes that Admin cannot access
+    if (adminRestrictedPaths.includes(normalizedPath) && user.Roles === 'Admin') {
         return <Navigate to="/403" state={{ from: location }} />;
     }
 
