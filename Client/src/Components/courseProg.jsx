@@ -120,6 +120,9 @@ const CourseProg = () => {
                 type: "success",
                 text: response.data.message || (isEditing ? "Course-Program mapping updated successfully." : "Course added to program successfully."),
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
 
             resetForm();
             if (selectedProgram) {
@@ -130,6 +133,9 @@ const CourseProg = () => {
                 type: "error",
                 text: error.response?.data?.message || "Failed to process course-program mapping.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             setLoading(false);
         }
@@ -186,6 +192,9 @@ const CourseProg = () => {
                 type: "success",
                 text: response.data.message || "Course removed from program successfully.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
 
             if (selectedProgram) fetchCoursesByProgram(selectedProgram);
         } catch (error) {
@@ -193,6 +202,9 @@ const CourseProg = () => {
                 type: "error",
                 text: error.response?.data?.message || "Failed to remove course from program.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             // Reset confirmation state
             setShowConfirmModal(false);

@@ -1,4 +1,4 @@
-const { RoomType, Room } = require('../models')
+const { RoomType, Room, Assignation } = require('../models')
 const jwt = require('jsonwebtoken')
 const { Op } = require('sequelize');
 const { REFRESH_TOKEN_SECRET } = process.env
@@ -231,11 +231,16 @@ const deleteRoomType = async (req, res, next) => {
                 RoomTypeId: req.params.id
             }
         });
+        const assignationUsingType = await Assignation.count({
+            where: {
+                RoomTypeId: req.params.id
+            }
+        });
 
-        if (roomsUsingType > 0) {
+        if (roomsUsingType > 0 || assignationUsingType > 0) {
             return res.status(409).send({
                 successful: false,
-                message: "Cannot delete room type as it is being used by existing rooms."
+                message: "Cannot delete room type as it is being used by existing rooms or assignations."
             });
         }
 
