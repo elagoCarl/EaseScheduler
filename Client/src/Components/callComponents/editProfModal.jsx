@@ -26,7 +26,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const response = await axios.get('/profStatus/getAllProfStatus');
+        const response = await axios.get('/profStatus/getAllStatus');
         console.log("Fetched data:", response.data);
         setStatuses(response.data.data);
       } catch (error) {
@@ -89,10 +89,10 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   return (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center">
           <h2 className="text-xl text-white font-semibold mx-auto">Edit Professor</h2>
           <button
-            className="text-xl text-white hover:text-black"
+            className="text-3xl text-white hover:text-red-500 duration-300"
             onClick={onClose}
           >
             &times;
@@ -134,7 +134,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               name="ProfStatusId"
               value={formData.ProfStatusId}
               onChange={handleChange}
-              className="w-full p-8 border rounded bg-customWhite"
+              className="w-full p-5 border rounded bg-customWhite"
             >
               <option value="">Select a status</option>
               {statuses.map((status) => (
@@ -146,18 +146,18 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
           </div>
           {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
           {successMessage && <p className="text-green-500 text-sm mb-4">{successMessage}</p>}
-          <div className="flex justify-end space-x-2">
+          <div className="flex justify-end space-x-6">
             <button
               type="button"
               onClick={onClose}
-              className="bg-gray-500 text-white px-6 py-2 rounded-lg"
+              className="bg-gray-500 text-white hover:bg-gray-700 duration-300 px-6 py-2 rounded-lg"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+              className="bg-blue-500 hover:bg-blue-600 duration-300 text-white px-12 py-2 rounded-lg"
             >
               {isLoading ? 'Saving...' : 'Save'}
             </button>

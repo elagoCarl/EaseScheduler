@@ -7,7 +7,6 @@ import { BASE_URL } from '../../axiosConfig';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
-  // console.log(user);
   const navigate = useNavigate();
   const sidebarRef = useRef(null);
   const [activeSection, setActiveSection] = useState(null);
@@ -54,6 +53,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const isAdmin = user?.Roles === 'Admin';
   const isProgramHead = user?.Roles === 'Program Head';
   const isAdminOrProgramHead = isAdmin || isProgramHead;
+  const isNonAdmin = user?.Roles !== 'Admin';
 
   return (
     <div ref={sidebarRef}
@@ -90,79 +90,84 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
 
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left"
-          onClick={() => {
-            navigate('/settings');
-            toggleSidebar(false);
-          }}
-        >
-          Schedule Settings
-        </button>
-      </div>
-
-      {/* Timetables Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
-          onClick={() => toggleSubContent('Timetables')}
-        >
-          Timetables
-          <svg
-            className={`w-9 h-9 transform transition-transform ${activeSection === 'Timetables' ? 'rotate-180' : ''
-              }`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth="5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
-            }`}
-        >
+      {/* Schedule Settings - Admin cannot access */}
+      {isNonAdmin && (
+        <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
           <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            className="hover:bg-gray-700 p-10 rounded w-full text-left"
             onClick={() => {
-              navigate('/addConfigSchedule');
+              navigate('/settings');
               toggleSidebar(false);
             }}
           >
-            Add/Configure Timetables
-          </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/roomTimetable');
-              toggleSidebar(false);
-            }}
-          >
-            Room Timetables
-          </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/profTimetable');
-              toggleSidebar(false);
-            }}
-          >
-            Professors Timetables
-          </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/sectionTimetable');
-              toggleSidebar(false);
-            }}
-          >
-            Section Timetables
+            Schedule Settings
           </button>
         </div>
-      </div>
+      )}
+
+      {/* Timetables Section - Admin cannot access */}
+      {isNonAdmin && (
+        <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
+          <button
+            className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+            onClick={() => toggleSubContent('Timetables')}
+          >
+            Timetables
+            <svg
+              className={`w-9 h-9 transform transition-transform ${activeSection === 'Timetables' ? 'rotate-180' : ''
+                }`}
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth="5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div
+            className={`pl-12 space-y-5 overflow-hidden transition-all duration-500 ${activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
+              }`}
+          >
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/addConfigSchedule');
+                toggleSidebar(false);
+              }}
+            >
+              Add/Configure Timetables
+            </button>
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/roomTimetable');
+                toggleSidebar(false);
+              }}
+            >
+              Room Timetables
+            </button>
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/profTimetable');
+                toggleSidebar(false);
+              }}
+            >
+              Professors Timetables
+            </button>
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/sectionTimetable');
+                toggleSidebar(false);
+              }}
+            >
+              Section Timetables
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Professors Section */}
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
@@ -184,7 +189,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </svg>
         </button>
         <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
+          className={`pl-12 space-y-4 overflow-hidden transition-all duration-500 ${activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
           <button
@@ -205,19 +210,31 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           >
             Professor Availability
           </button>
+          {/* Professor Assignations - Admin cannot access */}
+          {isNonAdmin && (
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/assignationsCourseProf');
+                toggleSidebar(false);
+              }}
+            >
+              Professor Assignations
+            </button>
+          )}
           <button
             className="hover:bg-gray-700 p-2 rounded w-full text-left"
             onClick={() => {
-              navigate('/assignationsCourseProf');
+              navigate('/profStatus');
               toggleSidebar(false);
             }}
           >
-            Professor Assignations
+            Professor Status
           </button>
         </div>
       </div>
 
-      {/* Rooms Section (No sub-content) */}
+      {/* Rooms Section */}
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
         <button
           className="hover:bg-gray-700 p-10 rounded w-full text-left"
@@ -230,18 +247,20 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         </button>
       </div>
 
-      {/* Courses Section (No sub-content) */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left"
-          onClick={() => {
-            navigate('/course');
-            toggleSidebar(false);
-          }}
-        >
-          Courses
-        </button>
-      </div>
+      {/* Courses Section - Admin cannot access */}
+      {isNonAdmin && (
+        <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
+          <button
+            className="hover:bg-gray-700 p-10 rounded w-full text-left"
+            onClick={() => {
+              navigate('/course');
+              toggleSidebar(false);
+            }}
+          >
+            Courses
+          </button>
+        </div>
+      )}
 
       {/* Departments & Programs Section with dropdown */}
       <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
@@ -266,7 +285,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
             }`}
         >
-          {/* Admin-only access to Manage Depts & Programs as per ProtectedRoute */}
+          {/* Admin-only access to Manage Depts & Programs */}
           {isAdmin && (
             <button
               className="hover:bg-gray-700 p-2 rounded w-full text-left"
@@ -278,24 +297,32 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               Manage Depts & Programs
             </button>
           )}
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/progYrSec');
-              toggleSidebar(false);
-            }}
-          >
-            Program, Year, & Sections
-          </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/courseProg');
-              toggleSidebar(false);
-            }}
-          >
-            Course & Program
-          </button>
+
+          {/* Program, Year, & Sections - Admin cannot access */}
+          {isNonAdmin && (
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/progYrSec');
+                toggleSidebar(false);
+              }}
+            >
+              Program, Year, & Sections
+            </button>
+          )}
+
+          {/* Course & Program - Admin cannot access */}
+          {isNonAdmin && (
+            <button
+              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+              onClick={() => {
+                navigate('/courseProg');
+                toggleSidebar(false);
+              }}
+            >
+              Course & Program
+            </button>
+          )}
         </div>
       </div>
 
@@ -332,7 +359,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             Account Settings
           </button>
 
-          {/* Program Head or Admin can access Create Account as per ProtectedRoute */}
+          {/* Program Head or Admin can access Create Account */}
           {isAdminOrProgramHead && (
             <button
               className="hover:bg-gray-700 p-2 rounded w-full text-left"
@@ -345,7 +372,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             </button>
           )}
 
-          {/* Admin-only access to Account List as per ProtectedRoute */}
+          {/* Admin-only access to Account List */}
           {isAdmin && (
             <button
               className="hover:bg-gray-700 p-2 rounded w-full text-left"

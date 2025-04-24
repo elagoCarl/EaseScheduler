@@ -18,6 +18,7 @@ const addAssignation = async (req, res, next) => {
         }
 
         let createdAssignations = [];
+        let warningMessage = null;
 
         for (let assignation of assignations) {
             const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = assignation;
@@ -89,12 +90,10 @@ const addAssignation = async (req, res, next) => {
                 const unitsToAdd = course.Units;
                 const newTotalUnits = professor.Total_units + unitsToAdd;
 
-                // Check that the total new units will not exceed the limit
-                if (isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-                    return res.status(400).json({
-                        successful: false,
-                        message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
-                    });
+                // Check if the total new units will exceed the limit
+                if (newTotalUnits > status.Max_units) {
+                    // Instead of returning an error, set a warning message
+                    warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
                 }
 
                 // Update professor's Total_units with the new calculated value
@@ -128,9 +127,10 @@ const addAssignation = async (req, res, next) => {
         if (createdAssignations.length === 0) {
             return res.status(400).json({
                 successful: false,
-                message: "No assignations were created. Check for missing fields, duplicates, or professor unit limits.",
+                message: "No assignations were created. Check for missing fields or duplicates.",
             });
         }
+
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({
@@ -138,6 +138,7 @@ const addAssignation = async (req, res, next) => {
                 message: "Unauthorized: refreshToken not found."
             });
         }
+
         let decoded;
         try {
             decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
@@ -147,14 +148,17 @@ const addAssignation = async (req, res, next) => {
                 message: "Invalid refreshToken."
             });
         }
+
         const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
         const page = 'Assignation';
         const details = `Added Assignation ID(s): ${createdAssignations.map(a => a.id).join(', ')}`;
         await addHistoryLog(accountId, page, details);
+
         return res.status(201).json({
             successful: true,
             message: `${createdAssignations.length} assignation(s) created successfully.`,
             data: createdAssignations,
+            warning: warningMessage
         });
 
     } catch (error) {
@@ -184,6 +188,7 @@ const updateAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = req.body;
+        let warningMessage = null;
 
         // Check mandatory fields - ProfessorId can be null based on the model
         if (!util.checkMandatoryFields([School_Year, Semester, CourseId, DepartmentId])) {
@@ -282,12 +287,10 @@ const updateAssignation = async (req, res, next) => {
             // Calculate new total units for current professor
             const newTotalUnits = professor.Total_units + currentProfessorUnitChange;
 
-            // Check that the total new units will not exceed the limit for the new/current professor
-            if (currentProfessorUnitChange > 0 && isExceedingUnitLimit(status.Max_units, newTotalUnits)) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${professor.Name} would exceed the maximum allowed units (${status.Max_units}) with this assignation.`
-                });
+            // Check if the total new units will exceed the limit for the new/current professor
+            if (currentProfessorUnitChange > 0 && newTotalUnits > status.Max_units) {
+                // Add warning message instead of blocking the update
+                warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
             }
 
             // Update current professor's total units if needed
@@ -349,6 +352,7 @@ const updateAssignation = async (req, res, next) => {
             successful: true,
             message: "Assignation updated successfully.",
             data: assignation,
+            warning: warningMessage
         });
     } catch (error) {
         console.error("Error in updateAssignation:", error);

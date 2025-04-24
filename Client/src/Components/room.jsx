@@ -33,11 +33,11 @@ const Room = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
   const [isDeleteDeptRoomWarningOpen, setIsDeleteDeptRoomWarningOpen] = useState(false);
-  const [isDeleteBtnDisabled, setDeleteBtnDisabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isRoomTypesModalOpen, setIsRoomTypesModalOpen] = useState(false);
-  const [dataFetched, setDataFetched] = useState(false); // New state to track if data has been fetched
+  const [dataFetched, setDataFetched] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
   const { user } = useAuth();
   const campuses = ["LV", "GP"];
   const isAdmin = user && user.DepartmentId === null;
@@ -119,6 +119,19 @@ const Room = () => {
     }
   };
 
+  const handleDeleteClick = () => {
+    const selectedRooms = filteredRooms.filter((_, index) => checkboxes[index]);
+
+    if (selectedRooms.length === 0) {
+      isAdmin
+        ? setWarningMessage("Please select at least one room to DELETE.")
+        : setWarningMessage("Please select at least one room to remove from your Department!");
+      return;
+    }
+
+    isAdmin ? setIsDeleteWarningOpen(true) : setIsDeleteDeptRoomWarningOpen(true);
+  };
+
   const handleConfirmDelete = async () => {
     const selectedRooms = filteredRooms.filter((_, index) => checkboxes[index]);
     if (!selectedRooms.length) return;
@@ -137,7 +150,6 @@ const Room = () => {
       // After successful deletion, refresh the rooms data
       fetchRooms();
       setAllChecked(false);
-      setDeleteBtnDisabled(true);
       setIsDeleteWarningOpen(false);
       setIsDeleteDeptRoomWarningOpen(false);
     } catch (error) {
@@ -171,8 +183,18 @@ const Room = () => {
     setFilteredRooms(filtered);
     setCheckboxes(Array(filtered.length).fill(false));
     setAllChecked(false);
-    setDeleteBtnDisabled(true);
   }, [selectedCampus, selectedFloor, rooms, dataFetched]);
+
+  // Auto-hide warning message after 3 seconds
+  useEffect(() => {
+    let timeout;
+    if (warningMessage) {
+      timeout = setTimeout(() => {
+        setWarningMessage("");
+      }, 3000);
+    }
+    return () => clearTimeout(timeout);
+  }, [warningMessage]);
 
   // Handle department change
   const handleDepartmentChange = (e) => {
@@ -249,6 +271,12 @@ const Room = () => {
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">Room</h2>
           </div>
 
+          {warningMessage && (
+            <div className="sticky text-center mb-5 w-full mt-5 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+              {warningMessage}
+            </div>
+          )}
+
           <div className="overflow-auto w-full h-full flex-grow mt-3">
             <table className="text-center w-full border-collapse">
               <thead>
@@ -268,7 +296,6 @@ const Room = () => {
                         const newState = !isAllChecked;
                         setAllChecked(newState);
                         setCheckboxes(Array(filteredRooms.length).fill(newState));
-                        setDeleteBtnDisabled(!newState || filteredRooms.length === 0);
                       }}
                       disabled={filteredRooms.length === 0}
                     />
@@ -304,7 +331,6 @@ const Room = () => {
                             updatedCheckboxes[index] = !updatedCheckboxes[index];
                             setCheckboxes(updatedCheckboxes);
                             setAllChecked(updatedCheckboxes.every((isChecked) => isChecked) && updatedCheckboxes.length > 0);
-                            setDeleteBtnDisabled(!updatedCheckboxes.some((isChecked) => isChecked));
                           }}
                         />
                       </td>
@@ -342,12 +368,11 @@ const Room = () => {
         </button>
         <button
           className="py-2 px-4 text-white rounded"
-          onClick={() => isAdmin ? setIsDeleteWarningOpen(true) : setIsDeleteDeptRoomWarningOpen(true)}
-          disabled={isDeleteBtnDisabled}
+          onClick={handleDeleteClick}
         >
           <img
             src={delBtn}
-            className={`w-12 h-12 md:w-25 md:h-25 ${isDeleteBtnDisabled ? 'opacity-50' : 'hover:scale-110'}`}
+            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
             alt="Delete Room"
           />
         </button>

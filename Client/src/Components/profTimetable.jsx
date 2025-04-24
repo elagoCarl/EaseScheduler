@@ -26,7 +26,7 @@ const ProfTimetable = () => {
     const fetchProfessors = async () => {
       try {
         const deptId = user?.DepartmentId; // Update department ID as needed
-        const { data } = await axios.get(`/prof/getProfByDept/${deptId}`);
+        const { data } = await axios.get(`/prof/getProfByDept/${ deptId }`);
         if (data.successful && data.data.length) {
           setProfessors(data.data);
           setSelectedProf(data.data[0]);
@@ -48,7 +48,7 @@ const ProfTimetable = () => {
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`/schedule/getSchedsByProf/${selectedProf.id}`);
+        const { data } = await axios.get(`/schedule/getSchedsByProf/${ selectedProf.id }`);
         if (data.successful) {
           // console.log("Schedules fetched successfully:", data.data);
           setSchedules(data.data);
@@ -68,29 +68,29 @@ const ProfTimetable = () => {
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
-  const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
+  const formatTimeRange = (start, end) => `${ start.slice(0, 5) } - ${ end.slice(0, 5) }`;
 
   const calculateEventPosition = (event) => {
     const [startHour, startMin] = event.Start_time.split(':').map(Number);
     const [endHour, endMin] = event.End_time.split(':').map(Number);
     const duration = (endHour - startHour) + (endMin - startMin) / 60;
-    return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
+    return { top: `${ (startMin / 60) * 100 }%`, height: `${ duration * 100 }%` };
   };
 
   // Get room info based on the actual data structure
   // OLD: was reading from schedule.Assignation?.Rooms[0]
-const getRoomInfo = (schedule) => {
-  const room = schedule.Room;
-  if (!room) {
-    return { code: 'Unknown', building: 'Unknown', floor: '', type: '' };
-  }
-  return {
-    code: room.Code || 'Unknown',
-    building: room.Building || 'Unknown',
-    floor: room.Floor || '',
-    type: room.RoomType?.Type || ''
+  const getRoomInfo = (schedule) => {
+    const room = schedule.Room;
+    if (!room) {
+      return { code: 'Unknown', building: 'Unknown', floor: '', type: '' };
+    }
+    return {
+      code: room.Code || 'Unknown',
+      building: room.Building || 'Unknown',
+      floor: room.Floor || '',
+      type: room.RoomType?.Type || ''
+    };
   };
-};
 
 
   // Safely get sections info from the actual data structure
@@ -102,7 +102,7 @@ const getRoomInfo = (schedule) => {
     return schedule.ProgYrSecs
       .map(sec => {
         if (!sec || !sec.Program) return 'Unknown';
-        return `${sec.Program.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`;
+        return `${ sec.Program.Code || 'Unknown' } ${ sec.Year || '?' }-${ sec.Section || '?' }`;
       })
       .join(', ');
   };
@@ -126,7 +126,7 @@ const getRoomInfo = (schedule) => {
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${ hovered ? 'z-[9999] scale-110' : 'z-10' }`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -134,15 +134,15 @@ const getRoomInfo = (schedule) => {
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
         <div className="text-sm font-semibold">{courseCode}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
+        <div className={`text-xs ${ hovered ? '' : 'truncate' }`}>
           {courseDesc}
         </div>
         <div className="text-xs">
-  Room: {room.code}
-  {room.building && ` - ${room.building}`}
-  {room.floor && `, ${room.floor}`}
-  {room.type && ` (${room.type})`}
-</div>
+          Room: {room.code}
+          {room.building && ` - ${ room.building }`}
+          {room.floor && `, ${ room.floor }`}
+          {room.type && ` (${ room.type })`}
+        </div>
       </div>
     );
   };
@@ -182,7 +182,7 @@ const getRoomInfo = (schedule) => {
     <div
       className="min-h-screen flex flex-col"
       style={{
-        backgroundImage: `url(${Image3})`,
+        backgroundImage: `url(${ Image3 })`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -238,7 +238,7 @@ const getRoomInfo = (schedule) => {
           </div>
           {/* Calendar */}
           <div className="overflow-x-auto">
-            <div className="p-2 sm:p-4 min-w-[600px]">
+            <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
                 {loadingSchedules ? (
@@ -267,7 +267,7 @@ const getRoomInfo = (schedule) => {
                       {timeSlots.map(hour => (
                         <tr key={hour} className="hover:bg-gray-50">
                           <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                            {`${hour.toString().padStart(2, '0')}:00`}
+                            {`${ hour.toString().padStart(2, '0') }:00`}
                           </td>
                           {days.map((_, dayIndex) => (
                             <td key={dayIndex} className="p-0 border-b border-gray-200 relative h-24 sm:h-28">
@@ -318,7 +318,7 @@ const getRoomInfo = (schedule) => {
                         {timeSlots.map(hour => (
                           <tr key={hour} className="hover:bg-gray-50">
                             <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
-                              {`${hour.toString().padStart(2, '0')}:00`}
+                              {`${ hour.toString().padStart(2, '0') }:00`}
                             </td>
                             <td className="p-0 border-b border-gray-200 relative h-24">
                               {renderMobileEvent(hour, selectedDay)}

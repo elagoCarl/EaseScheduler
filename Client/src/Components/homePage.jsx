@@ -186,7 +186,7 @@ const HomePage = () => {
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
+              <div className='grid xs:grid-cols-2 sm:grid-cols-2 gap-15 mt-30'>
                 {/* 1st Card (Timetable) */}
                 <button
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
@@ -242,13 +242,13 @@ const HomePage = () => {
                   >
                     <span className="font-bold m-9">x</span>
                   </button>
-                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-15">
+                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-10">
                     {modalContent}
                   </h2>
-                  <ul className="space-y-20 m-20 text-center">
+                  <ul className="space-y-20 mb-20 m-10 text-center">
                     {modalContent === 'Timetables' && (
                       <>
-                        <li>
+                      <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/addConfigSchedule')}>
                             Configure Timetable
@@ -294,6 +294,12 @@ const HomePage = () => {
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/assignationsCourseProf')}>
                             Professor Assignations
+                          </a>
+                        </li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                            onClick={() => navigate('/profStatus')}>
+                            Professor Status
                           </a>
                         </li>
                       </>

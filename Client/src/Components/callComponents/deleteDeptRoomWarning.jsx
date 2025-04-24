@@ -11,15 +11,15 @@ const DeleteWarning = ({ isOpen, onClose, onConfirm }) => {
             This action cannot be undone.
           </p>
   
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-end gap-4">
             <button
-              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none"
+              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 duration-300 focus:outline-none"
               onClick={onConfirm}
             >
               Yes, Delete
             </button>
             <button
-              className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 focus:outline-none"
+              className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 duration-300 focus:outline-none"
               onClick={onClose}
             >
               No, Cancel

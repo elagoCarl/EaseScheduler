@@ -787,11 +787,11 @@ const renderAutomationSection = () => (
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       </div>
       <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
-      <div className="container mx-auto my-50 px-2 sm:px-4 pt-20 sm:pt-54 pb-6 sm:pb-10 flex-1 flex justify-center items-center">
+      <div className="container mx-auto my-50 sm:px-4 sm:pt-54 pb-6 sm:pb-10 flex-1 flex justify-center items-center">
         <div className="bg-white rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
           <div className="bg-blue-600 p-3 sm:p-5">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Add/Configure Schedule</h1>
-            <p className="text-blue-100 mt-1 text-xs sm:text-sm">Create and manage class schedules</p>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Add/Configure Schedule</h1>
+            <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Create and manage class schedules</p>
           </div>
 
           {notification && (
@@ -800,7 +800,7 @@ const renderAutomationSection = () => (
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row">
+          <div className="flex flex-col lg:flex-row ml-2 p-2">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>

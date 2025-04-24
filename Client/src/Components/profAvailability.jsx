@@ -22,24 +22,15 @@ const ProfAvailability = () => {
   const hours = Array.from({ length: 15 }, (_, i) => 7 + i);
   const professorColors = ['bg-blue-300', 'bg-green-300', 'bg-purple-300', 'bg-yellow-300', 'bg-red-300', 'bg-indigo-300', 'bg-pink-300', 'bg-teal-300'];
 
-  // Effects
   useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+    if (notification) setTimeout(() => setNotification(null), 5000);
 
-  useEffect(() => {
     const fetchProfessors = async () => {
       setLoading(true);
       try {
         const response = await axios.get(`/prof/getAllProf`);
-        if (response.data.successful) {
-          setProfessors(response.data.data);
-        } else {
-          setNotification({ type: 'error', message: "Failed to load professors." });
-        }
+        if (response.data.successful) setProfessors(response.data.data);
+        else setNotification({ type: 'error', message: "Failed to load professors." });
       } catch (error) {
         setNotification({ type: 'error', message: "Network error. Please check your connection." });
       } finally {
@@ -49,37 +40,30 @@ const ProfAvailability = () => {
 
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
-
     fetchProfessors();
-
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [notification]);
 
   useEffect(() => {
     if (!formData.professor) return;
-
     const fetchProfessorAvailability = async () => {
       setFetchingAvailability(true);
       try {
         const response = await axios.get(`/profAvail/getProfAvailByProf/${formData.professor}`);
         if (response.data.successful) {
-          const availabilityData = response.data.data;
           setScheduleData(prevData => prevData.filter(item => item.professorId !== formData.professor && !item.isExisting));
-
+          const availabilityData = response.data.data;
           if (availabilityData) {
             const processedData = Array.isArray(availabilityData) ? availabilityData : [availabilityData];
-            const formattedAvailability = processedData.map(avail => {
-              const selectedProfessor = professors.find(prof => prof.id === parseInt(formData.professor));
-              return {
-                id: `existing-${avail.id}`,
-                professorId: formData.professor,
-                professorName: selectedProfessor?.Name || "Unknown Professor",
-                day: avail.Day,
-                timeIn: avail.Start_time.split(':')[0],
-                timeOut: avail.End_time.split(':')[0],
-                isExisting: true
-              };
-            });
+            const formattedAvailability = processedData.map(avail => ({
+              id: `existing-${avail.id}`,
+              professorId: formData.professor,
+              professorName: professors.find(prof => prof.id === parseInt(formData.professor))?.Name || "Unknown Professor",
+              day: avail.Day,
+              timeIn: avail.Start_time.split(':')[0],
+              timeOut: avail.End_time.split(':')[0],
+              isExisting: true
+            }));
             setScheduleData(prev => [...prev, ...formattedAvailability]);
           }
         }
@@ -94,16 +78,12 @@ const ProfAvailability = () => {
     fetchProfessorAvailability();
   }, [formData.professor, professors]);
 
-  // Handlers
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (notification) setNotification(null);
   };
 
-  const resetForm = () => {
-    setFormData({ professor: "", day: "", timeIn: "", timeOut: "" });
-    if (notification) setNotification(null);
-  };
+  const resetForm = () => setFormData({ professor: formData.professor, day: "", timeIn: "", timeOut: "" });
 
   const validateForm = () => {
     const { professor, day, timeIn, timeOut } = formData;
@@ -135,7 +115,6 @@ const ProfAvailability = () => {
 
   const handleAdd = async () => {
     if (!validateForm()) return;
-
     const selectedProfessor = professors.find(prof => prof.id === parseInt(formData.professor));
     if (!selectedProfessor) {
       setNotification({ type: 'error', message: "Invalid professor selection" });
@@ -156,12 +135,11 @@ const ProfAvailability = () => {
       const response = await axios.post(`/profAvail/addProfAvail`, availabilityData);
 
       if (response.data.successful) {
-        let newId = response.data.data?.id
-          ? `existing-${response.data.data.id}`
-          : (response.data.id ? `existing-${response.data.id}` : (typeof response.data.data === 'number'
-            ? `existing-${response.data.data}` : `existing-temp-${Date.now()}`));
+        let newId = response.data.data?.id ? `existing-${response.data.data.id}` :
+          (response.data.id ? `existing-${response.data.id}` :
+            (typeof response.data.data === 'number' ? `existing-${response.data.data}` : `existing-temp-${Date.now()}`));
 
-        const newSchedule = {
+        setScheduleData([...scheduleData, {
           id: newId,
           professorId: formData.professor,
           professorName: selectedProfessor.Name,
@@ -169,9 +147,7 @@ const ProfAvailability = () => {
           timeIn: startHour.toString(),
           timeOut: endHour.toString(),
           isExisting: true
-        };
-
-        setScheduleData([...scheduleData, newSchedule]);
+        }]);
         setNotification({ type: 'success', message: "Availability added successfully!" });
         resetForm();
       } else {
@@ -184,45 +160,50 @@ const ProfAvailability = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    const actualId = id.split('-')[1];
-    setSelectedAvailabilityId(actualId);
+  const handleDelete = (id) => {
+    setSelectedAvailabilityId(id.split('-')[1]);
     setIsDeleteWarningOpen(true);
   };
 
   const confirmDelete = async () => {
     if (!selectedAvailabilityId) return;
-
     try {
       setLoading(true);
-      const response = await axios.delete(`/profAvail/deleteProfAvail/${selectedAvailabilityId}`);
-      if (response.data.successful) {
-        setScheduleData(scheduleData.filter(item => {
-          const itemId = item.id.split('-')[1];
-          return itemId !== selectedAvailabilityId;
-        }));
-        setNotification({ type: 'success', message: "Availability deleted successfully!" });
-      } else {
-        setNotification({ type: 'error', message: `Failed to delete: ${response.data.message || "Unknown error"}` });
-      }
+      await axios.delete(`/profAvail/deleteProfAvail/${selectedAvailabilityId}`);
+      setNotification({ type: 'success', message: "Availability deleted successfully!" });
     } catch (error) {
-      if (error.response && error.response.status === 404) {
-        setScheduleData(scheduleData.filter(item => {
-          const itemId = item.id.split('-')[1];
-          return itemId !== selectedAvailabilityId;
-        }));
-        setNotification({ type: 'error', message: "Item was already deleted on the server." });
-      } else {
-        setNotification({ type: 'error', message: error.response?.data?.message || "Failed to delete availability." });
-      }
+      setNotification({ type: 'error', message: error.response?.data?.message || "Failed to delete availability." });
     } finally {
       setLoading(false);
       setIsDeleteWarningOpen(false);
       setSelectedAvailabilityId(null);
+      if (formData.professor) {
+        try {
+          const response = await axios.get(`/profAvail/getProfAvailByProf/${formData.professor}`);
+          if (response.data.successful) {
+            setScheduleData(prevData => prevData.filter(item => item.professorId !== formData.professor));
+            const availabilityData = response.data.data;
+            if (availabilityData) {
+              const processedData = Array.isArray(availabilityData) ? availabilityData : [availabilityData];
+              const formattedAvailability = processedData.map(avail => ({
+                id: `existing-${avail.id}`,
+                professorId: formData.professor,
+                professorName: professors.find(prof => prof.id === parseInt(formData.professor))?.Name || "Unknown Professor",
+                day: avail.Day,
+                timeIn: avail.Start_time.split(':')[0],
+                timeOut: avail.End_time.split(':')[0],
+                isExisting: true
+              }));
+              setScheduleData(prev => [...prev, ...formattedAvailability]);
+            }
+          }
+        } catch (error) {
+          console.error("Error refetching availability:", error);
+        }
+      }
     }
   };
 
-  // Helper functions
   const getScheduleForCell = (day, hour) => {
     return scheduleData.filter(schedule =>
       schedule.day === day &&
@@ -238,15 +219,11 @@ const ProfAvailability = () => {
 
   const formatTimeRange = (start, end) => `${start}:00 - ${end}:00`;
 
-  // Components
   const ScheduleEvent = ({ schedule, day, hour }) => {
     const [hovered, setHovered] = useState(false);
     const isStartHour = parseInt(schedule.timeIn) === hour;
-
     if (!isStartHour) return null;
-
     const duration = parseInt(schedule.timeOut) - parseInt(schedule.timeIn);
-    const heightClass = `h-${Math.min(duration * 24, 24)}`;
 
     return (
       <div
@@ -270,20 +247,12 @@ const ProfAvailability = () => {
   };
 
   const renderMobileSchedule = (event) => (
-    <div
-      key={event.id}
-      className="mb-3 relative cursor-pointer"
-      onClick={() => handleDelete(event.id)}
-    >
+    <div key={event.id} className="mb-3 relative cursor-pointer" onClick={() => handleDelete(event.id)}>
       <div className={`${getProfessorColor(event.professorId)} text-xs p-2 m-1 rounded shadow`}>
         <div className="flex justify-between items-center">
-          <div className="font-bold">
-            {event.professorName}
-          </div>
+          <div className="font-bold">{event.professorName}</div>
         </div>
-        <div>
-          {formatTimeRange(event.timeIn, event.timeOut)}
-        </div>
+        <div>{formatTimeRange(event.timeIn, event.timeOut)}</div>
       </div>
     </div>
   );
@@ -299,8 +268,8 @@ const ProfAvailability = () => {
       <div className="container mx-auto my-50 px-2 sm:px-4 pt-20 sm:pt-54 pb-6 sm:pb-10 flex-1 flex justify-center items-center">
         <div className="bg-white rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
           <div className="bg-blue-600 p-3 sm:p-5">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Professor Availability</h1>
-            <p className="text-blue-100 mt-1 text-xs sm:text-sm">Manage professor availability schedules</p>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Professor Availability</h1>
+            <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Manage professor availability schedules</p>
           </div>
 
           {notification && (
@@ -309,7 +278,7 @@ const ProfAvailability = () => {
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row">
+          <div className="flex flex-col lg:flex-row p-2">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
                 <div>
@@ -452,31 +421,20 @@ const ProfAvailability = () => {
                     <table className="w-full border-collapse">
                       <thead>
                         <tr>
-                          <th className="p-2 sm:p-3 border-b-2 border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm text-left w-16 sm:w-20">
-                            Time
-                          </th>
+                          <th className="p-2 sm:p-3 border-b-2 border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm text-left w-16 sm:w-20">Time</th>
                           {days.map(d => (
-                            <th key={d} className="p-2 sm:p-3 border-b-2 border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm text-left">
-                              {d}
-                            </th>
+                            <th key={d} className="p-2 sm:p-3 border-b-2 text-center border-gray-200 bg-gray-50 text-gray-700 font-medium text-xs sm:text-sm">{d}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {hours.map(hour => (
                           <tr key={hour} className="hover:bg-gray-50">
-                            <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                              {`${hour.toString().padStart(2, '0')}:00`}
-                            </td>
+                            <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">{`${hour.toString().padStart(2, '0')}:00`}</td>
                             {days.map((day) => (
                               <td key={day} className="p-0 border-b border-gray-200 relative h-16 sm:h-20">
                                 {getScheduleForCell(day, hour).map(schedule => (
-                                  <ScheduleEvent
-                                    key={`${schedule.id}-${hour}`}
-                                    schedule={schedule}
-                                    day={day}
-                                    hour={hour}
-                                  />
+                                  <ScheduleEvent key={`${schedule.id}-${hour}`} schedule={schedule} day={day} hour={hour} />
                                 ))}
                               </td>
                             ))}

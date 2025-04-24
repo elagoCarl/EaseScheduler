@@ -1,5 +1,3 @@
-import React from 'react'
-// import { Frown } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
 const Page404 = () => {

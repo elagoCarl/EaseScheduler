@@ -100,7 +100,7 @@ const getAllProf = async (req, res, next) => {
         let professors = await Professor.findAll({
             include: {
                 model: ProfStatus,  // Include ProfStatus relation
-                attributes: ['Status'] // Fetch only the Status column
+                // attributes: ['Status'] // Fetch only the Status column
             },
             order: [['Name', 'ASC']]
         });
