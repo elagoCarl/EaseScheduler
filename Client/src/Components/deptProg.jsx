@@ -92,6 +92,9 @@ const DeptProg = () => {
                 type: "success",
                 text: response.data.message || (isDeptEditing ? "Department updated successfully." : "Department created successfully."),
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
 
             setDeptFormData({ Name: "" });
             setIsDeptEditing(false);
@@ -102,6 +105,9 @@ const DeptProg = () => {
                 type: "error",
                 text: error.response?.data?.message || "Failed to process department.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             setLoading(false);
         }
@@ -194,6 +200,9 @@ const DeptProg = () => {
                     type: "success",
                     text: response.data.message || "Program deleted successfully.",
                 });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 1000);
                 fetchPrograms();
             } else if (deleteType === 'department') {
                 const response = await axios.delete(`/dept/deleteDept/${deletingDeptId}`);
@@ -201,6 +210,9 @@ const DeptProg = () => {
                     type: "success",
                     text: response.data.message || "Department deleted successfully.",
                 });
+                setTimeout(() => {
+                    setMessage(null);
+                }, 1000);
                 fetchDepartments();
             }
         } catch (error) {
@@ -208,6 +220,9 @@ const DeptProg = () => {
                 type: "error",
                 text: error.response?.data?.message || `Failed to delete ${deleteType}.`,
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             setShowDeleteModal(false);
             setDeletingProgId(null);
@@ -247,6 +262,9 @@ const DeptProg = () => {
                 type: "success",
                 text: response.data.message || (isProgEditing ? "Program updated successfully." : "Program created successfully."),
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
 
             setProgFormData({ Code: "", Name: "", DepartmentId: "" });
             setIsProgEditing(false);
@@ -257,6 +275,9 @@ const DeptProg = () => {
                 type: "error",
                 text: error.response?.data?.message || "Failed to process program.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             setLoading(false);
         }

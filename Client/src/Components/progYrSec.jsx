@@ -39,6 +39,18 @@ const ProgYrSec = () => {
         fetchSections();
     }, []);
 
+    // Add new useEffect for message timeout
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => {
+                setMessage(null);
+            }, 1000);
+            
+            // Clean up timer on component unmount or message change
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
+
     const fetchPrograms = async () => {
         try {
             const response = await axios.get(`/program/getAllProgByDept/${deptId}`);
