@@ -5,6 +5,7 @@ import { FaEdit, FaTrash } from 'react-icons/fa';
 import TopMenu from '../Components/callComponents/topMenu';
 import Sidebar from '../Components//callComponents/sideBar';
 import Image3 from '../Components/Img/3.jpg';
+import './professor.jsx'
 
 const ProfStatus = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -31,6 +32,7 @@ const ProfStatus = () => {
     setShowDeleteModal(true);
   };
 
+  const [allProfessors, setAllProfessors] = useState([]);
   
   // Fetch all professor statuses
   const fetchProfStatuses = async () => {
@@ -48,6 +50,19 @@ const ProfStatus = () => {
       toast.error('Failed to load professor statuses: ' + (err.response?.data?.message || 'Unknown error'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAllProfessors = async () => {
+    try {
+      const response = await axios.get("/prof/getAllProf");
+      if (response.data.successful) {
+        return response.data.data;
+      }
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch professors:", error);
+      return [];
     }
   };
 
@@ -74,6 +89,28 @@ const ProfStatus = () => {
 
   useEffect(() => {
     fetchProfStatuses();
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // fetch all status
+        const statusesResponse = await axios.get("/profStatus/getAllStatus");
+        if (statusesResponse.data.successful) {
+          setProfStatusList(statusesResponse.data.data);
+        }
+        // fetch all prof
+        const professors = await fetchAllProfessors();
+        setAllProfessors(professors);
+        setLoading(false);
+      } catch (error) {
+        setError(`Error: ${error.message}`);
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
   // Handle form input changes
@@ -219,9 +256,12 @@ const ProfStatus = () => {
   };
 
   const countProfessors = (status) => {
-    if (!status || !status.Professors) return 0;
-    return Array.isArray(status.Professors) ? status.Professors.length : 0;
+    // If allProfessors is not yet loaded, return 0
+    if (!allProfessors || !Array.isArray(allProfessors)) return 0;
+    return allProfessors.filter(prof => prof.Status === status.Status).length;
   };
+
+
 
   return (
     <div
