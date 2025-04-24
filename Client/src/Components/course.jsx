@@ -247,15 +247,14 @@ const Course = () => {
               Course Configuration
             </h2>
           </div>
-
-          {/* Scrollable Table */}
-          <div className="overflow-auto w-full h-full flex-grow pt-6">
-                  {/* Warning Message */}
-            {warningMessage && (
-              <div className="bottom-20 text-center mb-5 right-10 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+          {warningMessage && (
+              <div className="sticky text-center mb-5 w-full mt-5 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
                 {warningMessage}
               </div>
             )}
+
+          {/* Scrollable Table */}
+          <div className="overflow-auto w-full h-full flex-grow pt-6">
             <table className="text-center w-full border-collapse">
               <thead>
                 <tr className="bg-blue-600/90">

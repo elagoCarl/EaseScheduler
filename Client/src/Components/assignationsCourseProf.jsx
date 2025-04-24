@@ -412,13 +412,12 @@ const AssignationsCourseProf = () => {
                             Assigned Courses To Professors
                         </h2>
                     </div>
-
+                    {warningMessage && (
+              <div className="sticky text-center mb-5 w-full mt-3 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+                {warningMessage}
+              </div>
+            )}
                     <div className="overflow-auto w-full h-full flex-grow">
-                        {warningMessage && (
-                        <div className="bottom-20 text-center font-medium mb-5 right-10 bg-red-600 text-white px-4 py-5 rounded shadow-md">
-                            {warningMessage}
-                        </div>
-                        )}
                         <table className="text-center w-full border-collapse">
                             <thead>
                                 <tr className="bg-blue-600">
