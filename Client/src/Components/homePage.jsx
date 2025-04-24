@@ -242,13 +242,13 @@ const HomePage = () => {
                   >
                     <span className="font-bold m-9">x</span>
                   </button>
-                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-15">
+                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-10">
                     {modalContent}
                   </h2>
-                  <ul className="space-y-20 m-20 text-center">
+                  <ul className="space-y-20 mb-20 m-10 text-center">
                     {modalContent === 'Timetables' && (
                       <>
-                        <li>
+                      <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/addConfigSchedule')}>
                             Configure Timetable
