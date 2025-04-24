@@ -28,7 +28,7 @@ const Professor = () => {
   const [, setDeleteBtnDisabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showSelectionWarning, setShowSelectionWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState(""); // Added warning message state
   const [profStatusMap, setProfStatusMap] = useState({}); // Store status details including Max_units
 
   // Fetch professor statuses to get Max_units for each status
@@ -166,16 +166,16 @@ const Professor = () => {
     fetchProfessors(); // Then fetch professors
   }, []);
 
-  // Auto-hide selection warning after 3 seconds
+  // Auto-hide warning message after 3 seconds
   useEffect(() => {
     let timeout;
-    if (showSelectionWarning) {
+    if (warningMessage) {
       timeout = setTimeout(() => {
-        setShowSelectionWarning(false);
+        setWarningMessage("");
       }, 3000); // Hide after 3 seconds
     }
     return () => clearTimeout(timeout);
-  }, [showSelectionWarning]);
+  }, [warningMessage]);
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay error={error} />;
@@ -217,8 +217,8 @@ const Professor = () => {
     const anySelected = checkboxes.some(isChecked => isChecked);
 
     if (!anySelected) {
-      // Show warning if no professors are selected
-      setShowSelectionWarning(true);
+      // Show warning message if no professors are selected
+      setWarningMessage("Please select one or more professors to delete!");
       return;
     }
     setIsDeleteWarningOpen(true);
@@ -269,6 +269,13 @@ const Professor = () => {
             <img src={profV} className="w-12 h-12 md:w-25 md:h-25" alt="Professor Icon" />
             <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">Professors</h2>
           </div>
+
+          {/* Warning Message Display */}
+          {warningMessage && (
+            <div className="sticky text-center mb-5 w-full mt-1 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+              {warningMessage}
+            </div>
+          )}
 
           <div className="overflow-auto w-full h-full flex-grow">
             <table className="text-center w-full border-collapse">
@@ -341,13 +348,6 @@ const Professor = () => {
           </button>
         </div>
       </div>
-
-      {/* Place the warning at the bottom of the page in its own container */}
-      {showSelectionWarning && (
-        <div className="fixed bottom-10 right-4 bg-red-500 text-white py-3 px-5 text-sm shadow rounded z-10">
-          Please select one or more professors to delete.
-        </div>
-      )}
 
       <AddProfModal isOpen={isAddProfModalOpen} onClose={handleAddProfCloseModal} />
       <DeleteWarning isOpen={isDeleteWarningOpen} onClose={handleCloseDelWarning} onConfirm={handleConfirmDelete} />
