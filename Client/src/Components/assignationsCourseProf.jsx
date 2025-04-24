@@ -43,6 +43,7 @@ const AssignationsCourseProf = () => {
     const [roomTypes, setRoomTypes] = useState([]); // New state for room types
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [warningMessage, setWarningMessage] = useState(null);
 
     // State for detailed professor info (from getProf)
     // This will be a mapping: { professorId: { ...professorData } }
@@ -72,6 +73,16 @@ const AssignationsCourseProf = () => {
         };
         fetchDepartment();
     }, [DEPARTMENT_ID]);
+
+    useEffect(() => {
+        let timer;
+        if (warningMessage) {
+          timer = setTimeout(() => {
+            setWarningMessage(null);
+          }, 3000); // Warning disappears after 3 seconds
+        }
+        return () => clearTimeout(timer);
+      }, [warningMessage]);
 
     // Fetch all room types
     useEffect(() => {
@@ -277,6 +288,14 @@ const AssignationsCourseProf = () => {
         }
     };
 
+    const handleDeleteClick = () => {
+        if (!checkboxes.some(Boolean)) {
+          setWarningMessage("Please select at least one course to delete");
+        } else {
+          toggleModal('delete', true);
+        }
+      };
+
     const toggleModal = (modalName, isOpen) => {
         setModals(prev => ({ ...prev, [modalName]: isOpen }));
     };
@@ -321,7 +340,7 @@ const AssignationsCourseProf = () => {
 
             <div className="flex flex-col justify-center items-center h-screen w-full px-8">
                 {/* Display the current department */}
-                <div className="mb-4 text-lg font-semibold text-white">
+                <div className="text-xl p-10 font-semibold text-white">
                     Current Department: {department ? department.Name : "Loading..."}
                 </div>
 
@@ -395,6 +414,11 @@ const AssignationsCourseProf = () => {
                     </div>
 
                     <div className="overflow-auto w-full h-full flex-grow">
+                        {warningMessage && (
+                        <div className="bottom-20 text-center font-medium mb-5 right-10 bg-red-600 text-white px-4 py-5 rounded shadow-md">
+                            {warningMessage}
+                        </div>
+                        )}
                         <table className="text-center w-full border-collapse">
                             <thead>
                                 <tr className="bg-blue-600">
@@ -490,12 +514,12 @@ const AssignationsCourseProf = () => {
                         alt="Add"
                     />
                 </button>
-                <button onClick={() => toggleModal('delete', true)} disabled={!checkboxes.some(Boolean)}>
-                    <img
-                        src={delBtn}
-                        className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-                        alt="Delete"
-                    />
+                <button onClick={handleDeleteClick}>
+                <img
+                    src={delBtn}
+                    className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
+                    alt="Delete"
+                />
                 </button>
             </div>
 

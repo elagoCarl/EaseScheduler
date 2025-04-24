@@ -250,6 +250,12 @@ const Course = () => {
 
           {/* Scrollable Table */}
           <div className="overflow-auto w-full h-full flex-grow pt-6">
+                  {/* Warning Message */}
+            {warningMessage && (
+              <div className="bottom-20 text-center mb-5 right-10 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+                {warningMessage}
+              </div>
+            )}
             <table className="text-center w-full border-collapse">
               <thead>
                 <tr className="bg-blue-600/90">
@@ -364,12 +370,6 @@ const Course = () => {
         </button>
       </div>
 
-      {/* Warning Message */}
-      {warningMessage && (
-        <div className="fixed bottom-10 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-md">
-          {warningMessage}
-        </div>
-      )}
 
       {/* Modals */}
       <AddCourseModal

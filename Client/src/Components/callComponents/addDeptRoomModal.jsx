@@ -283,14 +283,14 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                     <div className="flex justify-end mt-10 gap-8 p-4">
                         <button
                             type="submit"
-                            className="bg-blue-500 text-white px-6 py-2 rounded-lg"
+                            className="bg-blue-500 text-white px-14 py-2 rounded-lg" 
                             disabled={!selectedRoom || addingRoom}
                         >
                             {addingRoom ? "Adding..." : "Add"}
                         </button>
                         <button
                             type="button"
-                            className="bg-gray-500 text-white px-6 py-2 rounded-lg"
+                            className="bg-gray-500 hover:bg-gray-600 duration-300 text-white px-6 py-2 rounded-lg"
                             onClick={onClose}
                             disabled={addingRoom}
                         >
