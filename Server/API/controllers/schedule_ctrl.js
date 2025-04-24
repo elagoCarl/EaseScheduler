@@ -918,6 +918,7 @@ const addSchedule = async (req, res, next) => {
             const existingRoomSchedules = await Schedule.findAll({
                 where: { Day, RoomId }
             });
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
             // Allow back-to-back schedules but check for any overlaps
             const isRoomConflict = existingRoomSchedules.some(existing => {
                 const existingStartSec = timeToSeconds(existing.Start_time);
@@ -927,11 +928,46 @@ const addSchedule = async (req, res, next) => {
             if (isRoomConflict) {
                 return res.status(400).json({
                     successful: false,
-                    message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
+                    message: `Schedule conflict detected: Room ${room.Code} is already booked on ${days[Day]} within ${Start_time} - ${End_time}.`
                 });
             }
 
             // ****************** Additional Professor Validations ******************
+
+            
+            // Check if the professor is available during the scheduled time
+            const professorId = assignation.Professor.id;
+            const professorAvailabilities = await ProfAvail.findAll({
+                where: { 
+                    ProfessorId: professorId,
+                    Day: days[Day] // Ensure Day formats match between Schedule and ProfAvail
+                }
+            });
+
+
+            // If professor has no availabilities set for this day, they're not available
+            if (professorAvailabilities.length === 0) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Professor ${assignation.Professor.Name} has no availability set for ${days[Day]}.`
+                });
+            }
+
+            // Check if the proposed schedule falls within any of the professor's available time slots
+            const isProfessorAvailable = professorAvailabilities.some(availability => {
+                const availStartSec = timeToSeconds(availability.Start_time);
+                const availEndSec = timeToSeconds(availability.End_time);
+                
+                // The proposed schedule must be fully contained within an availability slot
+                return (newStartSec >= availStartSec && newEndSec <= availEndSec);
+            });
+
+            if (!isProfessorAvailable) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on ${days[Day]}.`
+                });
+            }
 
             // Build the professor's schedule for the given day by fetching all schedules where the 
             // assignation's professor is teaching on that day.
@@ -950,11 +986,26 @@ const addSchedule = async (req, res, next) => {
                 profScheduleForDay.dailyTimes.push({ start: profSchedStart, end: profSchedEnd });
             });
             const newStartHour = parseInt(Start_time.split(":")[0]);
-            // Validate professor availability and workload using your helper
+            
+            // Check for schedule conflicts with professor's existing schedules
+            const isProfessorScheduleConflict = professorSchedules.some(existing => {
+                const existingStartSec = timeToSeconds(existing.Start_time);
+                const existingEndSec = timeToSeconds(existing.End_time);
+                return (newStartSec < existingEndSec && newEndSec > existingStartSec);
+            });
+            
+            if (isProfessorScheduleConflict) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${days[Day]}.`
+                });
+            }
+            
+            // Validate professor workload using your helper
             if (!(await canScheduleProfessor(profScheduleForDay, newStartHour, currentScheduleDuration, settings, assignation.Professor.id, Day))) {
                 return res.status(400).json({
                     successful: false,
-                    message: `The professor ${assignation.Professor.Name} is not available at the specified time or would exceed the allowed teaching hours.`
+                    message: `The professor ${assignation.Professor.Name} would exceed the allowed teaching hours.`
                 });
             }
 
@@ -1140,6 +1191,7 @@ const updateSchedule = async (req, res, next) => {
             }
         });
 
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
         // Conflict logic: allow back-to-back scheduling but no overlaps
         const isRoomConflict = existingRoomSchedules.some(existing => {
             const existingStart = timeToSeconds(existing.Start_time);
@@ -1149,7 +1201,7 @@ const updateSchedule = async (req, res, next) => {
         if (isRoomConflict) {
             return res.status(400).json({
                 successful: false,
-                message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
+                message: `Schedule conflict detected: Room ${room.Code} is already booked on ${days[Day]} within ${Start_time} - ${End_time}.`
             });
         }
 
@@ -1171,6 +1223,53 @@ const updateSchedule = async (req, res, next) => {
             profScheduleForDay.dailyTimes.push({ start: startHour, end: endHour });
         });
         const newStartHour = parseInt(Start_time.split(":")[0]);
+
+        // Check if the professor is available during the scheduled time
+        const professorId = assignation.Professor.id;
+        const professorAvailabilities = await ProfAvail.findAll({
+            where: { 
+                ProfessorId: professorId,
+                Day: Day.toString() // Ensure Day formats match between Schedule and ProfAvail
+            }
+        });
+
+        // If professor has no availabilities set for this day, they're not available
+        if (professorAvailabilities.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: `Professor ${assignation.Professor.Name} has no availability set for day ${days[Day]}.`
+            });
+        }
+
+        // Check if the proposed schedule falls within any of the professor's available time slots
+        const isProfessorAvailable = professorAvailabilities.some(availability => {
+            const availStartSec = timeToSeconds(availability.Start_time);
+            const availEndSec = timeToSeconds(availability.End_time);
+            
+            // The proposed schedule must be fully contained within an availability slot
+            return (newStartSec >= availStartSec && newEndSec <= availEndSec);
+        });
+
+        if (!isProfessorAvailable) {
+            return res.status(400).json({
+                successful: false,
+                message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on day ${days[Day]}.`
+            });
+        }
+
+        // Check for schedule conflicts with professor's existing schedules
+        const isProfessorScheduleConflict = professorSchedules.some(existing => {
+            const existingStartSec = timeToSeconds(existing.Start_time);
+            const existingEndSec = timeToSeconds(existing.End_time);
+            return (newStartSec < existingEndSec && newEndSec > existingStartSec);
+        });
+        
+        if (isProfessorScheduleConflict) {
+            return res.status(400).json({
+                successful: false,
+                message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${days[Day]}.`
+            });
+        }
 
         // Validate professor availability and workload using helper function
         if (!canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day)) {
