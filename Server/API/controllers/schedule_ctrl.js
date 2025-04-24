@@ -268,6 +268,15 @@ const generateScheduleVariants = async (req, res, next) => {
             variantCount = 2 // Default to 2 variants
         } = req.body;
 
+        console.log("generateScheduleVariants received request:", {
+            DepartmentId,
+            prioritizedProfessor,
+            prioritizedRoom,
+            prioritizedSections,
+            roomId,
+            variantCount
+        });
+
         if (!DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -356,6 +365,8 @@ const generateScheduleVariants = async (req, res, next) => {
             include: [{ model: ProgYrSec }, { model: Room }]
         });
 
+        console.log(`Found ${lockedSchedules.length} locked schedules`);
+
         // 5) IMPORTANT CHANGE: Get ALL existing schedules for ANY room that might be used
         // This is to prevent double-booking across departments
         let roomIds = rooms.map(r => r.id);
@@ -368,6 +379,8 @@ const generateScheduleVariants = async (req, res, next) => {
             include: [{ model: Room }]
         });
 
+        console.log(`Found ${allRoomSchedules.length} schedules across all rooms`);
+
         // Figure out which assignations remain locked
         const lockedAssignIds = new Set(
             lockedSchedules.map(s => s.AssignationId)
@@ -375,6 +388,8 @@ const generateScheduleVariants = async (req, res, next) => {
         let unscheduledAssignations = assignations.filter(
             a => !lockedAssignIds.has(a.id)
         );
+
+        console.log(`Have ${unscheduledAssignations.length} unscheduled assignations to process`);
 
         // 6) IMPORTANT: Sort assignations by prioritizedProfessor (consistent across variants)
         if (priorities.professor) {
@@ -396,6 +411,8 @@ const generateScheduleVariants = async (req, res, next) => {
 
         // Preload all sections once
         const allSecs = await ProgYrSec.findAll();
+        console.log(`Loaded ${allSecs.length} total sections from database`);
+        
         for (const sec of allSecs) {
             // Cache section info
             roomCache.sections[sec.id] = {
@@ -415,6 +432,8 @@ const generateScheduleVariants = async (req, res, next) => {
 
         // Generate multiple schedule variants
         for (let variant = 0; variant < variantCount; variant++) {
+            console.log(`\n====== Generating variant ${variant + 1} of ${variantCount} ======`);
+            
             // 8a) Initialize tracking structures
             const professorSchedule = {}, courseSchedules = {}, progYrSecSchedules = {}, roomSchedules = {};
 
@@ -478,6 +497,8 @@ const generateScheduleVariants = async (req, res, next) => {
 
                 // Sections
                 const linkedSecs = await sch.getProgYrSecs();
+                console.log(`Schedule ${sch.id} has ${linkedSecs.length} linked sections`);
+                
                 for (const sec of linkedSecs) {
                     progYrSecSchedules[sec.id][day].hours += dur;
                     progYrSecSchedules[sec.id][day].dailyTimes.push({ start: startH, end: endH });
@@ -554,26 +575,118 @@ const generateScheduleVariants = async (req, res, next) => {
                 courseProgCache
             );
 
+            console.log(`Variant ${variant + 1} results: ${report.length} scheduled, ${failedAssignations.length} failed`);
+
             // 11) Store both locked schedules and newly generated ones for this variant
             const combinedReport = [
-                ...lockedSchedules.map(sch => ({
-                    id: sch.id,
-                    Professor: sch.Assignation?.Professor?.Name,
-                    Course: sch.Assignation?.Course?.Code,
-                    CourseType: sch.Assignation?.Course?.Type,
-                    Sections: sch.ProgYrSecs?.map(sec =>
+                ...lockedSchedules.map(sch => {
+                    // NEW LOGGING: Check and log the locked schedule sections
+                    const sections = sch.ProgYrSecs?.map(sec =>
                         `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`
-                    ),
-                    Room: sch.Room?.Code,
-                    RoomId: sch.RoomId,
-                    Day: sch.Day,
-                    Start_time: sch.Start_time,
-                    End_time: sch.End_time,
-                    isLocked: true,
-                    AssignationId: sch.AssignationId
-                })),
-                ...report
+                    );
+                    
+                    console.log(`Locked schedule ${sch.id} sections:`, sections);
+                    
+                    // Extract section IDs for easier reference
+                    const sectionIds = sch.ProgYrSecs?.map(sec => sec.id) || [];
+                    
+                    return {
+                        id: sch.id,
+                        Professor: sch.Assignation?.Professor?.Name,
+                        Course: sch.Assignation?.Course?.Code,
+                        CourseType: sch.Assignation?.Course?.Type,
+                        // Include multiple section formats for compatibility
+                        Sections: sections,
+                        ProgYrSecIds: sectionIds, // Add explicit section IDs array
+                        SectionIds: sectionIds.length > 0 ? sectionIds : undefined, // Alternative format
+                        Room: sch.Room?.Code,
+                        RoomId: sch.RoomId,
+                        Day: sch.Day,
+                        Start_time: sch.Start_time,
+                        End_time: sch.End_time,
+                        isLocked: true,
+                        AssignationId: sch.AssignationId
+                    };
+                }),
+                ...await Promise.all(report.map(async (schedule) => {
+                    // NEW LOGGING: Log and ensure each report item has proper section IDs
+                    console.log("Processing report schedule:", {
+                        hasProgYrSecIds: Boolean(schedule.ProgYrSecIds),
+                        hasSectionIds: Boolean(schedule.SectionIds),
+                        sectionCount: schedule.Sections?.length
+                    });
+                    
+                    // Make sure we have ProgYrSecIds for newly generated schedules
+                    let sectionIds = [];
+                    if (!schedule.ProgYrSecIds && Array.isArray(schedule.SectionIds)) {
+                        schedule.ProgYrSecIds = schedule.SectionIds;
+                        sectionIds = schedule.SectionIds;
+                    }
+                    else if (!schedule.ProgYrSecIds && Array.isArray(schedule.ProgYrSecs)) {
+                        schedule.ProgYrSecIds = schedule.ProgYrSecs.map(s => s.id);
+                        sectionIds = schedule.ProgYrSecIds;
+                    }
+                    else if (schedule.Sections && Array.isArray(schedule.Sections)) {
+                        console.log("Processing Sections array:", schedule.Sections);
+                        // First try the standard format ("ProgId=X, Year=Y, Sec=Z")
+                        // [existing code...]
+                        
+                        // ADDED: If standard pattern fails, try parsing program-year-section format
+                        // like "BSCS1A" which means program=BSCS, year=1, section=A
+                        if (sectionIds.length === 0) {
+                            const sectionPromises = schedule.Sections.map(async (sectionString) => {
+                                // Match pattern like "BSCS1A" - program code followed by year number followed by section letter
+                                const match = sectionString.match(/^([A-Z]+)(\d+)([A-Z])$/);
+                                if (match) {
+                                    const programCode = match[1]; // e.g., "BSCS"
+                                    const year = parseInt(match[2], 10); // e.g., 1
+                                    const section = match[3]; // e.g., "A"
+                                    console.log("Parsed section from string:", { programCode, year, section });
+                                    
+                                    // Find the program ID by program code
+                                    const program = await Program.findOne({ where: { Code: programCode } });
+                                    if (!program) {
+                                        console.log(`Program with code ${programCode} not found`);
+                                        return null;
+                                    }
+                                    
+                                    // Find the section in the database
+                                    const sectionRecord = await ProgYrSec.findOne({ 
+                                        where: { ProgramId: program.id, Year: year, Section: section } 
+                                    });
+                                    console.log("Section record found:", sectionRecord ? `ID: ${sectionRecord.id}` : "Not found");
+                                    return sectionRecord ? sectionRecord.id : null;
+                                }
+                                return null;
+                            });
+                            
+                            // Wait for all section queries to complete and filter out any nulls
+                            const resolvedSectionIds = await Promise.all(sectionPromises);
+                            sectionIds = resolvedSectionIds.filter(id => id !== null);
+                            console.log("Final resolved section IDs from simplified format:", sectionIds);
+                            
+                            // Assign the resolved section IDs to the schedule
+                            if (sectionIds.length > 0) {
+                                schedule.ProgYrSecIds = sectionIds;
+                            }
+                        }
+                    }
+                    
+                    return schedule;
+                }))
             ];
+
+            // NEW LOGGING: Final check on section IDs in the variant
+            const sectionSummary = combinedReport.map((sch, index) => ({
+                index,
+                hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
+                ProgYrSecIds: sch.ProgYrSecIds,
+                SectionIds: sch.SectionIds 
+            }));
+            
+            console.log(`Variant ${variant + 1} section ID summary:`, 
+                JSON.stringify(sectionSummary, null, 2)
+            );
 
             scheduleVariants.push({
                 variantName: `Variant ${variant + 1}`,
@@ -989,6 +1102,19 @@ const saveScheduleVariant = async (req, res, next) => {
             });
         }
 
+        // NEW LOGGING: Print the structure of the incoming variant
+        console.log("Incoming variant structure:", JSON.stringify({
+            scheduleCount: variant.schedules.length,
+            sampleSchedule: variant.schedules[0],
+            sectionFormats: variant.schedules.map(sch => ({
+                hasProgYrSecIds: Boolean(sch.ProgYrSecIds),
+                hasSectionIds: Boolean(sch.SectionIds),
+                hasProgYrSecs: Boolean(sch.ProgYrSecs),
+                hasStringSections: Boolean(sch.Sections),
+                sectionsFormat: sch.Sections ? typeof sch.Sections : null
+            }))
+        }, null, 2));
+
         // 1. Get all existing schedules for this department that aren't locked
         const department = await Department.findByPk(DepartmentId, {
             include: [{ model: Assignation, attributes: ['id'] }]
@@ -1020,6 +1146,14 @@ const saveScheduleVariant = async (req, res, next) => {
                 continue;
             }
 
+            // NEW LOGGING: Print each schedule's section data
+            console.log("Schedule section data:", {
+                ProgYrSecIds: schedule.ProgYrSecIds,
+                SectionIds: schedule.SectionIds,
+                ProgYrSecs: schedule.ProgYrSecs,
+                Sections: schedule.Sections
+            });
+            
             // Create new schedule
             const newSchedule = await Schedule.create({
                 Day: schedule.Day,
@@ -1036,17 +1170,21 @@ const saveScheduleVariant = async (req, res, next) => {
             // Try to extract section IDs from the ProgYrSecIds property if it exists
             if (schedule.ProgYrSecIds && Array.isArray(schedule.ProgYrSecIds)) {
                 sectionIds = schedule.ProgYrSecIds;
+                console.log("Found section IDs in ProgYrSecIds:", sectionIds);
             }
             // Try to extract section IDs from SectionIds property if it exists
             else if (schedule.SectionIds && Array.isArray(schedule.SectionIds)) {
                 sectionIds = schedule.SectionIds;
+                console.log("Found section IDs in SectionIds:", sectionIds);
             }
             // If we have ProgYrSecs objects, extract their IDs
             else if (schedule.ProgYrSecs && Array.isArray(schedule.ProgYrSecs)) {
                 sectionIds = schedule.ProgYrSecs.map(sec => sec.id);
+                console.log("Found section IDs in ProgYrSecs objects:", sectionIds);
             }
             // If we need to parse section IDs from strings
             else if (schedule.Sections && Array.isArray(schedule.Sections)) {
+                console.log("Processing Sections array:", schedule.Sections);
                 // Try to find section IDs by querying the database based on the string format
                 // Example format: "ProgId=1, Year=2, Sec=A"
                 const sectionPromises = schedule.Sections.map(async (sectionString) => {
@@ -1055,10 +1193,23 @@ const saveScheduleVariant = async (req, res, next) => {
                     const yearMatch = sectionString.match(/Year=(\d+)/);
                     const secMatch = sectionString.match(/Sec=([A-Z])/);
                     
+                    console.log("Parsing section string:", {
+                        string: sectionString,
+                        progIdMatch,
+                        yearMatch,
+                        secMatch
+                    });
+                    
                     if (progIdMatch && yearMatch && secMatch) {
                         const programId = parseInt(progIdMatch[1], 10);
                         const year = parseInt(yearMatch[1], 10);
                         const section = secMatch[1];
+                        
+                        console.log("Looking up section record for:", {
+                            programId,
+                            year,
+                            section
+                        });
                         
                         // Find the section in the database
                         const sectionRecord = await ProgYrSec.findOne({
@@ -1069,6 +1220,9 @@ const saveScheduleVariant = async (req, res, next) => {
                             }
                         });
                         
+                        console.log("Section record found:", sectionRecord ? 
+                            `ID: ${sectionRecord.id}` : "Not found");
+                        
                         return sectionRecord ? sectionRecord.id : null;
                     }
                     return null;
@@ -1077,16 +1231,30 @@ const saveScheduleVariant = async (req, res, next) => {
                 // Wait for all section queries to complete and filter out any nulls
                 const resolvedSectionIds = await Promise.all(sectionPromises);
                 sectionIds = resolvedSectionIds.filter(id => id !== null);
+                console.log("Final resolved section IDs:", sectionIds);
             }
 
             // If we found any section IDs, associate them with the schedule
             if (sectionIds.length > 0) {
+                console.log(`Setting ${sectionIds.length} section IDs for schedule:`, sectionIds);
                 await newSchedule.setProgYrSecs(sectionIds);
+            } else {
+                console.log("No section IDs found to associate with schedule");
             }
 
             newSchedules.push(newSchedule);
         }
-
+        
+        // Final logging of section IDs per schedule
+        console.log("Section IDs summary per schedule:", 
+            variant.schedules.map(sch => ({
+                hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
+                ids: Array.isArray(sch.ProgYrSecIds) ? sch.ProgYrSecIds : 
+                     Array.isArray(sch.SectionIds) ? sch.SectionIds : [],
+                sections: sch.Sections
+            }))
+        );
+        
         return res.status(200).json({
             successful: true,
             message: `Successfully saved schedule variant with ${newSchedules.length} new schedules.`,
