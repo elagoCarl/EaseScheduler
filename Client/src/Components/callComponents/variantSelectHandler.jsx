@@ -10,11 +10,11 @@ const ScheduleVariantModal = ({
   departmentId 
 }) => {
   const [selectedVariant, setSelectedVariant] = useState(0);
-  const [selectedRoom, setSelectedRoom] = useState('All Rooms');
+  const [selectedRoom, setSelectedRoom] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [calendarView, setCalendarView] = useState([]); // For the calendar view data
-  const [availableRooms, setAvailableRooms] = useState(['All Rooms']);
+  const [availableRooms, setAvailableRooms] = useState([]);
   
   // Process schedule data into calendar format when variant changes
   useEffect(() => {
@@ -23,7 +23,6 @@ const ScheduleVariantModal = ({
       
       // Extract all unique rooms
       const rooms = new Set();
-      rooms.add('All Rooms');
       
       variants[selectedVariant].schedules.forEach(schedule => {
         if (schedule.Room) {
@@ -31,7 +30,13 @@ const ScheduleVariantModal = ({
         }
       });
       
-      setAvailableRooms(Array.from(rooms));
+      const roomsArray = Array.from(rooms);
+      setAvailableRooms(roomsArray);
+      
+      // Set default selected room to the first room in the list
+      if (roomsArray.length > 0 && !selectedRoom) {
+        setSelectedRoom(roomsArray[0]);
+      }
     }
   }, [selectedVariant, variants]);
 
@@ -112,7 +117,7 @@ const ScheduleVariantModal = ({
       const scheduleDay = getDayName(schedule.Day);
       const startHour = parseInt(schedule.Start_time.split(':')[0]);
       const endHour = parseInt(schedule.End_time.split(':')[0]);
-      const matchesRoom = selectedRoom === 'All Rooms' || schedule.Room === selectedRoom;
+      const matchesRoom = schedule.Room === selectedRoom;
       
       return scheduleDay === day && startHour <= timeSlot && endHour > timeSlot && matchesRoom;
     });
@@ -184,20 +189,22 @@ const ScheduleVariantModal = ({
                       </div>
                       
                       {/* Room Filter */}
-                      <div className="roomFilterContainer">
-                        <div className="roomFilterLabel">Room Filter:</div>
-                        <div className="roomFilterOptions">
-                          {availableRooms.map(room => (
-                            <button 
-                              key={room}
-                              className={`roomFilterBtn ${selectedRoom === room ? 'selectedRoom' : ''}`}
-                              onClick={() => setSelectedRoom(room)}
-                            >
-                              {room}
-                            </button>
-                          ))}
+                      {availableRooms.length > 0 && (
+                        <div className="roomFilterContainer">
+                          <div className="roomFilterLabel">Room Filter:</div>
+                          <div className="roomFilterOptions">
+                            {availableRooms.map(room => (
+                              <button 
+                                key={room}
+                                className={`roomFilterBtn ${selectedRoom === room ? 'selectedRoom' : ''}`}
+                                onClick={() => setSelectedRoom(room)}
+                              >
+                                {room}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      )}
                       
                       {/* Calendar View */}
                       <div className="calendarWrapper">
