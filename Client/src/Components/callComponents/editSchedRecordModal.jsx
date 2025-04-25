@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
-const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assignations }) => {
-    console.log("EditSchedRecordModal - schedule:", schedule);
+const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assignations, Semester }) => {
     
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -197,7 +196,8 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 End_time: formData.end_time,
                 RoomId: parseInt(formData.room_id),
                 AssignationId: parseInt(formData.assignation_id),
-                Sections: selectedSections
+                Sections: selectedSections,
+                Semester: Semester,
             };
 
             // Validate form for both cases
@@ -213,8 +213,6 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 setLoading(false);
                 return;
             }
-
-            console.log(selectedSections, "Selected sections:", otherDeptSections)
             
             // If department doesn't match, use existing schedule values for fields that shouldn't be modified
             if (!isDepartmentMatch) {
@@ -225,7 +223,8 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                   End_time: schedule.End_time.slice(0, 5),
                   RoomId: schedule.RoomId,
                   AssignationId: schedule.AssignationId,
-                  Sections: [...selectedSections, ...otherDeptSectionIds]
+                  Semester: Semester,
+                  Sections: [...selectedSections, ...otherDeptSectionIds],
                 };
               }
 
