@@ -20,6 +20,7 @@ const HomePage = () => {
   const [fadeIn, setFadeIn] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [departmentLoaded, setDepartmentLoaded] = useState(false);
+  const [isLoadingUserDetails, setIsLoadingUserDetails] = useState(false);
 
   // Create refs for the profile button and the dropdown
   const profileBtnRef = useRef(null);
@@ -31,8 +32,11 @@ const HomePage = () => {
 
   // Fetch user data including department when component mounts
   useEffect(() => {
+    // Only fetch user details if we have a user but no department name
+    // and we're not already loading user details
     const fetchUserDetails = async () => {
-      if (user && !user.Department?.Name) {
+      if (user && !user.Department?.Name && !isLoadingUserDetails && !departmentLoaded) {
+        setIsLoadingUserDetails(true);
         try {
           const response = await axios.get(
             `${BASE_URL}/accounts/getCurrentAccount?t=${Date.now()}`,
@@ -40,18 +44,20 @@ const HomePage = () => {
           );
           if (response.data.successful && response.data.account) {
             setUser(response.data.account);
-            setDepartmentLoaded(true);
           }
         } catch (error) {
           console.error("Error fetching user details:", error);
+        } finally {
+          setIsLoadingUserDetails(false);
+          setDepartmentLoaded(true);
         }
-      } else if (user && user.Department?.Name) {
+      } else if (user && user.Department?.Name && !departmentLoaded) {
         setDepartmentLoaded(true);
       }
     };
 
     fetchUserDetails();
-  }, [user, setUser]);
+  }, [user, setUser, isLoadingUserDetails, departmentLoaded]);
 
   const openModal = (content) => {
     if (isAdmin && content === 'Timetables') {
