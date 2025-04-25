@@ -24,7 +24,7 @@ const addAssignation = async (req, res, next) => {
             const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = assignation;
 
             // Check mandatory fields - note ProfessorId can be null based on the model
-            if (!util.checkMandatoryFields([School_Year, Semester, CourseId, DepartmentId])) {
+            if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId, RoomTypeId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
@@ -191,7 +191,7 @@ const updateAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         // Check mandatory fields - ProfessorId can be null based on the model
-        if (!util.checkMandatoryFields([School_Year, Semester, CourseId, DepartmentId])) {
+        if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
             return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
         }
 

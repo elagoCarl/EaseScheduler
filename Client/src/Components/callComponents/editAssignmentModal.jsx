@@ -24,6 +24,7 @@ const EditAssignmentModal = ({
     const [error, setError] = useState("");
     const [successMessage, setSuccessMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [semesterError, setSemesterError] = useState("");
 
     // Local state for courses if none are provided via props
     const [fetchedCourses, setFetchedCourses] = useState([]);
@@ -35,11 +36,13 @@ const EditAssignmentModal = ({
     const [courseSearch, setCourseSearch] = useState("");
     const [showCourseDropdown, setShowCourseDropdown] = useState(false);
     const [selectedCourseName, setSelectedCourseName] = useState("");
+    const [courseInitialized, setCourseInitialized] = useState(false);
 
     // State for searchable professor dropdown
     const [professorSearch, setProfessorSearch] = useState("");
     const [showProfessorDropdown, setShowProfessorDropdown] = useState(false);
     const [selectedProfessorName, setSelectedProfessorName] = useState("");
+    const [professorInitialized, setProfessorInitialized] = useState(false);
 
     // State for all professors
     const [allProfessors, setAllProfessors] = useState([]);
@@ -68,8 +71,8 @@ const EditAssignmentModal = ({
                 if (response.data.successful) {
                     setAllProfessors(response.data.data);
 
-                    // Once professors are loaded, update formData with correct professorId
-                    if (assignment && assignment.ProfessorId) {
+                    // Once professors are loaded, initialize professor data if not done yet
+                    if (assignment && assignment.ProfessorId && !professorInitialized) {
                         setFormData(prev => ({
                             ...prev,
                             professorId: assignment.ProfessorId
@@ -82,6 +85,7 @@ const EditAssignmentModal = ({
                         if (professor) {
                             setSelectedProfessorName(professor.Name);
                             setSelectedProfessorLoad(professor.Total_units || 0);
+                            setProfessorInitialized(true);
                         }
                     }
                 } else {
@@ -94,7 +98,7 @@ const EditAssignmentModal = ({
             }
         };
         fetchAllProfessors();
-    }, [assignment]);
+    }, [assignment, professorInitialized]);
 
     // Fetch all room types
     useEffect(() => {
@@ -152,21 +156,24 @@ const EditAssignmentModal = ({
                     if (response.data.successful) {
                         setFetchedCourses(response.data.data);
 
-                        // Once courses are loaded, update formData with correct courseId
-                        if (assignment && assignment.CourseId) {
+                        // Once courses are loaded, initialize course data if not done yet
+                        if (assignment && assignment.CourseId && !courseInitialized) {
                             setFormData(prev => ({
                                 ...prev,
                                 courseId: assignment.CourseId
                             }));
                             setOriginalCourseId(assignment.CourseId);
 
-                            // Find course units for overload calculation
+                            // Find course and set selection display
                             const assignedCourse = response.data.data.find(
                                 c => String(c.id) === String(assignment.CourseId)
                             );
                             if (assignedCourse) {
+                                const courseDisplayName = `${assignedCourse.Code} - ${assignedCourse.Description}${assignedCourse.Units ? ` (${assignedCourse.Units} units)` : ''}`;
+                                setSelectedCourseName(courseDisplayName);
                                 setSelectedCourseUnits(assignedCourse.Units || 0);
                                 setOriginalCourseUnits(assignedCourse.Units || 0);
+                                setCourseInitialized(true);
                             }
                         }
                     } else {
@@ -180,7 +187,7 @@ const EditAssignmentModal = ({
                     setCoursesLoading(false);
                 });
         }
-    }, [propCourses, hasAttemptedFetch, assignment]);
+    }, [propCourses, hasAttemptedFetch, assignment, courseInitialized]);
 
     // Set initial form data when the assignment prop changes
     useEffect(() => {
@@ -194,19 +201,39 @@ const EditAssignmentModal = ({
             });
             setOriginalCourseId(assignment.CourseId);
 
-            // Set the selected course name for display
-            if (assignment.Course) {
-                setSelectedCourseName(`${assignment.Course.Code} - ${assignment.Course.Description}`);
+            // Set course display immediately if Course data is available in the assignment
+            if (assignment.Course && !courseInitialized) {
+                const courseDisplayName = `${assignment.Course.Code} - ${assignment.Course.Description}${assignment.Course.Units ? ` (${assignment.Course.Units} units)` : ''}`;
+                setSelectedCourseName(courseDisplayName);
                 setSelectedCourseUnits(assignment.Course.Units || 0);
                 setOriginalCourseUnits(assignment.Course.Units || 0);
+                setCourseInitialized(true);
             }
 
-            // Set the selected professor name for display
-            if (assignment.Professor && assignment.Professor.Name) {
+            // Set professor display immediately if Professor data is available
+            if (assignment.Professor && assignment.Professor.Name && !professorInitialized) {
                 setSelectedProfessorName(assignment.Professor.Name);
+                setProfessorInitialized(true);
             }
         }
-    }, [assignment]);
+    }, [assignment, courseInitialized, professorInitialized]);
+
+    // Handle propCourses data separately if provided
+    useEffect(() => {
+        if (propCourses && propCourses.length > 0 && assignment && assignment.CourseId && !courseInitialized) {
+            // Find the course in propCourses
+            const assignedCourse = propCourses.find(
+                c => String(c.id) === String(assignment.CourseId)
+            );
+            if (assignedCourse) {
+                const courseDisplayName = `${assignedCourse.Code} - ${assignedCourse.Description}${assignedCourse.Units ? ` (${assignedCourse.Units} units)` : ''}`;
+                setSelectedCourseName(courseDisplayName);
+                setSelectedCourseUnits(assignedCourse.Units || 0);
+                setOriginalCourseUnits(assignedCourse.Units || 0);
+                setCourseInitialized(true);
+            }
+        }
+    }, [propCourses, assignment, courseInitialized]);
 
     // Check for overload when course or professor changes
     useEffect(() => {
@@ -263,12 +290,47 @@ const EditAssignmentModal = ({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // Reset flags when modal reopens with a different assignment
+    useEffect(() => {
+        return () => {
+            setCourseInitialized(false);
+            setProfessorInitialized(false);
+        };
+    }, []);
+
     // Use the prop courses if available, otherwise use the fetched courses
     const availableCourses = (propCourses && propCourses.length > 0) ? propCourses : fetchedCourses;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+
+        // Clear semester error when user edits the field
+        if (name === "semester") {
+            setSemesterError("");
+        }
+    };
+
+    // Handle semester change with integer validation
+    const handleSemesterChange = (e) => {
+        const { value } = e.target;
+
+        // Allow empty value for clearing the field
+        if (value === "") {
+            setFormData({ ...formData, semester: "" });
+            setSemesterError("");
+            return;
+        }
+
+        // Check if the value is an integer
+        const intValue = parseInt(value, 10);
+
+        if (isNaN(intValue) || intValue.toString() !== value) {
+            setSemesterError("Semester must be a whole number");
+        } else {
+            setSemesterError("");
+            setFormData({ ...formData, semester: intValue.toString() });
+        }
     };
 
     // Handle course search input change
@@ -286,6 +348,7 @@ const EditAssignmentModal = ({
         setSelectedCourseName(`${course.Code} - ${course.Description}${course.Units ? ` (${course.Units} units)` : ''}`);
         setCourseSearch("");
         setShowCourseDropdown(false);
+        setCourseInitialized(true);
     };
 
     // Handle professor search input change
@@ -303,6 +366,7 @@ const EditAssignmentModal = ({
         setSelectedProfessorName(professor.Name);
         setProfessorSearch("");
         setShowProfessorDropdown(false);
+        setProfessorInitialized(true);
     };
 
     // Filter courses based on search input
@@ -321,9 +385,15 @@ const EditAssignmentModal = ({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log(formData);
         if (!formData.professorId || !formData.schoolYear || !formData.semester) {
             setError('Please fill out all required fields.');
+            return;
+        }
+
+        // Final validation check for semester
+        const semesterValue = parseInt(formData.semester, 10);
+        if (isNaN(semesterValue) || semesterValue.toString() !== formData.semester.toString()) {
+            setSemesterError("Semester must be a whole number");
             return;
         }
 
@@ -338,12 +408,10 @@ const EditAssignmentModal = ({
                 ProfessorId: Number(formData.professorId),
                 DepartmentId: Number(assignment.DepartmentId || assignment.Department?.id || DEPARTMENT_ID),
                 School_Year: formData.schoolYear,
-                Semester: formData.semester,
+                Semester: Number(formData.semester), // Ensure it's sent as a number
                 CourseId: Number(formData.courseId),
                 RoomTypeId: formData.roomTypeId ? Number(formData.roomTypeId) : null
             };
-
-            console.log("Sending update data:", updateData);
 
             const response = await axios.put(
                 `/assignation/updateAssignation/${assignment.id}`,
@@ -444,6 +512,7 @@ const EditAssignmentModal = ({
                                                 onClick={() => {
                                                     setSelectedProfessorName("");
                                                     setFormData({ ...formData, professorId: "" });
+                                                    setProfessorInitialized(false);
                                                 }}
                                                 className="text-white hover:text-gray-300"
                                             >
@@ -520,6 +589,7 @@ const EditAssignmentModal = ({
                                                 onClick={() => {
                                                     setSelectedCourseName("");
                                                     setFormData({ ...formData, courseId: "" });
+                                                    setCourseInitialized(false);
                                                 }}
                                                 className="text-white hover:text-gray-300"
                                             >
@@ -582,45 +652,25 @@ const EditAssignmentModal = ({
                     </div>
 
                     <div className="mb-4">
-                        <label className="block font-semibold text-white" htmlFor="schoolYear">
-                            School Year
-                        </label>
-                        <select
-                            id="schoolYear"
-                            name="schoolYear"
-                            value={formData.schoolYear}
-                            onChange={handleChange}
-                            className="w-full p-8 border rounded bg-customWhite"
-                        >
-                            <option value="">Select School Year</option>
-                            {schoolYears && schoolYears.map(year => (
-                                <option key={`year-${year}`} value={year}>
-                                    {year}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="mb-4">
                         <label className="block font-semibold text-white" htmlFor="semester">
                             Semester
                         </label>
-                        <select
+                        <input
+                            type="number"
                             id="semester"
                             name="semester"
                             value={formData.semester}
-                            onChange={handleChange}
-                            className="w-full p-8 border rounded bg-customWhite"
-                        >
-                            <option value="">Select Semester</option>
-                            {semesters && semesters.map(sem => (
-                                <option key={`sem-${sem}`} value={sem}>
-                                    {sem}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={handleSemesterChange}
+                            placeholder="Enter semester number"
+                            className={`w-full p-3 border rounded bg-customWhite ${semesterError ? 'border-red-500' : ''}`}
+                            disabled={isLoading}
+                        />
+                        {semesterError && <p className="text-red-500 text-sm mt-1">{semesterError}</p>}
                     </div>
+
                     {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
                     {successMessage && <p className="text-green-500 text-sm mb-4">{successMessage}</p>}
+
                     <div className="flex justify-end space-x-2">
                         <button
                             type="button"
@@ -669,7 +719,7 @@ EditAssignmentModal.propTypes = {
             Type: PropTypes.string
         }),
         School_Year: PropTypes.string,
-        Semester: PropTypes.string
+        Semester: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     }).isRequired,
     onClose: PropTypes.func.isRequired,
     onUpdate: PropTypes.func.isRequired,

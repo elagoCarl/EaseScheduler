@@ -279,43 +279,18 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                 <form className="space-y-6 px-10" onSubmit={handleSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block font-semibold text-white">Academic Year</label>
-                            <select
-                                name="School_Year"
-                                className="w-full p-3 border rounded bg-customWhite"
-                                value={formData.School_Year}
-                                onChange={handleInputChange}
-                                required
-                                disabled={isSubmitting}
-                            >
-                                <option value="" disabled>
-                                    Select Academic Year
-                                </option>
-                                {academicYears.map((year) => (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
                             <label className="block font-semibold text-white">Semester</label>
-                            <select
+                            <input
                                 name="Semester"
                                 className="w-full p-3 border rounded bg-customWhite"
                                 value={formData.Semester}
                                 onChange={handleInputChange}
                                 required
                                 disabled={isSubmitting}
+                                type="number"
+                                placeholder="Enter semester number"
                             >
-                                <option value="" disabled>
-                                    Select Semester
-                                </option>
-                                <option value="1">First Semester</option>
-                                <option value="2">Second Semester</option>
-                                <option value="Summer">Summer</option>
-                            </select>
+                            </input>
                         </div>
 
                         <div id="course-dropdown-container" className="relative">
@@ -424,7 +399,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                                 onChange={handleInputChange}
                                 disabled={isSubmitting}
                             >
-                                <option value="">Select Room Type (Optional)</option>
+                                <option value="">Select Room Type</option>
                                 {roomTypes.map((roomType) => (
                                     <option key={roomType.id} value={roomType.id}>
                                         {roomType.Type}
