@@ -376,13 +376,31 @@ const handleSelectVariant = async (variantIndex) => {
     const { name, value } = e.target;
   
     if (name === "semester") {
+      // Update selected semester state immediately
       setSelectedSemester(value);
+      
       // Reset assignation selection when semester changes
       setFormData(prev => ({ ...prev, assignation_id: "", professorId: null, professorName: null }));
       
-      // If a room is already selected, refetch schedules with the new semester
+      // If a room is already selected, refetch schedules with the new semester value
+      // Important: Use the new semester value directly, not from state
       if (formData.room_id) {
-        fetchSchedulesForRoom(formData.room_id);
+        // Pass the new semester value directly to ensure synchronization
+        axios.get(`/schedule/getSchedsByRoom/${formData.room_id}`, { 
+          params: { Semester: value }  // Use 'value' directly, not selectedSemester
+        })
+        .then(({ data }) => {
+          if (data.successful) {
+            setSchedules(data.data);
+          } else {
+            setSchedules([]);
+            console.error("Error fetching schedules:", data.message);
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching schedules:", err);
+          setSchedules([]);
+        });
       }
     } else if (name === "assignation_id" && value) {
       // Rest of your existing assignation handler...
@@ -400,7 +418,24 @@ const handleSelectVariant = async (variantIndex) => {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   
-    if (name === "room_id" && value) fetchSchedulesForRoom(value);
+    // Modify the room_id handling to include the current semester
+    if (name === "room_id" && value) {
+      axios.get(`/schedule/getSchedsByRoom/${value}`, { 
+        params: { Semester: selectedSemester }
+      })
+      .then(({ data }) => {
+        if (data.successful) {
+          setSchedules(data.data);
+        } else {
+          setSchedules([]);
+          console.error("Error fetching schedules:", data.message);
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching schedules:", err);
+        setSchedules([]);
+      });
+    }
   };
 
   const handleTimeChange = e => {
