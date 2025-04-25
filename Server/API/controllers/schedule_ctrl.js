@@ -51,115 +51,6 @@ function convertDayNumberToName(dayNumber) {
     return days[dayNumber] || "";
 }
 
-// Helper function to convert day numbers to names (duplicate exists if needed for context)
-function convertDayNumberToName(dayNumber) {
-    const days = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    return days[dayNumber] || "";
-}
-
-
-const canScheduleProfessor = async (profSchedule, startHour, duration, settings, professorId, day) => {
-    const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
-    const maxContinuousHours = settings.maxAllowedGap; // Max hours before break is required
-
-    // First check if the professor has availability records for this day
-    const profAvails = await ProfAvail.findAll({
-        where: {
-            ProfessorId: professorId,
-            // Check both numeric and string representations of day
-            [Op.or]: [
-                { Day: day.toString() },
-                { Day: convertDayNumberToName(day) } // Helper function to convert 1→"Monday", etc.
-            ]
-        }
-    });
-
-    // If the professor has availability records but none for this day, they're unavailable
-    if (profAvails.length === 0) {
-        // Check if this professor has ANY availability records
-        const anyAvailRecords = await ProfAvail.count({
-            where: { ProfessorId: professorId }
-        });
-
-        // If the professor has availability records but none for this day, they're unavailable
-        if (anyAvailRecords > 0) return false;
-    } else {
-        // If they have records for this day, check if the proposed time falls within any availability window
-        let isAvailable = false;
-        for (const avail of profAvails) {
-            const availStartHour = parseInt(avail.Start_time.split(':')[0]);
-            const availEndHour = parseInt(avail.End_time.split(':')[0]);
-
-            if (startHour >= availStartHour && (startHour + duration) <= availEndHour) {
-                isAvailable = true;
-                break;
-            }
-        }
-
-        if (!isAvailable) return false;
-    }
-
-    // Check if adding this schedule would exceed max hours
-    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
-
-    // Check for overlapping schedules
-    for (const time of profSchedule.dailyTimes) {
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end) ||
-            (startHour <= time.start && startHour + duration >= time.end)
-        ) {
-            return false;
-        }
-    }
-
-    // If no schedules yet, no need to check for contiguous blocks
-    if (profSchedule.dailyTimes.length === 0) {
-        return true;
-    }
-
-    // Sort schedules by start time to find contiguous blocks and check break requirements
-    const intervals = [...profSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
-        .sort((a, b) => a.start - b.start);
-
-    let contiguousStart = intervals[0].start;
-    let contiguousEnd = intervals[0].end;
-
-    // Loop through all intervals to check for contiguous blocks
-    for (let i = 1; i < intervals.length; i++) {
-        if (intervals[i].start === contiguousEnd) {
-            // This interval directly connects to the previous block
-            contiguousEnd = intervals[i].end;
-            
-            // Check if this extension would exceed the maximum allowed continuous hours
-            if (contiguousEnd - contiguousStart > maxContinuousHours) {
-                return false;
-            }
-        } else {
-            // There's a gap between intervals, check if previous block requires a break
-            if (contiguousEnd - contiguousStart >= maxContinuousHours) {
-                // Calculate when the break should end
-                let requiredBreakEnd = contiguousEnd + requiredBreak;
-                
-                // If the next interval starts before the required break ends, reject the schedule
-                if (intervals[i].start < requiredBreakEnd) {
-                    return false;
-                }
-            }
-            
-            // Start a new contiguous block
-            contiguousStart = intervals[i].start;
-            contiguousEnd = intervals[i].end;
-        }
-    }
-
-    // Final check for the last block in case it's the one being created or extended
-    if (contiguousEnd - contiguousStart > maxContinuousHours) {
-        return false;
-    }
-
-    return true;
-};
 /**
  * Check if students in a section can be scheduled based on hours, conflicts, and break enforcement.
  */
@@ -256,6 +147,127 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
     );
 };
 
+
+const canScheduleProfessor = async (profSchedule, startHour, duration, settings, professorId, day) => {
+    const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
+    const maxContinuousHours = settings.maxAllowedGap || 5; // Max hours before break is required
+
+    // First check if the professor has availability records for this day
+    const profAvails = await ProfAvail.findAll({
+        where: {
+            ProfessorId: professorId,
+            // Check both numeric and string representations of day
+            [Op.or]: [
+                { Day: day.toString() },
+                { Day: convertDayNumberToName(day) } // Helper function to convert 1→"Monday", etc.
+            ]
+        }
+    });
+
+    // If the professor has availability records but none for this day, they're unavailable
+    if (profAvails.length === 0) {
+        // Check if this professor has ANY availability records
+        const anyAvailRecords = await ProfAvail.count({
+            where: { ProfessorId: professorId }
+        });
+
+        // If the professor has availability records but none for this day, they're unavailable
+        if (anyAvailRecords > 0) return false;
+    } else {
+        // If they have records for this day, check if the proposed time falls within any availability window
+        let isAvailable = false;
+        for (const avail of profAvails) {
+            const availStartHour = parseInt(avail.Start_time.split(':')[0]);
+            const availEndHour = parseInt(avail.End_time.split(':')[0]);
+
+            if (startHour >= availStartHour && (startHour + duration) <= availEndHour) {
+                isAvailable = true;
+                break;
+            }
+        }
+
+        if (!isAvailable) return false;
+    }
+
+    // Check if adding this schedule would exceed max hours
+    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
+
+    // Check for overlapping schedules
+    for (const time of profSchedule.dailyTimes) {
+        if (
+            (startHour >= time.start && startHour < time.end) ||
+            (startHour + duration > time.start && startHour + duration <= time.end) ||
+            (startHour <= time.start && startHour + duration >= time.end)
+        ) {
+            return false;
+        }
+    }
+
+    // If no schedules yet, no need to check for contiguous blocks
+    if (profSchedule.dailyTimes.length === 0) {
+        return duration <= maxContinuousHours; // Check if this single class exceeds max continuous hours
+    }
+
+    // Sort schedules by start time to find contiguous blocks and check break requirements
+    const intervals = [...profSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
+        .sort((a, b) => a.start - b.start);
+
+    // Track continuous teaching blocks
+    for (let i = 0; i < intervals.length - 1; i++) {
+        const current = intervals[i];
+        const next = intervals[i + 1];
+        
+        // Check if this is the new proposed schedule adjacent to an existing one
+        if (next.start === startHour || current.start === startHour) {
+            // Case 1: This new class creates or extends a continuous block
+            if (next.start === current.end) {
+                // Classes are adjacent - check if combined duration exceeds max continuous hours
+                const continuousDuration = next.end - current.start;
+                if (continuousDuration > maxContinuousHours) {
+                    return false; // Exceeds max continuous teaching hours
+                }
+            }
+            // Case 2: Check if there's enough break between classes
+            else if (next.start < current.end + requiredBreak && next.start > current.end) {
+                return false; // Not enough break time
+            }
+            // Case 3: Check if this class itself exceeds max continuous hours
+            else if (duration > maxContinuousHours) {
+                return false;
+            }
+        }
+    }
+
+    // Check existing continuous blocks for violations
+    let contiguousStart = intervals[0].start;
+    let contiguousEnd = intervals[0].end;
+
+    for (let i = 1; i < intervals.length; i++) {
+        if (intervals[i].start === contiguousEnd) {
+            // This interval directly connects to the previous block
+            contiguousEnd = intervals[i].end;
+            
+            // Check if this extension would exceed the maximum allowed continuous hours
+            if (contiguousEnd - contiguousStart > maxContinuousHours) {
+                return false;
+            }
+        } else {
+            // There's a gap between intervals
+            const gap = intervals[i].start - contiguousEnd;
+            
+            // If the previous block reached maximum allowed hours, check if there's enough break
+            if (contiguousEnd - contiguousStart >= maxContinuousHours && gap < requiredBreak) {
+                return false; // Not enough break after reaching max continuous hours
+            }
+            
+            // Start a new contiguous block
+            contiguousStart = intervals[i].start;
+            contiguousEnd = intervals[i].end;
+        }
+    }
+
+    return true;
+};
 
 const generateScheduleVariants = async (req, res, next) => {
     try {
@@ -714,7 +726,6 @@ const generateScheduleVariants = async (req, res, next) => {
 };
 
 // New true backtracking implementation for variants
-// This closely follows the original backtrackSchedule logic but adapts it for variants
 const trueBacktrackScheduleVariant = async (
     assignations,
     rooms,
@@ -1072,7 +1083,6 @@ const trueBacktrackScheduleVariant = async (
         );
     }
 };
-
 
 // Deterministic shuffle function for consistent variants
 function shuffleDeterministic(array, seed) {
