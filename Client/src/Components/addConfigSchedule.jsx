@@ -108,7 +108,6 @@ const AddConfigSchedule = () => {
         if (assignationsRes.data.successful) {
           const assignationsData = assignationsRes.data.data;
           setAssignations(assignationsData);
-          console.log("Assignations data:", assignationsData);
 
           // Extract unique semesters from assignations
           const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
@@ -135,6 +134,11 @@ const AddConfigSchedule = () => {
     if (selectedSemester) {
       const filtered = assignations.filter(a => a.Semester === selectedSemester);
       setFilteredAssignations(filtered);
+      
+      // If a room is already selected, refetch schedules for the new semester
+      if (formData.room_id) {
+        fetchSchedulesForRoom(formData.room_id);
+      }
     } else {
       setFilteredAssignations([]);
     }
@@ -142,8 +146,20 @@ const AddConfigSchedule = () => {
 
   // API handlers
   const fetchSchedulesForRoom = (roomId) => {
-    axios.get(`/schedule/getSchedsByRoom/${roomId}`)
-      .then(({ data }) => setSchedules(data.successful ? data.data : []))
+    if (!roomId || !selectedSemester) {
+      setSchedules([]);
+      return;
+    }
+    
+    axios.post(`/schedule/getSchedsByRoom/${roomId}`, { Semester: selectedSemester })
+      .then(({ data }) => {
+        if (data.successful) {
+          setSchedules(data.data);
+        } else {
+          setSchedules([]);
+          console.error("Error fetching schedules:", data.message);
+        }
+      })
       .catch(err => {
         console.error("Error fetching schedules:", err);
         setSchedules([]);
@@ -170,7 +186,6 @@ const AddConfigSchedule = () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
-      console.log(deptId);
       
       const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
@@ -202,7 +217,8 @@ const AddConfigSchedule = () => {
       End_time: formData.end_time,
       RoomId: parseInt(formData.room_id),
       AssignationId: parseInt(formData.assignation_id),
-      Sections: selectedSections
+      Sections: selectedSections,
+      Semester: selectedSemester
     };
 
     try {
@@ -235,6 +251,7 @@ const AddConfigSchedule = () => {
       // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
+        semester: selectedSemester,
         variantCount: 2,  // Generate 2 variants
         // Use prioritized professors if available
         prioritizedProfessor:
@@ -354,27 +371,32 @@ const AddConfigSchedule = () => {
   // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
-
+  
     if (name === "semester") {
       setSelectedSemester(value);
       // Reset assignation selection when semester changes
       setFormData(prev => ({ ...prev, assignation_id: "", professorId: null, professorName: null }));
+      
+      // If a room is already selected, refetch schedules with the new semester
+      if (formData.room_id) {
+        fetchSchedulesForRoom(formData.room_id);
+      }
     } else if (name === "assignation_id" && value) {
+      // Rest of your existing assignation handler...
       const selectedAssignation = assignations.find(a => a.id === parseInt(value));
       if (selectedAssignation?.CourseId) {
         fetchSectionsForCourse(selectedAssignation.CourseId);
-        // Set both professor ID and name from the selected assignation
         setFormData(prev => ({
           ...prev,
           [name]: value,
           professorId: selectedAssignation.ProfessorId,
-          professorName: selectedAssignation.Professor?.Name || "Professor" // Get professor name
+          professorName: selectedAssignation.Professor?.Name || "Professor"
         }));
       }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-
+  
     if (name === "room_id" && value) fetchSchedulesForRoom(value);
   };
 
@@ -1037,6 +1059,7 @@ const AddConfigSchedule = () => {
         }}
         rooms={rooms}
         assignations={assignations}
+        Semester={selectedSemester}
       />
 
       <ScheduleReportModal

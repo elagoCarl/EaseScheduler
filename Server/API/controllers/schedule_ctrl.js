@@ -277,18 +277,10 @@ const generateScheduleVariants = async (req, res, next) => {
             prioritizedRoom,
             prioritizedSections,
             roomId,
-            variantCount = 2 // Default to 2 variants
+            variantCount = 2, // Default to 2 variants
+            semester
         } = req.body;
-
-        console.log("generateScheduleVariants received request:", {
-            DepartmentId,
-            prioritizedProfessor,
-            prioritizedRoom,
-            prioritizedSections,
-            roomId,
-            variantCount
-        });
-
+        
         if (!DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -299,6 +291,13 @@ const generateScheduleVariants = async (req, res, next) => {
         // Start measuring execution time
         const startTime = Date.now();
 
+        if (!semester){
+            return res.status(400).json({
+                successful: false,
+                message: "Semester is required."
+            });
+        }
+        
         // 1) Normalize priorities
         const priorities = {};
         if (prioritizedProfessor) {
@@ -341,6 +340,9 @@ const generateScheduleVariants = async (req, res, next) => {
             include: [
                 {
                     model: Assignation,
+                    where: {
+                        Semester: semester
+                    },
                     include: [
                         Course,
                         { model: Professor, attributes: ['id', 'Name'] }
@@ -356,6 +358,15 @@ const generateScheduleVariants = async (req, res, next) => {
             });
         }
         const assignations = department.Assignations;
+        // If no assignations found for this semester, return early
+        if (!assignations || assignations.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: `No assignations found for ${semester} semester of ${schoolYear}.`
+            });
+        }
+
+
         let rooms = department.DeptRooms;
         if (roomId) {
             rooms = rooms.filter(r => r.id === roomId);
@@ -374,7 +385,14 @@ const generateScheduleVariants = async (req, res, next) => {
                 AssignationId: { [Op.in]: assignationIds },
                 isLocked: true
             },
-            include: [{ model: ProgYrSec }, { model: Room }]
+            include: [
+                { model: ProgYrSec }, 
+                { model: Room }, 
+                { model: Assignation, where: {
+                    Semester: semester
+                }
+
+            }]
         });
 
         console.log(`Found ${lockedSchedules.length} locked schedules`);
@@ -388,7 +406,12 @@ const generateScheduleVariants = async (req, res, next) => {
             where: {
                 RoomId: { [Op.in]: roomIds }
             },
-            include: [{ model: Room }]
+            include: [
+                { model: Room },
+                { model: Assignation, where: {
+                    Semester: semester
+                }
+            }]
         });
 
         console.log(`Found ${allRoomSchedules.length} schedules across all rooms`);
@@ -1858,23 +1881,10 @@ const saveScheduleVariant = async (req, res, next) => {
 
 const toggleLock = async (req, res, next) => {
     try {
-        const { DepartmentId } = req.body
         const schedule = await Schedule.findByPk(req.params.id);
         if (!schedule) {
             return res.status(404).json({ successful: false, message: "Schedule not found." });
         }
-
-        const assignation = await Assignation.findByPk(schedule.AssignationId);
-        if (!assignation) {
-            return res.status(404).json({ successful: false, message: "Assignation not found." });
-        }
-
-        // Check if the schedule belongs to the specified department
-        if (assignation.DepartmentId !== DepartmentId) {
-            return res.status(403).json({ successful: false, message: "Schedule does not belong to the specified department." });
-        }
-
-
         schedule.isLocked = !schedule.isLocked; // Toggle the lock status
         await schedule.save()
 
@@ -1887,54 +1897,33 @@ const toggleLock = async (req, res, next) => {
 // Updated controller function to toggle lock status (lock or unlock)
 const toggleLockAllSchedules = async (req, res) => {
     try {
-        const { scheduleIds, isLocked, DepartmentId } = req.body;
-
-        if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
-            return res.status(400).json({
-                successful: false,
-                message: 'No schedule IDs provided'
-            });
-        }
-
-        //find schedules that have assignations with the specified DepartmentId
-        const eligibleSchedules = await Schedule.findAll({
-            where: {
-                id: scheduleIds
-            },
-            include: [{
-                model: Assignation,
-                where: { DepartmentId: DepartmentId },
-                required: true
-            }]
+      const { scheduleIds, isLocked } = req.body;
+      
+      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+        return res.status(400).json({
+          successful: false,
+          message: 'No schedule IDs provided'
         });
-
-        const eligibleScheduleIds = eligibleSchedules.map(schedule => schedule.id);
-
-        if (eligibleScheduleIds.length === 0) {
-            return res.status(404).json({
-                successful: false,
-                message: 'All eligible schedules are already locked or No schedules found for the specified department'
-            });
-        }
-
-        await Schedule.update(
-            { isLocked: !!isLocked },
-            { where: { id: eligibleScheduleIds } }
-        );
-
-        return res.json({
-            successful: true,
-            message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${eligibleScheduleIds.length} schedules`
-        });
+      }
+  
+      // Update all schedules to the specified lock status
+      await Schedule.update(
+        { isLocked: !!isLocked }, // Convert to boolean
+        { where: { id: scheduleIds } }
+      );
+  
+      return res.json({
+        successful: true,
+        message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
+      });
     } catch (error) {
-        console.error('Error toggling schedule lock status:', error);
-        return res.status(500).json({
-            successful: false,
-            message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
-        });
+      console.error('Error toggling schedule lock status:', error);
+      return res.status(500).json({
+        successful: false,
+        message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
+      });
     }
-};
-
+  };
 // Add Schedule (Manual Version of automateSchedule)
 const addSchedule = async (req, res, next) => {
     try {
@@ -2013,23 +2002,11 @@ const addSchedule = async (req, res, next) => {
                     message: "One or more sections not found. Please provide valid section IDs."
                 });
             }
-            let totalStudents = 0;
-            for (const section of sectionsData) {
-                totalStudents += section.NumberOfStudents;
-            }
 
-            if (totalStudents > room.NumberOfSeats) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
-                });
-            }
             // Check for conflicting schedules in the same room on the same day
             const existingRoomSchedules = await Schedule.findAll({
                 where: { Day, RoomId }
             });
-            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-            const currentDay = days[Day - 1]
             // Allow back-to-back schedules but check for any overlaps
             const isRoomConflict = existingRoomSchedules.some(existing => {
                 const existingStartSec = timeToSeconds(existing.Start_time);
@@ -2039,46 +2016,11 @@ const addSchedule = async (req, res, next) => {
             if (isRoomConflict) {
                 return res.status(400).json({
                     successful: false,
-                    message: `Schedule conflict detected: Room ${room.Code} is already booked on ${currentDay} within ${Start_time} - ${End_time}.`
+                    message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
                 });
             }
 
             // ****************** Additional Professor Validations ******************
-
-
-            // Check if the professor is available during the scheduled time
-            const professorId = assignation.Professor.id;
-            const professorAvailabilities = await ProfAvail.findAll({
-                where: {
-                    ProfessorId: professorId,
-                    Day: currentDay // Ensure Day formats match between Schedule and ProfAvail
-                }
-            });
-
-
-            // If professor has no availabilities set for this day, they're not available
-            if (professorAvailabilities.length === 0) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${assignation.Professor.Name} has no availability set for ${currentDay}.`
-                });
-            }
-
-            // Check if the proposed schedule falls within any of the professor's available time slots
-            const isProfessorAvailable = professorAvailabilities.some(availability => {
-                const availStartSec = timeToSeconds(availability.Start_time);
-                const availEndSec = timeToSeconds(availability.End_time);
-
-                // The proposed schedule must be fully contained within an availability slot
-                return (newStartSec >= availStartSec && newEndSec <= availEndSec);
-            });
-
-            if (!isProfessorAvailable) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on ${currentDay}.`
-                });
-            }
 
             // Build the professor's schedule for the given day by fetching all schedules where the 
             // assignation's professor is teaching on that day.
@@ -2097,26 +2039,11 @@ const addSchedule = async (req, res, next) => {
                 profScheduleForDay.dailyTimes.push({ start: profSchedStart, end: profSchedEnd });
             });
             const newStartHour = parseInt(Start_time.split(":")[0]);
-
-            // Check for schedule conflicts with professor's existing schedules
-            const isProfessorScheduleConflict = professorSchedules.some(existing => {
-                const existingStartSec = timeToSeconds(existing.Start_time);
-                const existingEndSec = timeToSeconds(existing.End_time);
-                return (newStartSec < existingEndSec && newEndSec > existingStartSec);
-            });
-
-            if (isProfessorScheduleConflict) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${currentDay}.`
-                });
-            }
-
-            // Validate professor workload using your helper
+            // Validate professor availability and workload using your helper
             if (!(await canScheduleProfessor(profScheduleForDay, newStartHour, currentScheduleDuration, settings, assignation.Professor.id, Day))) {
                 return res.status(400).json({
                     successful: false,
-                    message: `The professor ${assignation.Professor.Name} would exceed the allowed teaching hours.`
+                    message: `The professor ${assignation.Professor.Name} is not available at the specified time or would exceed the allowed teaching hours.`
                 });
             }
 
@@ -2292,16 +2219,6 @@ const updateSchedule = async (req, res, next) => {
                 message: "One or more sections not found. Please provide valid section IDs."
             });
         }
-        let totalStudents = 0;
-        for (const section of sectionsData) {
-            totalStudents += section.NumberOfStudents;
-        }
-        if (totalStudents > room.NumberOfSeats) {
-            return res.status(400).json({
-              successful: false,
-              message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
-            });
-          }
 
         // Check for conflicting schedules in the same room on the same day (excluding current schedule)
         const existingRoomSchedules = await Schedule.findAll({
@@ -2312,8 +2229,6 @@ const updateSchedule = async (req, res, next) => {
             }
         });
 
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        const currentDay = days[Day - 1]
         // Conflict logic: allow back-to-back scheduling but no overlaps
         const isRoomConflict = existingRoomSchedules.some(existing => {
             const existingStart = timeToSeconds(existing.Start_time);
@@ -2323,7 +2238,7 @@ const updateSchedule = async (req, res, next) => {
         if (isRoomConflict) {
             return res.status(400).json({
                 successful: false,
-                message: `Schedule conflict detected: Room ${room.Code} is already booked on ${currentDay} within ${Start_time} - ${End_time}.`
+                message: `Schedule conflict detected: Room ${RoomId} is already booked on ${Day} within ${Start_time} - ${End_time}.`
             });
         }
 
@@ -2345,54 +2260,6 @@ const updateSchedule = async (req, res, next) => {
             profScheduleForDay.dailyTimes.push({ start: startHour, end: endHour });
         });
         const newStartHour = parseInt(Start_time.split(":")[0]);
-        // Check if the professor is available during the scheduled time
-        const professorId = assignation.Professor.id;
-        console.log(Day);
-        
-        const professorAvailabilities = await ProfAvail.findAll({
-            where: {
-                ProfessorId: professorId,
-                Day: currentDay
-            }
-        });
-
-        // If professor has no availabilities set for this day, they're not available
-        if (professorAvailabilities.length === 0) {
-            return res.status(400).json({
-                successful: false,
-                message: `Professor ${assignation.Professor.Name} has no availability set for day ${currentDay}.`
-            });
-        }
-
-        // Check if the proposed schedule falls within any of the professor's available time slots
-        const isProfessorAvailable = professorAvailabilities.some(availability => {
-            const availStartSec = timeToSeconds(availability.Start_time);
-            const availEndSec = timeToSeconds(availability.End_time);
-
-            // The proposed schedule must be fully contained within an availability slot
-            return (newStartSec >= availStartSec && newEndSec <= availEndSec);
-        });
-
-        if (!isProfessorAvailable) {
-            return res.status(400).json({
-                successful: false,
-                message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on day ${currentDay}.`
-            });
-        }
-
-        // Check for schedule conflicts with professor's existing schedules
-        const isProfessorScheduleConflict = professorSchedules.some(existing => {
-            const existingStartSec = timeToSeconds(existing.Start_time);
-            const existingEndSec = timeToSeconds(existing.End_time);
-            return (newStartSec < existingEndSec && newEndSec > existingStartSec);
-        });
-
-        if (isProfessorScheduleConflict) {
-            return res.status(400).json({
-                successful: false,
-                message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${currentDay}.`
-            });
-        }
 
         // Validate professor availability and workload using helper function
         if (!canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day)) {
@@ -2548,7 +2415,7 @@ const getSchedsByRoom = async (req, res, next) => {
             include: [
                 {
                     model: Assignation,
-                    attributes: ['id', 'School_Year', 'Semester', 'DepartmentId'],
+                    attributes: ['id', 'School_Year', 'Semester'],
                     include: [
                         {
                             model: Course,
@@ -2565,11 +2432,11 @@ const getSchedsByRoom = async (req, res, next) => {
                     include: [
                         {
                             model: Program,
-                            attributes: ['Code', 'DepartmentId']
+                            attributes: ['Code']
                         }
                     ],
                     through: { attributes: [] },
-                    attributes: ['id','Year', 'Section']
+                    attributes: ['Year', 'Section']
                 }
             ]
         });
@@ -2600,150 +2467,150 @@ const getSchedsByRoom = async (req, res, next) => {
 }
 
 const getSchedsByProf = async (req, res, next) => {
-    try {
-        const profId = req.params.id;
+  try {
+    const profId = req.params.id;
 
-        const scheds = await Schedule.findAll({
-            attributes: { exclude: ['createdAt', 'updatedAt'] },
-            include: [
-                {
-                    // only include schedules linked to this professor
-                    model: Assignation,
-                    where: { ProfessorId: profId },
-                    attributes: ['id', 'School_Year', 'Semester'],
-                    include: [
-                        {
-                            model: Course,
-                            attributes: ['Code', 'Description']
-                        }
-                    ]
-                },
-                {
-                    // now pull in the room directly off Schedule
-                    model: Room,
-                    attributes: ['Code', 'Floor', 'Building'],
-                    include: [
-                        {
-                            model: RoomType,
-                            attributes: ['Type']
-                        }
-                    ]
-                },
-                {
-                    model: ProgYrSec,
-                    through: { attributes: [] },
-                    attributes: ['Year', 'Section'],
-                    include: [
-                        {
-                            model: Program,
-                            attributes: ['Code']
-                        }
-                    ]
-                }
-            ],
-            order: [
-                ['Day', 'ASC'],
-                ['Start_time', 'ASC']
-            ]
-        });
-
-        if (!scheds.length) {
-            return res.status(200).json({
-                successful: true,
-                message: 'No schedule found',
-                count: 0,
-                data: []
-            });
+    const scheds = await Schedule.findAll({
+      attributes: { exclude: ['createdAt', 'updatedAt'] },
+      include: [
+        {
+          // only include schedules linked to this professor
+          model: Assignation,
+          where: { ProfessorId: profId },
+          attributes: ['id', 'School_Year', 'Semester'],
+          include: [
+            {
+              model: Course,
+              attributes: ['Code', 'Description']
+            }
+          ]
+        },
+        {
+          // now pull in the room directly off Schedule
+          model: Room,
+          attributes: ['Code', 'Floor', 'Building'],
+          include: [
+            {
+              model: RoomType,
+              attributes: ['Type']
+            }
+          ]
+        },
+        {
+          model: ProgYrSec,
+          through: { attributes: [] },
+          attributes: ['Year', 'Section'],
+          include: [
+            {
+              model: Program,
+              attributes: ['Code']
+            }
+          ]
         }
+      ],
+      order: [
+        ['Day', 'ASC'],
+        ['Start_time', 'ASC']
+      ]
+    });
 
-        res.status(200).json({
-            successful: true,
-            message: 'Retrieved all schedules',
-            count: scheds.length,
-            data: scheds
-        });
-    } catch (err) {
-        console.error('Error in getSchedsByProf:', err);
-        return res.status(500).json({
-            successful: false,
-            message: err.message || 'An unexpected error occurred.'
-        });
+    if (!scheds.length) {
+      return res.status(200).json({
+        successful: true,
+        message: 'No schedule found',
+        count: 0,
+        data: []
+      });
     }
+
+    res.status(200).json({
+      successful: true,
+      message: 'Retrieved all schedules',
+      count: scheds.length,
+      data: scheds
+    });
+  } catch (err) {
+    console.error('Error in getSchedsByProf:', err);
+    return res.status(500).json({
+      successful: false,
+      message: err.message || 'An unexpected error occurred.'
+    });
+  }
 };
 
 const getSchedsByDept = async (req, res, next) => {
-    try {
-        const deptId = req.params.id;
+  try {
+    const deptId = req.params.id;
 
-        const scheds = await Schedule.findAll({
-            attributes: { exclude: ['createdAt', 'updatedAt'] },
-            include: [
-                {
-                    model: Assignation,
-                    where: { DepartmentId: deptId },
-                    attributes: ['id', 'School_Year', 'Semester'],
-                    include: [
-                        {
-                            model: Course,
-                            attributes: ['Code', 'Description']
-                        },
-                        {
-                            model: Professor,
-                            attributes: ['id', 'Name']
-                        }
-                    ]
-                },
-                {
-                    // pull in the Room directly off Schedule
-                    model: Room,
-                    attributes: ['Code', 'Floor', 'Building'],
-                    include: [
-                        {
-                            model: RoomType,
-                            attributes: ['Type']
-                        }
-                    ]
-                },
-                {
-                    model: ProgYrSec,
-                    through: { attributes: [] },
-                    attributes: ['Year', 'Section'],
-                    include: [
-                        {
-                            model: Program,
-                            attributes: ['id', 'Code']
-                        }
-                    ]
-                }
-            ],
-            order: [
-                ['Day', 'ASC'],
-                ['Start_time', 'ASC']
-            ]
-        });
-
-        if (!scheds.length) {
-            return res.status(200).json({
-                successful: true,
-                message: 'No schedule found',
-                count: 0,
-                data: []
-            });
+    const scheds = await Schedule.findAll({
+      attributes: { exclude: ['createdAt', 'updatedAt'] },
+      include: [
+        {
+          model: Assignation,
+          where: { DepartmentId: deptId },
+          attributes: ['id', 'School_Year', 'Semester'],
+          include: [
+            {
+              model: Course,
+              attributes: ['Code', 'Description']
+            },
+            {
+              model: Professor,
+              attributes: ['id', 'Name']
+            }
+          ]
+        },
+        {
+          // pull in the Room directly off Schedule
+          model: Room,
+          attributes: ['Code', 'Floor', 'Building'],
+          include: [
+            {
+              model: RoomType,
+              attributes: ['Type']
+            }
+          ]
+        },
+        {
+          model: ProgYrSec,
+          through: { attributes: [] },
+          attributes: ['Year', 'Section'],
+          include: [
+            {
+              model: Program,
+              attributes: ['id', 'Code']
+            }
+          ]
         }
+      ],
+      order: [
+        ['Day', 'ASC'],
+        ['Start_time', 'ASC']
+      ]
+    });
 
-        res.status(200).json({
-            successful: true,
-            message: 'Retrieved all schedules',
-            count: scheds.length,
-            data: scheds
-        });
-    } catch (err) {
-        console.error('Error in getSchedsByDept:', err);
-        return res.status(500).json({
-            successful: false,
-            message: err.message || 'An unexpected error occurred.'
-        });
+    if (!scheds.length) {
+      return res.status(200).json({
+        successful: true,
+        message: 'No schedule found',
+        count: 0,
+        data: []
+      });
     }
+
+    res.status(200).json({
+      successful: true,
+      message: 'Retrieved all schedules',
+      count: scheds.length,
+      data: scheds
+    });
+  } catch (err) {
+    console.error('Error in getSchedsByDept:', err);
+    return res.status(500).json({
+      successful: false,
+      message: err.message || 'An unexpected error occurred.'
+    });
+  }
 };
 
 
@@ -2752,20 +2619,10 @@ const getSchedsByDept = async (req, res, next) => {
 const deleteSchedule = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { DepartmentId } = req.body
 
         const schedule = await Schedule.findByPk(id);
         if (!schedule) {
             return res.status(404).json({ successful: false, message: "Schedule not found." });
-        }
-
-        const assignation = await Assignation.findByPk(schedule.AssignationId);
-        if (!assignation) {
-            return res.status(404).json({ successful: false, message: "Assignation not found." });
-        }
-        // Check if the schedule belongs to the specified department
-        if (assignation.DepartmentId !== DepartmentId) {
-            return res.status(403).json({ successful: false, message: "Schedule does not belong to the specified department." });
         }
 
         // Check if schedule is locked
