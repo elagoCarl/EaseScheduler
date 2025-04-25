@@ -7,7 +7,7 @@ const port = 8080;
 const server = http.createServer(app);
 
 // Synchronize the database before starting the server
-db.sequelize.sync({ alter: false }) // Change `force` to `true` only for development or testing
+db.sequelize.sync({ alter: true }) // Change `force` to `true` only for development or testing
   .then(() => {
     console.log('Database connected and synchronized successfully.');
     server.listen(port, () => {

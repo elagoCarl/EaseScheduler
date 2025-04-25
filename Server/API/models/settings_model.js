@@ -3,45 +3,45 @@ module.exports = (sequelize, DataTypes) => {
     "Settings",
     {
       StartHour: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 7,
         validate: {
           min: 0,
-          max: 23,
+          max: 23.75, // Allow up to 23:45
         },
       },
       EndHour: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 21,
         validate: {
-          min: 1,
-          max: 24,
+          min: 0.25, // At least 0:15
+          max: 24,    // Up to midnight
         },
       },
       ProfessorMaxHours: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 12,
       },
       StudentMaxHours: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 12,
       },
       ProfessorBreak: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 1,
       },
       MaxAllowedGap: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 5,
       },
       nextScheduleBreak: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,
         allowNull: false,
         defaultValue: 0.5,
       },
