@@ -296,8 +296,8 @@
     background-color: #e3f2fd;
     border-left: 3px solid #1976d2;
     border-radius: 3px;
-    padding: 8px;
-    font-size: 12px;
+    padding: 4px;
+    font-size: 11px;
     overflow: hidden;
     position: absolute;
     top: 0;
@@ -309,19 +309,19 @@
   .scheduleTime {
     font-weight: 600;
     font-size: 11px;
-    margin-bottom: 4px;
+    margin-bottom: 1px;
     color: #333;
   }
   
   .scheduleCourse {
     font-weight: 600;
     color: #1976d2;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
   }
   
   .scheduleProfessor {
     color: #555;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
   }
   
   .scheduleRoom {
@@ -330,7 +330,7 @@
   }
   
   .scheduleSections {
-    margin-bottom: 2px;
+    margin-bottom: 1px;
     color: #555;
   }
   
@@ -398,6 +398,7 @@
   
   .cancelButton:hover {
     background-color: #e0e0e0;
+    animation-duration: 3ms;
   }
   
   .saveButton {
@@ -408,6 +409,7 @@
   
   .saveButton:hover {
     background-color: #1565c0;
+    animation-duration: 3ms;
   }
   
   .disabledButton {

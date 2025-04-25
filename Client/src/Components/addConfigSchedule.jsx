@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ScheduleReportModal from '../Components/callComponents/scheduleReport.jsx';
 import ScheduleVariantModal from '../Components/callComponents/variantSelectHandler.jsx';
-
+import ProfAvailabilityModal from '../Components/callComponents/miniProfAvailabilityModal.jsx';
 import axios from '../axiosConfig.js';
 import bg from './Img/bg.jpg';
 import delBtn from './Img/delBtn.png';
@@ -24,12 +24,10 @@ const AddConfigSchedule = () => {
 
   // first 2 are for report modal
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [reportData, setReportData]     = useState(null);
-
+  const [reportData, setReportData] = useState(null);
   // new automate
   const [scheduleVariants, setScheduleVariants] = useState([]);
   const [showVariantModal, setShowVariantModal] = useState(false);
-
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
   const [rooms, setRooms] = useState([]);
@@ -54,8 +52,19 @@ const AddConfigSchedule = () => {
   const [prioritizedRooms, setPrioritizedRooms] = useState([]);
   const [newPriorityProfessor, setNewPriorityProfessor] = useState("");
   const [newPriorityRoom, setNewPriorityRoom] = useState("");
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [filteredAssignations, setFilteredAssignations] = useState([]);
+  const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
+  const [selectedProfessorId, setSelectedProfessorId] = useState(null);
 
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
+
+  const uniqueSemesters = useMemo(() => {
+    if (!assignations.length) return [];
+    const semesters = [...new Set(assignations.map(a => a.Semester))];
+    return semesters.sort((a, b) => a - b);
+  }, [assignations]);
 
   // Helper functions
   const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
@@ -88,7 +97,6 @@ const AddConfigSchedule = () => {
   }, [notification]);
 
   useEffect(() => {
-    console.log(rooms)
     const fetchData = async () => {
       try {
         const [roomsRes, assignationsRes, professorsRes] = await Promise.all([
@@ -97,7 +105,20 @@ const AddConfigSchedule = () => {
           axios.get(`/prof/getProfByDept/${deptId}`)
         ]);
         if (roomsRes.data.successful) setRooms(roomsRes.data.data);
-        if (assignationsRes.data.successful) setAssignations(assignationsRes.data.data);
+        if (assignationsRes.data.successful) {
+          const assignationsData = assignationsRes.data.data;
+          setAssignations(assignationsData);
+          console.log("Assignations data:", assignationsData);
+
+          // Extract unique semesters from assignations
+          const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
+          setSemesters(uniqueSemesters);
+
+          // Set default semester if available
+          if (uniqueSemesters.length > 0 && !selectedSemester) {
+            setSelectedSemester(uniqueSemesters[0]);
+          }
+        }
         if (professorsRes.data.successful) setProfessors(professorsRes.data.data);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -109,6 +130,15 @@ const AddConfigSchedule = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [deptId]);
+
+  useEffect(() => {
+    if (selectedSemester) {
+      const filtered = assignations.filter(a => a.Semester === selectedSemester);
+      setFilteredAssignations(filtered);
+    } else {
+      setFilteredAssignations([]);
+    }
+  }, [selectedSemester, assignations]);
 
   // API handlers
   const fetchSchedulesForRoom = (roomId) => {
@@ -199,7 +229,7 @@ const AddConfigSchedule = () => {
         setIsAutomating(false);
         return;
       }
-  
+
       // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
@@ -215,35 +245,35 @@ const AddConfigSchedule = () => {
             ? prioritizedRooms.map((value) => parseInt(value, 10))
             : undefined,
       };
-  
+
       // If automating a single room, include the roomId in the payload
       if (automateType === 'room') {
         payload.roomId = parseInt(formData.room_id, 10);
       }
-  
+
       // Use the schedules/variants endpoint instead of automateSchedule
       const endpoint = '/schedule/generateScheduleVariants';
-  
+
       // Show modal early to indicate loading to user
       setShowVariantModal(true);
-      
+
       // Fire the request
       const response = await axios.post(endpoint, payload);
-  
+
       console.log("Schedule variants response:", response.data);
-  
+
       if (response.data.successful) {
         // Store the variants
         const variants = response.data.variants;
         setScheduleVariants(variants);
-        
+
         // Save to localStorage
         localStorage.setItem('scheduleVariants', JSON.stringify({
           variants: variants,
           departmentId: deptId,
           timestamp: Date.now()
         }));
-        
+
         // Notify user of success
         setNotification({
           type: 'success',
@@ -260,7 +290,7 @@ const AddConfigSchedule = () => {
       }
     } catch (error) {
       console.error('Schedule variant generation error:', error.response || error);
-  
+
       // Network / unexpected error
       setNotification({
         type: 'error',
@@ -269,66 +299,81 @@ const AddConfigSchedule = () => {
           `An error occurred while generating schedule variants.`
         )
       });
-      
+
       // Hide the modal if we got an error
       setShowVariantModal(false);
     } finally {
       setIsAutomating(false);
     }
   };
-  
- // Add this function to handle saving the selected variant
- const handleSelectVariant = async (variantIndex) => {
-  try {
-    const selectedVariant = scheduleVariants[variantIndex];
 
-    const response = await axios.post('/schedule/saveScheduleVariants', {
-      variant: selectedVariant,
-      DepartmentId: deptId
-    });
+  // Add this function to handle saving the selected variant
+  const handleSelectVariant = async (variantIndex) => {
+    try {
+      const selectedVariant = scheduleVariants[variantIndex];
 
-    if (response.data.successful) {
-      setNotification({
-        type: 'success',
-        message: 'Schedule variant saved successfully to the database!'
+      const response = await axios.post('/schedule/saveScheduleVariants', {
+        variant: selectedVariant,
+        DepartmentId: deptId
       });
 
-      setShowVariantModal(false);
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: 'Schedule variant saved successfully to the database!'
+        });
 
-      // Refresh schedules for the current room if one is selected
-      if (formData.room_id) {
-        fetchSchedulesForRoom(formData.room_id);
+        setShowVariantModal(false);
+
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
+        });
       }
-    } else {
+    } catch (error) {
+      console.error('Error saving variant:', error);
       setNotification({
         type: 'error',
-        message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
+        message: transformErrorMessage(
+          error.response?.data?.message ||
+          'An error occurred while saving the schedule variant'
+        )
       });
     }
-  } catch (error) {
-    console.error('Error saving variant:', error);
-    setNotification({
-      type: 'error',
-      message: transformErrorMessage(
-        error.response?.data?.message || 
-        'An error occurred while saving the schedule variant'
-      )
-    });
-  }
-};
+  };
 
 
 
   // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === "semester") {
+      setSelectedSemester(value);
+      // Reset assignation selection when semester changes
+      setFormData(prev => ({ ...prev, assignation_id: "", professorId: null, professorName: null }));
+    } else if (name === "assignation_id" && value) {
+      const selectedAssignation = assignations.find(a => a.id === parseInt(value));
+      if (selectedAssignation?.CourseId) {
+        fetchSectionsForCourse(selectedAssignation.CourseId);
+        // Set both professor ID and name from the selected assignation
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          professorId: selectedAssignation.ProfessorId,
+          professorName: selectedAssignation.Professor?.Name || "Professor" // Get professor name
+        }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
 
     if (name === "room_id" && value) fetchSchedulesForRoom(value);
-    if (name === "assignation_id" && value) {
-      const selectedAssignation = assignations.find(a => a.id === parseInt(value));
-      if (selectedAssignation?.CourseId) fetchSectionsForCourse(selectedAssignation.CourseId);
-    }
   };
 
   const handleTimeChange = e => {
@@ -459,7 +504,14 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const handleCheckAvailability = (professorId) => {
+    setSelectedProfessorId(professorId);
+    setIsAvailabilityModalOpen(true);
+  };
+
   const resetForm = () => {
+    const defaultSemester = semesters.length > 0 ? semesters[0] : "";
+    setSelectedSemester(defaultSemester);
     setFormData({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
     setCustomStartTime("");
     setCustomEndTime("");
@@ -467,7 +519,6 @@ const AddConfigSchedule = () => {
     setAvailableSections([]);
     setSelectedSections([]);
   };
-
   // Components
   // Original ScheduleEvent component with fix
   const ScheduleEvent = ({ schedule }) => {
@@ -629,25 +680,25 @@ const AddConfigSchedule = () => {
     )
   );
 
-const renderAutomationSection = () => (
-  <div className="flex flex-col mt-4 border-t pt-4">
-    {/* Lock/Unlock/Delete All buttons section */}
-    {formData.room_id && schedules.length > 0 && (
-      <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
-        <div className="flex gap-10">
-          <button
-            onClick={() => handleToggleLockAllSchedules(true)}
-            className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-          >
-            Lock All
-          </button>
-          <button
-            onClick={() => handleToggleLockAllSchedules(false)}
-            className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-          >
-            Unlock All
-          </button>
-        </div>
+  const renderAutomationSection = () => (
+    <div className="flex flex-col mt-4 border-t pt-4">
+      {/* Lock/Unlock/Delete All buttons section */}
+      {formData.room_id && schedules.length > 0 && (
+        <div className="mb-4"> {/* Removed mt-3 sm:mt-4 from here */}
+          <div className="flex gap-10">
+            <button
+              onClick={() => handleToggleLockAllSchedules(true)}
+              className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+            >
+              Lock All
+            </button>
+            <button
+              onClick={() => handleToggleLockAllSchedules(false)}
+              className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
+            >
+              Unlock All
+            </button>
+          </div>
 
           <button
             onClick={() => {
@@ -657,7 +708,7 @@ const renderAutomationSection = () => (
             }}
             className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
           >
-                        Delete All Department Schedules
+            Delete All Department Schedules
           </button>
         </div>
       )}
@@ -803,6 +854,39 @@ const renderAutomationSection = () => (
           <div className="flex flex-col lg:flex-row ml-2 p-2">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
+
+                <div className="flex items-center mt-2">
+                  {formData.professorId && formData.professorName && (
+                    <button
+                      type="button"
+                      onClick={() => handleCheckAvailability(formData.professorId)}
+                      className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Check {formData.professorName}&apos;s Availability
+                    </button>
+                  )}
+                </div>
+
+
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Semester:</label>
+                <select
+                  name="semester"
+                  value={selectedSemester}
+                  onChange={handleInputChange}
+                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="" disabled>Select Semester</option>
+                  {semesters.map(semester => (
+                    <option key={semester} value={semester}>
+                      Semester {semester}
+                    </option>
+                  ))}
+                </select>
+
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
                 <select name="room_id" value={formData.room_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select Room</option>
@@ -813,10 +897,16 @@ const renderAutomationSection = () => (
                   ))}
                 </select>
 
-                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Assignation:</label>
-                <select name="assignation_id" value={formData.assignation_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label className={`block text-xs sm:text-sm font-medium mb-1 ${!selectedSemester ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
+                <select
+                  name="assignation_id"
+                  value={formData.assignation_id}
+                  onChange={handleInputChange}
+                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSemester ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  disabled={!selectedSemester}
+                >
                   <option value="">Select Assignation</option>
-                  {assignations.map(a => (
+                  {filteredAssignations.map(a => (
                     <option key={a.id} value={a.id}>
                       {a.Course?.Code} - {a.Course?.Description} ({a.Course?.Units} units) | {a.Professor?.Name}
                     </option>
@@ -952,14 +1042,20 @@ const renderAutomationSection = () => (
         scheduleData={reportData}
       />
 
-    <ScheduleVariantModal
-      show={showVariantModal}
-      onHide={() => setShowVariantModal(false)}
-      variants={scheduleVariants}
-      loading={isAutomating}
-      onSelectVariant={handleSelectVariant}
-      departmentId={deptId}
-    />
+      <ScheduleVariantModal
+        show={showVariantModal}
+        onHide={() => setShowVariantModal(false)}
+        variants={scheduleVariants}
+        loading={isAutomating}
+        onSelectVariant={handleSelectVariant}
+        departmentId={deptId}
+      />
+
+      <ProfAvailabilityModal
+        isOpen={isAvailabilityModalOpen}
+        onClose={() => setIsAvailabilityModalOpen(false)}
+        professorId={selectedProfessorId}
+      />
     </div>
   );
 };
