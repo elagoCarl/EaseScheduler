@@ -134,7 +134,7 @@ const AddConfigSchedule = () => {
     if (selectedSemester) {
       const filtered = assignations.filter(a => a.Semester === selectedSemester);
       setFilteredAssignations(filtered);
-      
+
       // If a room is already selected, refetch schedules for the new semester
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
@@ -150,7 +150,7 @@ const AddConfigSchedule = () => {
       setSchedules([]);
       return;
     }
-    
+
     axios.post(`/schedule/getSchedsByRoom/${roomId}`, { Semester: selectedSemester })
       .then(({ data }) => {
         if (data.successful) {
@@ -186,7 +186,7 @@ const AddConfigSchedule = () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
-      
+
       const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
@@ -279,7 +279,7 @@ const AddConfigSchedule = () => {
       // Fire the request
       const response = await axios.post(endpoint, payload);
 
-      console.log("Schedule variants response:", response.data);
+      // console.log("Schedule variants response:", response.data);
 
       if (response.data.successful) {
         // Store the variants
@@ -327,59 +327,59 @@ const AddConfigSchedule = () => {
   };
 
   // Add this function to handle saving the selected variant
-const handleSelectVariant = async (variantIndex) => {
-  try {
-    const selectedVariant = scheduleVariants[variantIndex];
+  const handleSelectVariant = async (variantIndex) => {
+    try {
+      const selectedVariant = scheduleVariants[variantIndex];
 
-    const response = await axios.post('/schedule/saveScheduleVariants', {
-      variant: selectedVariant,
-      DepartmentId: deptId,
-      semester: selectedSemester  // Add the missing semester parameter
-    });
-
-    if (response.data.successful) {
-      setNotification({
-        type: 'success',
-        message: 'Schedule variant saved successfully to the database!'
+      const response = await axios.post('/schedule/saveScheduleVariants', {
+        variant: selectedVariant,
+        DepartmentId: deptId,
+        semester: selectedSemester  // Add the missing semester parameter
       });
 
-      setShowVariantModal(false);
+      if (response.data.successful) {
+        setNotification({
+          type: 'success',
+          message: 'Schedule variant saved successfully to the database!'
+        });
 
-      // Refresh schedules for the current room if one is selected
-      if (formData.room_id) {
-        fetchSchedulesForRoom(formData.room_id);
+        setShowVariantModal(false);
+
+        // Refresh schedules for the current room if one is selected
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      } else {
+        setNotification({
+          type: 'error',
+          message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
+        });
       }
-    } else {
+    } catch (error) {
+      console.error('Error saving variant:', error);
       setNotification({
         type: 'error',
-        message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
+        message: transformErrorMessage(
+          error.response?.data?.message ||
+          'An error occurred while saving the schedule variant'
+        )
       });
     }
-  } catch (error) {
-    console.error('Error saving variant:', error);
-    setNotification({
-      type: 'error',
-      message: transformErrorMessage(
-        error.response?.data?.message ||
-        'An error occurred while saving the schedule variant'
-      )
-    });
-  }
-};
+  };
 
 
 
   // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
-  
+
     if (name === "semester") {
       // Update selected semester state immediately
       setSelectedSemester(value);
-      
+
       // Reset assignation selection when semester changes
       setFormData(prev => ({ ...prev, assignation_id: "", professorId: null, professorName: null }));
-      
+
       // If a room is already selected, refetch schedules with the new semester
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
@@ -399,7 +399,7 @@ const handleSelectVariant = async (variantIndex) => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-  
+
     if (name === "room_id" && value) fetchSchedulesForRoom(value);
   };
 
@@ -448,7 +448,7 @@ const handleSelectVariant = async (variantIndex) => {
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
     try {
-      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId});
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);

@@ -40,8 +40,8 @@ const CourseProg = () => {
     const fetchPrograms = async () => {
         try {
             const response = await axios.get(`/program/getAllProgByDept/${user.DepartmentId}`);
-            console.log("Programs response:", response.data);
-            console.log("User DepartmentId:", user.DepartmentId);
+            // console.log("Programs response:", response.data);
+            // console.log("User DepartmentId:", user.DepartmentId);
             setPrograms(response.data.successful ? response.data.data || [] : []);
         } catch (error) {
             console.error("Error fetching programs:", error);

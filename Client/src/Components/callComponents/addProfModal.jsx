@@ -53,8 +53,8 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
     e.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
-    console.log("formData:", formData);
-    console.log("statuses:", statuses);
+    // console.log("formData:", formData);
+    // console.log("statuses:", statuses);
 
     try {
       const response = await axios.post(

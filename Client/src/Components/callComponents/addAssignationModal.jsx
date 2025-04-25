@@ -200,7 +200,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             RoomTypeId: formData.RoomTypeId ? parseInt(formData.RoomTypeId, 10) : null
         };
 
-        console.log("Submission data:", submissionData);
+        // console.log("Submission data:", submissionData);
 
         try {
             const response = await axios.post(

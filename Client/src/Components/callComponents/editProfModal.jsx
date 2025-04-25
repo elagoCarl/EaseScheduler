@@ -27,7 +27,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
     const fetchStatuses = async () => {
       try {
         const response = await axios.get('/profStatus/getAllStatus');
-        console.log("Fetched data:", response.data);
+        // console.log("Fetched data:", response.data);
         setStatuses(response.data.data);
       } catch (error) {
         console.error('Error fetching statuses:', error);
@@ -45,8 +45,8 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("formData:", formData);
-    console.log("statuses:", statuses);
+    // console.log("formData:", formData);
+    // console.log("statuses:", statuses);
 
     if (!formData.name || !formData.email || !formData.ProfStatusId) {
       setError('Please fill out all fields.');

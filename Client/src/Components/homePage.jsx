@@ -157,35 +157,41 @@ const HomePage = () => {
 
       {/* Dropdown Menu with User Profile Info */}
       {isDropdownOpen && (
-        <div ref={dropdownRef} className="absolute xs:top-50 xs:right-20 sm:top-62 sm:right-40 lg:top-60 lg:right-50 bg-white shadow-lg rounded-md p-4 z-10">
+        <div
+          ref={dropdownRef}
+          className="absolute right-5 mt-16 bg-white shadow-lg rounded-md p-4 z-10 max-w-full"
+          style={{
+            top: "calc(40px + 1rem)" // Position below the profile button
+          }}
+        >
           {/* User Profile Section */}
           <div className="border-b border-gray-200 pb-3 mb-3">
-            <h3 className="font-semibold text-gray-800">{user?.Name || 'User'}</h3>
-            <p className="text-sm text-gray-600">{user?.Email || 'No email'}</p>
-            <p className="text-xs text-gray-500">
+            <h3 className="font-semibold text-gray-800 truncate">{user?.Name || 'User'}</h3>
+            <p className="text-sm text-gray-600 truncate">{user?.Email || 'No email'}</p>
+            <p className="text-xs text-gray-500 truncate">
               {!departmentLoaded ? 'Loading department...' : (user?.Department?.Name || 'No department')}
             </p>
           </div>
-          <ul className="space-y-4">
+          <ul className="space-y-2">
             <li>
-              <a href="/accountSettings" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
+              <a href="/accountSettings" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md text-sm">
                 Account Settings
               </a>
             </li>
             <li>
-              <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
+              <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md text-sm">
                 Create Account
               </a>
             </li>
             <li>
-              <a href="/historyLogs" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md">
+              <a href="/historyLogs" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md text-sm">
                 History Logs
               </a>
             </li>
             <li>
               <button
                 onClick={handleLogout}
-                className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md w-full text-left"
+                className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md w-full text-left text-sm"
               >
                 Logout
               </button>

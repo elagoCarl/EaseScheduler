@@ -26,7 +26,7 @@ const OTPVerification = () => {
   const handleOTPSubmit = async (e) => {
     e.preventDefault();
     const otpValue = otp.join('');
-    console.log("otpValue: ", otpValue)
+    // console.log("otpValue: ", otpValue)
     if (otpValue.length === 6) {
       try {
         const response = await axios.post(
