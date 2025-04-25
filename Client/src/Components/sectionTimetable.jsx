@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
-import ExportButton from './callComponents/exportButton.jsx'; // Added import
+import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
 
@@ -17,11 +17,13 @@ const SectionTimetable = () => {
   const [programs, setPrograms] = useState([]);
   const [years, setYears] = useState([]);
   const [sections, setSections] = useState([]);
-
+  const [semesters, setSemesters] = useState([]); // New state for semesters
+  
   // Selected filters
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
+  const [selectedSemester, setSelectedSemester] = useState(null); // New state for selected semester
 
   // Filtered schedules based on selected filters
   const [filteredSchedules, setFilteredSchedules] = useState([]);
@@ -29,19 +31,57 @@ const SectionTimetable = () => {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
+  // Fetch semesters from assignation endpoint
+  useEffect(() => {
+    const fetchSemesters = async () => {
+      try {
+        // Add null check for user and DepartmentId
+        if (!user || !user.DepartmentId) {
+          console.error('User or DepartmentId is missing');
+          return;
+        }
+
+        const deptId = user.DepartmentId;
+        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
+
+        if (data.successful && data.data && data.data.length) {
+          // Extract unique semesters from assignations
+          const uniqueSemesters = [...new Set(data.data
+            .filter(assignation => assignation.Semester)
+            .map(assignation => assignation.Semester))]
+            .sort();
+
+          setSemesters(uniqueSemesters);
+          
+          // Set initial selection if semesters available
+          if (uniqueSemesters.length) {
+            setSelectedSemester(uniqueSemesters[0]);
+          }
+        } else {
+          console.error('No assignations found or API error');
+        }
+      } catch (error) {
+        console.error('Error fetching semesters:', error);
+      }
+    };
+    
+    fetchSemesters();
+  }, [user]);
+
   // Fetch all schedules and extract filter options
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
         // Add null check for user and DepartmentId
-        if (!user || !user.DepartmentId) {
-          console.error('User or DepartmentId is missing');
+        if (!user || !user.DepartmentId || !selectedSemester) {
+          console.error('User, DepartmentId, or Semester is missing');
           setLoading(false);
           return;
         }
 
         const deptId = user.DepartmentId;
-        const { data } = await axios.get(`/schedule/getSchedsByDept/${ deptId }`);
+        // Include selectedSemester in the payload
+        const { data } = await axios.post(`/schedule/getSchedsByDept/${deptId}`, { Semester: selectedSemester });
 
         if (data.successful && data.data && data.data.length) {
           const scheds = data.data;
@@ -78,15 +118,30 @@ const SectionTimetable = () => {
           if (uniqueSections.length) setSelectedSection(uniqueSections[0]);
         } else {
           console.error('No schedules found or API error');
+          // Clear previous data when no schedules found
+          setSchedules([]);
+          setPrograms([]);
+          setYears([]);
+          setSections([]);
+          setSelectedProgram(null);
+          setSelectedYear(null);
+          setSelectedSection(null);
         }
       } catch (error) {
         console.error('Error fetching schedules:', error);
+        // Clear data on error
+        setSchedules([]);
       } finally {
         setLoading(false);
       }
     };
-    fetchSchedules();
-  }, [user]);
+    
+    // Only fetch schedules if a semester is selected
+    if (selectedSemester) {
+      setLoading(true);
+      fetchSchedules();
+    }
+  }, [user, selectedSemester]); // Added selectedSemester dependency
 
   // Filter schedules when filters or schedules change
   useEffect(() => {
@@ -103,7 +158,7 @@ const SectionTimetable = () => {
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
-  const formatTimeRange = (start, end) => `${ start?.slice(0, 5) || '' } - ${ end?.slice(0, 5) || '' }`;
+  const formatTimeRange = (start, end) => `${start?.slice(0, 5) || ''} - ${end?.slice(0, 5) || ''}`;
 
   const calculateEventPosition = (event) => {
     if (!event || !event.Start_time || !event.End_time) return { top: '0%', height: '0%' };
@@ -111,7 +166,7 @@ const SectionTimetable = () => {
     const [startHour, startMin] = event.Start_time.split(':').map(Number);
     const [endHour, endMin] = event.End_time.split(':').map(Number);
     const duration = (endHour - startHour) + (endMin - startMin) / 60;
-    return { top: `${ (startMin / 60) * 100 }%`, height: `${ duration * 100 }%` };
+    return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
   // Get room info from Assignation.Rooms
@@ -131,7 +186,7 @@ const SectionTimetable = () => {
     // Add null checks for all data access
     const sectionsStr = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
       ? schedule.ProgYrSecs
-        .map(sec => `${ sec.Program?.Code || 'Unknown' } ${ sec.Year || '?' }-${ sec.Section || '?' }`)
+        .map(sec => `${sec.Program?.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`)
         .join(', ')
       : 'Unknown';
 
@@ -141,7 +196,7 @@ const SectionTimetable = () => {
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${ hovered ? 'z-[9999] scale-110' : 'z-10' }`}
+        className={`absolute bg-blue-50 p-2 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
         style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
       >
         <div className="flex justify-between items-center">
@@ -149,7 +204,7 @@ const SectionTimetable = () => {
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sectionsStr}</span>
         </div>
         <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'Unknown'}</div>
-        <div className={`text-xs ${ hovered ? '' : 'truncate' }`}>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
           {schedule.Assignation?.Course?.Description || 'No description'}
         </div>
         <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'Unknown'}</div>
@@ -197,7 +252,7 @@ const SectionTimetable = () => {
     <div
       className="min-h-screen flex flex-col"
       style={{
-        backgroundImage: `url(${ Image3 })`,
+        backgroundImage: `url(${Image3})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -214,20 +269,21 @@ const SectionTimetable = () => {
             <div className="flex justify-between items-start">
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
-                {selectedProgram && selectedYear && selectedSection && (
+                {selectedSemester && selectedProgram && selectedYear && selectedSection && (
                   <div className="text-blue-100 mt-1">
-                    <p className="text-lg font-semibold">{getSelectedProgramCode()} Year {selectedYear} Section {selectedSection}</p>
+                    <p className="text-lg font-semibold">{getSelectedProgramCode()} Year {selectedYear} Section {selectedSection} - {selectedSemester}</p>
                   </div>
                 )}
               </div>
               {/* Add ExportButton in desktop view */}
               <div className="hidden md:block">
-                {selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+                {selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
                   <ExportButton
                     selectedSection={{
                       Program: getSelectedProgramCode(),
                       Year: selectedYear,
-                      Section: selectedSection
+                      Section: selectedSection,
+                      Semester: selectedSemester // Add semester to export data
                     }}
                     schedules={filteredSchedules}
                     days={days}
@@ -237,6 +293,23 @@ const SectionTimetable = () => {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-4">
+              {/* Semester Dropdown - Added first */}
+              <div className="flex flex-col">
+                <label className="text-blue-100 text-sm mb-1">Semester</label>
+                <select
+                  value={selectedSemester || ''}
+                  onChange={e => setSelectedSemester(e.target.value || null)}
+                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                >
+                  {semesters.length > 0 ? (
+                    semesters.map(semester => (
+                      <option key={semester} value={semester}>Semester: {semester}</option>
+                    ))
+                  ) : (
+                    <option value="">No semesters available</option>
+                  )}
+                </select>
+              </div>
               {/* Program Dropdown */}
               <div className="flex flex-col">
                 <label className="text-blue-100 text-sm mb-1">Program</label>
@@ -244,6 +317,7 @@ const SectionTimetable = () => {
                   value={selectedProgram || ''}
                   onChange={e => setSelectedProgram(e.target.value ? parseInt(e.target.value) : null)}
                   className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                  disabled={!selectedSemester || programs.length === 0}
                 >
                   {programs.length > 0 ? (
                     programs.map(program => (
@@ -263,6 +337,7 @@ const SectionTimetable = () => {
                   value={selectedYear || ''}
                   onChange={e => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
                   className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                  disabled={!selectedSemester || years.length === 0}
                 >
                   {years.length > 0 ? (
                     years.map(year => (
@@ -282,6 +357,7 @@ const SectionTimetable = () => {
                   value={selectedSection || ''}
                   onChange={e => setSelectedSection(e.target.value || null)}
                   className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                  disabled={!selectedSemester || sections.length === 0}
                 >
                   {sections.length > 0 ? (
                     sections.map(section => (
@@ -301,7 +377,11 @@ const SectionTimetable = () => {
             <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
-                {loading ? (
+                {!selectedSemester ? (
+                  <div className="flex items-center justify-center py-16">
+                    <span className="text-gray-500 font-medium">Please select a semester to view schedules</span>
+                  </div>
+                ) : loading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600" />
                     <span className="ml-3 text-blue-600 font-medium">Loading schedules...</span>
@@ -332,7 +412,7 @@ const SectionTimetable = () => {
                         {timeSlots.map(hour => (
                           <tr key={hour} className="hover:bg-gray-50">
                             <td className="p-2 sm:p-3 border-b border-gray-200 text-gray-700 font-medium text-xs sm:text-sm w-16 sm:w-20">
-                              {`${ hour.toString().padStart(2, '0') }:00`}
+                              {`${hour.toString().padStart(2, '0')}:00`}
                             </td>
                             {days.map((_, dayIndex) => (
                               <td key={dayIndex} className="p-0 border-b border-gray-200 relative h-24 sm:h-28">
@@ -352,12 +432,13 @@ const SectionTimetable = () => {
                   <span className="text-gray-700 font-medium text-sm">Time</span>
                   <div className="flex items-center gap-2">
                     {/* Add ExportButton in mobile view */}
-                    {selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+                    {selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
                       <ExportButton
                         selectedSection={{
                           Program: getSelectedProgramCode(),
                           Year: selectedYear,
-                          Section: selectedSection
+                          Section: selectedSection,
+                          Semester: selectedSemester // Add semester to export data
                         }}
                         schedules={filteredSchedules}
                         days={days}
@@ -377,7 +458,11 @@ const SectionTimetable = () => {
                     </select>
                   </div>
                 </div>
-                {loading ? (
+                {!selectedSemester ? (
+                  <div className="flex items-center justify-center py-10">
+                    <span className="text-gray-500 font-medium text-sm">Please select a semester to view schedules</span>
+                  </div>
+                ) : loading ? (
                   <div className="flex items-center justify-center py-10">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600" />
                     <span className="ml-3 text-blue-600 font-medium text-sm">Loading schedules...</span>
@@ -394,7 +479,7 @@ const SectionTimetable = () => {
                           {timeSlots.map(hour => (
                             <tr key={hour} className="hover:bg-gray-50">
                               <td className="p-2 border-b border-gray-200 text-gray-700 font-medium text-xs w-16">
-                                {`${ hour.toString().padStart(2, '0') }:00`}
+                                {`${hour.toString().padStart(2, '0')}:00`}
                               </td>
                               <td className="p-0 border-b border-gray-200 relative h-24">
                                 {renderMobileEvent(hour, selectedDay)}

@@ -2672,7 +2672,8 @@ const getSchedsByRoom = async (req, res, next) => {
 
 const getSchedsByProf = async (req, res, next) => {
     try {
-        const profId = req.params.id;
+        const profId = req.params.id
+        const { Semester } = req.body
 
         const scheds = await Schedule.findAll({
             attributes: { exclude: ['createdAt', 'updatedAt'] },
@@ -2680,7 +2681,7 @@ const getSchedsByProf = async (req, res, next) => {
                 {
                     // only include schedules linked to this professor
                     model: Assignation,
-                    where: { ProfessorId: profId },
+                    where: { ProfessorId: profId, Semester},
                     attributes: ['id', 'School_Year', 'Semester'],
                     include: [
                         {
@@ -2745,13 +2746,14 @@ const getSchedsByProf = async (req, res, next) => {
 const getSchedsByDept = async (req, res, next) => {
     try {
         const deptId = req.params.id;
+        const { Semester } = req.body
 
         const scheds = await Schedule.findAll({
             attributes: { exclude: ['createdAt', 'updatedAt'] },
             include: [
                 {
                     model: Assignation,
-                    where: { DepartmentId: deptId },
+                    where: { DepartmentId: deptId, Semester },
                     attributes: ['id', 'School_Year', 'Semester'],
                     include: [
                         {
