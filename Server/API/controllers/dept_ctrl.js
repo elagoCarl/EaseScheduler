@@ -212,6 +212,7 @@ const updateDept = async (req, res, next) => {
 
         const existingDept = await Department.findOne({
             where: {
+                id: { [Op.ne]: dept.id }, // Exclude the current department being updated
                 Name: {
                     [Op.like]: Name
                 }

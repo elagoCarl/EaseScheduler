@@ -39,6 +39,18 @@ const ProgYrSec = () => {
         fetchSections();
     }, []);
 
+    // Add new useEffect for message timeout
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => {
+                setMessage(null);
+            }, 1000);
+            
+            // Clean up timer on component unmount or message change
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
+
     const fetchPrograms = async () => {
         try {
             const response = await axios.get(`/program/getAllProgByDept/${deptId}`);
@@ -192,7 +204,7 @@ const ProgYrSec = () => {
     };
 
     return (
-        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center" style={{ backgroundImage: `url(${Background})` }}>
+        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center p-20" style={{ backgroundImage: `url(${Background})` }}>
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             <TopMenu toggleSidebar={toggleSidebar} />
 

@@ -25,6 +25,7 @@ import DeptProg from "./Components/deptProg";
 import ProgYrSec from "./Components/progYrSec";
 import CourseProg from "./Components/courseProg";
 import Settings from "./Components/settings"
+import ProfStatus from "./Components/profStatus";
 
 
 const App = () => {
@@ -58,6 +59,7 @@ const App = () => {
             <Route path="/deptProg" element={<DeptProg />} />
             <Route path="/progYrSec" element={<ProgYrSec />} />
             <Route path="/courseProg" element={<CourseProg />} />
+            <Route path="/profStatus" element={<ProfStatus />} />
 
             {/* ERROR handling routes */}
             <Route path="*" element={<Page404 />} />

@@ -67,10 +67,10 @@ const LoginPage = () => {
       <section className="justify-center items-center text-center m-auto w-11/12 sm:w-9/12 md:w-5/12 lg:w-4/12">
         <button
           id="logoBtn"
-          className="hover:scale-105 text-xl md:text-3xl lg:text-4xl font-bold text-blue-500 mb-50"
+          className="text-xl md:text-3xl lg:text-4xl font-bold text-blue-500 mb-50"
           onClick={() => navigate('/')}
         >
-          EASE<span className="text-white">SCHEDULER</span>
+          EASE<span className="text-white hover:text-gray-500 duration-300">SCHEDULER</span>
         </button>
 
         <form

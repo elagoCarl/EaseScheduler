@@ -247,6 +247,11 @@ const Course = () => {
               Course Configuration
             </h2>
           </div>
+          {warningMessage && (
+              <div className="sticky text-center mb-5 w-full mt-5 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+                {warningMessage}
+              </div>
+            )}
 
           {/* Scrollable Table */}
           <div className="overflow-auto w-full h-full flex-grow pt-6">
@@ -364,12 +369,6 @@ const Course = () => {
         </button>
       </div>
 
-      {/* Warning Message */}
-      {warningMessage && (
-        <div className="fixed bottom-10 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-md">
-          {warningMessage}
-        </div>
-      )}
 
       {/* Modals */}
       <AddCourseModal

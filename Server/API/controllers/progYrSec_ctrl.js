@@ -39,6 +39,7 @@ const addProgYrSec = async (req, res, next) => {
                 });
             }
 
+
             // Ensure Year and Section combination is unique for the same ProgramId
             const existingProgYrSec = await ProgYrSec.findOne({
                 where: { Year, Section, ProgramId }
@@ -50,6 +51,12 @@ const addProgYrSec = async (req, res, next) => {
                 });
             }
 
+            if(NumberOfStudents <= 0){
+                return res.status(400).json({
+                    successful: false,
+                    message: "Number of Students must be greater than 0."
+                });
+            }
             // Create ProgYrSec record
             await ProgYrSec.create({ Year, Section, ProgramId, NumberOfStudents });
 
@@ -244,6 +251,7 @@ const updateProgYrSec = async (req, res, next) => {
                 message: `Program with ID ${ProgramId} not found.`
             });
         }
+        
 
         // Ensure Year and Section combination is unique for the same ProgramId
         const existingProgYrSec = await ProgYrSec.findOne({
@@ -253,6 +261,13 @@ const updateProgYrSec = async (req, res, next) => {
             return res.status(406).json({
                 successful: false,
                 message: `ProgYrSec with Year ${Year} and Section ${Section} already exists for Program ID ${ProgramId}.`
+            });
+        }
+
+        if(NumberOfStudents <= 0){
+            return res.status(400).json({
+                successful: false,
+                message: "Number of Students must be greater than 0."
             });
         }
 

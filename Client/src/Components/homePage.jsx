@@ -9,33 +9,65 @@ import bigpic from './Img/BigBog.svg';
 import timetables from './Img/timetable.svg';
 import ProfileBtn from './Img/ProfileBtn.png';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../Components/authContext'; // Import useAuth hook
+import { useAuth } from '../Components/authContext';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth(); // Get the user from auth context
+  const { user, setUser } = useAuth(); // Get the user and setUser function
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [fadeIn, setFadeIn] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);  // State for dropdown visibility
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [departmentLoaded, setDepartmentLoaded] = useState(false);
 
   // Create refs for the profile button and the dropdown
   const profileBtnRef = useRef(null);
   const dropdownRef = useRef(null);
   const modalRef = useRef(null);
 
+  // Check if user is an admin
+  const isAdmin = user?.Roles === 'Admin';
+
+  // Fetch user data including department when component mounts
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      if (user && !user.Department?.Name) {
+        try {
+          const response = await axios.get(
+            `${BASE_URL}/accounts/getCurrentAccount?t=${Date.now()}`,
+            { withCredentials: true }
+          );
+          if (response.data.successful && response.data.account) {
+            setUser(response.data.account);
+            setDepartmentLoaded(true);
+          }
+        } catch (error) {
+          console.error("Error fetching user details:", error);
+        }
+      } else if (user && user.Department?.Name) {
+        setDepartmentLoaded(true);
+      }
+    };
+
+    fetchUserDetails();
+  }, [user, setUser]);
+
   const openModal = (content) => {
+    if (isAdmin && content === 'Timetables') {
+      // Don't open modal if admin tries to access timetables
+      return;
+    }
     setModalContent(content);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
-    setFadeIn(false);  // Start the fade-out animation
+    setFadeIn(false);
     setTimeout(() => {
       setIsModalOpen(false);
       setModalContent(null);
-    }, 300);  // Delay to match the fade-out duration
+    }, 300);
   };
 
   useEffect(() => {
@@ -52,15 +84,14 @@ const HomePage = () => {
 
   useEffect(() => {
     if (isModalOpen) {
-      setFadeIn(true);  // Trigger fade-in when modal opens
+      setFadeIn(true);
     }
   }, [isModalOpen]);
 
   const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);  // Toggle the dropdown visibility on click
+    setIsDropdownOpen(!isDropdownOpen);
   };
 
-  // Close the dropdown if the user clicks outside the profile button or dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -79,7 +110,6 @@ const HomePage = () => {
 
   const handleLogout = async () => {
     try {
-      // Using regular axios with BASE_URL directly to bypass the refresh interceptor
       const response = await axios.post(`${BASE_URL}/accounts/logoutAccount`, {}, {
         withCredentials: true,
         headers: {
@@ -88,7 +118,6 @@ const HomePage = () => {
       });
 
       if (response.data.successful) {
-        // Navigate to the login page after logout
         navigate('/loginPage');
         window.location.reload();
       } else {
@@ -97,6 +126,13 @@ const HomePage = () => {
     } catch (error) {
       console.error('Error during logout:', error);
     }
+  };
+
+  // Helper function to render department info
+  const renderDepartmentInfo = () => {
+    if (!user) return 'Department';
+    if (!departmentLoaded) return 'Loading department...';
+    return user.Department?.Name ? `${user.Department.Name} Department` : 'Department';
   };
 
   return (
@@ -127,7 +163,7 @@ const HomePage = () => {
             <h3 className="font-semibold text-gray-800">{user?.Name || 'User'}</h3>
             <p className="text-sm text-gray-600">{user?.Email || 'No email'}</p>
             <p className="text-xs text-gray-500">
-              {user?.Department?.Name || 'No department'}
+              {!departmentLoaded ? 'Loading department...' : (user?.Department?.Name || 'No department')}
             </p>
           </div>
           <ul className="space-y-4">
@@ -175,25 +211,32 @@ const HomePage = () => {
       <div className='w-full md:w-5/12 lg:w-5/12 xl:w-5/12 px-4 sm:px-0 flex flex-col items-center my-20 mx-40 relative'>
         {/* Welcome message with user info */}
         <div className="mb-8 text-center">
-          <h2 className="text-white text-2xl md:text-3xl font-bold mb-1">Welcome, {user?.Name || 'User'}!</h2>
-          <p className="text-white text-md md:text-lg opacity-90">{user?.Email || 'user@example.com'}</p>
-          <p className="text-white text-md md:text-lg">
-            {user?.Department?.Name ? `${user.Department.Name} Department` : 'Department'}
+          <h2 className="text-white text-2xl md:text-3xl font-bold mb-1">
+            Welcome, {user?.Name || 'User'}!
+          </h2>
+          <p className="text-white text-md md:text-lg opacity-90">
+            {user?.Email || 'user@example.com'}
           </p>
-
+          <p className="text-white text-md md:text-lg">
+            {renderDepartmentInfo()}
+          </p>
         </div>
 
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid xs:grid-cols-1 sm:grid-cols-2 gap-15 mt-30'>
-                {/* 1st Card (Timetable) */}
+              <div className='grid xs:grid-cols-2 sm:grid-cols-2 gap-15 mt-30'>
+                {/* 1st Card (Timetable) - Disabled for Admin */}
                 <button
-                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
-                  onClick={() => openModal('Timetables')}
+                  className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
+                    ${isAdmin
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
+                  onClick={() => !isAdmin && openModal('Timetables')}
+                  disabled={isAdmin}
                 >
-                  <img className='h-70 w-70 md:h-100 md:w-100' src={timetables} alt="" />
-                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
+                  <img className={`h-70 w-70 md:h-100 md:w-100 ${isAdmin ? 'opacity-50' : ''}`} src={timetables} alt="" />
+                  <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
                     Timetables
                   </span>
                 </button>
@@ -209,13 +252,17 @@ const HomePage = () => {
                   </span>
                 </button>
 
-                {/* 3rd Card (Course) */}
+                {/* 3rd Card (Course) - Disabled for Admin */}
                 <button
-                  onClick={() => navigate('/course')}
-                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  onClick={() => !isAdmin && navigate('/course')}
+                  disabled={isAdmin}
+                  className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
+                    ${isAdmin
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
                 >
-                  <img className='h-70 w-70 md:h-100 md:w-100' src={course} alt="" />
-                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
+                  <img className={`h-70 w-70 md:h-100 md:w-100 ${isAdmin ? 'opacity-50' : ''}`} src={course} alt="" />
+                  <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
                     Course
                   </span>
                 </button>
@@ -242,10 +289,10 @@ const HomePage = () => {
                   >
                     <span className="font-bold m-9">x</span>
                   </button>
-                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-15">
+                  <h2 className="whitespace-nowrap text-2xl px-60 py-8 font-semibold text-ceuViolet text-center m-10">
                     {modalContent}
                   </h2>
-                  <ul className="space-y-20 m-20 text-center">
+                  <ul className="space-y-20 mb-20 m-10 text-center">
                     {modalContent === 'Timetables' && (
                       <>
                         <li>
@@ -294,6 +341,12 @@ const HomePage = () => {
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/assignationsCourseProf')}>
                             Professor Assignations
+                          </a>
+                        </li>
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                            onClick={() => navigate('/profStatus')}>
+                            Professor Status
                           </a>
                         </li>
                       </>

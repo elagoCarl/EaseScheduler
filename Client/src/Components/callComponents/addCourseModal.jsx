@@ -88,14 +88,14 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
     }
   };
 
-
+ 
   return (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl text-white font-semibold mx-auto">Add Course</h2>
           <button
-            className="text-xl text-white hover:text-black"
+            className="text-3xl text-white hover:text-red-500 duration-300"
             onClick={() => {
               resetForm();
               onClose();

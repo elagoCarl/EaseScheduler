@@ -67,6 +67,9 @@ const RoomTypesModal = ({ isOpen, onClose }) => {
                 type: "success",
                 text: response.data.message || (isEditing ? "Room type updated successfully." : "Room type created successfully."),
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
 
             resetForm();
             fetchRoomTypes();
@@ -76,6 +79,9 @@ const RoomTypesModal = ({ isOpen, onClose }) => {
                 type: "error",
                 text: error.response?.data?.message || "Failed to process room type.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             setLoading(false);
         }
@@ -126,12 +132,18 @@ const RoomTypesModal = ({ isOpen, onClose }) => {
                 type: "success",
                 text: response.data.message || "Room type deleted successfully.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
             fetchRoomTypes();
         } catch (error) {
             setMessage({
                 type: "error",
                 text: error.response?.data?.message || "Failed to delete room type. It may be in use by existing rooms.",
             });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
             closeDeleteConfirmation();
         }

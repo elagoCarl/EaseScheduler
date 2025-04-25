@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from '../axiosConfig.js';
 import TopMenu from "./callComponents/topMenu.jsx";
 import Sidebar from './callComponents/sideBar.jsx';
-import ExportButton from './callComponents/exportButton.jsx'; // Added import
+import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
 
 const ProfTimetable = () => {
   const { user } = useAuth();
-  // console.log("UUUUUUUUUUUUUSSSSERR1231: ", user);
-  // console.log("useridDDDDDDDDDDDDDDept12321321: ", user?.DepartmentId);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProf, setSelectedProf] = useState(null);
   const [professors, setProfessors] = useState([]);
@@ -17,15 +15,43 @@ const ProfTimetable = () => {
   const [loading, setLoading] = useState(true); // Loading for professors
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemester, setSelectedSemester] = useState(null);
+  const [loadingSemesters, setLoadingSemesters] = useState(true);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
+  const deptId = user.DepartmentId;
+
+  useEffect(() => {
+    const fetchSemesters = async () => {
+      try {
+        setLoadingSemesters(true);
+        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
+        if (data.successful && data.data.length) {
+          // Extract unique semesters from assignations
+          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean);
+          
+          uniqueSemesters.sort((a, b) => b.localeCompare(a)); // Most recent first
+          
+          setSemesters(uniqueSemesters);
+          setSelectedSemester(uniqueSemesters[0] || null);
+        } else {
+          console.error('No semesters found or API error');
+        }
+      } catch (error) {
+        console.error('Error fetching semesters:', error);
+      } finally {
+        setLoadingSemesters(false);
+      }
+    };
+    fetchSemesters();
+  }, [deptId]);
 
   // Fetch professors using Axios
   useEffect(() => {
     const fetchProfessors = async () => {
       try {
-        const deptId = user?.DepartmentId; // Update department ID as needed
         const { data } = await axios.get(`/prof/getProfByDept/${deptId}`);
         if (data.successful && data.data.length) {
           setProfessors(data.data);
@@ -40,17 +66,17 @@ const ProfTimetable = () => {
       }
     };
     fetchProfessors();
-  }, []);
+  }, [deptId]);
 
-  // Fetch schedules when professor changes using Axios
+  // Fetch schedules when professor or semester changes using Axios
   useEffect(() => {
-    if (!selectedProf) return;
+    if (!selectedProf || !selectedSemester) return;
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        const { data } = await axios.get(`/schedule/getSchedsByProf/${selectedProf.id}`);
+        // Send payload with the selected semester
+        const { data } = await axios.post(`/schedule/getSchedsByProf/${selectedProf.id}`, { Semester: selectedSemester });
         if (data.successful) {
-          // console.log("Schedules fetched successfully:", data.data);
           setSchedules(data.data);
         } else {
           console.error('Error fetching schedules:', data.message);
@@ -64,7 +90,7 @@ const ProfTimetable = () => {
       }
     };
     fetchSchedules();
-  }, [selectedProf]);
+  }, [selectedProf, selectedSemester]);
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
@@ -77,23 +103,19 @@ const ProfTimetable = () => {
     return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
-  // Get room info based on the actual data structure
-  // OLD: was reading from schedule.Assignation?.Rooms[0]
-const getRoomInfo = (schedule) => {
-  const room = schedule.Room;
-  if (!room) {
-    return { code: 'Unknown', building: 'Unknown', floor: '', type: '' };
-  }
-  return {
-    code: room.Code || 'Unknown',
-    building: room.Building || 'Unknown',
-    floor: room.Floor || '',
-    type: room.RoomType?.Type || ''
+  const getRoomInfo = (schedule) => {
+    const room = schedule.Room;
+    if (!room) {
+      return { code: 'Unknown', building: 'Unknown', floor: '', type: '' };
+    }
+    return {
+      code: room.Code || 'Unknown',
+      building: room.Building || 'Unknown',
+      floor: room.Floor || '',
+      type: room.RoomType?.Type || ''
+    };
   };
-};
 
-
-  // Safely get sections info from the actual data structure
   const getSectionsInfo = (schedule) => {
     if (!schedule.ProgYrSecs || !Array.isArray(schedule.ProgYrSecs) || schedule.ProgYrSecs.length === 0) {
       return 'No sections data';
@@ -107,19 +129,13 @@ const getRoomInfo = (schedule) => {
       .join(', ');
   };
 
-  // Component to display schedule events with the correct data structure
   const ProfScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
 
-    // Get course info safely
     const courseCode = schedule.Assignation?.Course?.Code || 'Unknown Course';
     const courseDesc = schedule.Assignation?.Course?.Description || 'No description available';
-
-    // Get sections info
     const sections = getSectionsInfo(schedule);
-
-    // Get room info
     const room = getRoomInfo(schedule);
 
     return (
@@ -138,16 +154,15 @@ const getRoomInfo = (schedule) => {
           {courseDesc}
         </div>
         <div className="text-xs">
-  Room: {room.code}
-  {room.building && ` - ${room.building}`}
-  {room.floor && `, ${room.floor}`}
-  {room.type && ` (${room.type})`}
-</div>
+          Room: {room.code}
+          {room.building && ` - ${room.building}`}
+          {room.floor && `, ${room.floor}`}
+          {room.type && ` (${room.type})`}
+        </div>
       </div>
     );
   };
 
-  // Render event for desktop view using the ProfScheduleEvent component
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedProf) return null;
     const apiDayIndex = dayIndex + 1;
@@ -166,13 +181,11 @@ const getRoomInfo = (schedule) => {
         );
       })
       .map(schedule => {
-        // Only render event in its starting hour cell
         if (parseInt(schedule.Start_time.split(':')[0], 10) !== hour) return null;
         return <ProfScheduleEvent key={schedule.id} schedule={schedule} />;
       });
   };
 
-  // Render event for mobile view (only for the selected day)
   const renderMobileEvent = (hour, dayIndex) => {
     if (!selectedProf || dayIndex !== selectedDay) return null;
     return renderEventInCell(hour, selectedDay);
@@ -196,7 +209,7 @@ const getRoomInfo = (schedule) => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header with professor details */}
           <div className="relative bg-blue-600 p-4 sm:p-6">
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-white">Professor Timetable</h1>
                 {selectedProf ? (
@@ -210,35 +223,60 @@ const getRoomInfo = (schedule) => {
                   <p className="text-blue-100 mt-1">Loading professor details...</p>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                {selectedProf && !loadingSchedules && (
+              <div className="flex flex-wrap items-center gap-3 mt-3 sm:mt-0">
+                {/* Semester Dropdown */}
+                <div className="w-full sm:w-auto">
+                  <select
+                    value={selectedSemester || ''}
+                    onChange={e => setSelectedSemester(e.target.value)}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm w-full"
+                    disabled={loadingSemesters}
+                  >
+                    {loadingSemesters ? (
+                      <option>Loading semesters...</option>
+                    ) : semesters.length > 0 ? (
+                      semesters.map(semester => (
+                        <option key={semester} value={semester}>Semester: {semester}</option>
+                      ))
+                    ) : (
+                      <option value="">No semesters available</option>
+                    )}
+                  </select>
+                </div>
+                
+                {/* Professor Dropdown */}
+                <div className="w-full sm:w-auto">
+                  <select
+                    value={selectedProf ? selectedProf.id : ''}
+                    onChange={e =>
+                      setSelectedProf(professors.find(p => p.id === parseInt(e.target.value)))
+                    }
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm w-full"
+                    disabled={loading}
+                  >
+                    {professors.map(prof => (
+                      <option key={prof.id} value={prof.id}>
+                        {prof.Name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Export Button */}
+                {selectedProf && selectedSemester && !loadingSchedules && (
                   <ExportButton
-                    selectedProf={selectedProf} // Changed to selectedProf
+                    selectedProf={selectedProf}
                     schedules={schedules}
                     days={days}
                     timeSlots={timeSlots}
                   />
                 )}
-                <select
-                  value={selectedProf ? selectedProf.id : ''}
-                  onChange={e =>
-                    setSelectedProf(professors.find(p => p.id === parseInt(e.target.value)))
-                  }
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  disabled={loading}
-                >
-                  {professors.map(prof => (
-                    <option key={prof.id} value={prof.id}>
-                      {prof.Name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>
           {/* Calendar */}
           <div className="overflow-x-auto">
-            <div className="p-2 sm:p-4 min-w-[600px]">
+            <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
                 {loadingSchedules ? (
@@ -282,17 +320,9 @@ const getRoomInfo = (schedule) => {
               </div>
               {/* Mobile View */}
               <div className="md:hidden">
-                <div className="flex justify-between bg-gray-50 border-b-2 border-gray-200 p-2">
-                  <span className="text-gray-700 font-medium text-sm">Time</span>
-                  <div className="flex items-center gap-2">
-                    {selectedProf && !loadingSchedules && (
-                      <ExportButton
-                        selectedProf={selectedProf} // Changed to selectedProf
-                        schedules={schedules}
-                        days={days}
-                        timeSlots={timeSlots}
-                      />
-                    )}
+                <div className="flex flex-col bg-gray-50 border-b-2 border-gray-200 p-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-700 font-medium text-sm">Time</span>
                     <select
                       className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
                       value={selectedDay}
@@ -304,6 +334,32 @@ const getRoomInfo = (schedule) => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <select
+                      value={selectedSemester || ''}
+                      onChange={e => setSelectedSemester(e.target.value)}
+                      className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200 flex-grow mr-2"
+                      disabled={loadingSemesters}
+                    >
+                      {loadingSemesters ? (
+                        <option>Loading...</option>
+                      ) : semesters.length > 0 ? (
+                        semesters.map(semester => (
+                          <option key={semester} value={semester}>Semester: {semester}</option>
+                        ))
+                      ) : (
+                        <option value="">No semesters</option>
+                      )}
+                    </select>
+                    {selectedProf && selectedSemester && !loadingSchedules && (
+                      <ExportButton
+                        selectedProf={selectedProf}
+                        schedules={schedules}
+                        days={days}
+                        timeSlots={timeSlots}
+                      />
+                    )}
                   </div>
                 </div>
                 {loadingSchedules ? (

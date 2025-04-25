@@ -14,8 +14,6 @@ import { useAuth } from '../Components/authContext.jsx';
 
 const AssignationsCourseProf = () => {
     const { user } = useAuth();
-    console.log("UUUUUUUUUUUUUSSSSERR: ", user);
-    console.log("useridDDDDDDDDDDDDDDept: ", user.DepartmentId);
     const DEPARTMENT_ID = user.DepartmentId;
 
     const [department, setDepartment] = useState(null);
@@ -24,7 +22,8 @@ const AssignationsCourseProf = () => {
         professor: "",
         schoolYear: "",
         semester: "",
-        roomType: "" // New filter for room type
+        roomType: "",
+        searchQuery: "" // Added search query filter
     });
     const [modals, setModals] = useState({
         add: false,
@@ -35,28 +34,19 @@ const AssignationsCourseProf = () => {
     const [isAllChecked, setAllChecked] = useState(false);
     const [selectedAssignment, setSelectedAssignment] = useState(null);
 
-    // State for assignations and filter values
     const [assignedCourses, setAssignedCourses] = useState([]);
-    const [professors, setProfessors] = useState([]); // for the dropdown filter
+    const [professors, setProfessors] = useState([]);
     const [semesters, setSemesters] = useState([]);
     const [schoolYears, setSchoolYears] = useState([]);
-    const [roomTypes, setRoomTypes] = useState([]); // New state for room types
+    const [roomTypes, setRoomTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [warningMessage, setWarningMessage] = useState(null);
 
-    // State for detailed professor info (from getProf)
-    // This will be a mapping: { professorId: { ...professorData } }
     const [professorDetails, setProfessorDetails] = useState({});
-
-    // State for detailed course info (from getCourse)
-    // Mapping: { courseId: { ...courseData } }
     const [courseDetails, setCourseDetails] = useState({});
-
-    // State for room type details
-    // Mapping: { roomTypeId: { ...roomTypeData } }
     const [roomTypeDetails, setRoomTypeDetails] = useState({});
 
-    // Fetch the current department using the getDept API
     useEffect(() => {
         const fetchDepartment = async () => {
             try {
@@ -73,7 +63,16 @@ const AssignationsCourseProf = () => {
         fetchDepartment();
     }, [DEPARTMENT_ID]);
 
-    // Fetch all room types
+    useEffect(() => {
+        let timer;
+        if (warningMessage) {
+            timer = setTimeout(() => {
+                setWarningMessage(null);
+            }, 3000);
+        }
+        return () => clearTimeout(timer);
+    }, [warningMessage]);
+
     useEffect(() => {
         const fetchRoomTypes = async () => {
             try {
@@ -82,7 +81,6 @@ const AssignationsCourseProf = () => {
                     const roomTypesData = response.data.data;
                     setRoomTypes(roomTypesData);
 
-                    // Create a mapping for quick access
                     const roomTypeMap = {};
                     roomTypesData.forEach(type => {
                         roomTypeMap[type.id] = type;
@@ -97,7 +95,6 @@ const AssignationsCourseProf = () => {
         fetchRoomTypes();
     }, []);
 
-    // Fetch assignations for the department using getAllAssignationsByDept
     useEffect(() => {
         const fetchAssignations = async () => {
             try {
@@ -120,10 +117,8 @@ const AssignationsCourseProf = () => {
         fetchAssignations();
     }, [DEPARTMENT_ID]);
 
-    // Once assignations are loaded, fetch detailed professor info via getProf
     useEffect(() => {
         const fetchProfessorDetails = async () => {
-            // Build a unique list of professor IDs from assignations using ProfessorId
             const professorIds = [
                 ...new Set(
                     assignedCourses.map(a => a.ProfessorId).filter(id => id != null)
@@ -154,10 +149,8 @@ const AssignationsCourseProf = () => {
         }
     }, [assignedCourses]);
 
-    // Once assignations are loaded, fetch detailed course info via getCourse
     useEffect(() => {
         const fetchCourseDetails = async () => {
-            // Build a unique list of course IDs from assignations using CourseId
             const courseIds = [
                 ...new Set(
                     assignedCourses.map(a => a.CourseId).filter(id => id != null)
@@ -188,9 +181,7 @@ const AssignationsCourseProf = () => {
         }
     }, [assignedCourses]);
 
-    // Update professor filter options once detailed professor info is available
     useEffect(() => {
-        // professorDetails is an object; we take its values to create filter options
         const uniqueProfessors = Object.values(professorDetails);
         setProfessors(uniqueProfessors);
     }, [professorDetails]);
@@ -235,10 +226,8 @@ const AssignationsCourseProf = () => {
                 return;
             }
 
-            // Track deletion results
             const results = [];
 
-            // Delete each assignation individually using the backend API
             for (const id of selectedCourseIds) {
                 try {
                     const response = await axios.delete(`/assignation/deleteAssignation/${id}`);
@@ -256,14 +245,11 @@ const AssignationsCourseProf = () => {
                 }
             }
 
-            // Check if any deletions failed
             const failedDeletions = results.filter(result => !result.success);
             if (failedDeletions.length > 0) {
                 console.error("Some deletions failed:", failedDeletions);
-                // Optional: Display error message to user
             }
 
-            // Refresh the assignations list
             const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
             if (response.data.successful) {
                 setAssignedCourses(response.data.data);
@@ -277,6 +263,14 @@ const AssignationsCourseProf = () => {
         }
     };
 
+    const handleDeleteClick = () => {
+        if (!checkboxes.some(Boolean)) {
+            setWarningMessage("Please select at least one course to delete");
+        } else {
+            toggleModal('delete', true);
+        }
+    };
+
     const toggleModal = (modalName, isOpen) => {
         setModals(prev => ({ ...prev, [modalName]: isOpen }));
     };
@@ -285,9 +279,12 @@ const AssignationsCourseProf = () => {
         setFilters(prev => ({ ...prev, [filterName]: value }));
     };
 
-    // Filter assignations based on selected criteria
+    const handleSearchChange = (e) => {
+        setFilters(prev => ({ ...prev, searchQuery: e.target.value }));
+    };
+
     const filteredCourses = assignedCourses.filter(course => {
-        // For professor filter, compare against the professor's name from professorDetails
+        // Check dropdown filters first
         if (filters.professor) {
             const profDetail = professorDetails[course.ProfessorId];
             if (!profDetail || profDetail.Name !== filters.professor) return false;
@@ -295,12 +292,29 @@ const AssignationsCourseProf = () => {
         if (filters.schoolYear && course.School_Year !== filters.schoolYear) return false;
         if (filters.semester && course.Semester !== filters.semester) return false;
 
-        // New filter for room type
         if (filters.roomType && course.RoomTypeId) {
             const roomType = roomTypeDetails[course.RoomTypeId];
             if (!roomType || roomType.Type !== filters.roomType) return false;
         } else if (filters.roomType && !course.RoomTypeId) {
-            return false; // If a room type is selected but the course has none
+            return false;
+        }
+
+        // Then apply search query filter if it exists
+        if (filters.searchQuery) {
+            const query = filters.searchQuery.toLowerCase();
+            const profDetail = professorDetails[course.ProfessorId];
+            const courseDetail = courseDetails[course.CourseId];
+            const roomTypeDetail = roomTypeDetails[course.RoomTypeId];
+
+            // Search across multiple fields
+            return (
+                (profDetail && profDetail.Name && profDetail.Name.toLowerCase().includes(query)) ||
+                (courseDetail && courseDetail.Code && courseDetail.Code.toLowerCase().includes(query)) ||
+                (courseDetail && courseDetail.Description && courseDetail.Description.toLowerCase().includes(query)) ||
+                (course.Semester && course.Semester.toLowerCase().includes(query)) ||
+                (course.School_Year && course.School_Year.toLowerCase().includes(query)) ||
+                (roomTypeDetail && roomTypeDetail.Type && roomTypeDetail.Type.toLowerCase().includes(query))
+            );
         }
 
         return true;
@@ -320,13 +334,21 @@ const AssignationsCourseProf = () => {
             <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
 
             <div className="flex flex-col justify-center items-center h-screen w-full px-8">
-                {/* Display the current department */}
-                <div className="mb-4 text-lg font-semibold text-white">
+                <div className="text-xl p-10 font-semibold text-white">
                     Current Department: {department ? department.Name : "Loading..."}
                 </div>
 
                 <div className="flex justify-end w-10/12 mb-4">
                     <div className="flex flex-wrap gap-4">
+                        {/* Added search input */}
+                        <input
+                            type="text"
+                            placeholder="Search anything..."
+                            value={filters.searchQuery}
+                            onChange={handleSearchChange}
+                            className="px-4 py-2 border rounded text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+
                         <select
                             value={filters.professor}
                             onChange={(e) => handleFilterChange('professor', e.target.value)}
@@ -336,19 +358,6 @@ const AssignationsCourseProf = () => {
                             {professors.map(prof => (
                                 <option key={`prof-${prof.id}`} value={prof.Name}>
                                     {prof.Name}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={filters.schoolYear}
-                            onChange={(e) => handleFilterChange('schoolYear', e.target.value)}
-                            className="px-4 py-2 border rounded text-sm md:text-base"
-                        >
-                            <option value="">All School Years</option>
-                            {schoolYears.map(year => (
-                                <option key={year} value={year}>
-                                    {year}
                                 </option>
                             ))}
                         </select>
@@ -366,7 +375,6 @@ const AssignationsCourseProf = () => {
                             ))}
                         </select>
 
-                        {/* New Room Type filter */}
                         <select
                             value={filters.roomType}
                             onChange={(e) => handleFilterChange('roomType', e.target.value)}
@@ -393,17 +401,20 @@ const AssignationsCourseProf = () => {
                             Assigned Courses To Professors
                         </h2>
                     </div>
-
+                    {warningMessage && (
+                        <div className="sticky text-center mb-5 w-full mt-3 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
+                            {warningMessage}
+                        </div>
+                    )}
                     <div className="overflow-auto w-full h-full flex-grow">
                         <table className="text-center w-full border-collapse">
                             <thead>
                                 <tr className="bg-blue-600">
                                     <th className="px-4 py-2 text-white font-medium border">Code</th>
                                     <th className="px-4 py-2 text-white font-medium border">Description</th>
-                                    <th className="px-4 py-2 text-white font-medium border">School Year</th>
                                     <th className="px-4 py-2 text-white font-medium border">Semester</th>
                                     <th className="px-4 py-2 text-white font-medium border">Professor</th>
-                                    <th className="px-4 py-2 text-white font-medium border">Room Type</th> {/* New header */}
+                                    <th className="px-4 py-2 text-white font-medium border">Room Type</th>
                                     <th className="px-4 py-2 text-white font-medium border">
                                         <input
                                             type="checkbox"
@@ -420,14 +431,11 @@ const AssignationsCourseProf = () => {
                                         const originalIndex = assignedCourses.findIndex(
                                             (c) => c.id === assignment.id
                                         );
-                                        // Use detailed professor info based on ProfessorId
                                         const profDetail = professorDetails[assignment.ProfessorId];
                                         const professorDisplay = profDetail
                                             ? `${profDetail.Name} (${profDetail.ProfStatus?.Status || "No Status"})`
                                             : 'N/A';
-                                        // Use detailed course info based on CourseId
                                         const courseDetail = courseDetails[assignment.CourseId];
-                                        // Use detailed room type info
                                         const roomTypeDetail = roomTypeDetails[assignment.RoomTypeId];
                                         const roomTypeDisplay = roomTypeDetail ? roomTypeDetail.Type : 'Not Specified';
 
@@ -443,13 +451,10 @@ const AssignationsCourseProf = () => {
                                                     {courseDetail?.Description || 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-2 border">
-                                                    {assignment.School_Year}
-                                                </td>
-                                                <td className="px-4 py-2 border">
                                                     {assignment.Semester}
                                                 </td>
                                                 <td className="px-4 py-2 border">{professorDisplay}</td>
-                                                <td className="px-4 py-2 border">{roomTypeDisplay}</td> {/* New cell */}
+                                                <td className="px-4 py-2 border">{roomTypeDisplay}</td>
                                                 <td className="py-2 border">
                                                     <input
                                                         type="checkbox"
@@ -490,7 +495,7 @@ const AssignationsCourseProf = () => {
                         alt="Add"
                     />
                 </button>
-                <button onClick={() => toggleModal('delete', true)} disabled={!checkboxes.some(Boolean)}>
+                <button onClick={handleDeleteClick}>
                     <img
                         src={delBtn}
                         className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
@@ -499,7 +504,6 @@ const AssignationsCourseProf = () => {
                 </button>
             </div>
 
-            {/* Note: You'll need to update AddAssignationModal to include room type selection */}
             <AddAssignationModal
                 isOpen={modals.add}
                 onClose={() => toggleModal('add', false)}
@@ -512,10 +516,10 @@ const AssignationsCourseProf = () => {
                     onClose={() => toggleModal('edit', false)}
                     onUpdate={handleUpdateAssignment}
                     professors={professors}
-                    departments={[]} // Department filter removed
+                    departments={[]}
                     schoolYears={schoolYears}
                     semesters={semesters}
-                    roomTypes={roomTypes} // Pass room types to the edit modal
+                    roomTypes={roomTypes}
                 />
             )}
 
