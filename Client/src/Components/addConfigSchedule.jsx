@@ -170,7 +170,9 @@ const AddConfigSchedule = () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
-      const response = await axios.delete(`/schedule/deleteSchedule/${scheduleId}`);
+      console.log(deptId);
+      
+      const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -421,7 +423,7 @@ const AddConfigSchedule = () => {
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
     try {
-      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`);
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId});
       if (response.data.successful) {
         setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -459,7 +461,8 @@ const AddConfigSchedule = () => {
       // Make a PUT request to toggle lock status for all relevant schedules
       const response = await axios.put("/schedule/toggleLockAllSchedules", {
         scheduleIds: targetSchedules,
-        isLocked: lockAction
+        isLocked: lockAction,
+        DepartmentId: deptId
       });
 
       if (response.data.successful) {
