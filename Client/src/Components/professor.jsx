@@ -45,7 +45,7 @@ const Professor = () => {
           };
         });
         setProfStatusMap(statusMap);
-        console.log("Status map loaded:", statusMap);
+        // console.log("Status map loaded:", statusMap);
       }
     } catch (error) {
       console.error("Failed to fetch professor statuses:", error.message);
@@ -126,7 +126,7 @@ const Professor = () => {
   // Log selectedProf after it has been updated
   useEffect(() => {
     if (selectedProf) {
-      console.log("Selected Professor:", selectedProf);
+      // console.log("Selected Professor:", selectedProf);
     }
   }, [selectedProf]);
 
@@ -155,7 +155,7 @@ const Professor = () => {
       // Refresh the professor list
       fetchProfessors();
       setIsDeleteWarningOpen(false); // Close the delete warning modal
-      console.log("Deleted professors:", idsToDelete);
+      // console.log("Deleted professors:", idsToDelete);
     } catch (error) {
       console.error("Error deleting professors:", error.message);
     }
