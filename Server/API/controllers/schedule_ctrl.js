@@ -216,7 +216,7 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
     for (let i = 0; i < intervals.length - 1; i++) {
         const current = intervals[i];
         const next = intervals[i + 1];
-        
+
         // Check if this is the new proposed schedule adjacent to an existing one
         if (next.start === startHour || current.start === startHour) {
             // Case 1: This new class creates or extends a continuous block
@@ -246,7 +246,7 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
         if (intervals[i].start === contiguousEnd) {
             // This interval directly connects to the previous block
             contiguousEnd = intervals[i].end;
-            
+
             // Check if this extension would exceed the maximum allowed continuous hours
             if (contiguousEnd - contiguousStart > maxContinuousHours) {
                 return false;
@@ -254,12 +254,12 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
         } else {
             // There's a gap between intervals
             const gap = intervals[i].start - contiguousEnd;
-            
+
             // If the previous block reached maximum allowed hours, check if there's enough break
             if (contiguousEnd - contiguousStart >= maxContinuousHours && gap < requiredBreak) {
                 return false; // Not enough break after reaching max continuous hours
             }
-            
+
             // Start a new contiguous block
             contiguousStart = intervals[i].start;
             contiguousEnd = intervals[i].end;
@@ -538,7 +538,7 @@ const trueBacktrackScheduleVariant = async (
                                     // This should be done with actual program data, so we're keeping the 
                                     // actual section information directly from the data
                                     return `${s.Program ? s.Program.Code : ""}${s.Year}${s.Section}`;
-                                  }),
+                                }),
                                 Room: room.Code,
                                 RoomId: room.id,
                                 Day: day,
@@ -655,7 +655,7 @@ const generateScheduleVariants = async (req, res, next) => {
             variantCount = 2, // Default to 2 variants
             semester
         } = req.body;
-        
+
         if (!DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -666,13 +666,13 @@ const generateScheduleVariants = async (req, res, next) => {
         // Start measuring execution time
         const startTime = Date.now();
 
-        if (!semester){
+        if (!semester) {
             return res.status(400).json({
                 successful: false,
                 message: "Semester is required."
             });
         }
-        
+
         // 1) Normalize priorities
         const priorities = {};
         if (prioritizedProfessor) {
@@ -761,13 +761,14 @@ const generateScheduleVariants = async (req, res, next) => {
                 isLocked: true
             },
             include: [
-                { model: ProgYrSec }, 
-                { model: Room }, 
-                { model: Assignation, where: {
-                    Semester: semester
-                }
+                { model: ProgYrSec },
+                { model: Room },
+                {
+                    model: Assignation, where: {
+                        Semester: semester
+                    }
 
-            }]
+                }]
         });
 
         console.log(`Found ${lockedSchedules.length} locked schedules`);
@@ -783,10 +784,11 @@ const generateScheduleVariants = async (req, res, next) => {
             },
             include: [
                 { model: Room },
-                { model: Assignation, where: {
-                    Semester: semester
-                }
-            }]
+                {
+                    model: Assignation, where: {
+                        Semester: semester
+                    }
+                }]
         });
 
         console.log(`Found ${allRoomSchedules.length} schedules across all rooms`);
@@ -822,7 +824,7 @@ const generateScheduleVariants = async (req, res, next) => {
         // Preload all sections once
         const allSecs = await ProgYrSec.findAll();
         console.log(`Loaded ${allSecs.length} total sections from database`);
-        
+
         for (const sec of allSecs) {
             // Cache section info
             roomCache.sections[sec.id] = {
@@ -843,7 +845,7 @@ const generateScheduleVariants = async (req, res, next) => {
         // Generate multiple schedule variants
         for (let variant = 0; variant < variantCount; variant++) {
             console.log(`\n====== Generating variant ${variant + 1} of ${variantCount} ======`);
-            
+
             // 8a) Initialize tracking structures
             const professorSchedule = {}, courseSchedules = {}, progYrSecSchedules = {}, roomSchedules = {};
 
@@ -908,7 +910,7 @@ const generateScheduleVariants = async (req, res, next) => {
                 // Sections
                 const linkedSecs = await sch.getProgYrSecs();
                 console.log(`Schedule ${sch.id} has ${linkedSecs.length} linked sections`);
-                
+
                 for (const sec of linkedSecs) {
                     progYrSecSchedules[sec.id][day].hours += dur;
                     progYrSecSchedules[sec.id][day].dailyTimes.push({ start: startH, end: endH });
@@ -918,43 +920,43 @@ const generateScheduleVariants = async (req, res, next) => {
             // 9) CRITICAL FIX: For each variant, preserve priority ordering but apply variation to non-priority items
             // Clone unscheduled assignations for this variant
             let variantAssignations = [...unscheduledAssignations];
-            
+
             // IMPORTANT: Split into prioritized and non-prioritized groups - only shuffle non-prioritized
             if (variant > 0) { // First variant keeps the original ordering
                 if (priorities.professor) {
-                    const prioritizedAssignations = variantAssignations.filter(a => 
+                    const prioritizedAssignations = variantAssignations.filter(a =>
                         priorities.professor.includes(a.Professor?.id));
-                    const nonPrioritizedAssignations = variantAssignations.filter(a => 
+                    const nonPrioritizedAssignations = variantAssignations.filter(a =>
                         !priorities.professor.includes(a.Professor?.id));
-                    
+
                     // Only shuffle the non-prioritized assignations
                     const shuffledNonPriority = shuffleDeterministic([...nonPrioritizedAssignations], variant);
-                    
+
                     // Recombine while preserving priority order
                     variantAssignations = [...prioritizedAssignations, ...shuffledNonPriority];
                 } else {
                     // If no professor priorities, shuffle everything
                     variantAssignations = shuffleDeterministic([...unscheduledAssignations], variant);
                 }
-                
+
                 // Handle room prioritization - split, shuffle non-priority, recombine
                 let variantRooms = [...rooms];
                 if (priorities.room) {
-                    const prioritizedRooms = variantRooms.filter(r => 
+                    const prioritizedRooms = variantRooms.filter(r =>
                         priorities.room.includes(r.id));
-                    const nonPrioritizedRooms = variantRooms.filter(r => 
+                    const nonPrioritizedRooms = variantRooms.filter(r =>
                         !priorities.room.includes(r.id));
-                    
+
                     // Only shuffle the non-prioritized rooms
                     const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
-                    
+
                     // Recombine while preserving priority order
                     variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
                 } else {
                     // If no room priorities, shuffle everything
                     variantRooms = shuffleDeterministic([...rooms], variant);
                 }
-                
+
                 rooms = variantRooms;
             }
 
@@ -994,12 +996,12 @@ const generateScheduleVariants = async (req, res, next) => {
                     const sections = sch.ProgYrSecs?.map(sec =>
                         `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`
                     );
-                    
+
                     console.log(`Locked schedule ${sch.id} sections:`, sections);
-                    
+
                     // Extract section IDs for easier reference
                     const sectionIds = sch.ProgYrSecs?.map(sec => sec.id) || [];
-                    
+
                     return {
                         id: sch.id,
                         Professor: sch.Assignation?.Professor?.Name,
@@ -1025,7 +1027,7 @@ const generateScheduleVariants = async (req, res, next) => {
                         hasSectionIds: Boolean(schedule.SectionIds),
                         sectionCount: schedule.Sections?.length
                     });
-                    
+
                     // Make sure we have ProgYrSecIds for newly generated schedules
                     let sectionIds = [];
                     if (!schedule.ProgYrSecIds && Array.isArray(schedule.SectionIds)) {
@@ -1040,7 +1042,7 @@ const generateScheduleVariants = async (req, res, next) => {
                         console.log("Processing Sections array:", schedule.Sections);
                         // First try the standard format ("ProgId=X, Year=Y, Sec=Z")
                         // [existing code...]
-                        
+
                         // ADDED: If standard pattern fails, try parsing program-year-section format
                         // like "BSCS1A" which means program=BSCS, year=1, section=A
                         if (sectionIds.length === 0) {
@@ -1052,36 +1054,36 @@ const generateScheduleVariants = async (req, res, next) => {
                                     const year = parseInt(match[2], 10); // e.g., 1
                                     const section = match[3]; // e.g., "A"
                                     console.log("Parsed section from string:", { programCode, year, section });
-                                    
+
                                     // Find the program ID by program code
                                     const program = await Program.findOne({ where: { Code: programCode } });
                                     if (!program) {
                                         console.log(`Program with code ${programCode} not found`);
                                         return null;
                                     }
-                                    
+
                                     // Find the section in the database
-                                    const sectionRecord = await ProgYrSec.findOne({ 
-                                        where: { ProgramId: program.id, Year: year, Section: section } 
+                                    const sectionRecord = await ProgYrSec.findOne({
+                                        where: { ProgramId: program.id, Year: year, Section: section }
                                     });
                                     console.log("Section record found:", sectionRecord ? `ID: ${sectionRecord.id}` : "Not found");
                                     return sectionRecord ? sectionRecord.id : null;
                                 }
                                 return null;
                             });
-                            
+
                             // Wait for all section queries to complete and filter out any nulls
                             const resolvedSectionIds = await Promise.all(sectionPromises);
                             sectionIds = resolvedSectionIds.filter(id => id !== null);
                             console.log("Final resolved section IDs from simplified format:", sectionIds);
-                            
+
                             // Assign the resolved section IDs to the schedule
                             if (sectionIds.length > 0) {
                                 schedule.ProgYrSecIds = sectionIds;
                             }
                         }
                     }
-                    
+
                     return schedule;
                 }))
             ];
@@ -1091,10 +1093,10 @@ const generateScheduleVariants = async (req, res, next) => {
                 index,
                 hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
                 ProgYrSecIds: sch.ProgYrSecIds,
-                SectionIds: sch.SectionIds 
+                SectionIds: sch.SectionIds
             }));
-            
-            console.log(`Variant ${variant + 1} section ID summary:`, 
+
+            console.log(`Variant ${variant + 1} section ID summary:`,
                 JSON.stringify(sectionSummary, null, 2)
             );
 
@@ -1128,7 +1130,7 @@ const saveScheduleVariant = async (req, res, next) => {
     try {
         const { variant, DepartmentId, semester } = req.body;
 
-        if (!semester){
+        if (!semester) {
             return res.status(400).json({
                 successful: false,
                 message: "Invalid request: semester is required."
@@ -1143,9 +1145,11 @@ const saveScheduleVariant = async (req, res, next) => {
 
         // 1. Get all existing schedules for this department that aren't locked
         const department = await Department.findByPk(DepartmentId, {
-            include: [{ model: Assignation, where: { 
-                Semester: semester
-            },attributes: ['id'] }]
+            include: [{
+                model: Assignation, where: {
+                    Semester: semester
+                }, attributes: ['id']
+            }]
         });
 
         if (!department) {
@@ -1181,7 +1185,7 @@ const saveScheduleVariant = async (req, res, next) => {
                 ProgYrSecs: schedule.ProgYrSecs,
                 Sections: schedule.Sections
             });
-            
+
             // Create new schedule
             const newSchedule = await Schedule.create({
                 Day: schedule.Day,
@@ -1194,7 +1198,7 @@ const saveScheduleVariant = async (req, res, next) => {
 
             // CRITICAL FIX: Look for section IDs in various formats
             let sectionIds = [];
-            
+
             // Try to extract section IDs from the ProgYrSecIds property if it exists
             if (schedule.ProgYrSecIds && Array.isArray(schedule.ProgYrSecIds)) {
                 sectionIds = schedule.ProgYrSecIds;
@@ -1220,25 +1224,25 @@ const saveScheduleVariant = async (req, res, next) => {
                     const progIdMatch = sectionString.match(/ProgId=(\d+)/);
                     const yearMatch = sectionString.match(/Year=(\d+)/);
                     const secMatch = sectionString.match(/Sec=([A-Z])/);
-                    
+
                     console.log("Parsing section string:", {
                         string: sectionString,
                         progIdMatch,
                         yearMatch,
                         secMatch
                     });
-                    
+
                     if (progIdMatch && yearMatch && secMatch) {
                         const programId = parseInt(progIdMatch[1], 10);
                         const year = parseInt(yearMatch[1], 10);
                         const section = secMatch[1];
-                        
+
                         console.log("Looking up section record for:", {
                             programId,
                             year,
                             section
                         });
-                        
+
                         // Find the section in the database
                         const sectionRecord = await ProgYrSec.findOne({
                             where: {
@@ -1247,15 +1251,15 @@ const saveScheduleVariant = async (req, res, next) => {
                                 Section: section
                             }
                         });
-                        
-                        console.log("Section record found:", sectionRecord ? 
+
+                        console.log("Section record found:", sectionRecord ?
                             `ID: ${sectionRecord.id}` : "Not found");
-                        
+
                         return sectionRecord ? sectionRecord.id : null;
                     }
                     return null;
                 });
-                
+
                 // Wait for all section queries to complete and filter out any nulls
                 const resolvedSectionIds = await Promise.all(sectionPromises);
                 sectionIds = resolvedSectionIds.filter(id => id !== null);
@@ -1272,17 +1276,17 @@ const saveScheduleVariant = async (req, res, next) => {
 
             newSchedules.push(newSchedule);
         }
-        
+
         // Final logging of section IDs per schedule
-        console.log("Section IDs summary per schedule:", 
+        console.log("Section IDs summary per schedule:",
             variant.schedules.map(sch => ({
                 hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
-                ids: Array.isArray(sch.ProgYrSecIds) ? sch.ProgYrSecIds : 
-                     Array.isArray(sch.SectionIds) ? sch.SectionIds : [],
+                ids: Array.isArray(sch.ProgYrSecIds) ? sch.ProgYrSecIds :
+                    Array.isArray(sch.SectionIds) ? sch.SectionIds : [],
                 sections: sch.Sections
             }))
         );
-        
+
         return res.status(200).json({
             successful: true,
             message: `Successfully saved schedule variant with ${newSchedules.length} new schedules.`,
@@ -1892,33 +1896,33 @@ const toggleLock = async (req, res, next) => {
 // Updated controller function to toggle lock status (lock or unlock)
 const toggleLockAllSchedules = async (req, res) => {
     try {
-      const { scheduleIds, isLocked } = req.body;
-      
-      if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
-        return res.status(400).json({
-          successful: false,
-          message: 'No schedule IDs provided'
+        const { scheduleIds, isLocked } = req.body;
+
+        if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: 'No schedule IDs provided'
+            });
+        }
+
+        // Update all schedules to the specified lock status
+        await Schedule.update(
+            { isLocked: !!isLocked }, // Convert to boolean
+            { where: { id: scheduleIds } }
+        );
+
+        return res.json({
+            successful: true,
+            message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
         });
-      }
-  
-      // Update all schedules to the specified lock status
-      await Schedule.update(
-        { isLocked: !!isLocked }, // Convert to boolean
-        { where: { id: scheduleIds } }
-      );
-  
-      return res.json({
-        successful: true,
-        message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
-      });
     } catch (error) {
-      console.error('Error toggling schedule lock status:', error);
-      return res.status(500).json({
-        successful: false,
-        message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
-      });
+        console.error('Error toggling schedule lock status:', error);
+        return res.status(500).json({
+            successful: false,
+            message: `An error occurred while ${isLocked ? 'locking' : 'unlocking'} schedules`
+        });
     }
-  };
+};
 // Add Schedule (Manual Version of automateSchedule)
 const addSchedule = async (req, res, next) => {
     try {
@@ -2006,13 +2010,18 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
+            let totalStudents = 0;
+            for (const section of sectionsData) {
+                totalStudents += section.NumberOfStudents;
+            }
+
             if (totalStudents > room.NumberOfSeats) {
                 return res.status(400).json({
                     successful: false,
                     message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
                 });
             }
-            
+
             // Check for conflicting schedules in the same room on the same day - now filtered by semester
             const existingRoomSchedules = await Schedule.findAll({
                 include: [{
@@ -2021,17 +2030,17 @@ const addSchedule = async (req, res, next) => {
                 }],
                 where: { Day, RoomId }
             });
-            
+
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
             const currentDay = days[Day - 1]
-            
+
             // Allow back-to-back schedules but check for any overlaps
             const isRoomConflict = existingRoomSchedules.some(existing => {
                 const existingStartSec = timeToSeconds(existing.Start_time);
                 const existingEndSec = timeToSeconds(existing.End_time);
                 return (newStartSec < existingEndSec && newEndSec > existingStartSec);
             });
-            
+
             if (isRoomConflict) {
                 return res.status(400).json({
                     successful: false,
@@ -2079,14 +2088,14 @@ const addSchedule = async (req, res, next) => {
             const professorSchedules = await Schedule.findAll({
                 include: [{
                     model: Assignation,
-                    where: { 
+                    where: {
                         ProfessorId: assignation.Professor.id,
                         Semester
                     }
                 }],
                 where: { Day }
             });
-            
+
             let profScheduleForDay = { hours: 0, dailyTimes: [] };
             professorSchedules.forEach(s => {
                 const profSchedStart = parseInt(s.Start_time.split(":")[0]); // simple extraction; can be enhanced
@@ -2136,7 +2145,7 @@ const addSchedule = async (req, res, next) => {
                     ],
                     where: { Day }
                 });
-                
+
                 let sectionScheduleForDay = { hours: 0, dailyTimes: [] };
                 sectionSchedules.forEach(s => {
                     const sectionSchedStart = parseInt(s.Start_time.split(":")[0]);
@@ -2161,14 +2170,14 @@ const addSchedule = async (req, res, next) => {
                         },
                         {
                             model: Assignation,
-                            where: { 
+                            where: {
                                 CourseId: assignation.Course.id,
                                 Semester
                             }
                         }
                     ]
                 });
-                
+
                 let scheduledHours = 0;
                 existingSchedulesForSection.forEach(sched => {
                     const schedStart = timeToSeconds(sched.Start_time);
@@ -2227,7 +2236,7 @@ const updateSchedule = async (req, res, next) => {
         const { id } = req.params;
         const { Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester } = req.body;
         console.log(Semester);
-        
+
 
         // Validate mandatory fields - now including Semester
         if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester])) {
@@ -2318,8 +2327,8 @@ const updateSchedule = async (req, res, next) => {
         }
         if (totalStudents > room.NumberOfSeats) {
             return res.status(400).json({
-              successful: false,
-              message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
+                successful: false,
+                message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
             });
         }
 
@@ -2357,7 +2366,7 @@ const updateSchedule = async (req, res, next) => {
         const professorSchedules = await Schedule.findAll({
             include: [{
                 model: Assignation,
-                where: { 
+                where: {
                     ProfessorId: assignation.Professor.id,
                     Semester
                 }
@@ -2375,7 +2384,7 @@ const updateSchedule = async (req, res, next) => {
         // Check if the professor is available during the scheduled time
         const professorId = assignation.Professor.id;
         console.log(Day);
-        
+
         const professorAvailabilities = await ProfAvail.findAll({
             where: {
                 ProfessorId: professorId,
@@ -2471,7 +2480,7 @@ const updateSchedule = async (req, res, next) => {
                     },
                     {
                         model: Assignation,
-                        where: { 
+                        where: {
                             CourseId: assignation.Course.id,
                             Semester
                         }
@@ -2587,9 +2596,9 @@ const getAllSchedules = async (req, res, next) => {
 
 const getSchedsByRoom = async (req, res, next) => {
     try {
-        const {Semester} = req.body
+        const { Semester } = req.body
         console.log(Semester)
-        
+
         const sched = await Schedule.findAll({
             where: { RoomId: req.params.id },
             attributes: { exclude: ['createdAt', 'updatedAt'] },
@@ -2659,7 +2668,7 @@ const getSchedsByProf = async (req, res, next) => {
                 {
                     // only include schedules linked to this professor
                     model: Assignation,
-                    where: { ProfessorId: profId, Semester},
+                    where: { ProfessorId: profId, Semester },
                     attributes: ['id', 'School_Year', 'Semester'],
                     include: [
                         {
@@ -2705,35 +2714,20 @@ const getSchedsByProf = async (req, res, next) => {
                 data: []
             });
         }
-      ],
-      order: [
-        ['Day', 'ASC'],
-        ['Start_time', 'ASC']
-      ]
-    });
 
-    if (!scheds.length) {
-      return res.status(200).json({
-        successful: true,
-        message: 'No schedule found',
-        count: 0,
-        data: []
-      });
+        res.status(200).json({
+            successful: true,
+            message: 'Retrieved all schedules',
+            count: scheds.length,
+            data: scheds
+        });
+    } catch (err) {
+        console.error('Error in getSchedsByProf:', err);
+        return res.status(500).json({
+            successful: false,
+            message: err.message || 'An unexpected error occurred.'
+        });
     }
-
-    res.status(200).json({
-      successful: true,
-      message: 'Retrieved all schedules',
-      count: scheds.length,
-      data: scheds
-    });
-  } catch (err) {
-    console.error('Error in getSchedsByProf:', err);
-    return res.status(500).json({
-      successful: false,
-      message: err.message || 'An unexpected error occurred.'
-    });
-  }
 };
 
 const getSchedsByDept = async (req, res, next) => {
@@ -2796,35 +2790,20 @@ const getSchedsByDept = async (req, res, next) => {
                 data: []
             });
         }
-      ],
-      order: [
-        ['Day', 'ASC'],
-        ['Start_time', 'ASC']
-      ]
-    });
 
-    if (!scheds.length) {
-      return res.status(200).json({
-        successful: true,
-        message: 'No schedule found',
-        count: 0,
-        data: []
-      });
+        res.status(200).json({
+            successful: true,
+            message: 'Retrieved all schedules',
+            count: scheds.length,
+            data: scheds
+        });
+    } catch (err) {
+        console.error('Error in getSchedsByDept:', err);
+        return res.status(500).json({
+            successful: false,
+            message: err.message || 'An unexpected error occurred.'
+        });
     }
-
-    res.status(200).json({
-      successful: true,
-      message: 'Retrieved all schedules',
-      count: scheds.length,
-      data: scheds
-    });
-  } catch (err) {
-    console.error('Error in getSchedsByDept:', err);
-    return res.status(500).json({
-      successful: false,
-      message: err.message || 'An unexpected error occurred.'
-    });
-  }
 };
 
 
