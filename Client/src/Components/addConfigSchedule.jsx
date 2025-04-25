@@ -151,7 +151,9 @@ const AddConfigSchedule = () => {
       return;
     }
     
-    axios.post(`/schedule/getSchedsByRoom/${roomId}`, { Semester: selectedSemester })
+    axios.get(`/schedule/getSchedsByRoom/${roomId}`, { 
+      params: { Semester: selectedSemester }
+    })
       .then(({ data }) => {
         if (data.successful) {
           setSchedules(data.data);
@@ -327,44 +329,45 @@ const AddConfigSchedule = () => {
   };
 
   // Add this function to handle saving the selected variant
-  const handleSelectVariant = async (variantIndex) => {
-    try {
-      const selectedVariant = scheduleVariants[variantIndex];
+const handleSelectVariant = async (variantIndex) => {
+  try {
+    const selectedVariant = scheduleVariants[variantIndex];
 
-      const response = await axios.post('/schedule/saveScheduleVariants', {
-        variant: selectedVariant,
-        DepartmentId: deptId
+    const response = await axios.post('/schedule/saveScheduleVariants', {
+      variant: selectedVariant,
+      DepartmentId: deptId,
+      semester: selectedSemester  // Add the missing semester parameter
+    });
+
+    if (response.data.successful) {
+      setNotification({
+        type: 'success',
+        message: 'Schedule variant saved successfully to the database!'
       });
 
-      if (response.data.successful) {
-        setNotification({
-          type: 'success',
-          message: 'Schedule variant saved successfully to the database!'
-        });
+      setShowVariantModal(false);
 
-        setShowVariantModal(false);
-
-        // Refresh schedules for the current room if one is selected
-        if (formData.room_id) {
-          fetchSchedulesForRoom(formData.room_id);
-        }
-      } else {
-        setNotification({
-          type: 'error',
-          message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
-        });
+      // Refresh schedules for the current room if one is selected
+      if (formData.room_id) {
+        fetchSchedulesForRoom(formData.room_id);
       }
-    } catch (error) {
-      console.error('Error saving variant:', error);
+    } else {
       setNotification({
         type: 'error',
-        message: transformErrorMessage(
-          error.response?.data?.message ||
-          'An error occurred while saving the schedule variant'
-        )
+        message: transformErrorMessage(response.data.message || 'Failed to save schedule variant')
       });
     }
-  };
+  } catch (error) {
+    console.error('Error saving variant:', error);
+    setNotification({
+      type: 'error',
+      message: transformErrorMessage(
+        error.response?.data?.message ||
+        'An error occurred while saving the schedule variant'
+      )
+    });
+  }
+};
 
 
 
