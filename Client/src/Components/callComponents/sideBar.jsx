@@ -62,7 +62,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const MenuItem = ({ label, onClick, hasChildren, isActive, icon: Icon, children }) => (
     <div className="w-full mb-6">
       <button
-      className={`hover:bg-[#5c5c72] duration-300 py-6 px-4 rounded w-full flex items-center gap-12 transition-all ${
+      className={`hover:bg-[#787897b6] duration-300 py-6 px-4 rounded w-full flex items-center gap-12 transition-all ${
         isActive ? 'border-l-4 border-blue-400 bg-gray-700/50' : ''
       }`}
         onClick={onClick}
@@ -91,15 +91,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   return (
     <div ref={sidebarRef}
-    className={`fixed left-0 min-h-screen bg-[#222e52] text-white shadow-lg transform ${
+    className={`fixed left-0 min-h-screen bg-[#28365c] text-white shadow-lg transform ${
       isOpen ? 'translate-x-0' : '-translate-x-full'
     } transition-transform duration-300 w-[260px] z-50 flex flex-col items-center overflow-y-auto`}>
      
 
       {/* User Profile Section */}
-      <div className="flex items-center text-center justify-center p-12 w-full border-b-2 border-white/60">
+      <div className="flex items-center text-center justify-center p-12 absolute top-120 w-full border-b-2 border-white/80">
         <div>
-          <h3 className="font-semibold text-lg truncate max-w-full">{user?.Name || 'User'}</h3>
+          <h3 className="font-semibold text-2xl truncate max-w-full">{user?.Name || 'User'}</h3>
           <p className="text-sm text-gray-300 truncate max-w-full">{user?.Email || 'No email'}</p>
           <p className="text-md text-gray-400 truncate max-w-full">
             {user?.Department?.Name || 'No department'}
@@ -108,7 +108,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       </div>
 
       {/* Navigation Menu */}
-      <div className="flex flex-col w-full py-20 px-3 overflow-y-auto">
+      <div className="flex flex-col w-full py-240 px-3 overflow-y-auto">
         <MenuItem 
           label="Home" 
           icon={Home}
