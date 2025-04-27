@@ -5,6 +5,9 @@ import { useAuth } from '../../Components/authContext';
 import axios from 'axios';
 import { BASE_URL } from '../../axiosConfig';
 
+// Import Lucide React Icons
+import { Home, Settings, Calendar, Users, Building2, BookOpen, Layers, UserCog, LogOut, ChevronDown } from 'lucide-react';
+
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -55,352 +58,297 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const isAdminOrProgramHead = isAdmin || isProgramHead;
   const isNonAdmin = user?.Roles !== 'Admin';
 
+  // Menu item component for consistent styling
+  const MenuItem = ({ label, onClick, hasChildren, isActive, icon: Icon, children }) => (
+    <div className="w-full mb-6">
+      <button
+      className={`hover:bg-[#5c5c72] duration-300 py-6 px-4 rounded w-full flex items-center gap-12 transition-all ${
+        isActive ? 'border-l-4 border-blue-400 bg-gray-700/50' : ''
+      }`}
+        onClick={onClick}
+      >
+        {Icon && <Icon className="w-20 h-20" />}
+        <span className="text-base font-medium flex-grow text-left">{label}</span>
+        {hasChildren && (
+          <ChevronDown
+            className={`w-10 h-10 mr-5 transform transition-transform ${isActive ? 'rotate-180' : ''}`}
+          />
+        )}
+      </button>
+      {children}
+    </div>
+  );
+
+  // Submenu item component for consistent styling
+  const SubMenuItem = ({ label, onClick }) => (
+    <button
+      className="hover:bg-gray-700 py-2 px-12 rounded w-full flex items-center text-sm transition-colors text-left"
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div ref={sidebarRef}
-      className={`fixed right-0 xs:right-0 min-h-screen bg-gray-800 text-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
-        } transition-transform duration-300 w-5/12 md:w-1/6 xs:w-2/6 z-50 flex flex-col justify-center`}>
-      <button
-        id="logoBtn"
-        className="xl:text-md md:text-lg font-bold text-blue-500 relative"
-        onClick={() => navigate('/homePage')}
-      >
-        EASE<span className="text-white">SCHEDULER</span>
-      </button>
+    className={`fixed left-0 min-h-screen bg-[#222e52] text-white shadow-lg transform ${
+      isOpen ? 'translate-x-0' : '-translate-x-full'
+    } transition-transform duration-300 w-[260px] z-50 flex flex-col items-center overflow-y-auto`}>
+     
 
       {/* User Profile Section */}
-      <div className="flex flex-col items-center px-5 py-4 border-b border-gray-700">
-        <div className="text-center">
-          <h3 className="font-semibold truncate max-w-full">{user?.Name || 'User'}</h3>
+      <div className="flex items-center text-center justify-center p-12 w-full border-b-2 border-white/60">
+        <div>
+          <h3 className="font-semibold text-lg truncate max-w-full">{user?.Name || 'User'}</h3>
           <p className="text-sm text-gray-300 truncate max-w-full">{user?.Email || 'No email'}</p>
-          <p className="text-xs text-gray-400 truncate max-w-full">
+          <p className="text-md text-gray-400 truncate max-w-full">
             {user?.Department?.Name || 'No department'}
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left"
+      {/* Navigation Menu */}
+      <div className="flex flex-col w-full py-20 px-3 overflow-y-auto">
+        <MenuItem 
+          label="Home" 
+          icon={Home}
           onClick={() => {
             navigate('/homePage');
             toggleSidebar(false);
           }}
-        >
-          Home
-        </button>
-      </div>
+        />
 
-      {/* Schedule Settings - Admin cannot access */}
-      {isNonAdmin && (
-        <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-          <button
-            className="hover:bg-gray-700 p-10 rounded w-full text-left"
+        {/* Schedule Settings - Admin cannot access */}
+        {isNonAdmin && (
+          <MenuItem 
+            label="Schedule Settings" 
+            icon={Settings}
             onClick={() => {
               navigate('/settings');
               toggleSidebar(false);
             }}
-          >
-            Schedule Settings
-          </button>
-        </div>
-      )}
+          />
+        )}
 
-      {/* Timetables Section - Admin cannot access */}
-      {isNonAdmin && (
-        <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-          <button
-            className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+        {/* Timetables Section - Admin cannot access */}
+        {isNonAdmin && (
+          <MenuItem
+            label="Timetables"
+            icon={Calendar}
+            hasChildren={true}
+            isActive={activeSection === 'Timetables'}
             onClick={() => toggleSubContent('Timetables')}
           >
-            Timetables
-            <svg
-              className={`w-9 h-9 transform transition-transform ${activeSection === 'Timetables' ? 'rotate-180' : ''
-                }`}
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth="5"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <div
-            className={`pl-12 space-y-5 overflow-hidden transition-all duration-500 ${activeSection === 'Timetables' ? 'max-h-screen' : 'max-h-0'
+            <div
+              className={`space-y-5 overflow-hidden transition-all duration-300 ${
+                activeSection === 'Timetables' ? 'max-h-screen py-5' : 'max-h-0'
               }`}
-          >
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/addConfigSchedule');
-                toggleSidebar(false);
-              }}
             >
-              Add/Configure Timetables
-            </button>
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/roomTimetable');
-                toggleSidebar(false);
-              }}
-            >
-              Room Timetables
-            </button>
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/profTimetable');
-                toggleSidebar(false);
-              }}
-            >
-              Professors Timetables
-            </button>
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/sectionTimetable');
-                toggleSidebar(false);
-              }}
-            >
-              Section Timetables
-            </button>
-          </div>
-        </div>
-      )}
+              <SubMenuItem
+                label="Add/Configure Timetables"
+                onClick={() => {
+                  navigate('/addConfigSchedule');
+                  toggleSidebar(false);
+                }}
+              />
+              <SubMenuItem
+                label="Room Timetables"
+                onClick={() => {
+                  navigate('/roomTimetable');
+                  toggleSidebar(false);
+                }}
+              />
+              <SubMenuItem
+                label="Professors Timetables"
+                onClick={() => {
+                  navigate('/profTimetable');
+                  toggleSidebar(false);
+                }}
+              />
+              <SubMenuItem
+                label="Section Timetables"
+                onClick={() => {
+                  navigate('/sectionTimetable');
+                  toggleSidebar(false);
+                }}
+              />
+            </div>
+          </MenuItem>
+        )}
 
-      {/* Professors Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+        {/* Professors Section */}
+        <MenuItem
+          label="Professors"
+          icon={Users}
+          hasChildren={true}
+          isActive={activeSection === 'professors'}
           onClick={() => toggleSubContent('professors')}
         >
-          Professors
-          <svg
-            className={`w-9 h-9 transform transition-transform ${activeSection === 'professors' ? 'rotate-180' : ''
-              }`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth="5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <div
-          className={`pl-12 space-y-4 overflow-hidden transition-all duration-500 ${activeSection === 'professors' ? 'max-h-screen' : 'max-h-0'
+          <div
+            className={`space-y-5 overflow-hidden transition-all duration-300 ${
+              activeSection === 'professors' ? 'max-h-screen py-5' : 'max-h-0'
             }`}
-        >
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/professor');
-              toggleSidebar(false);
-            }}
           >
-            Add/Configure Professors
-          </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/profAvailability');
-              toggleSidebar(false);
-            }}
-          >
-            Professor Availability
-          </button>
-          {/* Professor Assignations - Admin cannot access */}
-          {isNonAdmin && (
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            <SubMenuItem
+              label="Add/Configure Professors"
               onClick={() => {
-                navigate('/assignationsCourseProf');
+                navigate('/professor');
                 toggleSidebar(false);
               }}
-            >
-              Professor Assignations
-            </button>
-          )}
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/profStatus');
-              toggleSidebar(false);
-            }}
-          >
-            Professor Status
-          </button>
-        </div>
-      </div>
+            />
+            <SubMenuItem
+              label="Professor Availability"
+              onClick={() => {
+                navigate('/profAvailability');
+                toggleSidebar(false);
+              }}
+            />
+            {/* Professor Assignations - Admin cannot access */}
+            {isNonAdmin && (
+              <SubMenuItem
+                label="Professor Assignations"
+                onClick={() => {
+                  navigate('/assignationsCourseProf');
+                  toggleSidebar(false);
+                }}
+              />
+            )}
+            <SubMenuItem
+              label="Professor Status"
+              onClick={() => {
+                navigate('/profStatus');
+                toggleSidebar(false);
+              }}
+            />
+          </div>
+        </MenuItem>
 
-      {/* Rooms Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left"
+        {/* Rooms Section */}
+        <MenuItem
+          label="Rooms"
+          icon={Building2}
           onClick={() => {
             navigate('/room');
             toggleSidebar(false);
           }}
-        >
-          Rooms
-        </button>
-      </div>
+        />
 
-      {/* Courses Section - Admin cannot access */}
-      {isNonAdmin && (
-        <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-          <button
-            className="hover:bg-gray-700 p-10 rounded w-full text-left"
+        {/* Courses Section - Admin cannot access */}
+        {isNonAdmin && (
+          <MenuItem
+            label="Courses"
+            icon={BookOpen}
             onClick={() => {
               navigate('/course');
               toggleSidebar(false);
             }}
-          >
-            Courses
-          </button>
-        </div>
-      )}
+          />
+        )}
 
-      {/* Departments & Programs Section with dropdown */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+        {/* Departments & Programs Section */}
+        <MenuItem
+          label="Departments & Programs"
+          icon={Layers}
+          hasChildren={true}
+          isActive={activeSection === 'deptProg'}
           onClick={() => toggleSubContent('deptProg')}
         >
-          Departments & Programs
-          <svg
-            className={`w-9 h-9 transform transition-transform ${activeSection === 'deptProg' ? 'rotate-180' : ''
-              }`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth="5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'deptProg' ? 'max-h-screen' : 'max-h-0'
+          <div
+            className={`space-y-5 overflow-hidden transition-all duration-300 ${
+              activeSection === 'deptProg' ? 'max-h-screen py-5' : 'max-h-0'
             }`}
-        >
-          {/* Admin-only access to Manage Depts & Programs */}
-          {isAdmin && (
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/deptProg');
-                toggleSidebar(false);
-              }}
-            >
-              Manage Depts & Programs
-            </button>
-          )}
+          >
+            {/* Admin-only access to Manage Depts & Programs */}
+            {isAdmin && (
+              <SubMenuItem
+                label="Manage Depts & Programs"
+                onClick={() => {
+                  navigate('/deptProg');
+                  toggleSidebar(false);
+                }}
+              />
+            )}
 
-          {/* Program, Year, & Sections - Admin cannot access */}
-          {isNonAdmin && (
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/progYrSec');
-                toggleSidebar(false);
-              }}
-            >
-              Program, Year, & Sections
-            </button>
-          )}
+            {/* Program, Year, & Sections - Admin cannot access */}
+            {isNonAdmin && (
+              <SubMenuItem
+                label="Program, Year, & Sections"
+                onClick={() => {
+                  navigate('/progYrSec');
+                  toggleSidebar(false);
+                }}
+              />
+            )}
 
-          {/* Course & Program - Admin cannot access */}
-          {isNonAdmin && (
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
-              onClick={() => {
-                navigate('/courseProg');
-                toggleSidebar(false);
-              }}
-            >
-              Course & Program
-            </button>
-          )}
-        </div>
-      </div>
+            {/* Course & Program - Admin cannot access */}
+            {isNonAdmin && (
+              <SubMenuItem
+                label="Course & Program"
+                onClick={() => {
+                  navigate('/courseProg');
+                  toggleSidebar(false);
+                }}
+              />
+            )}
+          </div>
+        </MenuItem>
 
-      {/* Account Section */}
-      <div className="flex flex-col items-start space-y-1 px-5 md:px-20 py-10">
-        <button
-          className="hover:bg-gray-700 p-10 rounded w-full text-left flex justify-between items-center"
+        {/* Account Section */}
+        <MenuItem
+          label="Account"
+          icon={UserCog}
+          hasChildren={true}
+          isActive={activeSection === 'account'}
           onClick={() => toggleSubContent('account')}
         >
-          Account
-          <svg
-            className={`w-9 h-9 transform transition-transform ${activeSection === 'account' ? 'rotate-180' : ''
-              }`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth="5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <div
-          className={`pl-12 space-y-3 overflow-hidden transition-all duration-500 ${activeSection === 'account' ? 'max-h-screen' : 'max-h-0'
+          <div
+            className={`space-y-5 overflow-hidden transition-all duration-300 ${
+              activeSection === 'account' ? 'max-h-screen py-5' : 'max-h-0'
             }`}
-        >
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/accountSettings');
-              toggleSidebar(false);
-            }}
           >
-            Account Settings
-          </button>
-
-          {/* Program Head or Admin can access Create Account */}
-          {isAdminOrProgramHead && (
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            <SubMenuItem
+              label="Account Settings"
               onClick={() => {
-                navigate('/createAccount');
+                navigate('/accountSettings');
                 toggleSidebar(false);
               }}
-            >
-              Create Account
-            </button>
-          )}
+            />
 
-          {/* Admin-only access to Account List */}
-          {isAdmin && (
-            <button
-              className="hover:bg-gray-700 p-2 rounded w-full text-left"
+            {/* Program Head or Admin can access Create Account */}
+            {isAdminOrProgramHead && (
+              <SubMenuItem
+                label="Create Account"
+                onClick={() => {
+                  navigate('/createAccount');
+                  toggleSidebar(false);
+                }}
+              />
+            )}
+
+            {/* Admin-only access to Account List */}
+            {isAdmin && (
+              <SubMenuItem
+                label="Account List"
+                onClick={() => {
+                  navigate('/accountList');
+                  toggleSidebar(false);
+                }}
+              />
+            )}
+
+            <SubMenuItem
+              label="History Logs"
               onClick={() => {
-                navigate('/accountList');
+                navigate('/historyLogs');
                 toggleSidebar(false);
               }}
-            >
-              Account List
-            </button>
-          )}
-
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={() => {
-              navigate('/historyLogs');
-              toggleSidebar(false);
-            }}
-          >
-            History Logs
-          </button>
-          <button
-            className="hover:bg-gray-700 p-2 rounded w-full text-left"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </div>
+            />
+            <SubMenuItem
+              label="Logout"
+              onClick={handleLogout}
+            />
+          </div>
+        </MenuItem>
       </div>
     </div>
   );
