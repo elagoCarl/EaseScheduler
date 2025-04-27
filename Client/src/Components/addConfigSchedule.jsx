@@ -897,8 +897,6 @@ const AddConfigSchedule = () => {
                     </button>
                   )}
                 </div>
-
-
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Semester:</label>
                 <select
                   name="semester"
@@ -971,7 +969,6 @@ const AddConfigSchedule = () => {
                     Save
                   </button>
                 </div>
-
                 {renderAutomationSection()}
               </div>
             </div>
@@ -1088,5 +1085,4 @@ const AddConfigSchedule = () => {
     </div>
   );
 };
-
 export default AddConfigSchedule;
