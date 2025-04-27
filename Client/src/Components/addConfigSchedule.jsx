@@ -134,7 +134,7 @@ const AddConfigSchedule = () => {
     if (selectedSemester) {
       const filtered = assignations.filter(a => a.Semester === selectedSemester);
       setFilteredAssignations(filtered);
-      
+
       // If a room is already selected, refetch schedules for the new semester
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
@@ -150,7 +150,7 @@ const AddConfigSchedule = () => {
       setSchedules([]);
       return;
     }
-    
+
     axios.post(`/schedule/getSchedsByRoom/${roomId}`, { Semester: selectedSemester })
       .then(({ data }) => {
         if (data.successful) {
@@ -186,7 +186,7 @@ const AddConfigSchedule = () => {
     if (isDeleting) return;
     setIsDeleting(true);
     try {
-      
+
       const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
@@ -251,6 +251,7 @@ const AddConfigSchedule = () => {
       // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
+        semester: selectedSemester,
         variantCount: 2,  // Generate 2 variants
         // Use prioritized professors if available
         prioritizedProfessor:
@@ -278,7 +279,7 @@ const AddConfigSchedule = () => {
       // Fire the request
       const response = await axios.post(endpoint, payload);
 
-      console.log("Schedule variants response:", response.data);
+      // console.log("Schedule variants response:", response.data);
 
       if (response.data.successful) {
         // Store the variants
@@ -332,7 +333,8 @@ const AddConfigSchedule = () => {
 
       const response = await axios.post('/schedule/saveScheduleVariants', {
         variant: selectedVariant,
-        DepartmentId: deptId
+        DepartmentId: deptId,
+        semester: selectedSemester  // Add the missing semester parameter
       });
 
       if (response.data.successful) {
@@ -370,12 +372,14 @@ const AddConfigSchedule = () => {
   // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
-  
+
     if (name === "semester") {
+      // Update selected semester state immediately
       setSelectedSemester(value);
+
       // Reset assignation selection when semester changes
       setFormData(prev => ({ ...prev, assignation_id: "", professorId: null, professorName: null }));
-      
+
       // If a room is already selected, refetch schedules with the new semester
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
@@ -395,7 +399,7 @@ const AddConfigSchedule = () => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-  
+
     if (name === "room_id" && value) fetchSchedulesForRoom(value);
   };
 
@@ -444,7 +448,7 @@ const AddConfigSchedule = () => {
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
     try {
-      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId});
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);

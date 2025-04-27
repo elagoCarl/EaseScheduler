@@ -216,7 +216,7 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
     for (let i = 0; i < intervals.length - 1; i++) {
         const current = intervals[i];
         const next = intervals[i + 1];
-        
+
         // Check if this is the new proposed schedule adjacent to an existing one
         if (next.start === startHour || current.start === startHour) {
             // Case 1: This new class creates or extends a continuous block
@@ -246,7 +246,7 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
         if (intervals[i].start === contiguousEnd) {
             // This interval directly connects to the previous block
             contiguousEnd = intervals[i].end;
-            
+
             // Check if this extension would exceed the maximum allowed continuous hours
             if (contiguousEnd - contiguousStart > maxContinuousHours) {
                 return false;
@@ -254,12 +254,12 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
         } else {
             // There's a gap between intervals
             const gap = intervals[i].start - contiguousEnd;
-            
+
             // If the previous block reached maximum allowed hours, check if there's enough break
             if (contiguousEnd - contiguousStart >= maxContinuousHours && gap < requiredBreak) {
                 return false; // Not enough break after reaching max continuous hours
             }
-            
+
             // Start a new contiguous block
             contiguousStart = intervals[i].start;
             contiguousEnd = intervals[i].end;
@@ -267,462 +267,6 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
     }
 
     return true;
-};
-
-const generateScheduleVariants = async (req, res, next) => {
-    try {
-        const {
-            DepartmentId,
-            prioritizedProfessor,
-            prioritizedRoom,
-            prioritizedSections,
-            roomId,
-            variantCount = 2 // Default to 2 variants
-        } = req.body;
-
-        console.log("generateScheduleVariants received request:", {
-            DepartmentId,
-            prioritizedProfessor,
-            prioritizedRoom,
-            prioritizedSections,
-            roomId,
-            variantCount
-        });
-
-        if (!DepartmentId) {
-            return res.status(400).json({
-                successful: false,
-                message: "Department ID is required."
-            });
-        }
-
-        // Start measuring execution time
-        const startTime = Date.now();
-
-        // 1) Normalize priorities
-        const priorities = {};
-        if (prioritizedProfessor) {
-            priorities.professor = Array.isArray(prioritizedProfessor)
-                ? prioritizedProfessor
-                : [prioritizedProfessor];
-        }
-        if (prioritizedRoom) {
-            priorities.room = Array.isArray(prioritizedRoom)
-                ? prioritizedRoom
-                : [prioritizedRoom];
-        }
-        if (prioritizedSections && prioritizedSections.length) {
-            priorities.sections = prioritizedSections;
-        }
-        // If we're forcing a specific room, drop any prioritizedRoom filter
-        if (roomId) {
-            delete priorities.room;
-        }
-
-        console.log(`→ Fetching settings for DepartmentId=${DepartmentId}`)
-        // 2) Load settings
-        const settings = await Settings.findOne({ where: { DepartmentId: DepartmentId } });
-        if (!settings) {
-            console.log(`⚠️  No settings found for DepartmentId=${DepartmentId}`);
-        } else {
-            console.log('✅  Loaded settings:', settings.get({ plain: true }));
-            console.log(
-                `Using settings for Dept ${settings.DepartmentId}:`,
-                `StartHour=${settings.StartHour},`,
-                `EndHour=${settings.EndHour},`,
-                `StudentMaxHours=${settings.StudentMaxHours}`
-            );
-        }
-        const { StartHour, EndHour } = settings;
-
-
-        // 3) Fetch department + assignations + rooms - Optimize with eager loading
-        const department = await Department.findByPk(DepartmentId, {
-            include: [
-                {
-                    model: Assignation,
-                    include: [
-                        Course,
-                        { model: Professor, attributes: ['id', 'Name'] }
-                    ]
-                },
-                { model: Room, as: 'DeptRooms' }
-            ]
-        });
-        if (!department) {
-            return res.status(404).json({
-                successful: false,
-                message: "Department not found."
-            });
-        }
-        const assignations = department.Assignations;
-        let rooms = department.DeptRooms;
-        if (roomId) {
-            rooms = rooms.filter(r => r.id === roomId);
-            if (!rooms.length) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Room with ID ${roomId} not found in department.`
-                });
-            }
-        }
-
-        // 4) Get existing locked schedules for this department
-        const assignationIds = assignations.map(a => a.id);
-        const lockedSchedules = await Schedule.findAll({
-            where: {
-                AssignationId: { [Op.in]: assignationIds },
-                isLocked: true
-            },
-            include: [{ model: ProgYrSec }, { model: Room }]
-        });
-
-        console.log(`Found ${lockedSchedules.length} locked schedules`);
-
-        // 5) IMPORTANT CHANGE: Get ALL existing schedules for ANY room that might be used
-        // This is to prevent double-booking across departments
-        let roomIds = rooms.map(r => r.id);
-
-        // Get ALL schedules for these rooms, regardless of department
-        const allRoomSchedules = await Schedule.findAll({
-            where: {
-                RoomId: { [Op.in]: roomIds }
-            },
-            include: [{ model: Room }]
-        });
-
-        console.log(`Found ${allRoomSchedules.length} schedules across all rooms`);
-
-        // Figure out which assignations remain locked
-        const lockedAssignIds = new Set(
-            lockedSchedules.map(s => s.AssignationId)
-        );
-        let unscheduledAssignations = assignations.filter(
-            a => !lockedAssignIds.has(a.id)
-        );
-
-        console.log(`Have ${unscheduledAssignations.length} unscheduled assignations to process`);
-
-        // 6) IMPORTANT: Sort assignations by prioritizedProfessor (consistent across variants)
-        if (priorities.professor) {
-            unscheduledAssignations.sort((a, b) => {
-                const aP = priorities.professor.includes(a.Professor?.id);
-                const bP = priorities.professor.includes(b.Professor?.id);
-                return (bP === aP) ? 0 : (aP ? -1 : 1); // Prioritized first (-1)
-            });
-        }
-
-        // 7) Array to store our variants
-        const scheduleVariants = [];
-
-        // Create caches for better performance
-        const roomCache = { sections: {} };
-        const professorAvailabilityCache = {};
-        const programCache = {};
-        const courseProgCache = {};
-
-        // Preload all sections once
-        const allSecs = await ProgYrSec.findAll();
-        console.log(`Loaded ${allSecs.length} total sections from database`);
-        
-        for (const sec of allSecs) {
-            // Cache section info
-            roomCache.sections[sec.id] = {
-                students: Number(sec.NumberOfStudents || 0),
-                programId: sec.ProgramId,
-                year: sec.Year,
-                section: sec.Section
-            };
-        }
-
-        // Preload department programs once
-        const departmentPrograms = await Program.findAll({
-            where: { DepartmentId: DepartmentId },
-            attributes: ['id']
-        });
-        programCache[DepartmentId] = departmentPrograms.map(p => p.id);
-
-        // Generate multiple schedule variants
-        for (let variant = 0; variant < variantCount; variant++) {
-            console.log(`\n====== Generating variant ${variant + 1} of ${variantCount} ======`);
-            
-            // 8a) Initialize tracking structures
-            const professorSchedule = {}, courseSchedules = {}, progYrSecSchedules = {}, roomSchedules = {};
-
-            // 8b) Initialize structures for this variant
-            for (const a of assignations) {
-                if (a.Professor) {
-                    professorSchedule[a.Professor.id] = {};
-                    for (let d = 1; d <= 6; d++) {
-                        professorSchedule[a.Professor.id][d] = { hours: 0, dailyTimes: [] };
-                    }
-                }
-                if (a.Course) {
-                    courseSchedules[a.Course.id] = {};
-                    for (let d = 1; d <= 6; d++) {
-                        courseSchedules[a.Course.id][d] = [];
-                    }
-                }
-            }
-
-            // Initialize section schedules
-            for (const sec of allSecs) {
-                progYrSecSchedules[sec.id] = {};
-                for (let d = 1; d <= 6; d++) {
-                    progYrSecSchedules[sec.id][d] = { hours: 0, dailyTimes: [] };
-                }
-            }
-
-            // 8c) CRUCIAL CHANGE: Initialize roomSchedules with ALL existing schedules from all departments
-            // This ensures we don't double-book rooms across departments
-            for (const sch of allRoomSchedules) {
-                const day = sch.Day;
-                const startH = parseInt(sch.Start_time.split(':')[0], 10);
-                const endH = parseInt(sch.End_time.split(':')[0], 10);
-
-                // Room schedules from ALL departments
-                if (!roomSchedules[sch.RoomId]) roomSchedules[sch.RoomId] = {};
-                if (!roomSchedules[sch.RoomId][day]) roomSchedules[sch.RoomId][day] = [];
-                roomSchedules[sch.RoomId][day].push({ start: startH, end: endH });
-            }
-
-            // Now also add our department's locked schedules to the tracking structures
-            for (const sch of lockedSchedules) {
-                const assign = await Assignation.findByPk(sch.AssignationId, {
-                    include: [Course, Professor]
-                });
-                if (!assign?.Professor || !assign?.Course) continue;
-
-                const day = sch.Day;
-                const startH = parseInt(sch.Start_time.split(':')[0], 10);
-                const endH = parseInt(sch.End_time.split(':')[0], 10);
-                const dur = endH - startH;
-
-                // Professor
-                professorSchedule[assign.Professor.id][day].hours += dur;
-                professorSchedule[assign.Professor.id][day].dailyTimes.push({ start: startH, end: endH });
-
-                // Course
-                courseSchedules[assign.Course.id][day].push({ start: startH, end: endH });
-
-                // Room schedules already added above (from allRoomSchedules)
-
-                // Sections
-                const linkedSecs = await sch.getProgYrSecs();
-                console.log(`Schedule ${sch.id} has ${linkedSecs.length} linked sections`);
-                
-                for (const sec of linkedSecs) {
-                    progYrSecSchedules[sec.id][day].hours += dur;
-                    progYrSecSchedules[sec.id][day].dailyTimes.push({ start: startH, end: endH });
-                }
-            }
-
-            // 9) CRITICAL FIX: For each variant, preserve priority ordering but apply variation to non-priority items
-            // Clone unscheduled assignations for this variant
-            let variantAssignations = [...unscheduledAssignations];
-            
-            // IMPORTANT: Split into prioritized and non-prioritized groups - only shuffle non-prioritized
-            if (variant > 0) { // First variant keeps the original ordering
-                if (priorities.professor) {
-                    const prioritizedAssignations = variantAssignations.filter(a => 
-                        priorities.professor.includes(a.Professor?.id));
-                    const nonPrioritizedAssignations = variantAssignations.filter(a => 
-                        !priorities.professor.includes(a.Professor?.id));
-                    
-                    // Only shuffle the non-prioritized assignations
-                    const shuffledNonPriority = shuffleDeterministic([...nonPrioritizedAssignations], variant);
-                    
-                    // Recombine while preserving priority order
-                    variantAssignations = [...prioritizedAssignations, ...shuffledNonPriority];
-                } else {
-                    // If no professor priorities, shuffle everything
-                    variantAssignations = shuffleDeterministic([...unscheduledAssignations], variant);
-                }
-                
-                // Handle room prioritization - split, shuffle non-priority, recombine
-                let variantRooms = [...rooms];
-                if (priorities.room) {
-                    const prioritizedRooms = variantRooms.filter(r => 
-                        priorities.room.includes(r.id));
-                    const nonPrioritizedRooms = variantRooms.filter(r => 
-                        !priorities.room.includes(r.id));
-                    
-                    // Only shuffle the non-prioritized rooms
-                    const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
-                    
-                    // Recombine while preserving priority order
-                    variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
-                } else {
-                    // If no room priorities, shuffle everything
-                    variantRooms = shuffleDeterministic([...rooms], variant);
-                }
-                
-                rooms = variantRooms;
-            }
-
-            // 10) Run backtracking scheduler with this variant's configuration
-            const report = [], failedAssignations = [];
-            const variantSeed = variant + 1; // Use variant number as seed
-
-            // This is a crucial change - run true backtracking like in automateSchedule
-            await trueBacktrackScheduleVariant(
-                variantAssignations,
-                rooms,
-                professorSchedule,
-                courseSchedules,
-                progYrSecSchedules,
-                roomSchedules,
-                0,
-                report,
-                StartHour,
-                EndHour,
-                settings,
-                priorities,
-                failedAssignations,
-                roomId,
-                variantSeed,
-                roomCache,
-                professorAvailabilityCache,
-                programCache,
-                courseProgCache
-            );
-
-            console.log(`Variant ${variant + 1} results: ${report.length} scheduled, ${failedAssignations.length} failed`);
-
-            // 11) Store both locked schedules and newly generated ones for this variant
-            const combinedReport = [
-                ...lockedSchedules.map(sch => {
-                    // NEW LOGGING: Check and log the locked schedule sections
-                    const sections = sch.ProgYrSecs?.map(sec =>
-                        `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`
-                    );
-                    
-                    console.log(`Locked schedule ${sch.id} sections:`, sections);
-                    
-                    // Extract section IDs for easier reference
-                    const sectionIds = sch.ProgYrSecs?.map(sec => sec.id) || [];
-                    
-                    return {
-                        id: sch.id,
-                        Professor: sch.Assignation?.Professor?.Name,
-                        Course: sch.Assignation?.Course?.Code,
-                        CourseType: sch.Assignation?.Course?.Type,
-                        // Include multiple section formats for compatibility
-                        Sections: sections,
-                        ProgYrSecIds: sectionIds, // Add explicit section IDs array
-                        SectionIds: sectionIds.length > 0 ? sectionIds : undefined, // Alternative format
-                        Room: sch.Room?.Code,
-                        RoomId: sch.RoomId,
-                        Day: sch.Day,
-                        Start_time: sch.Start_time,
-                        End_time: sch.End_time,
-                        isLocked: true,
-                        AssignationId: sch.AssignationId
-                    };
-                }),
-                ...await Promise.all(report.map(async (schedule) => {
-                    // NEW LOGGING: Log and ensure each report item has proper section IDs
-                    console.log("Processing report schedule:", {
-                        hasProgYrSecIds: Boolean(schedule.ProgYrSecIds),
-                        hasSectionIds: Boolean(schedule.SectionIds),
-                        sectionCount: schedule.Sections?.length
-                    });
-                    
-                    // Make sure we have ProgYrSecIds for newly generated schedules
-                    let sectionIds = [];
-                    if (!schedule.ProgYrSecIds && Array.isArray(schedule.SectionIds)) {
-                        schedule.ProgYrSecIds = schedule.SectionIds;
-                        sectionIds = schedule.SectionIds;
-                    }
-                    else if (!schedule.ProgYrSecIds && Array.isArray(schedule.ProgYrSecs)) {
-                        schedule.ProgYrSecIds = schedule.ProgYrSecs.map(s => s.id);
-                        sectionIds = schedule.ProgYrSecIds;
-                    }
-                    else if (schedule.Sections && Array.isArray(schedule.Sections)) {
-                        console.log("Processing Sections array:", schedule.Sections);
-                        // First try the standard format ("ProgId=X, Year=Y, Sec=Z")
-                        // [existing code...]
-                        
-                        // ADDED: If standard pattern fails, try parsing program-year-section format
-                        // like "BSCS1A" which means program=BSCS, year=1, section=A
-                        if (sectionIds.length === 0) {
-                            const sectionPromises = schedule.Sections.map(async (sectionString) => {
-                                // Match pattern like "BSCS1A" - program code followed by year number followed by section letter
-                                const match = sectionString.match(/^([A-Z]+)(\d+)([A-Z])$/);
-                                if (match) {
-                                    const programCode = match[1]; // e.g., "BSCS"
-                                    const year = parseInt(match[2], 10); // e.g., 1
-                                    const section = match[3]; // e.g., "A"
-                                    console.log("Parsed section from string:", { programCode, year, section });
-                                    
-                                    // Find the program ID by program code
-                                    const program = await Program.findOne({ where: { Code: programCode } });
-                                    if (!program) {
-                                        console.log(`Program with code ${programCode} not found`);
-                                        return null;
-                                    }
-                                    
-                                    // Find the section in the database
-                                    const sectionRecord = await ProgYrSec.findOne({ 
-                                        where: { ProgramId: program.id, Year: year, Section: section } 
-                                    });
-                                    console.log("Section record found:", sectionRecord ? `ID: ${sectionRecord.id}` : "Not found");
-                                    return sectionRecord ? sectionRecord.id : null;
-                                }
-                                return null;
-                            });
-                            
-                            // Wait for all section queries to complete and filter out any nulls
-                            const resolvedSectionIds = await Promise.all(sectionPromises);
-                            sectionIds = resolvedSectionIds.filter(id => id !== null);
-                            console.log("Final resolved section IDs from simplified format:", sectionIds);
-                            
-                            // Assign the resolved section IDs to the schedule
-                            if (sectionIds.length > 0) {
-                                schedule.ProgYrSecIds = sectionIds;
-                            }
-                        }
-                    }
-                    
-                    return schedule;
-                }))
-            ];
-
-            // NEW LOGGING: Final check on section IDs in the variant
-            const sectionSummary = combinedReport.map((sch, index) => ({
-                index,
-                hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
-                ProgYrSecIds: sch.ProgYrSecIds,
-                SectionIds: sch.SectionIds 
-            }));
-            
-            console.log(`Variant ${variant + 1} section ID summary:`, 
-                JSON.stringify(sectionSummary, null, 2)
-            );
-
-            scheduleVariants.push({
-                variantName: `Variant ${variant + 1}`,
-                schedules: combinedReport,
-                failedAssignations: failedAssignations,
-                successRate: `${report.length} of ${unscheduledAssignations.length} assignations scheduled`
-            });
-        }
-
-        // 12) Form response with execution time
-        const executionTime = Date.now() - startTime;
-        return res.status(200).json({
-            successful: true,
-            message: `Generated ${scheduleVariants.length} schedule variants in ${executionTime}ms.`,
-            variants: scheduleVariants
-        });
-
-    } catch (error) {
-        console.error("Error in generateScheduleVariants:", error);
-        return res.status(500).json({
-            successful: false,
-            message: error.message || "An unexpected error occurred."
-        });
-    }
 };
 
 // New true backtracking implementation for variants
@@ -994,7 +538,7 @@ const trueBacktrackScheduleVariant = async (
                                     // This should be done with actual program data, so we're keeping the 
                                     // actual section information directly from the data
                                     return `${s.Program ? s.Program.Code : ""}${s.Year}${s.Section}`;
-                                  }),
+                                }),
                                 Room: room.Code,
                                 RoomId: room.id,
                                 Day: day,
@@ -1100,11 +644,498 @@ function shuffleDeterministic(array, seed) {
 }
 
 
+const generateScheduleVariants = async (req, res, next) => {
+    try {
+        const {
+            DepartmentId,
+            prioritizedProfessor,
+            prioritizedRoom,
+            prioritizedSections,
+            roomId,
+            variantCount = 2, // Default to 2 variants
+            semester
+        } = req.body;
+
+        if (!DepartmentId) {
+            return res.status(400).json({
+                successful: false,
+                message: "Department ID is required."
+            });
+        }
+
+        // Start measuring execution time
+        const startTime = Date.now();
+
+        if (!semester) {
+            return res.status(400).json({
+                successful: false,
+                message: "Semester is required."
+            });
+        }
+
+        // 1) Normalize priorities
+        const priorities = {};
+        if (prioritizedProfessor) {
+            priorities.professor = Array.isArray(prioritizedProfessor)
+                ? prioritizedProfessor
+                : [prioritizedProfessor];
+        }
+        if (prioritizedRoom) {
+            priorities.room = Array.isArray(prioritizedRoom)
+                ? prioritizedRoom
+                : [prioritizedRoom];
+        }
+        if (prioritizedSections && prioritizedSections.length) {
+            priorities.sections = prioritizedSections;
+        }
+        // If we're forcing a specific room, drop any prioritizedRoom filter
+        if (roomId) {
+            delete priorities.room;
+        }
+
+        console.log(`→ Fetching settings for DepartmentId=${DepartmentId}`)
+        // 2) Load settings
+        const settings = await Settings.findOne({ where: { DepartmentId: DepartmentId } });
+        if (!settings) {
+            console.log(`⚠️  No settings found for DepartmentId=${DepartmentId}`);
+        } else {
+            console.log('✅  Loaded settings:', settings.get({ plain: true }));
+            console.log(
+                `Using settings for Dept ${settings.DepartmentId}:`,
+                `StartHour=${settings.StartHour},`,
+                `EndHour=${settings.EndHour},`,
+                `StudentMaxHours=${settings.StudentMaxHours}`
+            );
+        }
+        const { StartHour, EndHour } = settings;
+
+
+        // 3) Fetch department + assignations + rooms - Optimize with eager loading
+        const department = await Department.findByPk(DepartmentId, {
+            include: [
+                {
+                    model: Assignation,
+                    where: {
+                        Semester: semester
+                    },
+                    include: [
+                        Course,
+                        { model: Professor, attributes: ['id', 'Name'] }
+                    ]
+                },
+                { model: Room, as: 'DeptRooms' }
+            ]
+        });
+        if (!department) {
+            return res.status(404).json({
+                successful: false,
+                message: "Department not found."
+            });
+        }
+        const assignations = department.Assignations;
+        // If no assignations found for this semester, return early
+        if (!assignations || assignations.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: `No assignations found for ${semester} semester of ${schoolYear}.`
+            });
+        }
+
+
+        let rooms = department.DeptRooms;
+        if (roomId) {
+            rooms = rooms.filter(r => r.id === roomId);
+            if (!rooms.length) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Room with ID ${roomId} not found in department.`
+                });
+            }
+        }
+
+        // 4) Get existing locked schedules for this department
+        const assignationIds = assignations.map(a => a.id);
+        const lockedSchedules = await Schedule.findAll({
+            where: {
+                AssignationId: { [Op.in]: assignationIds },
+                isLocked: true
+            },
+            include: [
+                { model: ProgYrSec },
+                { model: Room },
+                {
+                    model: Assignation, where: {
+                        Semester: semester
+                    }
+
+                }]
+        });
+
+        console.log(`Found ${lockedSchedules.length} locked schedules`);
+
+        // 5) IMPORTANT CHANGE: Get ALL existing schedules for ANY room that might be used
+        // This is to prevent double-booking across departments
+        let roomIds = rooms.map(r => r.id);
+
+        // Get ALL schedules for these rooms, regardless of department
+        const allRoomSchedules = await Schedule.findAll({
+            where: {
+                RoomId: { [Op.in]: roomIds }
+            },
+            include: [
+                { model: Room },
+                {
+                    model: Assignation, where: {
+                        Semester: semester
+                    }
+                }]
+        });
+
+        console.log(`Found ${allRoomSchedules.length} schedules across all rooms`);
+
+        // Figure out which assignations remain locked
+        const lockedAssignIds = new Set(
+            lockedSchedules.map(s => s.AssignationId)
+        );
+        let unscheduledAssignations = assignations.filter(
+            a => !lockedAssignIds.has(a.id)
+        );
+
+        console.log(`Have ${unscheduledAssignations.length} unscheduled assignations to process`);
+
+        // 6) IMPORTANT: Sort assignations by prioritizedProfessor (consistent across variants)
+        if (priorities.professor) {
+            unscheduledAssignations.sort((a, b) => {
+                const aP = priorities.professor.includes(a.Professor?.id);
+                const bP = priorities.professor.includes(b.Professor?.id);
+                return (bP === aP) ? 0 : (aP ? -1 : 1); // Prioritized first (-1)
+            });
+        }
+
+        // 7) Array to store our variants
+        const scheduleVariants = [];
+
+        // Create caches for better performance
+        const roomCache = { sections: {} };
+        const professorAvailabilityCache = {};
+        const programCache = {};
+        const courseProgCache = {};
+
+        // Preload all sections once
+        const allSecs = await ProgYrSec.findAll();
+        console.log(`Loaded ${allSecs.length} total sections from database`);
+
+        for (const sec of allSecs) {
+            // Cache section info
+            roomCache.sections[sec.id] = {
+                students: Number(sec.NumberOfStudents || 0),
+                programId: sec.ProgramId,
+                year: sec.Year,
+                section: sec.Section
+            };
+        }
+
+        // Preload department programs once
+        const departmentPrograms = await Program.findAll({
+            where: { DepartmentId: DepartmentId },
+            attributes: ['id']
+        });
+        programCache[DepartmentId] = departmentPrograms.map(p => p.id);
+
+        // Generate multiple schedule variants
+        for (let variant = 0; variant < variantCount; variant++) {
+            console.log(`\n====== Generating variant ${variant + 1} of ${variantCount} ======`);
+
+            // 8a) Initialize tracking structures
+            const professorSchedule = {}, courseSchedules = {}, progYrSecSchedules = {}, roomSchedules = {};
+
+            // 8b) Initialize structures for this variant
+            for (const a of assignations) {
+                if (a.Professor) {
+                    professorSchedule[a.Professor.id] = {};
+                    for (let d = 1; d <= 6; d++) {
+                        professorSchedule[a.Professor.id][d] = { hours: 0, dailyTimes: [] };
+                    }
+                }
+                if (a.Course) {
+                    courseSchedules[a.Course.id] = {};
+                    for (let d = 1; d <= 6; d++) {
+                        courseSchedules[a.Course.id][d] = [];
+                    }
+                }
+            }
+
+            // Initialize section schedules
+            for (const sec of allSecs) {
+                progYrSecSchedules[sec.id] = {};
+                for (let d = 1; d <= 6; d++) {
+                    progYrSecSchedules[sec.id][d] = { hours: 0, dailyTimes: [] };
+                }
+            }
+
+            // 8c) CRUCIAL CHANGE: Initialize roomSchedules with ALL existing schedules from all departments
+            // This ensures we don't double-book rooms across departments
+            for (const sch of allRoomSchedules) {
+                const day = sch.Day;
+                const startH = parseInt(sch.Start_time.split(':')[0], 10);
+                const endH = parseInt(sch.End_time.split(':')[0], 10);
+
+                // Room schedules from ALL departments
+                if (!roomSchedules[sch.RoomId]) roomSchedules[sch.RoomId] = {};
+                if (!roomSchedules[sch.RoomId][day]) roomSchedules[sch.RoomId][day] = [];
+                roomSchedules[sch.RoomId][day].push({ start: startH, end: endH });
+            }
+
+            // Now also add our department's locked schedules to the tracking structures
+            for (const sch of lockedSchedules) {
+                const assign = await Assignation.findByPk(sch.AssignationId, {
+                    include: [Course, Professor]
+                });
+                if (!assign?.Professor || !assign?.Course) continue;
+
+                const day = sch.Day;
+                const startH = parseInt(sch.Start_time.split(':')[0], 10);
+                const endH = parseInt(sch.End_time.split(':')[0], 10);
+                const dur = endH - startH;
+
+                // Professor
+                professorSchedule[assign.Professor.id][day].hours += dur;
+                professorSchedule[assign.Professor.id][day].dailyTimes.push({ start: startH, end: endH });
+
+                // Course
+                courseSchedules[assign.Course.id][day].push({ start: startH, end: endH });
+
+                // Room schedules already added above (from allRoomSchedules)
+
+                // Sections
+                const linkedSecs = await sch.getProgYrSecs();
+                console.log(`Schedule ${sch.id} has ${linkedSecs.length} linked sections`);
+
+                for (const sec of linkedSecs) {
+                    progYrSecSchedules[sec.id][day].hours += dur;
+                    progYrSecSchedules[sec.id][day].dailyTimes.push({ start: startH, end: endH });
+                }
+            }
+
+            // 9) CRITICAL FIX: For each variant, preserve priority ordering but apply variation to non-priority items
+            // Clone unscheduled assignations for this variant
+            let variantAssignations = [...unscheduledAssignations];
+
+            // IMPORTANT: Split into prioritized and non-prioritized groups - only shuffle non-prioritized
+            if (variant > 0) { // First variant keeps the original ordering
+                if (priorities.professor) {
+                    const prioritizedAssignations = variantAssignations.filter(a =>
+                        priorities.professor.includes(a.Professor?.id));
+                    const nonPrioritizedAssignations = variantAssignations.filter(a =>
+                        !priorities.professor.includes(a.Professor?.id));
+
+                    // Only shuffle the non-prioritized assignations
+                    const shuffledNonPriority = shuffleDeterministic([...nonPrioritizedAssignations], variant);
+
+                    // Recombine while preserving priority order
+                    variantAssignations = [...prioritizedAssignations, ...shuffledNonPriority];
+                } else {
+                    // If no professor priorities, shuffle everything
+                    variantAssignations = shuffleDeterministic([...unscheduledAssignations], variant);
+                }
+
+                // Handle room prioritization - split, shuffle non-priority, recombine
+                let variantRooms = [...rooms];
+                if (priorities.room) {
+                    const prioritizedRooms = variantRooms.filter(r =>
+                        priorities.room.includes(r.id));
+                    const nonPrioritizedRooms = variantRooms.filter(r =>
+                        !priorities.room.includes(r.id));
+
+                    // Only shuffle the non-prioritized rooms
+                    const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
+
+                    // Recombine while preserving priority order
+                    variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
+                } else {
+                    // If no room priorities, shuffle everything
+                    variantRooms = shuffleDeterministic([...rooms], variant);
+                }
+
+                rooms = variantRooms;
+            }
+
+            // 10) Run backtracking scheduler with this variant's configuration
+            const report = [], failedAssignations = [];
+            const variantSeed = variant + 1; // Use variant number as seed
+
+            // This is a crucial change - run true backtracking like in automateSchedule
+            await trueBacktrackScheduleVariant(
+                variantAssignations,
+                rooms,
+                professorSchedule,
+                courseSchedules,
+                progYrSecSchedules,
+                roomSchedules,
+                0,
+                report,
+                StartHour,
+                EndHour,
+                settings,
+                priorities,
+                failedAssignations,
+                roomId,
+                variantSeed,
+                roomCache,
+                professorAvailabilityCache,
+                programCache,
+                courseProgCache
+            );
+
+            console.log(`Variant ${variant + 1} results: ${report.length} scheduled, ${failedAssignations.length} failed`);
+
+            // 11) Store both locked schedules and newly generated ones for this variant
+            const combinedReport = [
+                ...lockedSchedules.map(sch => {
+                    // NEW LOGGING: Check and log the locked schedule sections
+                    const sections = sch.ProgYrSecs?.map(sec =>
+                        `ProgId=${sec.ProgramId}, Year=${sec.Year}, Sec=${sec.Section}`
+                    );
+
+                    console.log(`Locked schedule ${sch.id} sections:`, sections);
+
+                    // Extract section IDs for easier reference
+                    const sectionIds = sch.ProgYrSecs?.map(sec => sec.id) || [];
+
+                    return {
+                        id: sch.id,
+                        Professor: sch.Assignation?.Professor?.Name,
+                        Course: sch.Assignation?.Course?.Code,
+                        CourseType: sch.Assignation?.Course?.Type,
+                        // Include multiple section formats for compatibility
+                        Sections: sections,
+                        ProgYrSecIds: sectionIds, // Add explicit section IDs array
+                        SectionIds: sectionIds.length > 0 ? sectionIds : undefined, // Alternative format
+                        Room: sch.Room?.Code,
+                        RoomId: sch.RoomId,
+                        Day: sch.Day,
+                        Start_time: sch.Start_time,
+                        End_time: sch.End_time,
+                        isLocked: true,
+                        AssignationId: sch.AssignationId
+                    };
+                }),
+                ...await Promise.all(report.map(async (schedule) => {
+                    // NEW LOGGING: Log and ensure each report item has proper section IDs
+                    console.log("Processing report schedule:", {
+                        hasProgYrSecIds: Boolean(schedule.ProgYrSecIds),
+                        hasSectionIds: Boolean(schedule.SectionIds),
+                        sectionCount: schedule.Sections?.length
+                    });
+
+                    // Make sure we have ProgYrSecIds for newly generated schedules
+                    let sectionIds = [];
+                    if (!schedule.ProgYrSecIds && Array.isArray(schedule.SectionIds)) {
+                        schedule.ProgYrSecIds = schedule.SectionIds;
+                        sectionIds = schedule.SectionIds;
+                    }
+                    else if (!schedule.ProgYrSecIds && Array.isArray(schedule.ProgYrSecs)) {
+                        schedule.ProgYrSecIds = schedule.ProgYrSecs.map(s => s.id);
+                        sectionIds = schedule.ProgYrSecIds;
+                    }
+                    else if (schedule.Sections && Array.isArray(schedule.Sections)) {
+                        console.log("Processing Sections array:", schedule.Sections);
+                        // First try the standard format ("ProgId=X, Year=Y, Sec=Z")
+                        // [existing code...]
+
+                        // ADDED: If standard pattern fails, try parsing program-year-section format
+                        // like "BSCS1A" which means program=BSCS, year=1, section=A
+                        if (sectionIds.length === 0) {
+                            const sectionPromises = schedule.Sections.map(async (sectionString) => {
+                                // Match pattern like "BSCS1A" - program code followed by year number followed by section letter
+                                const match = sectionString.match(/^([A-Z]+)(\d+)([A-Z])$/);
+                                if (match) {
+                                    const programCode = match[1]; // e.g., "BSCS"
+                                    const year = parseInt(match[2], 10); // e.g., 1
+                                    const section = match[3]; // e.g., "A"
+                                    console.log("Parsed section from string:", { programCode, year, section });
+
+                                    // Find the program ID by program code
+                                    const program = await Program.findOne({ where: { Code: programCode } });
+                                    if (!program) {
+                                        console.log(`Program with code ${programCode} not found`);
+                                        return null;
+                                    }
+
+                                    // Find the section in the database
+                                    const sectionRecord = await ProgYrSec.findOne({
+                                        where: { ProgramId: program.id, Year: year, Section: section }
+                                    });
+                                    console.log("Section record found:", sectionRecord ? `ID: ${sectionRecord.id}` : "Not found");
+                                    return sectionRecord ? sectionRecord.id : null;
+                                }
+                                return null;
+                            });
+
+                            // Wait for all section queries to complete and filter out any nulls
+                            const resolvedSectionIds = await Promise.all(sectionPromises);
+                            sectionIds = resolvedSectionIds.filter(id => id !== null);
+                            console.log("Final resolved section IDs from simplified format:", sectionIds);
+
+                            // Assign the resolved section IDs to the schedule
+                            if (sectionIds.length > 0) {
+                                schedule.ProgYrSecIds = sectionIds;
+                            }
+                        }
+                    }
+
+                    return schedule;
+                }))
+            ];
+
+            // NEW LOGGING: Final check on section IDs in the variant
+            const sectionSummary = combinedReport.map((sch, index) => ({
+                index,
+                hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
+                ProgYrSecIds: sch.ProgYrSecIds,
+                SectionIds: sch.SectionIds
+            }));
+
+            console.log(`Variant ${variant + 1} section ID summary:`,
+                JSON.stringify(sectionSummary, null, 2)
+            );
+
+            scheduleVariants.push({
+                variantName: `Variant ${variant + 1}`,
+                schedules: combinedReport,
+                failedAssignations: failedAssignations,
+                successRate: `${report.length} of ${unscheduledAssignations.length} assignations scheduled`
+            });
+        }
+
+        // 12) Form response with execution time
+        const executionTime = Date.now() - startTime;
+        return res.status(200).json({
+            successful: true,
+            message: `Generated ${scheduleVariants.length} schedule variants in ${executionTime}ms.`,
+            variants: scheduleVariants
+        });
+
+    } catch (error) {
+        console.error("Error in generateScheduleVariants:", error);
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred."
+        });
+    }
+};
+
 // Endpoint to save a selected variant to the database
 const saveScheduleVariant = async (req, res, next) => {
     try {
-        const { variant, DepartmentId } = req.body;
+        const { variant, DepartmentId, semester } = req.body;
 
+        if (!semester) {
+            return res.status(400).json({
+                successful: false,
+                message: "Invalid request: semester is required."
+            });
+        }
         if (!variant || !variant.schedules || !DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -1112,22 +1143,13 @@ const saveScheduleVariant = async (req, res, next) => {
             });
         }
 
-        // NEW LOGGING: Print the structure of the incoming variant
-        console.log("Incoming variant structure:", JSON.stringify({
-            scheduleCount: variant.schedules.length,
-            sampleSchedule: variant.schedules[0],
-            sectionFormats: variant.schedules.map(sch => ({
-                hasProgYrSecIds: Boolean(sch.ProgYrSecIds),
-                hasSectionIds: Boolean(sch.SectionIds),
-                hasProgYrSecs: Boolean(sch.ProgYrSecs),
-                hasStringSections: Boolean(sch.Sections),
-                sectionsFormat: sch.Sections ? typeof sch.Sections : null
-            }))
-        }, null, 2));
-
         // 1. Get all existing schedules for this department that aren't locked
         const department = await Department.findByPk(DepartmentId, {
-            include: [{ model: Assignation, attributes: ['id'] }]
+            include: [{
+                model: Assignation, where: {
+                    Semester: semester
+                }, attributes: ['id']
+            }]
         });
 
         if (!department) {
@@ -1163,7 +1185,7 @@ const saveScheduleVariant = async (req, res, next) => {
                 ProgYrSecs: schedule.ProgYrSecs,
                 Sections: schedule.Sections
             });
-            
+
             // Create new schedule
             const newSchedule = await Schedule.create({
                 Day: schedule.Day,
@@ -1176,7 +1198,7 @@ const saveScheduleVariant = async (req, res, next) => {
 
             // CRITICAL FIX: Look for section IDs in various formats
             let sectionIds = [];
-            
+
             // Try to extract section IDs from the ProgYrSecIds property if it exists
             if (schedule.ProgYrSecIds && Array.isArray(schedule.ProgYrSecIds)) {
                 sectionIds = schedule.ProgYrSecIds;
@@ -1202,25 +1224,25 @@ const saveScheduleVariant = async (req, res, next) => {
                     const progIdMatch = sectionString.match(/ProgId=(\d+)/);
                     const yearMatch = sectionString.match(/Year=(\d+)/);
                     const secMatch = sectionString.match(/Sec=([A-Z])/);
-                    
+
                     console.log("Parsing section string:", {
                         string: sectionString,
                         progIdMatch,
                         yearMatch,
                         secMatch
                     });
-                    
+
                     if (progIdMatch && yearMatch && secMatch) {
                         const programId = parseInt(progIdMatch[1], 10);
                         const year = parseInt(yearMatch[1], 10);
                         const section = secMatch[1];
-                        
+
                         console.log("Looking up section record for:", {
                             programId,
                             year,
                             section
                         });
-                        
+
                         // Find the section in the database
                         const sectionRecord = await ProgYrSec.findOne({
                             where: {
@@ -1229,15 +1251,15 @@ const saveScheduleVariant = async (req, res, next) => {
                                 Section: section
                             }
                         });
-                        
-                        console.log("Section record found:", sectionRecord ? 
+
+                        console.log("Section record found:", sectionRecord ?
                             `ID: ${sectionRecord.id}` : "Not found");
-                        
+
                         return sectionRecord ? sectionRecord.id : null;
                     }
                     return null;
                 });
-                
+
                 // Wait for all section queries to complete and filter out any nulls
                 const resolvedSectionIds = await Promise.all(sectionPromises);
                 sectionIds = resolvedSectionIds.filter(id => id !== null);
@@ -1254,17 +1276,17 @@ const saveScheduleVariant = async (req, res, next) => {
 
             newSchedules.push(newSchedule);
         }
-        
+
         // Final logging of section IDs per schedule
-        console.log("Section IDs summary per schedule:", 
+        console.log("Section IDs summary per schedule:",
             variant.schedules.map(sch => ({
                 hasIds: Boolean(sch.ProgYrSecIds || sch.SectionIds),
-                ids: Array.isArray(sch.ProgYrSecIds) ? sch.ProgYrSecIds : 
-                     Array.isArray(sch.SectionIds) ? sch.SectionIds : [],
+                ids: Array.isArray(sch.ProgYrSecIds) ? sch.ProgYrSecIds :
+                    Array.isArray(sch.SectionIds) ? sch.SectionIds : [],
                 sections: sch.Sections
             }))
         );
-        
+
         return res.status(200).json({
             successful: true,
             message: `Successfully saved schedule variant with ${newSchedules.length} new schedules.`,
@@ -1858,23 +1880,10 @@ const saveScheduleVariant = async (req, res, next) => {
 
 const toggleLock = async (req, res, next) => {
     try {
-        const { DepartmentId } = req.body
         const schedule = await Schedule.findByPk(req.params.id);
         if (!schedule) {
             return res.status(404).json({ successful: false, message: "Schedule not found." });
         }
-
-        const assignation = await Assignation.findByPk(schedule.AssignationId);
-        if (!assignation) {
-            return res.status(404).json({ successful: false, message: "Assignation not found." });
-        }
-
-        // Check if the schedule belongs to the specified department
-        if (assignation.DepartmentId !== DepartmentId) {
-            return res.status(403).json({ successful: false, message: "Schedule does not belong to the specified department." });
-        }
-
-
         schedule.isLocked = !schedule.isLocked; // Toggle the lock status
         await schedule.save()
 
@@ -1887,7 +1896,7 @@ const toggleLock = async (req, res, next) => {
 // Updated controller function to toggle lock status (lock or unlock)
 const toggleLockAllSchedules = async (req, res) => {
     try {
-        const { scheduleIds, isLocked, DepartmentId } = req.body;
+        const { scheduleIds, isLocked } = req.body;
 
         if (!scheduleIds || !Array.isArray(scheduleIds) || scheduleIds.length === 0) {
             return res.status(400).json({
@@ -1896,35 +1905,15 @@ const toggleLockAllSchedules = async (req, res) => {
             });
         }
 
-        //find schedules that have assignations with the specified DepartmentId
-        const eligibleSchedules = await Schedule.findAll({
-            where: {
-                id: scheduleIds
-            },
-            include: [{
-                model: Assignation,
-                where: { DepartmentId: DepartmentId },
-                required: true
-            }]
-        });
-
-        const eligibleScheduleIds = eligibleSchedules.map(schedule => schedule.id);
-
-        if (eligibleScheduleIds.length === 0) {
-            return res.status(404).json({
-                successful: false,
-                message: 'All eligible schedules are already locked or No schedules found for the specified department'
-            });
-        }
-
+        // Update all schedules to the specified lock status
         await Schedule.update(
-            { isLocked: !!isLocked },
-            { where: { id: eligibleScheduleIds } }
+            { isLocked: !!isLocked }, // Convert to boolean
+            { where: { id: scheduleIds } }
         );
 
         return res.json({
             successful: true,
-            message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${eligibleScheduleIds.length} schedules`
+            message: `Successfully ${isLocked ? 'locked' : 'unlocked'} ${scheduleIds.length} schedules`
         });
     } catch (error) {
         console.error('Error toggling schedule lock status:', error);
@@ -1934,7 +1923,6 @@ const toggleLockAllSchedules = async (req, res) => {
         });
     }
 };
-
 // Add Schedule (Manual Version of automateSchedule)
 const addSchedule = async (req, res, next) => {
     try {
@@ -2021,6 +2009,7 @@ const addSchedule = async (req, res, next) => {
                     message: "One or more sections not found. Please provide valid section IDs."
                 });
             }
+
             let totalStudents = 0;
             for (const section of sectionsData) {
                 totalStudents += section.NumberOfStudents;
@@ -2032,7 +2021,7 @@ const addSchedule = async (req, res, next) => {
                     message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
                 });
             }
-            
+
             // Check for conflicting schedules in the same room on the same day - now filtered by semester
             const existingRoomSchedules = await Schedule.findAll({
                 include: [{
@@ -2041,17 +2030,17 @@ const addSchedule = async (req, res, next) => {
                 }],
                 where: { Day, RoomId }
             });
-            
+
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
             const currentDay = days[Day - 1]
-            
+
             // Allow back-to-back schedules but check for any overlaps
             const isRoomConflict = existingRoomSchedules.some(existing => {
                 const existingStartSec = timeToSeconds(existing.Start_time);
                 const existingEndSec = timeToSeconds(existing.End_time);
                 return (newStartSec < existingEndSec && newEndSec > existingStartSec);
             });
-            
+
             if (isRoomConflict) {
                 return res.status(400).json({
                     successful: false,
@@ -2099,14 +2088,14 @@ const addSchedule = async (req, res, next) => {
             const professorSchedules = await Schedule.findAll({
                 include: [{
                     model: Assignation,
-                    where: { 
+                    where: {
                         ProfessorId: assignation.Professor.id,
                         Semester
                     }
                 }],
                 where: { Day }
             });
-            
+
             let profScheduleForDay = { hours: 0, dailyTimes: [] };
             professorSchedules.forEach(s => {
                 const profSchedStart = parseInt(s.Start_time.split(":")[0]); // simple extraction; can be enhanced
@@ -2156,7 +2145,7 @@ const addSchedule = async (req, res, next) => {
                     ],
                     where: { Day }
                 });
-                
+
                 let sectionScheduleForDay = { hours: 0, dailyTimes: [] };
                 sectionSchedules.forEach(s => {
                     const sectionSchedStart = parseInt(s.Start_time.split(":")[0]);
@@ -2181,14 +2170,14 @@ const addSchedule = async (req, res, next) => {
                         },
                         {
                             model: Assignation,
-                            where: { 
+                            where: {
                                 CourseId: assignation.Course.id,
                                 Semester
                             }
                         }
                     ]
                 });
-                
+
                 let scheduledHours = 0;
                 existingSchedulesForSection.forEach(sched => {
                     const schedStart = timeToSeconds(sched.Start_time);
@@ -2247,7 +2236,7 @@ const updateSchedule = async (req, res, next) => {
         const { id } = req.params;
         const { Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester } = req.body;
         console.log(Semester);
-        
+
 
         // Validate mandatory fields - now including Semester
         if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester])) {
@@ -2338,8 +2327,8 @@ const updateSchedule = async (req, res, next) => {
         }
         if (totalStudents > room.NumberOfSeats) {
             return res.status(400).json({
-              successful: false,
-              message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
+                successful: false,
+                message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
             });
         }
 
@@ -2357,8 +2346,6 @@ const updateSchedule = async (req, res, next) => {
             }
         });
 
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        const currentDay = days[Day - 1]
         // Conflict logic: allow back-to-back scheduling but no overlaps
         const isRoomConflict = existingRoomSchedules.some(existing => {
             const existingStart = timeToSeconds(existing.Start_time);
@@ -2379,7 +2366,7 @@ const updateSchedule = async (req, res, next) => {
         const professorSchedules = await Schedule.findAll({
             include: [{
                 model: Assignation,
-                where: { 
+                where: {
                     ProfessorId: assignation.Professor.id,
                     Semester
                 }
@@ -2397,7 +2384,7 @@ const updateSchedule = async (req, res, next) => {
         // Check if the professor is available during the scheduled time
         const professorId = assignation.Professor.id;
         console.log(Day);
-        
+
         const professorAvailabilities = await ProfAvail.findAll({
             where: {
                 ProfessorId: professorId,
@@ -2493,7 +2480,7 @@ const updateSchedule = async (req, res, next) => {
                     },
                     {
                         model: Assignation,
-                        where: { 
+                        where: {
                             CourseId: assignation.Course.id,
                             Semester
                         }
@@ -2609,9 +2596,9 @@ const getAllSchedules = async (req, res, next) => {
 
 const getSchedsByRoom = async (req, res, next) => {
     try {
-        const {Semester} = req.body
+        const { Semester } = req.body
         console.log(Semester)
-        
+
         const sched = await Schedule.findAll({
             where: { RoomId: req.params.id },
             attributes: { exclude: ['createdAt', 'updatedAt'] },
@@ -2636,11 +2623,11 @@ const getSchedsByRoom = async (req, res, next) => {
                     include: [
                         {
                             model: Program,
-                            attributes: ['Code', 'DepartmentId']
+                            attributes: ['Code']
                         }
                     ],
                     through: { attributes: [] },
-                    attributes: ['id','Year', 'Section']
+                    attributes: ['Year', 'Section']
                 }
             ]
         });
@@ -2681,7 +2668,7 @@ const getSchedsByProf = async (req, res, next) => {
                 {
                     // only include schedules linked to this professor
                     model: Assignation,
-                    where: { ProfessorId: profId, Semester},
+                    where: { ProfessorId: profId, Semester },
                     attributes: ['id', 'School_Year', 'Semester'],
                     include: [
                         {
@@ -2825,20 +2812,10 @@ const getSchedsByDept = async (req, res, next) => {
 const deleteSchedule = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { DepartmentId } = req.body
 
         const schedule = await Schedule.findByPk(id);
         if (!schedule) {
             return res.status(404).json({ successful: false, message: "Schedule not found." });
-        }
-
-        const assignation = await Assignation.findByPk(schedule.AssignationId);
-        if (!assignation) {
-            return res.status(404).json({ successful: false, message: "Assignation not found." });
-        }
-        // Check if the schedule belongs to the specified department
-        if (assignation.DepartmentId !== DepartmentId) {
-            return res.status(403).json({ successful: false, message: "Schedule does not belong to the specified department." });
         }
 
         // Check if schedule is locked

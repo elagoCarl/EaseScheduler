@@ -32,7 +32,7 @@ const Settings = () => {
     try {
       // Use the new department-specific endpoint
       const response = await Axios.get(`/settings/getSettingsByDept/${deptId}`);
-      console.log('API Response:', response.data);
+      // console.log('API Response:', response.data);
       if (response.data.successful) {
         setSettings(response.data.data);
         setOriginalSettings(response.data.data); // Store original settings for comparison
