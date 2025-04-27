@@ -49,11 +49,6 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     Assignation.associate = (models) => {
-        Assignation.belongsTo(models.RoomType, {
-            onDelete: 'RESTRICT',
-            onUpdate: 'CASCADE'
-        });
-
         Assignation.belongsTo(models.Professor, {
             foreignKey: {
                 name: 'ProfessorId',

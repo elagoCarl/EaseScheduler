@@ -13,12 +13,14 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     RoomType.associate = (models) => {
-        RoomType.hasMany(models.Room, {
-            onDelete: 'RESTRICT', // Prevent deletion of a room type if rooms are using it
+        RoomType.belongsToMany(models.Room, {
+            through: 'TypeRoom',
+            as: 'RoomTypes',
+            onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
         });
-        RoomType.hasMany(models.Assignation, {
-            onDelete: 'RESTRICT', // Prevent deletion of a room type if rooms are using it
+        RoomType.hasMany(models.Course, {
+            onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
         });
     };

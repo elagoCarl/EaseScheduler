@@ -2351,7 +2351,11 @@ const updateSchedule = async (req, res, next) => {
             const existingStart = timeToSeconds(existing.Start_time);
             const existingEnd = timeToSeconds(existing.End_time);
             return (newStartSec < existingEnd && newEndSec > existingStart);
-        });
+        })
+
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        const currentDay = days[Day - 1]
+        
         if (isRoomConflict) {
             return res.status(400).json({
                 successful: false,

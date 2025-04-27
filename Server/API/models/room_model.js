@@ -35,7 +35,9 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     Room.associate = (models) => {
-        Room.belongsTo(models.RoomType, {
+        Room.belongsToMany(models.RoomType, {
+            through: 'TypeRoom',
+            as: 'TypeRooms',
             onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
         });

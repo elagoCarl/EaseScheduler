@@ -6,6 +6,11 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Department is required." }
             }
+        },
+        isCore: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
         }
     }, {
         timestamps: true
