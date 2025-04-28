@@ -226,7 +226,7 @@ const ProfTimetable = () => {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-3 mt-3 sm:mt-0">
-              <button
+                <button
                 onClick={() => navigate('/addConfigSchedule')}
                 className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
                 title="Go Back"
