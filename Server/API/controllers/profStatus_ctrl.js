@@ -33,6 +33,13 @@ const addStatus = async (req, res, next) => {
                 })
             }
 
+            if(Max_units < 1 || Max_units > 40) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Max units must be between 1 and 40."
+                })
+            }
+
             const newStat = await ProfStatus.create({
                 Status: Status,
                 Max_units: Max_units
@@ -195,11 +202,17 @@ const updateStatus = async (req, res, next) => {
                 message: "Professor status not found"
             });
         }
-
         if (!util.checkMandatoryFields([Status, Max_units])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
+            })
+        }
+
+        if(Max_units < 1 || Max_units > 40) {
+            return res.status(400).json({
+                successful: false,
+                message: "Max units must be between 1 and 40."
             })
         }
 
