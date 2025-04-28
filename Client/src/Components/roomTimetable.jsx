@@ -5,8 +5,10 @@ import Sidebar from './callComponents/sideBar.jsx';
 import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const RoomTimetable = () => {
+  const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [rooms, setRooms] = useState([]);
@@ -153,87 +155,94 @@ const RoomTimetable = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundImage: `url(${Image3})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      <div className="fixed top-0 h-full z-50">
-        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-      </div>
-      <TopMenu toggleSidebar={toggleSidebar} />
-      <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
-          {/* Header */}
-          <div className="bg-blue-600 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
-                {selectedRoom ? (
-                  <div className="text-blue-100 mt-1">
-                    <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
-                    <div className="flex flex-row gap-x-4 text-sm mt-1">
-                      <span>{selectedRoom.Floor} Floor</span>
-                      <span>•</span>
-                      <span>{selectedRoom.Building} Building</span>
-                      <span>•</span>
-                      <span>{selectedRoom.Type}</span>
-                    </div>
+    className="min-h-screen flex flex-col"
+    style={{
+      backgroundImage: `url(${Image3})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    }}
+  >
+    {/* Sidebar and TopMenu */}
+    <div className="fixed top-0 h-full z-50">
+      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+    </div>
+    <TopMenu toggleSidebar={toggleSidebar} />
+
+    {/* Main Content */}
+    <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
+        
+        {/* Header */}
+        <div className="bg-blue-600 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
+
+              {selectedRoom ? (
+                <div className="text-blue-100 mt-1">
+                  <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
+                  <div className="flex flex-row gap-x-4 text-sm mt-1">
+                    <span>{selectedRoom.Floor} Floor</span>
+                    <span>•</span>
+                    <span>{selectedRoom.Building} Building</span>
+                    <span>•</span>
+                    <span>{selectedRoom.Type}</span>
                   </div>
+                </div>
+              ) : (
+                <p className="text-blue-100 mt-1">Loading room details...</p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3 mt-4 sm:mt-0">
+
+              {/* BACK BUTTON */}
+              <button
+                onClick={() => navigate('/addConfigSchedule')}
+                className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
+                title="Go Back"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {/* SEMESTER DROPDOWN */}
+              <select
+                value={selectedSemester || ''}
+                onChange={e => setSelectedSemester(e.target.value)}
+                disabled={loadingSemesters || semesters.length === 0}
+                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+              >
+                {loadingSemesters ? (
+                  <option>Loading semesters...</option>
+                ) : semesters.length === 0 ? (
+                  <option>No semesters found</option>
                 ) : (
-                  <p className="text-blue-100 mt-1">Loading room details...</p>
+                  semesters.map(semester => (
+                    <option key={semester} value={semester}>Semester: {semester}</option>
+                  ))
                 )}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 mt-4 sm:mt-0">
-                {/* Semester Dropdown */}
-                <select
-                  value={selectedSemester || ''}
-                  onChange={e => setSelectedSemester(e.target.value)}
-                  disabled={loadingSemesters || semesters.length === 0}
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                >
-                  {loadingSemesters ? (
-                    <option>Loading semesters...</option>
-                  ) : semesters.length === 0 ? (
-                    <option>No semesters found</option>
-                  ) : (
-                    semesters.map(semester => (
-                      <option key={semester} value={semester}>Semester: {semester}</option>
-                    ))
-                  )}
-                </select>
-                
-                {/* Room Dropdown */}
-                <select
-                  value={selectedRoom?.id || ''}
-                  onChange={e =>
-                    setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
-                  }
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                >
-                  {rooms.map(room => (
-                    <option key={room.id} value={room.id}>
-                      Room {room.Code} - {room.Building}
-                    </option>
-                  ))}
-                </select>
-                
-                {/* Export Button */}
-                {selectedRoom && selectedSemester && !loadingSchedules && (
-                  <ExportButton
-                    selectedRoom={selectedRoom}
-                    schedules={schedules}
-                    days={days}
-                    timeSlots={timeSlots}
-                    semester={selectedSemester}
-                  />
-                )}
-              </div>
+              </select>
+
+              {/* ROOM DROPDOWN */}
+              <select
+                value={selectedRoom?.id || ''}
+                onChange={e =>
+                  setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
+                }
+                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+              >
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>
+                    Room {room.Code} - {room.Building}
+                  </option>
+                ))}
+              </select>
+
             </div>
           </div>
+        </div>
           {/* Timetable */}
           <div className="overflow-x-auto">
             <div className="p-2 sm:p-4">

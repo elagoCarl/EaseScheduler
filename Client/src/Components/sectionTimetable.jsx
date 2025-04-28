@@ -5,9 +5,11 @@ import Sidebar from './callComponents/sideBar.jsx';
 import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const SectionTimetable = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);

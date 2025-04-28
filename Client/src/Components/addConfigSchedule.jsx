@@ -14,7 +14,8 @@ import { useAuth } from '../Components/authContext.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
 import { useNavigate } from 'react-router-dom';
-import { Home, Users, BookOpen} from 'lucide-react'
+import { Home, Users, BookOpen, Settings} from 'lucide-react'
+import SettingsModal from './settings.jsx'
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
@@ -60,6 +61,10 @@ const AddConfigSchedule = () => {
   const [filteredAssignations, setFilteredAssignations] = useState([]);
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [selectedProfessorId, setSelectedProfessorId] = useState(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const openSettingsModal = () => setIsSettingsOpen(true);
+  const closeSettingsModal = () => setIsSettingsOpen(false);
 
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
@@ -1107,6 +1112,12 @@ const renderManualSchedulingSection = () => {
               Section
             </span>
           </button>
+          <button 
+          onClick={openSettingsModal}
+          className="text-xl transition text-white"
+          >
+            <Settings size={20} />
+            </button>
         </div>
       </div>
           {notification && (
@@ -1297,6 +1308,11 @@ const renderManualSchedulingSection = () => {
         rooms={rooms}
         assignations={assignations}
         Semester={selectedSemester}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        closeSettingsModal={closeSettingsModal}
       />
 
       <ScheduleReportModal
