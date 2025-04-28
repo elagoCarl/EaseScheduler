@@ -269,7 +269,6 @@ const canScheduleProfessor = async (profSchedule, startHour, duration, settings,
     return true;
 };
 
-// New true backtracking implementation for variants
 const trueBacktrackScheduleVariant = async (
     assignations,
     rooms,
@@ -318,7 +317,10 @@ const trueBacktrackScheduleVariant = async (
             programCache[departmentId] = validProgramIds;
         }
 
-        if (courseParam.Type === "Core") {
+        const department = await Department.findByPk(departmentId);
+        const isDepartmentCore = department?.isCore || false;
+
+        if (isDepartmentCore) {
             validProgYrSecs = await ProgYrSec.findAll({
                 where: {
                     Year: courseParam.Year,
@@ -329,7 +331,7 @@ const trueBacktrackScheduleVariant = async (
                     attributes: ['Code']
                 }]
             });
-        } else if (courseParam.Type === "Professional") {
+        } else {
             // Use cached course programs if available
             const cacheKey = `course-${courseParam.id}`;
             let allowed;
@@ -410,8 +412,25 @@ const trueBacktrackScheduleVariant = async (
             sectionGroups[key].push(sec);
         });
 
-        // --- 2) Build the candidate room list, enforcing RoomType === assignation.RoomType ---
-        // build two lists: prioritized, then the rest
+        // --- 2) Build the candidate room list ---
+        // Get the course's compatible room types
+        let compatibleRoomTypeIds = [];
+        if (courseParam.RoomTypeId) {
+            // For backward compatibility, if the course still has a direct RoomTypeId
+            compatibleRoomTypeIds.push(courseParam.RoomTypeId);
+        } else {
+            // Get all room types associated with this course
+            const course = await Course.findByPk(courseParam.id, {
+                include: [{
+                    model: RoomType
+                }]
+            });
+            if (course && course.RoomTypes) {
+                compatibleRoomTypeIds = course.RoomTypes.map(rt => rt.id);
+            }
+        }
+
+        // Build two lists: prioritized, then the rest
         const prioritizedList = priorities?.room
             ? rooms.filter(r => priorities.room.includes(r.id))
             : [];
@@ -419,20 +438,31 @@ const trueBacktrackScheduleVariant = async (
             ? rooms.filter(r => !priorities.room.includes(r.id))
             : rooms;
 
-        // now interleave or concatenate:
-        let roomsToTry = [
-            ...prioritizedList,
-            ...fallbackList
-        ].filter(r => r.RoomTypeId === assignation.RoomTypeId);
+        // Fetch room types for each room
+        const roomsWithTypes = await Promise.all([...prioritizedList, ...fallbackList].map(async (room) => {
+            const roomWithTypes = await Room.findByPk(room.id, {
+                include: [{
+                    model: RoomType,
+                    as: 'TypeRooms'
+                }]
+            });
+            return {
+                ...room,
+                roomTypeIds: roomWithTypes?.TypeRooms?.map(rt => rt.id) || []
+            };
+        }));
 
+        // Filter rooms that have at least one compatible room type
+        let roomsToTry = roomsWithTypes.filter(room => {
+            return room.roomTypeIds.some(typeId => compatibleRoomTypeIds.includes(typeId));
+        });
 
-        roomsToTry = roomsToTry.filter(r => r.RoomTypeId === assignation.RoomTypeId);
         if (!roomsToTry.length) {
             failedAssignations.push({
                 id: assignation.id,
                 Course: courseParam.Code,
                 Professor: professorInfo.Name,
-                reason: "No rooms of matching RoomType available"
+                reason: "No rooms with compatible room types available"
             });
             return trueBacktrackScheduleVariant(
                 assignations, rooms, professorSchedule, courseSchedules,
@@ -535,8 +565,6 @@ const trueBacktrackScheduleVariant = async (
                                 CourseType: courseParam.Type,
                                 Sections: isPlaceholder ? ["No Section"] : group.map(s => {
                                     // Extract the program code based on ProgramId
-                                    // This should be done with actual program data, so we're keeping the 
-                                    // actual section information directly from the data
                                     return `${s.Program ? s.Program.Code : ""}${s.Year}${s.Section}`;
                                 }),
                                 Room: room.Code,
