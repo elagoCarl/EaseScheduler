@@ -44,7 +44,7 @@ module.exports = (sequelize, DataTypes) => {
         }),
         Course.hasMany(models.CourseProg, {
             foreignKey: 'CourseId',
-            as: 'courseProgs',
+            as: 'CourseProgs',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         }),

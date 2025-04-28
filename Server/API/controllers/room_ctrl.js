@@ -569,6 +569,8 @@ const updateDeptRoom = async (req, res, next) => {
         });
     }
 }
+
+
 module.exports = {
     addRoom,
     getAllRoom,

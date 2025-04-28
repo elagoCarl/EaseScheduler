@@ -16,9 +16,9 @@ const addDept = async (req, res, next) => {
         }
 
         for (const dept of depts) {
-            const { Name } = dept;
+            const { Name, isCore } = dept;
 
-            if (!util.checkMandatoryFields([Name])) {
+            if (!util.checkMandatoryFields([Name, isCore])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -40,7 +40,7 @@ const addDept = async (req, res, next) => {
                 })
             }
 
-            await Department.create({ Name })
+            await Department.create({ Name, isCore })
 
             // Log the archive action
             const token = req.cookies?.refreshToken;
@@ -199,9 +199,7 @@ const deleteDept = async (req, res, next) => {
 const updateDept = async (req, res, next) => {
     try {
         let dept = await Department.findByPk(req.params.id)
-        const { Name } = req.body
-
-        
+        const { Name, isCore } = req.body
 
         if (!dept) {
             res.status(404).send({
@@ -225,7 +223,7 @@ const updateDept = async (req, res, next) => {
             });
         }
 
-        if (!util.checkMandatoryFields([Name])) {
+        if (!util.checkMandatoryFields([Name, isCore])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -233,7 +231,8 @@ const updateDept = async (req, res, next) => {
         }
 
         const updateDept = await dept.update({
-            Name: Name
+            Name: Name,
+            isCore: isCore
         })
         
         // Log the archive action

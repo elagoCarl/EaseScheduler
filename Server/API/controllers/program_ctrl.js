@@ -1,8 +1,8 @@
-const { Program, Department, Course } = require('../models');
+const { Program, Department, Course, CourseProg } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const util = require('../../utils');
-const { Op } = require('sequelize');
+const { Op, where } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 
 const addProgram = async (req, res, next) => {
@@ -333,13 +333,13 @@ const getAllProgramByDept = async (req, res, next) => {
       message: error.message || "An unexpected error occurred.",
     });
   }
-};
+}
 
 const addCourseProg = async (req, res) => {
   try {
-    const { courseId, programId } = req.body;
+    const { courseId, programId, Year } = req.body;
 
-    if (!util.checkMandatoryFields([courseId, programId])) {
+    if (!util.checkMandatoryFields([courseId, programId, Year])) {
       return res.status(400).json({
         successful: false,
         message: "A mandatory field is missing.",
@@ -362,15 +362,22 @@ const addCourseProg = async (req, res) => {
       });
     }
 
-    const existingPairing = await course.hasCourseProgs(programId);
-    if (existingPairing) {
-      return res.status(400).json({
+    if (Year < 1 || Year > 6) {
+      return res.status(406).json({
         successful: false,
-        message: "This course is already associated with this program.",
+        message: "Year must be greater than 0 and less than 6.",
       });
     }
 
-    await course.addCourseProgs(programId);
+    const existingPairing = await CourseProg.findOne({where: { CourseId: courseId, ProgramId: programId, Year }});
+    if (existingPairing) {
+      return res.status(400).json({
+        successful: false,
+        message: "This course is already associated with this program and year.",
+      });
+    }
+
+    await CourseProg.create({CourseId: courseId, ProgramId: programId, Year});
 
     return res.status(200).json({
       successful: true,
@@ -386,9 +393,9 @@ const addCourseProg = async (req, res) => {
 
 const deleteCourseProg = async (req, res) => {
   try {
-    const { courseId, progId } = req.body;
+    const { courseId, progId, Year } = req.body;
 
-    if (!util.checkMandatoryFields([courseId, progId])) {
+    if (!util.checkMandatoryFields([courseId, progId, Year])) {
       return res.status(400).json({
         successful: false,
         message: "A mandatory field is missing.",
@@ -411,7 +418,7 @@ const deleteCourseProg = async (req, res) => {
       });
     }
 
-    const existingAssociation = await course.hasCourseProgs(progId);
+    const existingAssociation = await CourseProg.findOne({where: { CourseId: courseId, ProgramId: progId, Year }});
     if (!existingAssociation) {
       return res.status(404).json({
         successful: false,
@@ -420,11 +427,52 @@ const deleteCourseProg = async (req, res) => {
       });
     }
 
-    await course.removeCourseProgs(progId);
+    await CourseProg.destroy({where: { CourseId: courseId, ProgramId: progId, Year }});
 
     return res.status(200).json({
       successful: true,
       message: "Successfully deleted association.",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      successful: false,
+      message: err.message || "An unexpected error occurred.",
+    });
+  }
+}
+
+const getAllCourseProgByCourse = async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    const course = await Course.findByPk(courseId, {
+      include: {
+        model: Program,
+        as: "CourseProgs",
+        attributes: ['Code', 'Name'],
+        through: {
+          attributes: ['Year'],
+        },
+      },
+    });
+    if (!course) {
+      return res.status(404).json({
+        successful: false,
+        message: "Course not found.",
+      });
+    }
+    if (!course.CourseProgs || course.CourseProgs.length === 0) {
+      return res.status(200).json({
+        successful: true,
+        message: "No programs found for this course.",
+        count: 0,
+        data: [],
+      });
+    }
+    return res.status(200).json({
+      successful: true,
+      message: "Retrieved all programs for this course.",
+      count: course.CourseProgs.length,
+      data: course.CourseProgs,
     });
   } catch (err) {
     return res.status(500).json({
@@ -439,7 +487,7 @@ const getCoursesByProg = async (req, res, next) => {
     const progId = req.params.id;
     const courses = await Course.findAll({
       attributes: { exclude: ["CourseProgs"] },
-      order: [['Year', 'ASC'], ['Code', 'DESC']],
+      order: [['Code', 'DESC']],
       include: {
         model: Program,
         as: "CourseProgs",
@@ -448,7 +496,7 @@ const getCoursesByProg = async (req, res, next) => {
         },
         attributes: [],
         through: {
-          attributes: [],
+          attributes: ['Year'],
         },
       },
     });
@@ -477,14 +525,16 @@ const getCoursesByProg = async (req, res, next) => {
 
 const updateCourseProg = async (req, res, next) => {
   try {
-    const { oldCourseId, oldProgId, newCourseId, newProgId } = req.body;
+    const { oldCourseId, oldProgId, newCourseId, newProgId, oldYear, newYear } = req.body;
 
     if (
       !util.checkMandatoryFields([
         oldCourseId,
         oldProgId,
         newCourseId,
-        newProgId,
+        newProgId,,
+        newYear,
+        oldYear
       ])
     ) {
       return res.status(400).json({
@@ -524,8 +574,15 @@ const updateCourseProg = async (req, res, next) => {
         message: "Program not found.",
       });
     }
+    
+    if (oldYear < 1 || oldYear > 6 || newYear < 1 || newYear > 6) {
+      return res.status(406).json({
+        successful: false,
+        message: "Year must be greater than 0 and less than 6.",
+      });
+    }
 
-    const existingAssociation = await oldCourse.hasCourseProgs(oldProgId);
+    const existingAssociation = await CourseProg.findOne({where: { CourseId: oldCourseId, ProgramId: oldProgId, Year: oldYear }});
     if (!existingAssociation) {
       return res.status(404).json({
         successful: false,
@@ -534,7 +591,16 @@ const updateCourseProg = async (req, res, next) => {
       });
     }
 
-    const newExistingPairing = await newCourse.hasCourseProgs(newProgId);
+    const newExistingPairing = await CourseProg.findOne({
+      where: { 
+        CourseId: newCourseId,
+        ProgramId: newProgId, 
+        Year: newYear, 
+        [Op.not]: [
+          { CourseId: oldCourseId, ProgramId: oldProgId, Year: oldYear }
+        ]
+      }
+    });
     if (newExistingPairing) {
       return res.status(400).json({
         successful: false,
@@ -542,8 +608,10 @@ const updateCourseProg = async (req, res, next) => {
       });
     }
 
-    await oldProg.removeProgCourses(oldCourseId);
-    await newProg.addProgCourses(newCourseId);
+    await CourseProg.update(
+      { CourseId: newCourseId, ProgramId: newProgId, Year: newYear },
+      { where: { CourseId: oldCourseId, ProgramId: oldProgId, Year: oldYear } }
+    )
 
     return res.status(200).json({
       successful: true,
@@ -555,7 +623,7 @@ const updateCourseProg = async (req, res, next) => {
       message: err.message || "An unexpected error occurred.",
     });
   }
-};
+}
 
 module.exports = {
   addProgram,
@@ -568,5 +636,6 @@ module.exports = {
   deleteCourseProg,
   getCoursesByProg,
   updateCourseProg,
-  getAllProgramByDept
+  getAllProgramByDept,
+  getAllCourseProgByCourse
 };

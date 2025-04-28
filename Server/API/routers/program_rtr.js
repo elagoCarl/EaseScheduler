@@ -15,5 +15,6 @@ router.put('/updateCourseProg', program_ctrl.updateCourseProg);
 router.delete('/deleteCourseProg', program_ctrl.deleteCourseProg);
 router.post('/addCourseProg', program_ctrl.addCourseProg);
 router.get('/getAllProgByDept/:id', program_ctrl.getAllProgramByDept)
+router.get('/getAllCourseProgByCourse/:id', program_ctrl.getAllCourseProgByCourse)
 
 module.exports = router;

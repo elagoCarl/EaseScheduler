@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { REFRESH_TOKEN_SECRET } = process.env;
-const { Course, Professor, Department, Settings } = require("../models");
+const { Course, Professor, Department, Settings, CourseProg, RoomType, Program } = require("../models");
 const util = require("../../utils");
 const { Op } = require("sequelize");
 const { addHistoryLog } = require("../controllers/historyLogs_ctrl");
@@ -8,14 +8,6 @@ const { addHistoryLog } = require("../controllers/historyLogs_ctrl");
 const addCourse = async (req, res) => {
   try {
     let courses = req.body;
-
-    const settings = await Settings.findByPk(1);
-    if (!settings) {
-      return res.status(406).json({
-        successful: false,
-        message: "Settings not found.",
-      });
-    }
 
     // Ensure the request body is an array
     if (!Array.isArray(courses)) {
@@ -25,10 +17,10 @@ const addCourse = async (req, res) => {
     const addedCourses = [];
 
     for (const course of courses) {
-      const { Code, Description, Duration, Units, Type, Dept_id, Year } = course;
+      const { Code, Description, Duration, Units, Type, DepartmentId, ProgYears, RoomTypeId } = course;
 
       // Validate mandatory fields
-      if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, Dept_id])) {
+      if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, DepartmentId, ProgYears, RoomTypeId])) {
         return res.status(400).json({
           successful: false,
           message: "A mandatory field is missing.",
@@ -41,11 +33,19 @@ const addCourse = async (req, res) => {
         });
       }
 
-      const department = await Department.findByPk(Dept_id);
+      const department = await Department.findByPk(DepartmentId);
       if (!department) {
         return res.status(404).json({
           successful: false,
-          message: `Department with ID ${Dept_id} does not exist.`,
+          message: `Department with ID ${DepartmentId} does not exist.`,
+        });
+      }
+
+      const settings = await Settings.findOne({ where: { DepartmentId } });
+      if (!settings) {
+        return res.status(406).json({
+          successful: false,
+          message: "Settings not found.",
         });
       }
 
@@ -54,6 +54,14 @@ const addCourse = async (req, res) => {
         return res.status(406).json({
           successful: false,
           message: `Duration cannot exceed available hours (${availableHours} hours between ${settings.StartHour}:00 and ${settings.EndHour}:00).`,
+        });
+      }
+
+      const roomType = await RoomType.findByPk(RoomTypeId);
+      if (!roomType) {
+        return res.status(404).json({
+          successful: false,
+          message: "Room type not found.",
         });
       }
 
@@ -88,13 +96,34 @@ const addCourse = async (req, res) => {
         Duration,
         Units,
         Type,
-        Year: (Year >= 1) ? Year : null
-      });
+        RoomTypeId
+      })
+      await newCourse.addCourseDepts(DepartmentId)
 
-      if (Type === "Professional") {
-        await newCourse.addCourseDepts(Dept_id);
+      for (const prog of ProgYears) {
+        const existingProg = await Program.findOne({
+          where: {
+            id: prog.Program_id
+          }
+        })
+        if (!existingProg) {
+          return res.status(404).json({
+            successful: false,
+            message: `Program with ID ${prog.Program_id} does not exist.`,
+          });
+        }
+        if (prog.Year < 1 || prog.Year > 6) {
+          return res.status(406).json({
+            successful: false,
+            message: "Year must be greater than 0 and less than 6.",
+          });
+        }
+        await CourseProg.create({
+          CourseId: newCourse.id,
+          ProgramId: prog.Program_id,
+          Year: prog.Year
+        })
       }
-
       addedCourses.push(Code);
     }
 
@@ -127,7 +156,6 @@ const addCourse = async (req, res) => {
       message: "Successfully added new course(s).",
     });
   } catch (err) {
-    console.log("errRRRRRRRRRRRRRRRRR ", err)
     return res.status(500).json({
       successful: false,
       message: err.message || "An unexpected error occurred.",
@@ -243,7 +271,7 @@ const updateCourse = async (req, res) => {
   try {
     // Find course by primary key
     const course = await Course.findByPk(req.params.id);
-    const { Code, Description, Duration, Units, Type, Year } = req.body;
+    const { Code, Description, Duration, Units, Type, DepartmentId, RoomTypeId } = req.body;
 
     // Check if course exists
     if (!course) {
@@ -255,7 +283,7 @@ const updateCourse = async (req, res) => {
 
     // Validate mandatory fields
     if (
-      !util.checkMandatoryFields([Code, Description, Duration, Units, Type])
+      !util.checkMandatoryFields([Code, Description, Duration, Units, Type, RoomTypeId])
     ) {
       return res.status(400).json({
         successful: false,
@@ -268,6 +296,14 @@ const updateCourse = async (req, res) => {
       return res.status(406).json({
         successful: false,
         message: "Duration and Units must be positive integers.",
+      });
+    }
+
+    const roomType = await RoomType.findByPk(RoomTypeId);
+    if (!roomType) {
+      return res.status(404).json({
+        successful: false,
+        message: "Room type not found.",
       });
     }
 
@@ -295,7 +331,7 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    const settings = await Settings.findByPk(1);
+    const settings = await Settings.findOne( {where: { DepartmentId }})
     if (!settings) {
       return res.status(406).json({
         successful: false,
@@ -318,7 +354,7 @@ const updateCourse = async (req, res) => {
       Duration: course.Duration,
       Units: course.Units,
       Type: course.Type,
-      Year: course.Year
+      RoomTypeId: course.RoomTypeId,
     };
 
     // Update course details
@@ -328,7 +364,7 @@ const updateCourse = async (req, res) => {
       Duration,
       Units,
       Type,
-      Year: (Year >= 1) ? Year : null
+      RoomTypeId
     })
 
     // Log the archive action
@@ -516,7 +552,7 @@ const getCoursesByDept = async (req, res, next) => {
           { "$CourseDepts.id$": deptId }
         ]
       },
-      order: [['Year', 'ASC'], ['Code', 'DESC']],
+      order: [['Code', 'DESC']],
       include: {
         model: Department,
         as: "CourseDepts",
@@ -525,8 +561,9 @@ const getCoursesByDept = async (req, res, next) => {
         through: {
           attributes: [] // Hide junction table fields
         }
-      }
-    });
+      },
+      
+    })
 
     if (!courses || courses.length === 0) {
       return res.status(200).send({
