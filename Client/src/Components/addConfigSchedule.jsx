@@ -14,8 +14,10 @@ import { useAuth } from '../Components/authContext.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
 import { useNavigate } from 'react-router-dom';
+import { Home, Users, BookOpen} from 'lucide-react'
 
 const AddConfigSchedule = () => {
+  const [selectedTab, setSelectedTab] = useState('room');
   const { user } = useAuth();
   const deptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -873,26 +875,50 @@ const AddConfigSchedule = () => {
           
         </div>
         <div className="bg-gray-100 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
-          <div className="bg-blue-600 p-3 sm:p-5 justify-end text-end items-end">
+          <div className="bg-blue-600 p-3 sm:p-5 justify-between items-center">
+            <div>
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Add/Configure Schedule</h1>
             <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Create and manage class schedules</p>
+            </div>
+            
+            <div className="flex flex-row gap-6 items-end justify-end mb-2">
+            <button 
+              onClick={() => navigate('/roomTimetable')}
+              className={`px-10 py-6 rounded-full text-sm font-medium transition-colors bg-blue-700 text-white hover:bg-blue-500 duration-300
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                <Home size={16} />
+                Room
+              </span>
+            </button>
+            <button 
+              onClick={() => navigate('/profTimetable')}
+              className={`px-8 py-6 rounded-full text-sm font-medium transition-colors ${
+                selectedTab === 'professor' 
+                  ? 'bg-white text-blue-600' 
+                  : 'bg-blue-700 text-white hover:bg-blue-800'
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                <Users size={16} />
+                Professor
+              </span>
+            </button>
+            <button 
+              onClick={() => navigate('/sectionTimetable')}
+              className={`px-8 py-6 rounded-full text-sm font-medium transition-colors ${
+                selectedTab === 'section' 
+                  ? 'bg-white text-blue-600' 
+                  : 'bg-blue-700 text-white hover:bg-blue-800'
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                <BookOpen size={16} />
+                Section
+              </span>
+            </button>
           </div>
-          <div className="mt-3 mb-2 mr-5 space-x-4 sm:mt-8 justify-end text-end items-center">
-        <button onClick={() => {
-          navigate('/roomTimetable')
-        }} className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-full shadow hover:bg-blue-400 duration-300 transition-all text-xs sm:text-sm">
-          Room
-        </button>
-        <button onClick={() => {
-          navigate('/profTimetable')
-        }} className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-full shadow hover:bg-blue-400 duration-300 transition-all text-xs sm:text-sm">
-          Professor
-        </button>
-        <button onClick={() => {
-          navigate('/sectionTimetable')
-        }} className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-full shadow hover:bg-blue-400 duration-300 transition-all text-xs sm:text-sm">
-          Section
-        </button>
         </div>
           {notification && (
             <div className={`mx-4 my-4 p-3 rounded-lg text-sm font-medium border ${notification.type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
