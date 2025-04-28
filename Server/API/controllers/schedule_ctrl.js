@@ -1931,27 +1931,34 @@ const addSchedule = async (req, res, next) => {
         if (!Array.isArray(schedule)) {
             schedule = [schedule];
         }
-
         const createdSchedules = [];
-
-        // Fetch global settings once to use for validations (e.g., operating hours, max hours, break durations)
-        const settings = await Settings.findByPk(1);
-        if (!settings) {
-            return res.status(500).json({
-                successful: false,
-                message: "Settings could not be retrieved. Please try again later."
-            });
-        }
 
         for (const sched of schedule) {
             const { Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester } = sched;
-            console.log("Sections:", Sections);
 
             // Check required fields - now including Semester
             if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
+                });
+            }
+
+            const assignation = await Assignation.findByPk(AssignationId, {
+                include: [{ model: Course }, { model: Professor }]
+            });
+            if (!assignation || !assignation.Course || !assignation.Professor) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Assignation with ID ${AssignationId} not found or missing course/professor details.`
+                });
+            }
+
+            const settings = await Settings.findOne({ where: { DepartmentId: assignation.DepartmentId } })
+            if (!settings) {
+                return res.status(500).json({
+                    successful: false,
+                    message: "Settings could not be retrieved. Please try again later."
                 });
             }
 
@@ -1979,16 +1986,6 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
-            // Fetch the assignation with both Course and Professor information
-            const assignation = await Assignation.findByPk(AssignationId, {
-                include: [{ model: Course }, { model: Professor }]
-            });
-            if (!assignation || !assignation.Course || !assignation.Professor) {
-                return res.status(404).json({
-                    successful: false,
-                    message: `Assignation with ID ${AssignationId} not found or missing course/professor details.`
-                });
-            }
 
             // Validate the semester matches the assignation's semester
             if (assignation.Semester !== Semester) {
@@ -2222,7 +2219,6 @@ const addSchedule = async (req, res, next) => {
         });
 
     } catch (error) {
-        console.error("Error creating schedule:", error);
         return res.status(500).json({
             successful: false,
             message: error.message || "An error occurred while creating schedules."
@@ -2245,7 +2241,17 @@ const updateSchedule = async (req, res, next) => {
                 message: "A mandatory field is missing."
             });
         }
-        const settings = await Settings.findByPk(1);
+
+        const assignation = await Assignation.findByPk(AssignationId, {
+            include: [{ model: Course }, { model: Professor }]
+        });
+        if (!assignation || !assignation.Course || !assignation.Professor) {
+            return res.status(404).json({
+                successful: false,
+                message: `Assignation with ID ${AssignationId} not found or missing course/professor details.`
+            });
+        }
+        const settings = await Settings.findOne({ where: { DepartmentId: assignation.DepartmentId } });
         if (!settings) {
             return res.status(500).json({
                 successful: false,
@@ -2284,17 +2290,6 @@ const updateSchedule = async (req, res, next) => {
             return res.status(404).json({
                 successful: false,
                 message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
-            });
-        }
-
-        // Validate Assignation existence with course and professor info
-        const assignation = await Assignation.findByPk(AssignationId, {
-            include: [{ model: Course }, { model: Professor }]
-        });
-        if (!assignation || !assignation.Course || !assignation.Professor) {
-            return res.status(404).json({
-                successful: false,
-                message: `Assignation with ID ${AssignationId} not found or missing course/professor details.`
             });
         }
 
@@ -2355,7 +2350,7 @@ const updateSchedule = async (req, res, next) => {
 
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
         const currentDay = days[Day - 1]
-        
+
         if (isRoomConflict) {
             return res.status(400).json({
                 successful: false,
@@ -2601,7 +2596,6 @@ const getAllSchedules = async (req, res, next) => {
 const getSchedsByRoom = async (req, res, next) => {
     try {
         const { Semester } = req.body
-        console.log(Semester)
 
         const sched = await Schedule.findAll({
             where: { RoomId: req.params.id },
@@ -2688,7 +2682,11 @@ const getSchedsByProf = async (req, res, next) => {
                     include: [
                         {
                             model: RoomType,
-                            attributes: ['Type']
+                            as: 'TypeRooms',
+                            attributes: ['id', 'Type'],
+                            through: {
+                                attributes: []
+                            }
                         }
                     ]
                 },
@@ -2764,7 +2762,11 @@ const getSchedsByDept = async (req, res, next) => {
                     include: [
                         {
                             model: RoomType,
-                            attributes: ['Type']
+                            as: 'TypeRooms',
+                            attributes: ['id', 'Type'],
+                            through: {
+                                attributes: []
+                            }
                         }
                     ]
                 },

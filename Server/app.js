@@ -35,6 +35,7 @@ const assignation_rtr = require('./API/routers/assignation_rtr')
 const settings_rtr = require('./API/routers/settings_rtr')
 const authMiddleware_rtr = require('./API/routers/authMiddleware_rtr')
 const roomType_rtr = require('./API/routers/roomType_rtr')
+const courseProg_rtr = require('./API/routers/courseProg_rtr')
 
 // para lang makita kung anong request sa console
 app.use((req, res, next) => {
@@ -111,6 +112,7 @@ app.use((req, res, next) => {
 
 //MIDDLEWARE FOR THE ROUTERS
 app.use('/accounts', account_rtr)
+app.use('/courseProg', courseProg_rtr)
 app.use('/prof', prof_rtr)
 app.use('/room', room_rtr)
 app.use('/dept', dept_rtr)

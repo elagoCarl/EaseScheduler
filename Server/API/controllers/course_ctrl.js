@@ -103,13 +103,13 @@ const addCourse = async (req, res) => {
       for (const prog of ProgYears) {
         const existingProg = await Program.findOne({
           where: {
-            id: prog.Program_id
+            id: prog.ProgramId
           }
         })
         if (!existingProg) {
           return res.status(404).json({
             successful: false,
-            message: `Program with ID ${prog.Program_id} does not exist.`,
+            message: `Program with ID ${prog.ProgramId} does not exist.`,
           });
         }
         if (prog.Year < 1 || prog.Year > 6) {
@@ -120,7 +120,7 @@ const addCourse = async (req, res) => {
         }
         await CourseProg.create({
           CourseId: newCourse.id,
-          ProgramId: prog.Program_id,
+          ProgramId: prog.ProgramId,
           Year: prog.Year
         })
       }

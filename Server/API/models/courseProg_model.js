@@ -1,6 +1,12 @@
 
 module.exports = function (sequelize, DataTypes) {
     const CourseProg = sequelize.define('CourseProg', {
+        id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+            allowNull: false,
+        },
         Year: {
             type: DataTypes.INTEGER,
             allowNull: true,
@@ -9,11 +15,6 @@ module.exports = function (sequelize, DataTypes) {
         }
     }, {
         timestamps: true,
-        indexes: [{
-            name: 'CourseProgs_ProgramId_CourseId_index',
-            unique: false,
-            fields: ['CourseId', 'ProgramId'],
-        }]
     })
     CourseProg.associate = (models) => {
         CourseProg.belongsTo(models.Course, {foreignKey: {name: 'CourseId', allowNull: false}})
