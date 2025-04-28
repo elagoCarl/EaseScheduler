@@ -21,9 +21,6 @@ const AddConfigSchedule = () => {
   const deptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
-
-
-
   // State management
 
   // first 2 are for report modal
@@ -72,9 +69,7 @@ const AddConfigSchedule = () => {
     return semesters.sort((a, b) => a - b);
   }, [assignations]);
 
-  // Helper functions
   const formatTimeRange = (start, end) => `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
-
   const calculateEventPosition = event => {
     const [sH, sM] = event.Start_time.split(':').map(Number);
     const [eH, eM] = event.End_time.split(':').map(Number);
@@ -546,8 +541,6 @@ const renderManualSchedulingSection = () => {
     }
   };
 
-
-
   // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
@@ -1002,8 +995,7 @@ const renderManualSchedulingSection = () => {
                     <button 
                       onClick={() => handleRemovePriorityProfessor(id)} 
                       className="text-red-600 hover:text-red-800"
-                      disabled={activeMode !== 'automation'}
-                    >
+                      disabled={activeMode !== 'automation'}>
                       Remove
                     </button>
                   </li>
@@ -1032,8 +1024,7 @@ const renderManualSchedulingSection = () => {
             <button 
               onClick={handleAddPriorityRoom} 
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded"
-              disabled={activeMode !== 'automation'}
-            >
+              disabled={activeMode !== 'automation'}>
               Add
             </button>
           </div>
