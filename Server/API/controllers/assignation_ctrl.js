@@ -21,10 +21,10 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = assignation;
+            const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = assignation;
 
             // Check mandatory fields - note ProfessorId can be null based on the model
-            if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId, RoomTypeId])) {
+            if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
@@ -49,14 +49,6 @@ const addAssignation = async (req, res, next) => {
                 professor = await Professor.findByPk(ProfessorId);
                 if (!professor) {
                     return res.status(404).json({ successful: false, message: "Professor not found." });
-                }
-            }
-
-            // Validate RoomType if provided
-            if (RoomTypeId) {
-                const roomType = await RoomType.findByPk(RoomTypeId);
-                if (!roomType) {
-                    return res.status(404).json({ successful: false, message: "Room type not found." });
                 }
             }
 
@@ -111,11 +103,6 @@ const addAssignation = async (req, res, next) => {
             // Add ProfessorId if it was provided
             if (ProfessorId) {
                 assignationData.ProfessorId = ProfessorId;
-            }
-
-            // Add RoomTypeId if it was provided
-            if (RoomTypeId) {
-                assignationData.RoomTypeId = RoomTypeId;
             }
 
             const newAssignation = await Assignation.create(assignationData);
@@ -187,7 +174,7 @@ const addAssignation = async (req, res, next) => {
 const updateAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = req.body;
+        const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = req.body;
         let warningMessage = null;
 
         // Check mandatory fields - ProfessorId can be null based on the model
@@ -210,13 +197,6 @@ const updateAssignation = async (req, res, next) => {
         const department = await Department.findByPk(DepartmentId);
         if (!department) return res.status(404).json({ successful: false, message: "Department not found." });
 
-        // Validate RoomType if provided
-        if (RoomTypeId) {
-            const roomType = await RoomType.findByPk(RoomTypeId);
-            if (!roomType) {
-                return res.status(404).json({ successful: false, message: "Room type not found." });
-            }
-        }
 
         // Validate Professor if provided
         let professor = null;
@@ -320,11 +300,6 @@ const updateAssignation = async (req, res, next) => {
         // Add ProfessorId if it was provided (can be null)
         updateData.ProfessorId = ProfessorId;
 
-        // Add RoomTypeId if it was provided
-        if (RoomTypeId !== undefined) {
-            updateData.RoomTypeId = RoomTypeId;
-        }
-
         await assignation.update(updateData);
 
         const token = req.cookies?.refreshToken;
@@ -383,10 +358,22 @@ const getAssignation = async (req, res, next) => {
 
         const assignation = await Assignation.findByPk(id, {
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
+                {
+                    model: Course,
+                    attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
                 { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] }
+                {
+                    model: RoomType,
+                    attributes: ['id', 'Type']
+                }
             ],
         });
 
@@ -408,10 +395,17 @@ const getAllAssignations = async (req, res, next) => {
     try {
         const assignations = await Assignation.findAll({
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
+                {
+                    model: Course, attributes: ['Code', 'Description', 'Units'], 
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
-                { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] }
+                { model: Department, attributes: ['Name'] }
             ],
         });
 
@@ -438,8 +432,14 @@ const getAllAssignationsByDept = async (req, res, next) => {
             where: { DepartmentId: departmentId },
             include: [
                 {
-                    model: RoomType,
-                    attributes: ['id', 'Type']
+                    model: Course,
+                    attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
                 }
             ]
         });
@@ -469,10 +469,16 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
         const assignations = await Assignation.findAll({
             where: { DepartmentId: departmentId },
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units', 'Year'] },
+                { model: Course, attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                 },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
-                { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] }
+                { model: Department, attributes: ['Name'] }
             ],
         });
 
@@ -485,7 +491,6 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
     }
 };
 
-// Delete Assignation by ID
 const deleteAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -559,12 +564,24 @@ const getAssignationsWithSchedules = async (req, res, next) => {
     try {
         const assignations = await Assignation.findAll({
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
+                { model: Course, attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                 },
                 { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
                 { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] },
                 {
                     model: Room,
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ],
                     through: {
                         attributes: ['Day', 'StartTime', 'EndTime']
                     }

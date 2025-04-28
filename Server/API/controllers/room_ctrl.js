@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 const { REFRESH_TOKEN_SECRET } = process.env
 const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
+const { get } = require('../routers/program_rtr');
 
 const addRoom = async (req, res, next) => {
     try {
@@ -15,9 +16,9 @@ const addRoom = async (req, res, next) => {
         }
 
         for (const room of rooms) {
-            const { Code, Floor, Building, Type, NumberOfSeats } = room;
+            const { Code, Floor, Building, NumberOfSeats } = room;
 
-            if (!util.checkMandatoryFields([Code, Floor, Building, Type, NumberOfSeats])) {
+            if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -39,15 +40,6 @@ const addRoom = async (req, res, next) => {
                 });
             }
 
-            // Find the RoomType instead of validating the string directly
-            const roomType = await RoomType.findOne({ where: { Type } });
-            if (!roomType) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Invalid Room Type."
-                });
-            }
-
             // Validate NumberOfSeats is a positive integer
             if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
                 return res.status(406).json({
@@ -60,8 +52,7 @@ const addRoom = async (req, res, next) => {
                 Code,
                 Floor,
                 Building,
-                NumberOfSeats,
-                RoomTypeId: roomType.id  // Associate with the RoomType through its ID
+                NumberOfSeats
             });
 
             const token = req.cookies?.refreshToken;
@@ -84,7 +75,7 @@ const addRoom = async (req, res, next) => {
 
             const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Added Room: ${Building}${Code} floor: ${Floor}, type: ${Type}, seats: ${NumberOfSeats}`;
+            const details = `Added Room: ${Building}${Code} floor: ${Floor}, seats: ${NumberOfSeats}`;
 
             await addHistoryLog(accountId, page, details);
         }
@@ -100,16 +91,18 @@ const addRoom = async (req, res, next) => {
             message: err.message || "An unexpected error occurred."
         });
     }
-};
-
-module.exports = { addRoom };
+}
 
 const getAllRoom = async (req, res, next) => {
     try {
         let room = await Room.findAll({
             include: [{
                 model: RoomType,
-                attributes: ['id', 'Type']
+                as: 'TypeRooms',
+                attributes: ['id', 'Type'],
+                through: {
+                    attributes: []
+                }
             }]
         });
 
@@ -143,7 +136,11 @@ const getRoom = async (req, res, next) => {
         let room = await Room.findByPk(req.params.id, {
             include: [{
                 model: RoomType,
-                attributes: ['id', 'Type']
+                as: 'TypeRooms',
+                attributes: ['id', 'Type'],
+                through: {
+                    attributes: []
+                }
             }]
         });
 
@@ -230,10 +227,7 @@ const deleteRoom = async (req, res, next) => {
 
 const updateRoom = async (req, res, next) => {
     try {
-        let room = await Room.findByPk(req.params.id, {
-            include: [{ model: RoomType }]
-        });
-
+        let room = await Room.findByPk(req.params.id)
         if (!room) {
             return res.status(404).json({
                 successful: false,
@@ -241,9 +235,9 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        const { Code, Floor, Building, RoomTypeId, NumberOfSeats } = req.body;
+        const { Code, Floor, Building, NumberOfSeats } = req.body;
 
-        if (!util.checkMandatoryFields([Code, Floor, Building, RoomTypeId, NumberOfSeats])) {
+        if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -254,15 +248,6 @@ const updateRoom = async (req, res, next) => {
             return res.status(406).json({
                 successful: false,
                 message: "Invalid Building."
-            });
-        }
-
-        // Check if the RoomTypeId is valid
-        const roomType = await RoomType.findByPk(RoomTypeId);
-        if (!roomType) {
-            return res.status(406).json({
-                successful: false,
-                message: "Invalid Room Type."
             });
         }
 
@@ -289,7 +274,6 @@ const updateRoom = async (req, res, next) => {
             Code: room.Code,
             Floor: room.Floor,
             Building: room.Building,
-            RoomType: room.RoomType ? room.RoomType.Type : 'N/A',
             NumberOfSeats: room.NumberOfSeats
         };
 
@@ -297,7 +281,6 @@ const updateRoom = async (req, res, next) => {
             Code,
             Floor,
             Building,
-            RoomTypeId,  // Update the foreign key to RoomType
             NumberOfSeats
         });
 
@@ -444,8 +427,7 @@ const deleteDeptRoom = async (req, res) => {
             message: err.message || "An unexpected error occurred."
         });
     }
-};
-
+}
 
 const getRoomsByDept = async (req, res, next) => {
     try {
@@ -467,7 +449,11 @@ const getRoomsByDept = async (req, res, next) => {
                 },
                 {
                     model: RoomType,
-                    attributes: ['id', 'Type']
+                    as: 'TypeRooms',
+                    attributes: ['id', 'Type'],
+                    through: {
+                        attributes: []
+                    }
                 }
             ]
         })
@@ -569,6 +555,138 @@ const updateDeptRoom = async (req, res, next) => {
         });
     }
 }
+
+const addTypeRoom = async (req, res) => {
+    try {
+        const { RoomId, RoomTypeId } = req.body;
+
+        if (!util.checkMandatoryFields([RoomId, RoomTypeId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+        const room = await Room.findByPk(RoomId);
+        if (!room) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+        const roomType = await RoomType.findByPk(RoomTypeId);
+        if (!roomType) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room Type not found."
+            });
+        }
+
+        const existingType = await room.hasTypeRooms(RoomTypeId);
+        if (existingType) {
+            return res.status(406).json({
+                successful: false,
+                message: "Room and Type association already exists."
+            })
+        }
+
+        const newTypeRoom = await room.addTypeRooms(RoomTypeId);
+
+        return res.status(201).json({
+            successful: true,
+            message: "Successfully associated room type.",
+            data: newTypeRoom
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const deleteTypeRoom = async (req, res) => {
+    try {
+        const { RoomId, RoomTypeId } = req.body;
+
+        if (!util.checkMandatoryFields([RoomId, RoomTypeId])) {
+            return res.status(400).json({
+                successful: false,
+                message: "A mandatory field is missing."
+            });
+        }
+
+        const room = await Room.findByPk(RoomId);
+        if (!room) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found."
+            });
+        }
+
+        const roomType = await RoomType.findByPk(RoomTypeId);
+        if (!roomType) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room Type not found."
+            });
+        }
+
+        const existingAssociation = await room.hasTypeRooms(RoomTypeId);
+        if (!existingAssociation) {
+            return res.status(409).json({
+                successful: false,
+                message: "No existing association between this room and type."
+            });
+        }
+
+        await room.removeTypeRooms(RoomTypeId);
+
+        return res.status(200).json({
+            successful: true,
+            message: "Association successfully deleted."
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
+const getRoomTypeByRoom = async (req, res) => {
+    try {
+        const room = await Room.findByPk(req.params.id, {
+            include: [{
+                model: RoomType,
+                as: 'TypeRooms',
+                attributes: ['id', 'Type'],
+                through: {
+                    attributes: []
+                }
+            }]
+        });
+
+        if (room.TypeRooms.length === 0) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found.",
+                data: []
+            });
+        }
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully retrieved room type.",
+            data: room.TypeRooms
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+}
+
 module.exports = {
     addRoom,
     getAllRoom,
@@ -578,5 +696,8 @@ module.exports = {
     addDeptRoom,
     deleteDeptRoom,
     getRoomsByDept,
-    updateDeptRoom
+    updateDeptRoom,
+    addTypeRoom,
+    deleteTypeRoom,
+    getRoomTypeByRoom
 };

@@ -31,12 +31,6 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Course type is required." }
             }
-        },
-        Year: {
-            type: DataTypes.INTEGER,
-            allowNull: true,
-            max: 4,
-            min: 1
         }
     }, {
         timestamps: true
@@ -44,27 +38,32 @@ module.exports = (sequelize, DataTypes) => {
 
     Course.associate = (models) => {
         Course.belongsToMany(models.Program, {
-            through: 'CourseProg',
+            through: { model: 'CourseProg', unique: false},
+            foreignKey: 'CourseId',
+            otherKey: 'ProgramId'
+        }),
+        Course.hasMany(models.CourseProg, {
+            foreignKey: 'CourseId',
             as: 'CourseProgs',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        });
-
+        }),
+        Course.belongsTo(models.RoomType, {
+            onDelete: 'RESTRICT',
+            onUpdate: 'CASCADE'
+        }),
         Course.belongsToMany(models.Professor, {
             through: { model: 'Assignation', unique: false}
-        });
-
+        }),
         Course.belongsToMany(models.Department, {
             through: 'DeptCourse',
             as: 'CourseDepts',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
-        });
-
-
+        }),
         Course.hasMany(models.Assignation, {
             foreignKey: 'CourseId'
-        });
+        })
     };
 
     return Course;
