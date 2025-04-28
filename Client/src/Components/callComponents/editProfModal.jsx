@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { X, Check, AlertCircle, Save } from 'lucide-react';
 import axios from '../../axiosConfig';
 
 const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
-    name: professor.Name,
-    email: professor.Email,
-    ProfStatusId: professor.StatusId,
+    name: professor.Name || '',
+    email: professor.Email || '',
+    ProfStatusId: professor.ProfStatus.id || '',
   });
   const [statuses, setStatuses] = useState([]);
   const [error, setError] = useState('');
@@ -16,9 +17,10 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   // Initialize form data when professor prop changes
   useEffect(() => {
     setFormData({
-      name: professor.Name,
-      email: professor.Email,
-      ProfStatusId: professor.StatusId,
+      name: professor.Name || '',
+      email: professor.Email || '',
+      // Use Status as fallback if StatusId is undefined
+      ProfStatusId: professor.ProfStatus.id || professor.Status || '',
     });
   }, [professor]);
 
@@ -27,8 +29,20 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
     const fetchStatuses = async () => {
       try {
         const response = await axios.get('/profStatus/getAllStatus');
-        // console.log("Fetched data:", response.data);
         setStatuses(response.data.data);
+
+        // If StatusId is missing but we have Status name, try to find the ID
+        if (!formData.ProfStatusId && professor.Status && response.data.data) {
+          const matchingStatus = response.data.data.find(
+            status => status.Status === professor.Status
+          );
+          if (matchingStatus) {
+            setFormData(prev => ({
+              ...prev,
+              ProfStatusId: matchingStatus.id
+            }));
+          }
+        }
       } catch (error) {
         console.error('Error fetching statuses:', error);
         setError('Failed to load teaching statuses.');
@@ -45,16 +59,14 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // console.log("formData:", formData);
-    // console.log("statuses:", statuses);
 
     if (!formData.name || !formData.email || !formData.ProfStatusId) {
-      setError('Please fill out all fields.');
+      setError('Please fill out all required fields.');
       return;
     }
 
     try {
-      setSuccessMessage('Updating professor... Please wait.');
+      setSuccessMessage('');
       setError('');
       setIsLoading(true);
 
@@ -79,7 +91,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
       }, 1000);
 
     } catch (error) {
-      setError(error.response?.data?.message || 'An error occurred');
+      setError(error.response?.data?.message || 'An error occurred while updating professor.');
       setSuccessMessage('');
     } finally {
       setIsLoading(false);
@@ -87,21 +99,25 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl text-white font-semibold mx-auto">Edit Professor</h2>
+    <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+      <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden transform transition-all">
+        {/* Header */}
+        <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl text-white font-semibold">Edit Professor</h2>
           <button
-            className="text-3xl text-white hover:text-red-500 duration-300"
+            className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
             onClick={onClose}
+            aria-label="Close"
           >
-            &times;
+            <X size={20} />
           </button>
         </div>
-        <form className="space-y-10 px-20" onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block font-semibold text-white" htmlFor="name">
-              Name
+
+        {/* Form */}
+        <form className="p-6 space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="name">
+              Professor Name
             </label>
             <input
               type="text"
@@ -109,12 +125,14 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full p-8 border rounded bg-customWhite"
+              className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+              required
             />
           </div>
-          <div className="mb-4">
-            <label className="block font-semibold text-white" htmlFor="email">
-              Email
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="email">
+              Email Address
             </label>
             <input
               type="email"
@@ -122,21 +140,24 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full p-8 border rounded bg-customWhite"
+              className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+              required
             />
           </div>
-          <div className="mb-4">
-            <label className="block font-semibold text-white" htmlFor="status">
-              Status
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="status">
+              Teaching Status
             </label>
             <select
               id="status"
               name="ProfStatusId"
               value={formData.ProfStatusId}
               onChange={handleChange}
-              className="w-full p-5 border rounded bg-customWhite"
+              className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+              required
             >
-              <option value="">Select a status</option>
+              <option value="">Select Teaching Status</option>
               {statuses.map((status) => (
                 <option key={status.id} value={status.id}>
                   {status.Status}
@@ -144,22 +165,46 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
               ))}
             </select>
           </div>
-          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-          {successMessage && <p className="text-green-500 text-sm mb-4">{successMessage}</p>}
-          <div className="flex justify-end space-x-6">
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start space-x-2">
+              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start space-x-2">
+              <Check size={18} className="flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{successMessage}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
             <button
               type="button"
+              className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition duration-200"
               onClick={onClose}
-              className="bg-gray-500 text-white hover:bg-gray-700 duration-300 px-6 py-2 rounded-lg"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-blue-500 hover:bg-blue-600 duration-300 text-white px-12 py-2 rounded-lg"
+              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isLoading ? "opacity-75 cursor-not-allowed" : ""
+                }`}
             >
-              {isLoading ? 'Saving...' : 'Save'}
+              {isLoading ? (
+                <>Loading...</>
+              ) : (
+                <>
+                  <Save size={16} />
+                  <span>Save Changes</span>
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -172,7 +217,9 @@ EditProfModal.propTypes = {
   professor: PropTypes.shape({
     Name: PropTypes.string.isRequired,
     Email: PropTypes.string.isRequired,
-    StatusId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    // Make StatusId optional with Status as an alternative
+    StatusId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    Status: PropTypes.string,
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   }).isRequired,
   onClose: PropTypes.func.isRequired,

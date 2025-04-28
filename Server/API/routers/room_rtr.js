@@ -13,5 +13,8 @@ router.post('/addDeptRoom', room_ctrl.addDeptRoom)
 router.delete('/deleteDeptRoom', room_ctrl.deleteDeptRoom)
 router.get('/getRoomsByDept/:id', room_ctrl.getRoomsByDept)
 router.put('/updateDeptRoom', room_ctrl.updateDeptRoom)
+router.get('/getRoomTypeByRoom/:id', room_ctrl.getRoomTypeByRoom)
+router.post('/addTypeRoom', room_ctrl.addTypeRoom)
+router.delete('/deleteTypeRoom', room_ctrl.deleteTypeRoom)
 
 module.exports = router;

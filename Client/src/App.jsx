@@ -26,6 +26,7 @@ import ProgYrSec from "./Components/progYrSec";
 import CourseProg from "./Components/courseProg";
 import Settings from "./Components/settings"
 import ProfStatus from "./Components/profStatus";
+import ProfessorManagement from "./Components/professorManagement";
 
 
 const App = () => {
@@ -49,6 +50,7 @@ const App = () => {
             <Route path="/profAvailability" element={<ProfAvailability />} />
             <Route path="/course" element={<Course />} />
             <Route path="/professor" element={<Professor />} />
+            <Route path="/professorManagement" element={<ProfessorManagement />} />
             <Route path="/addConfigSchedule" element={<AddConfigSchedule />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/roomTimetable" element={<RoomTimetable />} />

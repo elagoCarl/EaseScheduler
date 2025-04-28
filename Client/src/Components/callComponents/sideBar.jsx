@@ -119,7 +119,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         />
 
         {/* Schedule Settings - Admin cannot access */}
-        {isNonAdmin && (
+        {/* {isNonAdmin && (
           <MenuItem 
             label="Schedule Settings" 
             icon={Settings}
@@ -128,7 +128,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               toggleSidebar(false);
             }}
           />
-        )}
+        )} */}
 
         {/* Timetables Section - Admin cannot access */}
         {isNonAdmin && (

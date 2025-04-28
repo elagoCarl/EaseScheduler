@@ -12,9 +12,10 @@ module.exports = (sequelize, DataTypes) => {
             defaultValue: "2025-2026"  // Set a default value as needed
         },
         Semester: {
-            type: DataTypes.STRING,
+            type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: "Fall"  // Set a default value as needed
+            min: 1,
+            max: 2
         },
         ProfessorId: {
             type: DataTypes.INTEGER,
