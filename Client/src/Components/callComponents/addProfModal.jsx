@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { X, Check, AlertCircle } from "lucide-react";
+import { X, Check, AlertCircle, Calendar } from "lucide-react";
 import axios from "../../axiosConfig";
 
 const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
@@ -13,6 +13,8 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
   const [successMessage, setSuccessMessage] = useState("");
   const [statuses, setStatuses] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [addedProfessor, setAddedProfessor] = useState(null);
 
   // Fetch statuses from the backend when the modal is opened
   useEffect(() => {
@@ -22,7 +24,7 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
           const response = await axios.get("/profStatus/getAllStatus", {
             withCredentials: true
           });
-          setStatuses(response.data.data); // Assuming 'data' contains the status records
+          setStatuses(response.data.data);
         } catch (error) {
           setErrorMessage(error.response?.data?.message || "An error occurred while fetching statuses.");
         }
@@ -38,10 +40,12 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
       });
       setErrorMessage("");
       setSuccessMessage("");
+      setShowAvailabilityPrompt(false);
+      setAddedProfessor(null);
     }
-  }, [isOpen]); // Re-run when `isOpen` changes
+  }, [isOpen]);
 
-  if (!isOpen) return null; // Prevent rendering if the modal is not open
+  if (!isOpen) return null;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -69,23 +73,119 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
         }
       );
 
-      setSuccessMessage("Professor added successfully!");
+      // After adding the professor, fetch the professor list to get the new ID
+      try {
+        const allProfResponse = await axios.get("/prof/getAllProf");
+        if (allProfResponse.data.successful) {
+          // Find the newly added professor by email (assuming email is unique)
+          const newProf = allProfResponse.data.data.find(
+            prof => prof.Email === formData.Email
+          );
 
-      // Notify parent component that a professor was added
-      if (onProfessorAdded) {
-        onProfessorAdded(response.data.data); // Pass the newly added professor data
+          if (newProf) {
+            // Create professor object with the real ID
+            const newProfessor = {
+              id: newProf.id,
+              Name: formData.Name,
+              Email: formData.Email
+            };
+            setAddedProfessor(newProfessor);
+            setShowAvailabilityPrompt(true);
+          }
+          // else {
+          //   // Fallback if we can't find the professor
+          //   const tempId = `temp-${Date.now()}`;
+          //   setAddedProfessor({
+          //     id: tempId,
+          //     Name: formData.Name,
+          //     Email: formData.Email
+          //   });
+          //   setShowAvailabilityPrompt(true);
+          // }
+        }
+      } catch (fetchError) {
+        console.error("Error fetching professor list:", fetchError);
+        // Fallback to temp ID if fetch fails
+        const tempId = `temp-${Date.now()}`;
+        setAddedProfessor({
+          id: tempId,
+          Name: formData.Name,
+          Email: formData.Email
+        });
+        setShowAvailabilityPrompt(true);
       }
 
-      setTimeout(() => {
-        onClose(); // Close the modal after a short delay
-      }, 1000); // Wait 1 second before closing the modal
+      setSuccessMessage("Professor added successfully!");
+      setIsSubmitting(false);
+
     } catch (error) {
+      console.error("Error adding professor:", error);
       setErrorMessage(error.response?.data?.message || "Failed to add professor.");
-    } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleAvailabilityChoice = (addNow) => {
+    if (onProfessorAdded) {
+      onProfessorAdded(addedProfessor, addNow);
+    }
+
+    onClose();
+  };
+
+  // Render availability prompt if needed
+  if (showAvailabilityPrompt) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden transform transition-all">
+          {/* Header */}
+          <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xl text-white font-semibold">Add Availability</h2>
+            <button
+              className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
+              onClick={() => handleAvailabilityChoice(false)}
+              aria-label="Close"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            <div className="flex items-center mb-4">
+              <Calendar size={24} className="text-blue-600 mr-3" />
+              <div>
+                <h3 className="font-medium text-gray-800">Would you like to add availability for {formData.Name}?</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Setting availability helps in scheduling and course assignments.
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+              <button
+                type="button"
+                className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition duration-200"
+                onClick={() => handleAvailabilityChoice(false)}
+              >
+                Later
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200"
+                onClick={() => handleAvailabilityChoice(true)}
+              >
+                Add Availability Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Original modal content
   return (
     <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden transform transition-all">
@@ -188,8 +288,7 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""
-                }`}
+              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
             >
               {isSubmitting ? "Adding..." : "Add Professor"}
             </button>
