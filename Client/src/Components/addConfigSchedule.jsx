@@ -13,6 +13,7 @@ import EditSchedRecordModal from './callComponents/editSchedRecordModal.jsx';
 import { useAuth } from '../Components/authContext.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
+import { useNavigate } from 'react-router-dom';
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
@@ -26,6 +27,7 @@ const AddConfigSchedule = () => {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportData, setReportData] = useState(null);
   // new automate
+  const navigate = useNavigate();
   const [scheduleVariants, setScheduleVariants] = useState([]);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -867,12 +869,31 @@ const AddConfigSchedule = () => {
       </div>
       <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <div className="container mx-auto my-50 sm:px-4 sm:pt-54 pb-6 sm:pb-10 flex-1 flex justify-center items-center">
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
-          <div className="bg-blue-600 p-3 sm:p-5">
+      <div>
+          
+        </div>
+        <div className="bg-gray-100 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
+          <div className="bg-blue-600 p-3 sm:p-5 justify-end text-end items-end">
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Add/Configure Schedule</h1>
             <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Create and manage class schedules</p>
           </div>
-
+          <div className="mt-3 mb-2 mr-5 space-x-4 sm:mt-8 justify-end text-end items-center">
+        <button onClick={() => {
+          navigate('/roomTimetable')
+        }} className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-full shadow hover:bg-blue-400 duration-300 transition-all text-xs sm:text-sm">
+          Room
+        </button>
+        <button onClick={() => {
+          navigate('/profTimetable')
+        }} className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-full shadow hover:bg-blue-400 duration-300 transition-all text-xs sm:text-sm">
+          Professor
+        </button>
+        <button onClick={() => {
+          navigate('/sectionTimetable')
+        }} className="bg-blue-600 text-white font-semibold px-8 py-4 rounded-full shadow hover:bg-blue-400 duration-300 transition-all text-xs sm:text-sm">
+          Section
+        </button>
+        </div>
           {notification && (
             <div className={`mx-4 my-4 p-3 rounded-lg text-sm font-medium border ${notification.type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
               {notification.message}
