@@ -2604,7 +2604,7 @@ const getSchedsByRoom = async (req, res, next) => {
                 {
                     model: Assignation,
                     where: { Semester: Semester },
-                    attributes: ['id', 'School_Year', 'Semester', 'DepartmentId'],
+                    attributes: ['id', 'Semester', 'DepartmentId'],
                     include: [
                         {
                             model: Course,
@@ -2667,7 +2667,7 @@ const getSchedsByProf = async (req, res, next) => {
                     // only include schedules linked to this professor
                     model: Assignation,
                     where: { ProfessorId: profId, Semester },
-                    attributes: ['id', 'School_Year', 'Semester'],
+                    attributes: ['id', 'Semester'],
                     include: [
                         {
                             model: Course,
