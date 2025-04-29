@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronUp, ChevronDown, Plus, X, Calendar, Edit, Trash2, Filter, ChevronRight, BookOpen, ChevronLeft } from 'lucide-react';
+import { ChevronUp, ChevronDown, Plus, X, Calendar, Edit, Trash2, Filter, ChevronRight, BookOpen, ChevronLeft, Search } from 'lucide-react';
 import axios from "../axiosConfig";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -9,8 +9,13 @@ import AddProfModal from "./callComponents/addProfModal";
 import EditProfModal from "./callComponents/editProfModal";
 import DeleteWarning from "./callComponents/deleteWarning";
 import ProfAvailabilityModal from "./callComponents/profAvailabilityModal";
+import ProfStatusModal from "./callComponents/profStatusModal";
+import AddAssignationModal from "./callComponents/addAssignationModal";
+import { useAuth } from '../Components/authContext.jsx';
 
 const ProfessorManagement = () => {
+    const { user } = useAuth();
+    const DEPARTMENT_ID = user.DepartmentId;
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('all');
@@ -18,6 +23,7 @@ const ProfessorManagement = () => {
     const [professors, setProfessors] = useState([]);
     const [filteredProfessors, setFilteredProfessors] = useState([]);
     const [profStatusMap, setProfStatusMap] = useState({});
+    const [statusList, setStatusList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isAddProfModalOpen, setIsAddProfModalOpen] = useState(false);
@@ -27,23 +33,55 @@ const ProfessorManagement = () => {
     const [selectedProfIds, setSelectedProfIds] = useState([]);
     const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
     const [selectedProfForAvailability, setSelectedProfForAvailability] = useState(null);
+    const [isProfStatusModalOpen, setIsProfStatusModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [departmentAssignations, setDepartmentAssignations] = useState([]);
+    const [isAssignCourseModalOpen, setIsAssignCourseModalOpen] = useState(false);
+    const [selectedProfForCourse, setSelectedProfForCourse] = useState(null);
     const professorsPerPage = 8;
 
     const showNotification = (message, type = "info") => toast[type](message);
+
+    const fetchData = async () => {
+        try {
+            await Promise.all([
+                fetchProfStatuses(),
+                fetchProfessors(),
+                fetchDepartmentAssignations()
+            ]);
+        } catch (error) {
+            setError("Error fetching data: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchDepartmentAssignations = async () => {
+        try {
+            const response = await axios.get(`/assignation/getAllAssignationsByDept/${DEPARTMENT_ID}`);
+            if (response.data.successful) {
+                setDepartmentAssignations(response.data.data);
+            }
+        } catch (error) {
+            showNotification("Failed to fetch course assignations", "error");
+        }
+    };
 
     const fetchProfStatuses = async () => {
         try {
             const response = await axios.get("/profStatus/getAllStatus");
             if (response.data.successful) {
                 const statusMap = {};
+                const statuses = [];
                 response.data.data.forEach(status => {
                     statusMap[status.id] = {
                         status: status.Status,
                         maxUnits: status.Max_units
                     };
+                    statuses.push(status.Status);
                 });
                 setProfStatusMap(statusMap);
+                setStatusList(statuses);
             }
         } catch (error) {
             showNotification("Failed to fetch professor statuses", "error");
@@ -85,10 +123,7 @@ const ProfessorManagement = () => {
                 setCurrentPage(1);
             }
         } catch (error) {
-            setError("Error fetching professors: " + error.message);
             showNotification("Failed to fetch professors", "error");
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -101,15 +136,9 @@ const ProfessorManagement = () => {
     const handleEditClick = async (profId) => {
         try {
             const response = await axios.get(`/prof/getProf/${profId}`);
-            const professorData = response.data.data;
-            if (professorData?.Name && professorData?.Email) {
-                setSelectedProf({
-                    ...professorData,
-                    StatusId: professorData.StatusId,
-                });
+            if (response.data.successful) {
+                setSelectedProf({ ...response.data.data });
                 setIsEditModalOpen(true);
-            } else {
-                showNotification("Could not retrieve professor details", "error");
             }
         } catch (error) {
             showNotification("Error fetching professor details", "error");
@@ -117,10 +146,7 @@ const ProfessorManagement = () => {
     };
 
     const handleConfirmDelete = async () => {
-        if (selectedProfIds.length === 0) {
-            showNotification("No professors selected for deletion", "error");
-            return;
-        }
+        if (selectedProfIds.length === 0) return;
         try {
             for (const id of selectedProfIds) {
                 await axios.delete(`/prof/deleteProf/${id}`);
@@ -132,6 +158,19 @@ const ProfessorManagement = () => {
         } catch (error) {
             showNotification("Error deleting professors", "error");
         }
+    };
+
+    const getFilteredAssignments = (profId, searchTerm) => {
+        const profAssignments = departmentAssignations.filter(
+            assignment => assignment.ProfessorId === profId
+        );
+        if (!searchTerm) return profAssignments;
+        return profAssignments.filter(assignment =>
+            assignment.Course?.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            assignment.Course?.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (assignment.Course?.RoomType?.Type &&
+                assignment.Course.RoomType.Type.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
     };
 
     const getStatusColor = (status) => {
@@ -152,11 +191,6 @@ const ProfessorManagement = () => {
     };
 
     useEffect(() => {
-        fetchProfStatuses();
-        fetchProfessors();
-    }, []);
-
-    useEffect(() => {
         const filtered = professors.filter(professor => {
             const searchMatch = searchTerm.toLowerCase() === '' ||
                 professor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -168,13 +202,15 @@ const ProfessorManagement = () => {
                     course.toLowerCase().includes(searchTerm.toLowerCase())));
 
             if (activeTab === 'all') return searchMatch;
-            if (activeTab === 'full-time') return searchMatch && professor.status === 'Full-time';
-            if (activeTab === 'part-time') return searchMatch && professor.status === 'Part-time';
-            return searchMatch;
+            return searchMatch && professor.status === activeTab;
         });
         setFilteredProfessors(filtered);
         setCurrentPage(1);
     }, [searchTerm, activeTab, professors]);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>{error}</div>;
@@ -182,6 +218,85 @@ const ProfessorManagement = () => {
     const indexOfLastProfessor = currentPage * professorsPerPage;
     const indexOfFirstProfessor = indexOfLastProfessor - professorsPerPage;
     const currentProfessors = filteredProfessors.slice(indexOfFirstProfessor, indexOfLastProfessor);
+
+    const CourseAssignments = ({ professor }) => {
+        const [assignmentSearch, setAssignmentSearch] = useState('');
+        const filteredAssignments = getFilteredAssignments(professor.id, assignmentSearch);
+
+        return (
+            <div className="p-4">
+                <div className="mb-3 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-medium text-gray-800">Course Assignments</h3>
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
+                            {filteredAssignments.length}
+                        </span>
+                    </div>
+                    <button
+                        className="text-blue-600 text-sm hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded transition duration-150"
+                        onClick={() => {
+                            setSelectedProfForCourse(professor);
+                            setIsAssignCourseModalOpen(true);
+                        }}
+                    >
+                        <Plus size={14} />
+                        Assign Course
+                    </button>
+                </div>
+
+                <div className="mb-3 relative">
+                    <input
+                        type="text"
+                        placeholder="Search courses..."
+                        value={assignmentSearch}
+                        onChange={(e) => setAssignmentSearch(e.target.value)}
+                        className="w-full p-2 pr-8 border rounded text-sm"
+                    />
+                    <Search size={16} className="absolute right-2 top-2.5 text-gray-400" />
+                </div>
+
+                {filteredAssignments.length > 0 ? (
+                    <div className="max-h-200 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                        <div className="space-y-2">
+                            {filteredAssignments.map((assignment) => (
+                                <div key={assignment.id} className="flex justify-between items-center p-2.5 bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
+                                    <div className="flex items-start gap-2">
+                                        <div className="text-blue-500 mt-0.5">
+                                            <ChevronRight size={14} />
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-800 text-sm font-medium">{assignment.Course?.Code}</span>
+                                            <p className="text-gray-600 text-xs">{assignment.Course?.Description}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-xs text-gray-500">{assignment.Course?.Units} Units</span>
+                                                {assignment.Course?.RoomType && (
+                                                    <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">
+                                                        {assignment.Course.RoomType.Type}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                    >
+                                        <X size={12} />
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
+                        <p className="text-gray-500 text-sm">
+                            {assignmentSearch ? "No matching courses found" : "No courses assigned"}
+                        </p>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="bg-slate-900 min-h-screen flex flex-col">
@@ -191,10 +306,19 @@ const ProfessorManagement = () => {
 
             <div className="flex-grow flex justify-center items-center pt-20 pb-8 px-4">
                 <div className="w-full max-w-7xl my-50">
-                    <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
                         <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Professor Management</h1>
-                        <div className="bg-white px-4 py-2 rounded shadow-md">
-                            <span className="text-gray-800 font-medium">Total Professors: <span className="text-blue-600">{professors.length}</span></span>
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white px-4 py-2 rounded shadow-md">
+                                <span className="text-gray-800 font-medium">Total Professors: <span className="text-blue-600">{professors.length}</span></span>
+                            </div>
+                            <button
+                                onClick={() => setIsProfStatusModalOpen(true)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center gap-2"
+                            >
+                                <Filter size={16} />
+                                Manage Status
+                            </button>
                         </div>
                     </div>
 
@@ -234,18 +358,23 @@ const ProfessorManagement = () => {
                                     {showFilters && (
                                         <div className="absolute right-0 mt-2 rounded bg-white shadow-xl z-10">
                                             <div className="p-2">
-                                                <button onClick={() => { setActiveTab('full-time'); setShowFilters(false); }}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded hover:text-blue-700 transition duration-150 flex items-center"
-                                                >
-                                                    <span className="w-3 h-3 rounded-md bg-emerald-400 mr-2"></span>
-                                                    Full-time
-                                                </button>
-                                                <button onClick={() => { setActiveTab('part-time'); setShowFilters(false); }}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded hover:text-blue-700 transition duration-150 flex items-center"
-                                                >
-                                                    <span className="w-3 h-3 rounded-md bg-blue-400 mr-2"></span>
-                                                    Part-time
-                                                </button>
+                                                {statusList.length > 0 ? (
+                                                    statusList.map((status, index) => (
+                                                        <button
+                                                            key={index}
+                                                            onClick={() => {
+                                                                setActiveTab(status);
+                                                                setShowFilters(false);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded hover:text-blue-700 transition duration-150 flex items-center"
+                                                        >
+                                                            <span className={`w-3 h-3 rounded-md ${status === 'Full-time' ? 'bg-emerald-400' : status === 'Part-time' ? 'bg-blue-400' : 'bg-gray-400'} mr-2`}></span>
+                                                            {status}
+                                                        </button>
+                                                    ))
+                                                ) : (
+                                                    <p className="px-4 py-2 text-sm text-gray-500">No statuses available</p>
+                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -309,43 +438,7 @@ const ProfessorManagement = () => {
                                     </div>
 
                                     <div className={`transition-all duration-300 ${professor.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                                        <div className="p-4">
-                                            <div className="mb-3 flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="font-medium text-gray-800">Courses</h3>
-                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
-                                                        {professor.courses ? professor.courses.length : 0}
-                                                    </span>
-                                                </div>
-                                                <button className="text-blue-600 text-sm hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded transition duration-150">
-                                                    <Plus size={14} />
-                                                    Assign Course
-                                                </button>
-                                            </div>
-
-                                            {professor.courses?.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {professor.courses.map((course, index) => (
-                                                        <div key={index} className="flex justify-between items-center p-2.5 bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
-                                                            <div className="flex items-start gap-2">
-                                                                <div className="text-blue-500 mt-0.5">
-                                                                    <ChevronRight size={14} />
-                                                                </div>
-                                                                <span className="text-gray-800 text-sm">{course}</span>
-                                                            </div>
-                                                            <button className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1">
-                                                                <X size={12} />
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
-                                                    <p className="text-gray-500 text-sm">No courses assigned</p>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <CourseAssignments professor={professor} />
                                     </div>
 
                                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
@@ -473,6 +566,29 @@ const ProfessorManagement = () => {
                     onClose={() => setIsAvailabilityModalOpen(false)}
                     professorId={selectedProfForAvailability.id}
                     professorName={selectedProfForAvailability.name}
+                />
+            )}
+            {isProfStatusModalOpen && (
+                <ProfStatusModal
+                    isOpen={isProfStatusModalOpen}
+                    onClose={() => setIsProfStatusModalOpen(false)}
+                    onStatusesUpdated={() => {
+                        fetchProfStatuses();
+                        fetchProfessors();
+                    }}
+                />
+            )}
+            {isAssignCourseModalOpen && selectedProfForCourse && (
+                <AddAssignationModal
+                    isOpen={isAssignCourseModalOpen}
+                    onClose={() => setIsAssignCourseModalOpen(false)}
+                    onAssignationAdded={(newAssignation) => {
+                        setIsAssignCourseModalOpen(false);
+                        fetchDepartmentAssignations();
+                        fetchProfessors();
+                        showNotification("Course assigned successfully", "success");
+                    }}
+                    professorId={selectedProfForCourse.id}
                 />
             )}
         </div>

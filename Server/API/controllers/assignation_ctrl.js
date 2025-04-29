@@ -21,7 +21,7 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = assignation;
+            const { Semester, CourseId, ProfessorId, DepartmentId } = assignation;
 
             // Check mandatory fields - note ProfessorId can be null based on the model
             if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
@@ -55,7 +55,6 @@ const addAssignation = async (req, res, next) => {
             // Check for duplicate assignation based on schedule
             const existingAssignation = await Assignation.findOne({
                 where: {
-                    School_Year,
                     Semester,
                     CourseId,
                     DepartmentId,
@@ -94,7 +93,6 @@ const addAssignation = async (req, res, next) => {
 
             // Create Assignation
             const assignationData = {
-                School_Year,
                 Semester,
                 CourseId,
                 DepartmentId,
@@ -174,7 +172,7 @@ const addAssignation = async (req, res, next) => {
 const updateAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { School_Year, Semester, CourseId, ProfessorId, DepartmentId } = req.body;
+        const { Semester, CourseId, ProfessorId, DepartmentId } = req.body;
         let warningMessage = null;
 
         // Check mandatory fields - ProfessorId can be null based on the model
@@ -210,7 +208,6 @@ const updateAssignation = async (req, res, next) => {
         // Check if the assignation already exists
         const existingAssignation = await Assignation.findOne({
             where: {
-                School_Year,
                 Semester,
                 CourseId,
                 DepartmentId,
@@ -291,7 +288,6 @@ const updateAssignation = async (req, res, next) => {
 
         // Update Assignation
         const updateData = {
-            School_Year,
             Semester,
             CourseId,
             DepartmentId,
