@@ -50,11 +50,23 @@ const addProgYrSec = async (req, res, next) => {
                     message: `ProgYrSec with Year ${Year} and Section ${Section} already exists for Program ID ${ProgramId}.`
                 });
             }
-
-            if(NumberOfStudents <= 0){
+            if (Year < 1 || Year > 6) {
                 return res.status(400).json({
                     successful: false,
-                    message: "Number of Students must be greater than 0."
+                    message: "Year must be between 1 and 6."
+                })
+            }
+            const sectionRegex = /^[A-Z]$/
+            if (!sectionRegex.test(Section)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Section must be a single uppercase letter from A to Z."
+                });
+            }
+            if(NumberOfStudents <= 0 || NumberOfStudents > 60){
+                return res.status(400).json({
+                    successful: false,
+                    message: "Number of Students must be greater than 0 or less than 60."
                 });
             }
             // Create ProgYrSec record
