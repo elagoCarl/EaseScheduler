@@ -245,6 +245,10 @@ const deleteProgram = async (req, res, next) => {
       });
     }
 
+    await CourseProg.destroy({
+      where: { ProgramId: programId }
+    })
+
     // Delete the program
     await program.destroy();
 
