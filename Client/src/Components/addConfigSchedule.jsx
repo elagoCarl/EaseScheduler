@@ -133,6 +133,11 @@ const AddConfigSchedule = () => {
     );
   };
 
+  const safeRenderRoomType = (typeRooms) => {
+    if (!typeRooms) return '';
+    return typeof typeRooms === 'object' ? typeRooms.Type || 'Unknown' : typeRooms;
+  };
+  
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 5000);
@@ -951,7 +956,7 @@ const AddConfigSchedule = () => {
               <option value="">Select Room</option>
               {rooms.map(room => (
                 <option key={room.id} value={room.id}>
-                  {room.Code} - {room.Building} {room.Floor} (Type: {room.TypeRooms})
+                  {room.Code} - {room.Building} {room.Floor} (Type: {safeRenderRoomType(room.TypeRooms)})
                 </option>
               ))}
             </select>
@@ -968,7 +973,7 @@ const AddConfigSchedule = () => {
                 const room = rooms.find(r => r.id.toString() === id.toString());
                 return (
                   <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                    <span>{room ? `${room.Code} - ${room.Building}` : id}</span>
+                    <span>{room ? `${room.Code} - ${room.Building}${room.TypeRooms ? ` (${typeof room.TypeRooms === 'object' ? room.TypeRooms.Type : room.TypeRooms})` : ''}` : id}</span>
                     <button 
                       onClick={() => handleRemovePriorityRoom(id)} 
                       className="text-red-600 hover:text-red-800"
@@ -1090,14 +1095,19 @@ const AddConfigSchedule = () => {
                 </select>
 
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-                <select name="room_id" value={formData.room_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">Select Room</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.Code} - {r.Building} {r.Floor} (Type: {r.RoomTypes})
-                    </option>
-                  ))}
-                </select>
+                <select
+                name="room_id"
+                value={formData.room_id}
+                onChange={handleInputChange}
+                className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Room</option>
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>
+                    {room.Code} - {room.Building} {room.Floor} (Type: {typeof room.TypeRooms === 'object' ? room.TypeRooms.Type : room.TypeRooms})
+                  </option>
+                ))}
+              </select>
 
                 <label className={`block text-xs sm:text-sm font-medium mb-1 ${!selectedSemester ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
                 <select

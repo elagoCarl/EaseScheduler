@@ -2,16 +2,23 @@ import React, { useState, useEffect } from "react";
 import Axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 import PropTypes from "prop-types";
+import { X, Check, AlertCircle } from "lucide-react";
 
 const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
   const { user } = useAuth();
-  const [courseCode, setCourseCode] = useState("");
-  const [courseDescription, setCourseDescription] = useState("");
-  const [courseType, setCourseType] = useState("");
-  const [courseDuration, setCourseDuration] = useState("");
-  const [courseUnits, setCourseUnits] = useState("");
-  const [courseYear, setCourseYear] = useState("");
-  const [message, setMessage] = useState({ text: "", type: "" });
+  const [formData, setFormData] = useState({
+    Code: "",
+    Description: "",
+    Type: "",
+    Duration: "",
+    Units: "",
+    RoomTypeId: "",
+    DepartmentId: ""
+  });
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
 
   // Define prop types
@@ -22,18 +29,32 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
     onUpdateSuccess: PropTypes.func
   };
 
-  // Reset form when modal opens with new course data
   useEffect(() => {
     if (isOpen && course) {
-      setCourseCode(course.Code || "");
-      setCourseDescription(course.Description || "");
-      setCourseType(course.Type || "");
-      setCourseDuration(course.Duration || "");
-      setCourseUnits(course.Units || "");
-      setCourseYear(course.Year || "");
-      setMessage({ text: "", type: "" });
+      // Reset form with course data
+      setFormData({
+        Code: course.Code || "",
+        Description: course.Description || "",
+        Type: course.Type || "",
+        Duration: course.Duration || "",
+        Units: course.Units || "",
+        RoomTypeId: course.RoomTypeId || "",
+        DepartmentId: user?.DepartmentId || course.DepartmentId || ""
+      });
+      setErrorMessage("");
+      setSuccessMessage("");
+      fetchRoomTypes();
     }
-  }, [isOpen, course]);
+  }, [isOpen, course, user]);
+
+  const fetchRoomTypes = async () => {
+    try {
+      const response = await Axios.get("/roomType/getAllRoomTypes");
+      if (response.data.successful) setRoomTypes(response.data.data);
+    } catch (error) {
+      setErrorMessage("Failed to fetch room types. Please try again.");
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -42,17 +63,28 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
     setTimeout(() => setIsShaking(false), 500);
   };
 
-  const closeModal = () => {
-    setMessage({ text: "", type: "" });
-    onClose();
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsSubmitting(true);
 
     if (!course || !course.id) {
-      setMessage({ text: "Course data is missing or has no ID", type: "error" });
+      setErrorMessage("Course data is missing or has no ID");
       shakeForm();
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (parseInt(formData.Duration) <= 0 || parseInt(formData.Units) <= 0) {
+      setErrorMessage("Duration and Units must be greater than 0");
+      shakeForm();
+      setIsSubmitting(false);
       return;
     }
 
@@ -60,13 +92,13 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
       const response = await Axios.put(
         `/course/updateCourse/${course.id}`,
         {
-          Code: courseCode,
-          Description: courseDescription,
-          Duration: courseDuration,
-          Units: courseUnits,
-          Type: courseType,
-          Year: courseYear,
-          Dept_id: user.DepartmentId
+          Code: formData.Code,
+          Description: formData.Description,
+          Duration: parseInt(formData.Duration),
+          Units: parseInt(formData.Units),
+          Type: formData.Type,
+          RoomTypeId: formData.RoomTypeId,
+          DepartmentId: user.DepartmentId
         },
         {
           headers: { "Content-Type": "application/json" },
@@ -74,107 +106,159 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
       );
 
       if (response.data.successful) {
-        setMessage({ text: "Course updated successfully!", type: "success" });
+        setSuccessMessage("Course updated successfully!");
         if (onUpdateSuccess) {
           onUpdateSuccess();
         }
-        setTimeout(closeModal, 1500);
+        setTimeout(() => {
+          onClose();
+        }, 1500);
       } else {
-        // Handle case where request succeeds but operation fails
-        setMessage({ text: response.data.message || "Failed to update course", type: "error" });
+        setErrorMessage(response.data.message || "Failed to update course");
         shakeForm();
       }
     } catch (error) {
-      // Display actual backend error message
       const errorMsg = error.response?.data?.message || error.message || "An unexpected error occurred";
-      setMessage({ text: errorMsg, type: "error" });
+      setErrorMessage(errorMsg);
       shakeForm();
       console.error("Error updating course:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl text-white font-semibold mx-auto">Edit Course</h2>
-          <button className="text-3xl text-white hover:text-red-500 duration-300" onClick={closeModal}>
-            &times;
+    <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+      <div className="bg-white rounded-lg shadow-xl w-11/12 md:max-w-xl overflow-hidden transform transition-all">
+        <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+          <h2 className="text-xl text-white font-semibold">Edit Course</h2>
+          <button
+            type="button"
+            className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
+            onClick={onClose}
+          >
+            <X size={20} />
           </button>
         </div>
-        <form className={`space-y-4 px-6 ${isShaking ? 'animate-shake' : ''}`} onSubmit={handleSubmit}>
-          {message.text && (
-            <div className={`border-l-4 p-4 mb-4 rounded
-              ${message.type === 'success' ? 'bg-green-100 border-green-500 text-green-700' : 'bg-red-100 border-red-500 text-red-700'}`}>
-              <p className={message.type === 'error' ? "font-bold" : ""}>{message.type === 'error' ? "Error" : ""}</p>
-              <p>{message.text}</p>
+
+        <form className={`p-6 space-y-4 max-h-[80vh] overflow-y-auto ${isShaking ? 'animate-shake' : ''}`} onSubmit={handleSubmit}>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700">Course Code</label>
+            <input
+              type="text"
+              name="Code"
+              placeholder="Enter course code"
+              className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+              value={formData.Code}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700">Course Description</label>
+            <input
+              type="text"
+              name="Description"
+              placeholder="Enter course description"
+              className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+              value={formData.Description}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Course Duration (hours)</label>
+              <input
+                type="number"
+                name="Duration"
+                placeholder="Enter duration"
+                min="1"
+                className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                value={formData.Duration}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">No. of Units</label>
+              <input
+                type="number"
+                name="Units"
+                placeholder="Enter number of units"
+                min="1"
+                className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                value={formData.Units}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Course Type</label>
+              <select
+                name="Type"
+                className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                value={formData.Type}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="" disabled>Select Course Type</option>
+                <option value="Core">Core</option>
+                <option value="Professional">Professional</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700">Room Type</label>
+              <select
+                name="RoomTypeId"
+                className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                value={formData.RoomTypeId}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="" disabled>Select Room Type</option>
+                {roomTypes.map((roomType) => (
+                  <option key={roomType.id} value={roomType.id}>{roomType.Type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start space-x-2">
+              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{errorMessage}</p>
             </div>
           )}
 
-          <label className="block font-semibold text-white">Course Code</label>
-          <input
-            type="text"
-            className="w-full p-5 border rounded bg-customWhite"
-            value={courseCode}
-            onChange={(e) => setCourseCode(e.target.value)}
-            required
-          />
+          {successMessage && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start space-x-2">
+              <Check size={18} className="flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{successMessage}</p>
+            </div>
+          )}
 
-          <label className="block font-semibold text-white">Course Description</label>
-          <input
-            type="text"
-            className="w-full p-5 rounded bg-customWhite"
-            value={courseDescription}
-            onChange={(e) => setCourseDescription(e.target.value)}
-            required
-          />
-
-          <label className="block font-semibold text-white">Duration</label>
-          <input
-            type="number"
-            className="w-full p-5 border rounded bg-customWhite"
-            value={courseDuration}
-            onChange={(e) => setCourseDuration(e.target.value)}
-            required
-          />
-
-          <label className="block font-semibold text-white">Units</label>
-          <input
-            type="number"
-            className="w-full p-5 border rounded bg-customWhite"
-            value={courseUnits}
-            onChange={(e) => setCourseUnits(e.target.value)}
-            required
-          />
-
-          <label className="block font-semibold text-white">Course Type</label>
-          <select
-            className="w-full p-5 border rounded bg-customWhite"
-            value={courseType}
-            onChange={(e) => setCourseType(e.target.value)}
-            required
-          >
-            <option disabled value="">
-              Select Course Type
-            </option>
-            <option value="Core">Core</option>
-            <option value="Professional">Professional</option>
-          </select>
-
-          <label className="block font-semibold text-white">Year Level</label>
-          <input
-            type="number"
-            className="w-full p-5 border rounded bg-customWhite"
-            value={courseYear}
-            onChange={(e) => setCourseYear(e.target.value)}
-          />
-
-          <div className="flex justify-center gap-6 py-6">
-            <button type="submit" className="bg-blue-500 text-white hover:bg-blue-700 duration-300 px-12 font-semibold py-2 rounded-lg">
-              Save
-            </button>
-            <button type="button" className="bg-gray-500 text-white font-semibold border border-gray-500 hover:bg-gray-600 duration-300 px-6 py-2 rounded-lg" onClick={closeModal}>
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition duration-200"
+              onClick={onClose}
+            >
               Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
+            >
+              {isSubmitting ? "Updating..." : "Save Changes"}
             </button>
           </div>
         </form>

@@ -140,9 +140,9 @@ const AccountSettings = () => {
 
   return (
     <div
-      id="bgImg"
-      className="bg-cover bg-center bg-no-repeat h-screen w-screen"
-      style={{ backgroundImage: `url(${ Background })` }}>
+      
+      className="bg-gray-800 bg-center bg-no-repeat h-screen w-screen">
+      
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       {/* Top Menu */}
@@ -151,7 +151,7 @@ const AccountSettings = () => {
       {showConfirmDialog && <ConfirmationDialog />}
       {/* Main Content */}
       <div className="h-screen flex justify-center items-center">
-        <div className="relative py-30 mt-70 bg-blue-600 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
+        <div className="relative py-30 mt-100 bg-blue-600 p-50 xl:mb-180 xs:mb-80 mb:180 rounded-lg shadow-lg w-11/12 max-w-lg">
           <button
             className="absolute top-3 right-10 text-white font-bold text-2xl hover:text-red-500"
             onClick={() => navigate('/')}>

@@ -21,8 +21,8 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            const { Semester, CourseId, ProfessorId, DepartmentId } = assignation;
-
+            let { Semester, CourseId, ProfessorId, DepartmentId } = assignation;
+            Semester = parseInt(Semester, 10); // Ensure Semester is an integer
             // Check mandatory fields - note ProfessorId can be null based on the model
             if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
                 return res.status(400).json({
