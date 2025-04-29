@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
+import { X, Check, AlertCircle, Calendar } from "lucide-react";
 
-const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
+const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
-        School_Year: "",
         Semester: "",
         CourseId: "",
-        ProfessorId: "",
+        ProfessorId: professorId ? professorId.toString() : "",
         DepartmentId: user.DepartmentId,
         RoomTypeId: ""
     });
@@ -55,15 +55,6 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                         return;
                     }
 
-                    // Fetch room types
-                    const roomTypesResponse = await axios.get("/roomType/getAllRoomTypes");
-                    if (roomTypesResponse.status === 200) {
-                        setRoomTypes(roomTypesResponse.data.data);
-                    } else {
-                        setErrorMessage(roomTypesResponse.data.message || "Failed to fetch room types.");
-                        return;
-                    }
-
                     // Fetch professor statuses
                     const statusesResponse = await axios.get("/profStatus/getAllStatus");
                     if (statusesResponse.status === 200) {
@@ -88,10 +79,9 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
     useEffect(() => {
         if (isOpen) {
             setFormData({
-                School_Year: "",
                 Semester: "",
                 CourseId: "",
-                ProfessorId: "",
+                ProfessorId: professorId ? professorId.toString() : "",
                 DepartmentId: user.DepartmentId,
                 RoomTypeId: ""
             });
@@ -104,7 +94,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             setSelectedProfessorLoad(0);
             setMaxAllowedUnits(0);
         }
-    }, [isOpen, user.DepartmentId]);
+    }, [isOpen, user.DepartmentId, professorId]);
 
     // Check for overload when course or professor changes
     useEffect(() => {
@@ -200,8 +190,6 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
             RoomTypeId: formData.RoomTypeId ? parseInt(formData.RoomTypeId, 10) : null
         };
 
-        // console.log("Submission data:", submissionData);
-
         try {
             const response = await axios.post(
                 "/assignation/addAssignation",
@@ -226,7 +214,6 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
                 Course: selectedCourse,
                 Professor: selectedProfessor,
                 RoomType: selectedRoomType,
-                School_Year: submissionData.School_Year,
                 Semester: submissionData.Semester
             };
 
@@ -264,181 +251,153 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
     const newTotalLoad = selectedProfessorLoad + selectedCourseUnits;
 
     return (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-2/3">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl text-white font-semibold mx-auto">Add Course Assignation</h2>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden transform transition-all">
+                {/* Header */}
+                <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+                    <h2 className="text-xl text-white font-semibold">Add Course Assignation</h2>
                     <button
-                        className="text-xl text-white hover:text-black"
+                        className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
                         onClick={onClose}
-                        disabled={isSubmitting}
+                        aria-label="Close"
                     >
-                        &times;
+                        <X size={20} />
                     </button>
                 </div>
-                <form className="space-y-6 px-10" onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block font-semibold text-white">Semester</label>
-                            <input
-                                name="Semester"
-                                className="w-full p-3 border rounded bg-customWhite"
-                                value={formData.Semester}
-                                onChange={handleInputChange}
-                                required
-                                disabled={isSubmitting}
-                                type="number"
-                                placeholder="Enter semester number"
-                            >
-                            </input>
-                        </div>
 
-                        <div id="course-dropdown-container" className="relative">
-                            <label className="block font-semibold text-white">Course</label>
-                            <div className="flex flex-col">
-                                <input
-                                    type="text"
-                                    placeholder="Search for a course..."
-                                    className="w-full p-3 border rounded bg-customWhite"
-                                    value={courseSearch}
-                                    onChange={handleCourseSearchChange}
-                                    onFocus={() => setShowCourseDropdown(true)}
-                                    disabled={isSubmitting}
-                                />
-                                {selectedCourseName && (
-                                    <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
-                                        <span>{selectedCourseName}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedCourseName("");
-                                                setFormData({ ...formData, CourseId: "" });
-                                            }}
-                                            className="text-white hover:text-gray-300"
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                )}
-
-                                {showCourseDropdown && (
-                                    <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto top-full">
-                                        {filteredCourses.length > 0 ? (
-                                            filteredCourses.map(course => (
-                                                <div
-                                                    key={course.id}
-                                                    className="p-2 hover:bg-gray-100 cursor-pointer"
-                                                    onClick={() => handleCourseSelect(course)}
-                                                >
-                                                    {course.Code} - {course.Description} ({course.Units} units)
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="p-2 text-gray-500">No courses found</div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <input
-                                type="hidden"
-                                name="CourseId"
-                                value={formData.CourseId}
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block font-semibold text-white">Professor</label>
-                            <div className="relative">
-                                <select
-                                    name="ProfessorId"
-                                    className={`w-full p-3 border rounded bg-customWhite ${willOverload ? 'border-yellow-500' : ''}`}
-                                    value={formData.ProfessorId}
-                                    onChange={handleInputChange}
-                                    required
-                                    disabled={isSubmitting}
-                                >
-                                    <option value="" disabled>
-                                        Select Professor
-                                    </option>
-                                    {professors.map((professor) => (
-                                        <option key={professor.id} value={professor.id}>
-                                            {professor.Name} ({professor.Status}, Current Units: {professor.Total_units})
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {willOverload && formData.ProfessorId && formData.CourseId && (
-                                    <div className="absolute top-0 right-0 h-full flex items-center pr-3">
-                                        <div className="bg-yellow-500 text-white rounded-full w-6 h-6 flex items-center justify-center" title={`Will exceed maximum load (${maxAllowedUnits} units)`}>
-                                            !
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Loading warning indicator */}
-                            {willOverload && formData.ProfessorId && formData.CourseId && (
-                                <div className="mt-2 bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-2 rounded flex items-center">
-                                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    <span>
-                                        This will overload the professor ({selectedProfessorLoad} + {selectedCourseUnits} = {newTotalLoad} units, exceeds {maxAllowedUnits})
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div>
-                            <label className="block font-semibold text-white">Room Type</label>
-                            <select
-                                name="RoomTypeId"
-                                className="w-full p-3 border rounded bg-customWhite"
-                                value={formData.RoomTypeId}
-                                onChange={handleInputChange}
-                                disabled={isSubmitting}
-                            >
-                                <option value="">Select Room Type</option>
-                                {roomTypes.map((roomType) => (
-                                    <option key={roomType.id} value={roomType.id}>
-                                        {roomType.Type}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                {/* Form */}
+                <form className="p-6 space-y-4" onSubmit={handleSubmit}>
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Semester</label>
+                        <select
+                            name="Semester"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                            value={formData.Semester}
+                            onChange={handleInputChange}
+                            required
+                        >
+                            <option value="" disabled>Select Semester</option>
+                            <option value="1">1st Semester</option>
+                            <option value="2">2nd Semester</option>
+                        </select>
                     </div>
 
-                    {/* Hidden field for department ID */}
-                    <input
-                        type="hidden"
-                        name="DepartmentId"
-                        value={formData.DepartmentId}
-                    />
+                    <div id="course-dropdown-container" className="space-y-1.5 relative">
+                        <label className="block text-sm font-medium text-gray-700">Course</label>
+                        <input
+                            type="text"
+                            placeholder="Search for a course..."
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                            value={courseSearch}
+                            onChange={handleCourseSearchChange}
+                            onFocus={() => setShowCourseDropdown(true)}
+                        />
 
-                    {errorMessage && (
-                        <p className="text-red-500 text-center">{errorMessage}</p>
-                    )}
+                        {selectedCourseName && (
+                            <div className="mt-2 text-white bg-blue-600 rounded p-2 flex justify-between items-center">
+                                <span>{selectedCourseName}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedCourseName("");
+                                        setFormData({ ...formData, CourseId: "" });
+                                    }}
+                                    className="text-white hover:text-gray-300"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
 
-                    {successMessage && (
-                        <p className="text-green-500 text-center">{successMessage}</p>
-                    )}
+                        {showCourseDropdown && (
+                            <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                                {filteredCourses.length > 0 ? (
+                                    filteredCourses.map(course => (
+                                        <div
+                                            key={course.id}
+                                            className="p-2 hover:bg-gray-100 cursor-pointer"
+                                            onClick={() => handleCourseSelect(course)}
+                                        >
+                                            {course.Code} - {course.Description} ({course.Units} units)
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-2 text-gray-500">No courses found</div>
+                                )}
+                            </div>
+                        )}
 
-                    <div className="flex justify-center mt-6 gap-4">
-                        <button
-                            type="submit"
-                            className="bg-blue-500 text-white px-6 py-2 rounded-lg"
-                            disabled={isSubmitting}
+                        <input
+                            type="hidden"
+                            name="CourseId"
+                            value={formData.CourseId}
+                            required
+                        />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Professor</label>
+                        <select
+                            name="ProfessorId"
+                            className={`w-full p-2.5 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${willOverload ? 'border-yellow-500' : 'border-gray-300'}`}
+                            value={formData.ProfessorId}
+                            onChange={handleInputChange}
+                            required
+                            disabled={professorId !== undefined}
                         >
-                            {isSubmitting ? 'Adding...' : 'Add Assignation'}
-                        </button>
+                            <option value="" disabled>
+                                Select Professor
+                            </option>
+                            {professors.map((professor) => (
+                                <option key={professor.id} value={professor.id}>
+                                    {professor.Name} ({professor.Status}, Current Units: {professor.Total_units})
+                                </option>
+                            ))}
+                        </select>
+
+                        {/* Loading warning indicator */}
+                        {willOverload && formData.ProfessorId && formData.CourseId && (
+                            <div className="mt-2 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded flex items-start space-x-2">
+                                <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                                <p className="text-sm">
+                                    This will overload the professor ({selectedProfessorLoad} + {selectedCourseUnits} = {newTotalLoad} units, exceeds {maxAllowedUnits})
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Error Message */}
+                    {errorMessage && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start space-x-2">
+                            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                            <p className="text-sm">{errorMessage}</p>
+                        </div>
+                    )}
+
+                    {/* Success Message */}
+                    {successMessage && (
+                        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start space-x-2">
+                            <Check size={18} className="flex-shrink-0 mt-0.5" />
+                            <p className="text-sm">{successMessage}</p>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                         <button
                             type="button"
-                            className="bg-gray-500 text-white px-6 py-2 rounded-lg"
+                            className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition duration-200"
                             onClick={onClose}
                             disabled={isSubmitting}
                         >
                             Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
+                        >
+                            {isSubmitting ? "Adding..." : "Add Assignation"}
                         </button>
                     </div>
                 </form>
@@ -450,7 +409,8 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded }) => {
 AddAssignationModal.propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    onAssignationAdded: PropTypes.func
+    onAssignationAdded: PropTypes.func,
+    professorId: PropTypes.number
 };
 
 export default AddAssignationModal;

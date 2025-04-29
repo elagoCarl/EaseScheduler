@@ -6,11 +6,6 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
             allowNull: false,
         },
-        School_Year: {
-            type: DataTypes.STRING,
-            allowNull: false,
-            defaultValue: "2025-2026"  // Set a default value as needed
-        },
         Semester: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -34,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
             {
                 name: 'assignation_unique_idx',
                 unique: true,
-                fields: ['School_Year', 'Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
+                fields: ['Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
             },
             {
                 name: 'Assignations_DepartmentId_ProfessorId_index',
