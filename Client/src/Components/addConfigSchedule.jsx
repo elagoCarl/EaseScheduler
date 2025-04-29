@@ -22,7 +22,6 @@ const AddConfigSchedule = () => {
   const deptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
-  // State management
 
   // first 2 are for report modal
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -134,140 +133,6 @@ const AddConfigSchedule = () => {
     );
   };
 
-// Modify your manual scheduling section to be conditionally rendered or styled
-const renderManualSchedulingSection = () => {
-  return (
-    <div className={`space-y-3 sm:space-y-4 ${activeMode !== 'manual' ? 'opacity-50 pointer-events-none' : ''}`}>
-      {/* Your existing manual scheduling UI from paste-2.txt goes here */}
-      <div className="flex items-center mt-2">
-        {formData.professorId && formData.professorName && (
-          <button
-            type="button"
-            onClick={() => handleCheckAvailability(formData.professorId)}
-            className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
-            disabled={activeMode !== 'manual'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Check {formData.professorName}&apos;s Availability
-          </button>
-        )}
-      </div>
-      
-      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Semester:</label>
-      <select
-        name="semester"
-        value={selectedSemester}
-        onChange={handleInputChange}
-        className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        required
-        disabled={activeMode !== 'manual'}
-      >
-        <option value="" disabled>Select Semester</option>
-        {semesters.map(semester => (
-          <option key={semester} value={semester}>
-            Semester {semester}
-          </option>
-        ))}
-      </select>
-
-      <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-      <select 
-        name="room_id" 
-        value={formData.room_id} 
-        onChange={handleInputChange} 
-        className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        disabled={activeMode !== 'manual'}
-      >
-        <option value="">Select Room</option>
-        {rooms.map(r => (
-          <option key={r.id} value={r.id}>
-            {r.Code} - {r.Building} {r.Floor} (Type: {r.RoomType.Type})
-          </option>
-        ))}
-      </select>
-
-      <label className={`block text-xs sm:text-sm font-medium mb-1 ${!selectedSemester ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
-      <select
-        name="assignation_id"
-        value={formData.assignation_id}
-        onChange={handleInputChange}
-        className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSemester ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-        disabled={!selectedSemester || activeMode !== 'manual'}
-      >
-        <option value="">Select Assignation</option>
-        {filteredAssignations.map(a => (
-          <option key={a.id} value={a.id}>
-            {a.Course?.Code} - {a.Course?.Description} ({a.Course?.Units} units) | {a.Professor?.Name}
-          </option>
-        ))}
-      </select>
-
-      {renderSectionsSelect()}
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Day:</label>
-          <select 
-            name="day" 
-            value={formData.day} 
-            onChange={handleInputChange} 
-            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={activeMode !== 'manual'}
-          >
-            <option value="">Select Day</option>
-            {days.map((d, i) => (
-              <option key={d} value={i + 1}>{d}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
-          <input 
-            type="time" 
-            name="custom_start_time" 
-            value={customStartTime} 
-            onChange={handleTimeChange} 
-            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-            disabled={activeMode !== 'manual'}
-          />
-        </div>
-        <div>
-          <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
-          <input 
-            type="time" 
-            name="custom_end_time" 
-            value={customEndTime} 
-            onChange={handleTimeChange} 
-            className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={activeMode !== 'manual'}
-          />
-        </div>
-      </div>
-
-      <div className="flex pt-3 sm:pt-4 gap-10">
-        <button 
-          onClick={resetForm} 
-          className="flex flex-1 justify-center bg-red-500 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors"
-          disabled={activeMode !== 'manual'}
-        >
-          Reset
-        </button>
-        <button 
-          onClick={handleAddSchedule} 
-          className="flex flex-1 justify-center bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors"
-          disabled={activeMode !== 'manual'}
-        >
-          Save
-        </button>
-      </div>
-    </div>
-  );
-};
-  
-
-  // Effects
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 5000);
@@ -278,31 +143,53 @@ const renderManualSchedulingSection = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log("Fetching data for department ID:", deptId);
         const [roomsRes, assignationsRes, professorsRes] = await Promise.all([
           axios.get(`/room/getRoomsByDept/${deptId}`),
           axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`),
           axios.get(`/prof/getProfByDept/${deptId}`)
         ]);
-        if (roomsRes.data.successful) setRooms(roomsRes.data.data);
+        
+        console.log("Rooms API response:", roomsRes.data);
+        console.log("Assignations API response:", assignationsRes.data);
+        
+        if (roomsRes.data.successful) {
+          setRooms(roomsRes.data.data);
+          console.log("Rooms set:", roomsRes.data.data);
+        } else {
+          console.error("Failed to fetch rooms:", roomsRes.data.message);
+        }
+        
         if (assignationsRes.data.successful) {
           const assignationsData = assignationsRes.data.data;
           setAssignations(assignationsData);
+          console.log("Assignations set:", assignationsData);
 
           // Extract unique semesters from assignations
           const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
+          console.log("Unique semesters found:", uniqueSemesters);
           setSemesters(uniqueSemesters);
 
           // Set default semester if available
           if (uniqueSemesters.length > 0 && !selectedSemester) {
+            console.log("Setting default semester:", uniqueSemesters[0]);
             setSelectedSemester(uniqueSemesters[0]);
           }
+        } else {
+          console.error("Failed to fetch assignations:", assignationsRes.data.message);
         }
-        if (professorsRes.data.successful) setProfessors(professorsRes.data.data);
+        
+        if (professorsRes.data.successful) {
+          setProfessors(professorsRes.data.data);
+          console.log("Professors set:", professorsRes.data.data);
+        } else {
+          console.error("Failed to fetch professors:", professorsRes.data.message);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
-    fetchData();
+        fetchData();
 
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -1130,6 +1017,43 @@ const renderManualSchedulingSection = () => {
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
               {renderModeToggle()}
+              <div className="mb-4">
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">School Year/Semester:</label>
+                <select
+                  name="semester"
+                  value={selectedSemester}
+                  onChange={handleInputChange}
+                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Semester</option>
+                  {semesters.map(sem => (
+                    <option key={sem} value={sem}>
+                      Semester {sem}
+                    </option>
+                  ))}
+                </select>
+                {/* Console log to debug */}
+                {console.log("Available semesters:", semesters)}
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
+                <select
+                  name="room_id"
+                  value={formData.room_id}
+                  onChange={handleInputChange}
+                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Room</option>
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      {room.Code} - {room.Building} {room.Floor}
+                    </option>
+                  ))}
+                </select>
+                {/* Console log to debug */}
+                {console.log("Available rooms:", rooms)}
+              </div>
                 <div className="flex items-center mt-2">
                   {formData.professorId && formData.professorName && (
                     <button
