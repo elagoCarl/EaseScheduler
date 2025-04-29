@@ -144,57 +144,99 @@ const AddConfigSchedule = () => {
     const fetchData = async () => {
       try {
         console.log("Fetching data for department ID:", deptId);
-        const [roomsRes, assignationsRes, professorsRes] = await Promise.all([
-          axios.get(`/room/getRoomsByDept/${deptId}`),
-          axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`),
-          axios.get(`/prof/getProfByDept/${deptId}`)
-        ]);
-        
-        console.log("Rooms API response:", roomsRes.data);
-        console.log("Assignations API response:", assignationsRes.data);
-        
-        if (roomsRes.data.successful) {
-          setRooms(roomsRes.data.data);
-          console.log("Rooms set:", roomsRes.data.data);
-        } else {
-          console.error("Failed to fetch rooms:", roomsRes.data.message);
+  
+        if (!deptId) {
+          console.error("Invalid department ID:", deptId);
+          setNotification({
+            type: 'error',
+            message: 'Invalid department ID. Please check your settings.'
+          });
+          return;
         }
-        
-        if (assignationsRes.data.successful) {
-          const assignationsData = assignationsRes.data.data;
-          setAssignations(assignationsData);
-          console.log("Assignations set:", assignationsData);
-
-          // Extract unique semesters from assignations
-          const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
-          console.log("Unique semesters found:", uniqueSemesters);
-          setSemesters(uniqueSemesters);
-
-          // Set default semester if available
-          if (uniqueSemesters.length > 0 && !selectedSemester) {
-            console.log("Setting default semester:", uniqueSemesters[0]);
-            setSelectedSemester(uniqueSemesters[0]);
+  
+        // Fetch Rooms
+        try {
+          const roomsRes = await axios.get(`/room/getRoomsByDept/${deptId}`);
+          console.log("Rooms API response:", roomsRes.data);
+  
+          if (roomsRes.data.successful) {
+            setRooms(roomsRes.data.data);
+            console.log("Rooms set:", roomsRes.data.data);
+          } else {
+            console.error("Failed to fetch rooms:", roomsRes.data.message);
+            setRooms([]);
+            setNotification({
+              type: 'error',
+              message: `Room fetch failed: ${roomsRes.data.message}`
+            });
           }
-        } else {
-          console.error("Failed to fetch assignations:", assignationsRes.data.message);
+        } catch (roomError) {
+          console.error("Error fetching rooms:", roomError);
+          setRooms([]);
+          setNotification({
+            type: 'error',
+            message: 'Room fetch failed. Check network connection or API configuration.'
+          });
         }
-        
-        if (professorsRes.data.successful) {
-          setProfessors(professorsRes.data.data);
-          console.log("Professors set:", professorsRes.data.data);
-        } else {
-          console.error("Failed to fetch professors:", professorsRes.data.message);
+  
+        // Fetch Assignations
+        try {
+          const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
+          console.log("Assignations API response:", assignationsRes.data);
+  
+          if (assignationsRes.data.successful) {
+            const assignationsData = assignationsRes.data.data;
+            setAssignations(assignationsData);
+            console.log("Assignations set:", assignationsData);
+  
+            const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
+            console.log("Unique semesters found:", uniqueSemesters);
+            setSemesters(uniqueSemesters);
+  
+            if (uniqueSemesters.length > 0 && !selectedSemester) {
+              console.log("Setting default semester:", uniqueSemesters[0]);
+              setSelectedSemester(uniqueSemesters[0]);
+            }
+          } else {
+            console.error("Failed to fetch assignations:", assignationsRes.data.message);
+            setAssignations([]);
+          }
+        } catch (assignationError) {
+          console.error("Error fetching assignations:", assignationError);
+          setAssignations([]);
         }
+  
+        // Fetch Professors
+        try {
+          const professorsRes = await axios.get(`/prof/getProfByDept/${deptId}`);
+          if (professorsRes.data.successful) {
+            setProfessors(professorsRes.data.data);
+            console.log("Professors set:", professorsRes.data.data);
+          } else {
+            console.error("Failed to fetch professors:", professorsRes.data.message);
+            setProfessors([]);
+          }
+        } catch (profError) {
+          console.error("Error fetching professors:", profError);
+          setProfessors([]);
+        }
+  
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("General error fetching data:", error);
+        setNotification({
+          type: 'error',
+          message: 'Failed to load required data. Please try refreshing.'
+        });
       }
     };
-        fetchData();
-
+  
+    fetchData();
+  
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [deptId]);
+  }, [deptId, selectedSemester]);
+  
 
   useEffect(() => {
     if (selectedSemester) {
@@ -909,7 +951,7 @@ const AddConfigSchedule = () => {
               <option value="">Select Room</option>
               {rooms.map(room => (
                 <option key={room.id} value={room.id}>
-                  {room.Code} - {room.Building} {room.Floor} (Type: {room.RoomType.Type})
+                  {room.Code} - {room.Building} {room.Floor} (Type: {room.TypeRooms})
                 </option>
               ))}
             </select>
@@ -1017,43 +1059,6 @@ const AddConfigSchedule = () => {
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
               {renderModeToggle()}
-              <div className="mb-4">
-                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">School Year/Semester:</label>
-                <select
-                  name="semester"
-                  value={selectedSemester}
-                  onChange={handleInputChange}
-                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Semester</option>
-                  {semesters.map(sem => (
-                    <option key={sem} value={sem}>
-                      Semester {sem}
-                    </option>
-                  ))}
-                </select>
-                {/* Console log to debug */}
-                {console.log("Available semesters:", semesters)}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-                <select
-                  name="room_id"
-                  value={formData.room_id}
-                  onChange={handleInputChange}
-                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Room</option>
-                  {rooms.map(room => (
-                    <option key={room.id} value={room.id}>
-                      {room.Code} - {room.Building} {room.Floor}
-                    </option>
-                  ))}
-                </select>
-                {/* Console log to debug */}
-                {console.log("Available rooms:", rooms)}
-              </div>
                 <div className="flex items-center mt-2">
                   {formData.professorId && formData.professorName && (
                     <button
@@ -1087,9 +1092,9 @@ const AddConfigSchedule = () => {
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
                 <select name="room_id" value={formData.room_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select Room</option>
-                  {rooms.map(r => (
+                  {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.Code} - {r.Building} {r.Floor} (Type: {r.RoomType.Type})
+                      {r.Code} - {r.Building} {r.Floor} (Type: {r.RoomTypes})
                     </option>
                   ))}
                 </select>
