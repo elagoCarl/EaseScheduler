@@ -431,7 +431,7 @@ const deleteDeptRoom = async (req, res) => {
 
 const getRoomsByDept = async (req, res, next) => {
     try {
-        const deptId = req.params.id
+        const deptId = req.params.id;
         const rooms = await Room.findAll({
             order: [['Building', 'ASC'], ['Floor', 'ASC'], ['Code', 'ASC']],
             attributes: { exclude: ['RoomDepts'] },
@@ -439,48 +439,33 @@ const getRoomsByDept = async (req, res, next) => {
                 {
                     model: Department,
                     as: 'RoomDepts',
-                    where: {
-                        id: deptId,
-                    },
+                    where: { id: deptId },
                     attributes: [],
-                    through: {
-                        attributes: []
-                    }
+                    through: { attributes: [] }
                 },
                 {
                     model: RoomType,
                     as: 'TypeRooms',
                     attributes: ['id', 'Type'],
-                    through: {
-                        attributes: []
-                    }
+                    through: { attributes: [] }
                 }
             ]
-        })
-        if (!rooms || rooms.length == 0) {
-            res.status(400).send({
-                successful: false,
-                message: "No rooms found",
-                count: 0,
-                data: []
-            })
-        }
-        else {
-            res.status(200).send({
-                successful: true,
-                message: "Retrieved all rooms",
-                count: rooms.length,
-                data: rooms
-            })
-        }
-    }
-    catch (err) {
+        });
+
+        res.status(200).send({
+            successful: true,
+            message: rooms.length ? "Retrieved all rooms" : "No rooms found",
+            count: rooms.length,
+            data: rooms
+        });
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
-        })
+        });
     }
-}
+};
+
 
 const updateDeptRoom = async (req, res, next) => {
     try {
