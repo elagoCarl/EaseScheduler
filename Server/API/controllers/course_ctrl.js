@@ -240,6 +240,7 @@ const deleteCourse = async (req, res, next) => {
       message: "Successfully deleted course.",
     });
   } catch (err) {
+    console.error(err);
     res.status(500).send({
       successful: false,
       message: err.message || "An unexpected error occurred.",
@@ -335,7 +336,7 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    const settings = await Settings.findOne( {where: { DepartmentId }})
+    const settings = await Settings.findOne({ where: { DepartmentId } })
     if (!settings) {
       return res.status(406).json({
         successful: false,
@@ -566,7 +567,7 @@ const getCoursesByDept = async (req, res, next) => {
           attributes: [] // Hide junction table fields
         }
       },
-      
+
     })
 
     if (!courses || courses.length === 0) {

@@ -8,7 +8,7 @@ import TopMenu from "./callComponents/topMenu";
 import AddProfModal from "./callComponents/addProfModal";
 import EditProfModal from "./callComponents/editProfModal";
 import DeleteWarning from "./callComponents/deleteWarning";
-import ProfAvailabilityModal from "./callComponents/profAvailabilityModal";
+import ProfAvailabilityModal from "./callComponents/profAvailabilityModal.jsx";
 import ProfStatusModal from "./callComponents/profStatusModal";
 import AddAssignationModal from "./callComponents/addAssignationModal";
 import { useAuth } from '../Components/authContext.jsx';
@@ -38,6 +38,8 @@ const ProfessorManagement = () => {
     const [departmentAssignations, setDepartmentAssignations] = useState([]);
     const [isAssignCourseModalOpen, setIsAssignCourseModalOpen] = useState(false);
     const [selectedProfForCourse, setSelectedProfForCourse] = useState(null);
+    const [isDeleteAssignmentWarningOpen, setIsDeleteAssignmentWarningOpen] = useState(false);
+    const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
     const professorsPerPage = 8;
 
     const showNotification = (message, type = "info") => toast[type](message);
@@ -115,7 +117,7 @@ const ProfessorManagement = () => {
                         department: prof.Department || "Department not set"
                     },
                     courses: prof.Courses || [],
-                    minimized: true,
+                    minimized: false, // Change this from true to false
                     rawData: prof
                 }));
                 setProfessors(transformedData);
@@ -157,6 +159,26 @@ const ProfessorManagement = () => {
             setSelectedProfIds([]);
         } catch (error) {
             showNotification("Error deleting professors", "error");
+        }
+    };
+
+    const handleDeleteAssignment = async () => {
+        if (!selectedAssignmentId) return;
+
+        try {
+            const response = await axios.delete(`/assignation/deleteAssignation/${selectedAssignmentId}`);
+            if (response.data.successful) {
+                fetchDepartmentAssignations();
+                fetchProfessors();
+                showNotification("Assignment removed successfully", "success");
+            } else {
+                showNotification("Failed to remove assignment", "error");
+            }
+        } catch (error) {
+            showNotification("Error removing assignment: " + error.message, "error");
+        } finally {
+            setIsDeleteAssignmentWarningOpen(false);
+            setSelectedAssignmentId(null);
         }
     };
 
@@ -279,9 +301,13 @@ const ProfessorManagement = () => {
                                     </div>
                                     <button
                                         className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                        onClick={() => {
+                                            setSelectedAssignmentId(assignment.id);
+                                            setIsDeleteAssignmentWarningOpen(true);
+                                        }}
                                     >
                                         <X size={12} />
-                                        Remove
+                                        Remove Assignment
                                     </button>
                                 </div>
                             ))}
@@ -589,6 +615,15 @@ const ProfessorManagement = () => {
                         showNotification("Course assigned successfully", "success");
                     }}
                     professorId={selectedProfForCourse.id}
+                />
+            )}
+            {isDeleteAssignmentWarningOpen && (
+                <DeleteWarning
+                    isOpen={isDeleteAssignmentWarningOpen}
+                    onClose={() => setIsDeleteAssignmentWarningOpen(false)}
+                    onConfirm={handleDeleteAssignment}
+                    title="Remove Course Assignment"
+                    message="Are you sure you want to remove this course assignment? This will update the professor's total units."
                 />
             )}
         </div>

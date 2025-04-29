@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-const DeleteWarning = ({ isOpen, onClose, onConfirm }) => {
+const DeleteWarning = ({ isOpen, onClose, onConfirm, message }) => {
   if (!isOpen) return null;
 
   return (
@@ -23,6 +23,9 @@ const DeleteWarning = ({ isOpen, onClose, onConfirm }) => {
             </h2>
             <p className="mt-2 text-gray-600 text-sm">
               This action cannot be undone. Are you sure?
+            </p>
+            <p className="mt-2 text-gray-600 text-sm">
+              {message}
             </p>
           </div>
 

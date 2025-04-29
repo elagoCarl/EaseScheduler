@@ -310,7 +310,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId 
                         )}
 
                         {showCourseDropdown && (
-                            <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                            <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-200 overflow-y-auto">
                                 {filteredCourses.length > 0 ? (
                                     filteredCourses.map(course => (
                                         <div
