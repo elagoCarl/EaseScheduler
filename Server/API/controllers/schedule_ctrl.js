@@ -2743,7 +2743,7 @@ const getSchedsByDept = async (req, res, next) => {
                 {
                     model: Assignation,
                     where: { DepartmentId: deptId, Semester },
-                    attributes: ['id', 'School_Year', 'Semester'],
+                    attributes: ['id', 'Semester'],
                     include: [
                         {
                             model: Course,
