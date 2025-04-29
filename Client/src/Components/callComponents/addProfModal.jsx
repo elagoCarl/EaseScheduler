@@ -230,17 +230,6 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">Total Units</label>
-            <input
-              type="number"
-              placeholder="0"
-              className="w-full p-2.5 border border-gray-300 rounded bg-gray-50 cursor-not-allowed"
-              disabled
-            />
-            <p className="text-xs text-gray-500 mt-1">Units will be assigned based on courses</p>
-          </div>
-
-          <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700">Teaching Status</label>
             <select
               name="Status"
