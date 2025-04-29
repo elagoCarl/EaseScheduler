@@ -204,6 +204,10 @@ const deleteCourse = async (req, res, next) => {
       });
     }
 
+    await CourseProg.destroy({
+      where: { CourseId: req.params.id }
+    })
+
     // Delete the course
     await Course.destroy({
       where: { id: req.params.id },
