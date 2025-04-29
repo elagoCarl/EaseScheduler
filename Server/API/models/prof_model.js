@@ -16,7 +16,13 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Email is required." }
             }
         },
-        Total_units: {
+        FirstSemUnits: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            min: 0,
+            defaultValue: 0
+        },
+        SecondSemUnits: {
             type: DataTypes.INTEGER,
             allowNull: false,
             min: 0,
