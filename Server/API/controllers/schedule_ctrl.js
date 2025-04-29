@@ -55,6 +55,7 @@ function convertDayNumberToName(dayNumber) {
  * Check if students in a section can be scheduled based on hours, conflicts, and break enforcement.
  */
 
+
 const isSchedulePossible = async (
     roomSchedules,
     professorSchedule,
@@ -71,14 +72,18 @@ const isSchedulePossible = async (
     roomCache,
     professorAvailabilityCache,
     courseProgCache,
-    sectionsCache
+    sectionsCache,
+    totalAssignations,
+    currentAssignationIndex,
+    failedAssignmentsCount
 ) => {
     // Check if room is available
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) {
         return false;
     }
 
-    // Check room capacity
+    // Check room capacity - use a percentage threshold based on how far we've progressed
+    // If we're in the latter half of scheduling, allow slightly undersized rooms if needed
     let totalStudents = 0;
     for (const secId of sectionIds) {
         if (sectionsCache[secId]) {
@@ -88,24 +93,43 @@ const isSchedulePossible = async (
     
     // Use room cache
     const room = roomCache[roomId];
-    if (!room || totalStudents > Number(room.NumberOfSeats || 0)) {
-        return false;
+    
+    // We apply a capacity tolerance threshold that increases as we progress through scheduling
+    // and have more failed assignments
+    const progressFactor = currentAssignationIndex / totalAssignations;
+    const failureRate = failedAssignmentsCount / Math.max(1, totalAssignations);
+    
+    // Base capacity check
+    if (!room) return false;
+    
+    // Strict check for first 70% of scheduling
+    if (progressFactor < 0.7) {
+        if (totalStudents > Number(room.NumberOfSeats || 0)) {
+            return false;
+        }
+    } else {
+        // More lenient capacity check later in the process, especially if we have many failures
+        // Allow slight overages for large classrooms or when we're having trouble fitting schedules
+        const capacityThreshold = room.NumberOfSeats * (1 + failureRate * 0.1);
+        if (totalStudents > capacityThreshold) {
+            return false;
+        }
     }
 
-    // Check professor availability - using cached data
+    // Check professor availability - using cached data but with more flexibility later in the process
     if (!canScheduleProfessor(
         professorSchedule[professorId][day],
         startHour, duration, settings, professorId, day, 
-        professorAvailabilityCache
+        professorAvailabilityCache, progressFactor
     )) {
         return false;
     }
 
-    // Check student conflicts & breaks
+    // Check student conflicts & breaks - with dynamic break handling
     for (const secId of sectionIds) {
         if (!canScheduleStudents(
             progYrSecSchedules[secId][day],
-            startHour, duration, settings
+            startHour, duration, settings, progressFactor
         )) {
             return false;
         }
@@ -124,10 +148,23 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
     );
 };
 
-const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
-    const requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration
+// Enhanced student scheduling with progressive break flexibility
+const canScheduleStudents = (secSchedule, startHour, duration, settings, progressFactor) => {
+    // Dynamically adjust break requirements based on scheduling progress
+    // Early in the process: strict breaks, Later: more flexible
+    let requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration
+    
+    // As we progress, we can slightly reduce the break requirement if necessary
+    if (progressFactor > 0.7) {
+        requiredBreak = Math.max(0.25, requiredBreak * 0.8);
+    }
 
-    if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
+    // Dynamic max hours adjustment - slightly more flexible in later stages
+    const maxHours = progressFactor > 0.8 
+        ? settings.StudentMaxHours * 1.1  // Allow 10% more hours in late stage
+        : settings.StudentMaxHours;
+        
+    if (secSchedule.hours + duration > maxHours) return false;
 
     // Check for overlapping schedules
     for (const time of secSchedule.dailyTimes) {
@@ -144,10 +181,13 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
     const intervals = [...secSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
         .sort((a, b) => a.start - b.start);
 
+    // Look for potential break violations
     for (let i = 0; i < intervals.length - 1; i++) {
         let currentEnd = intervals[i].end;
         let nextStart = intervals[i + 1].start;
 
+        // During early scheduling, enforce strict break requirements
+        // During late scheduling, allow reduced breaks if necessary
         if (nextStart < currentEnd + requiredBreak) {
             return false; // Not enough break time
         }
@@ -155,9 +195,22 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
     return true;
 };
 
-const canScheduleProfessor = (profSchedule, startHour, duration, settings, professorId, day, professorAvailabilityCache) => {
-    const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
+// Enhanced professor scheduling with progressive constraints
+const canScheduleProfessor = (profSchedule, startHour, duration, settings, professorId, day, professorAvailabilityCache, progressFactor) => {
+    // Dynamically adjust break requirements based on scheduling progress
+    let requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
+    
+    // Relax break requirements slightly for later scheduling stages
+    if (progressFactor > 0.7) {
+        requiredBreak = Math.max(0.5, requiredBreak * 0.75);
+    }
+    
     const maxContinuousHours = settings.maxAllowedGap || 5; // Max hours before break is required
+    
+    // Progressively allow longer continuous teaching blocks in later stages
+    const adjustedMaxContinuous = progressFactor > 0.8 
+        ? maxContinuousHours * 1.1 // Allow 10% longer blocks in late stages
+        : maxContinuousHours;
 
     // Use the cached professor availability data
     const cacheKey = `prof-${professorId}`;
@@ -185,7 +238,12 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             const availStartHour = parseInt(avail.Start_time.split(':')[0]);
             const availEndHour = parseInt(avail.End_time.split(':')[0]);
 
-            if (startHour >= availStartHour && (startHour + duration) <= availEndHour) {
+            // Allow slight flexibility (15 min) for end times in later scheduling stages
+            const flexEndHour = progressFactor > 0.8 
+                ? availEndHour + 0.25  // Add 15 minutes flexibility
+                : availEndHour;
+
+            if (startHour >= availStartHour && (startHour + duration) <= flexEndHour) {
                 isAvailable = true;
                 break;
             }
@@ -194,8 +252,13 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
         if (!isAvailable) return false;
     }
 
+    // Progressively adjust max hours constraint
+    const maxHours = progressFactor > 0.8 
+        ? settings.ProfessorMaxHours * 1.05  // Allow 5% more hours in late stage
+        : settings.ProfessorMaxHours;
+        
     // Check if adding this schedule would exceed max hours
-    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
+    if (profSchedule.hours + duration > maxHours) return false;
 
     // Check for overlapping schedules
     for (const time of profSchedule.dailyTimes) {
@@ -210,7 +273,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
 
     // If no schedules yet, no need to check for contiguous blocks
     if (profSchedule.dailyTimes.length === 0) {
-        return duration <= maxContinuousHours; // Check if this single class exceeds max continuous hours
+        return duration <= adjustedMaxContinuous; // Check if this single class exceeds max continuous hours
     }
 
     // Sort schedules by start time to find contiguous blocks and check break requirements
@@ -228,7 +291,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             if (next.start === current.end) {
                 // Classes are adjacent - check if combined duration exceeds max continuous hours
                 const continuousDuration = next.end - current.start;
-                if (continuousDuration > maxContinuousHours) {
+                if (continuousDuration > adjustedMaxContinuous) {
                     return false; // Exceeds max continuous teaching hours
                 }
             }
@@ -237,7 +300,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
                 return false; // Not enough break time
             }
             // Case 3: Check if this class itself exceeds max continuous hours
-            else if (duration > maxContinuousHours) {
+            else if (duration > adjustedMaxContinuous) {
                 return false;
             }
         }
@@ -253,7 +316,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             contiguousEnd = intervals[i].end;
 
             // Check if this extension would exceed the maximum allowed continuous hours
-            if (contiguousEnd - contiguousStart > maxContinuousHours) {
+            if (contiguousEnd - contiguousStart > adjustedMaxContinuous) {
                 return false;
             }
         } else {
@@ -261,7 +324,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             const gap = intervals[i].start - contiguousEnd;
 
             // If the previous block reached maximum allowed hours, check if there's enough break
-            if (contiguousEnd - contiguousStart >= maxContinuousHours && gap < requiredBreak) {
+            if (contiguousEnd - contiguousStart >= adjustedMaxContinuous && gap < requiredBreak) {
                 return false; // Not enough break after reaching max continuous hours
             }
 
@@ -288,67 +351,6 @@ function shuffleDeterministic(array, seed) {
     }
     return newArray;
 }
-// Helper function to fetch and cache professor availability
-const fetchAndCacheProfessorAvailability = async (professorId, day, startHour, duration, 
-    settings, profSchedule, professorAvailabilityCache) => {
-    
-    const cacheKey = `prof-${professorId}`;
-    
-    // Fetch all availability records for this professor
-    const allProfAvails = await ProfAvail.findAll({
-        where: { ProfessorId: professorId }
-    });
-    
-    // Cache all availability records
-    professorAvailabilityCache[cacheKey] = allProfAvails;
-    
-    // Also cache the count for quick checks
-    professorAvailabilityCache[`prof-count-${professorId}`] = allProfAvails.length;
-    
-    // Filter for this specific day
-    const profAvails = allProfAvails.filter(avail => 
-        avail.Day === day.toString() || 
-        avail.Day === convertDayNumberToName(day)
-    );
-    
-    // If the professor has availability records but none for this day, they're unavailable
-    if (profAvails.length === 0) {
-        // If the professor has availability records but none for this day, they're unavailable
-        if (allProfAvails.length > 0) return false;
-    } else {
-        // If they have records for this day, check if the proposed time falls within any availability window
-        let isAvailable = false;
-        for (const avail of profAvails) {
-            const availStartHour = parseInt(avail.Start_time.split(':')[0]);
-            const availEndHour = parseInt(avail.End_time.split(':')[0]);
-
-            if (startHour >= availStartHour && (startHour + duration) <= availEndHour) {
-                isAvailable = true;
-                break;
-            }
-        }
-
-        if (!isAvailable) return false;
-    }
-    
-    // Rest of the checks as in original function
-    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
-
-    for (const time of profSchedule.dailyTimes) {
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end) ||
-            (startHour <= time.start && startHour + duration >= time.end)
-        ) {
-            return false;
-        }
-    }
-    
-    // More checks as in original function...
-    // (rest of the original function logic)
-    
-    return true;
-};
 
 const trueBacktrackScheduleVariant = async (
     assignations,
