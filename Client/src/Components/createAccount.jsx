@@ -78,8 +78,7 @@ const CreateAccount = () => {
 
   return (
     <div
-      className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center"
-      style={{ backgroundImage: `url(${Background})` }}
+      className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center bg-gray-800"
     >
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />

@@ -1004,7 +1004,7 @@ const AddConfigSchedule = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div className="min-h-screen flex flex-col bg-gray-800">
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       </div>

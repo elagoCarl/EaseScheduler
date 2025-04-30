@@ -28,8 +28,8 @@ const MainPage = () => {
 
   return (
     <div
-      className="bg-cover bg-center bg-no-repeat min-h-screen flex flex-col justify-between"
-      style={{ backgroundImage: `url(${ image })` }}
+      className="bg-cover bg-center bg-no-repeat min-h-screen flex flex-col justify-between bg-gray-800"
+      
     >
       <div className="absolute inset-0 bg-black bg-opacity-40"></div>
 

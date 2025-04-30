@@ -195,13 +195,7 @@ const ProfTimetable = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundImage: `url(${Image3})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
+      className="min-h-screen flex flex-col bg-gray-800"
     >
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
