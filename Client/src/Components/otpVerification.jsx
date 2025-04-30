@@ -65,8 +65,7 @@ const OTPVerification = () => {
   return (
     <div
       id="bgImg"
-      className="bg-cover bg-center bg-no-repeat h-screen w-screen"
-      style={{ backgroundImage: `url(${Background})` }}
+      className="bg-cover bg-center bg-no-repeat h-screen w-screen bg-gray-800"
     >
       {/* Main Content */}
       <div className="h-screen flex justify-center items-center">

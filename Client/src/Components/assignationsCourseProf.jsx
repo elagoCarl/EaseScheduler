@@ -327,8 +327,7 @@ const AssignationsCourseProf = () => {
 
     return (
         <div
-            className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${Background})` }}
+            className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto bg-gray-800"
         >
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
             <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />

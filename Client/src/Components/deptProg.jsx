@@ -356,7 +356,7 @@ const DeptProg = () => {
     };
 
     return (
-        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center" style={{ backgroundImage: `url(${Background})` }}>
+        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center bg-gray-800">
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             <TopMenu toggleSidebar={toggleSidebar} />
 

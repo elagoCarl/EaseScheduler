@@ -239,7 +239,7 @@ const CourseManagement = () => {
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
   return (
-    <div className="bg-slate-900 min-h-screen flex flex-col">
+    <div className="bg-gray-800 min-h-screen flex flex-col">
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <ToastContainer position="top-right" autoClose={3000} />
