@@ -173,7 +173,7 @@ const SectionTimetable = () => {
 
   // Get room info from Assignation.Rooms
   const getRoomInfo = (schedule) => {
-    const room = schedule?.Assignation?.Rooms?.[0];
+    const room = schedule?.Room
     return {
       code: room?.Code || '?',
       building: room?.Building || '?'
