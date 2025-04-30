@@ -87,7 +87,7 @@ const CreateAccount = () => {
       <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Form Container */}
-      <div className="relative bg-blue-700/70 p-20 rounded-lg shadow-lg w-full lg:max-w-lg">
+      <div className="relative bg-blue-700/70 p-20 rounded-lg shadow-lg w-full lg:max-w-lg md:max-w-md sm:max-w-sm">
         {/* Close Button */}
         <button
           className="absolute top-5 right-15 text-white font-bold text-3xl hover:text-red-500 duration-300"
