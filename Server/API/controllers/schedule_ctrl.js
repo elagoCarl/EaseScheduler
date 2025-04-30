@@ -55,7 +55,6 @@ function convertDayNumberToName(dayNumber) {
  * Check if students in a section can be scheduled based on hours, conflicts, and break enforcement.
  */
 
-
 const isSchedulePossible = async (
     roomSchedules,
     professorSchedule,
@@ -72,64 +71,48 @@ const isSchedulePossible = async (
     roomCache,
     professorAvailabilityCache,
     courseProgCache,
-    sectionsCache,
-    totalAssignations,
-    currentAssignationIndex,
-    failedAssignmentsCount
+    sectionsCache
 ) => {
     // Check if room is available
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) {
         return false;
     }
 
-    // Check room capacity - use a percentage threshold based on how far we've progressed
-    // If we're in the latter half of scheduling, allow slightly undersized rooms if needed
-    let totalStudents = 0;
-    for (const secId of sectionIds) {
-        if (sectionsCache[secId]) {
-            totalStudents += Number(sectionsCache[secId].NumberOfStudents || 0);
-        }
+    // Check room capacity
+    // Check room capacity
+let totalStudents = 0;
+for (const secId of sectionIds) {
+    if (sectionsCache[secId]) {
+        totalStudents += Number(sectionsCache[secId].NumberOfStudents || 0);
     }
-    
-    // Use room cache
-    const room = roomCache[roomId];
-    
-    // We apply a capacity tolerance threshold that increases as we progress through scheduling
-    // and have more failed assignments
-    const progressFactor = currentAssignationIndex / totalAssignations;
-    const failureRate = failedAssignmentsCount / Math.max(1, totalAssignations);
-    
-    // Base capacity check
-    if (!room) return false;
-    
-    // Strict check for first 70% of scheduling
-    if (progressFactor < 0.7) {
-        if (totalStudents > Number(room.NumberOfSeats || 0)) {
-            return false;
-        }
-    } else {
-        // More lenient capacity check later in the process, especially if we have many failures
-        // Allow slight overages for large classrooms or when we're having trouble fitting schedules
-        const capacityThreshold = room.NumberOfSeats * (1 + failureRate * 0.1);
-        if (totalStudents > capacityThreshold) {
-            return false;
-        }
-    }
+}
 
-    // Check professor availability - using cached data but with more flexibility later in the process
+// Use room cache
+const room = roomCache[roomId];
+if (!room || totalStudents > Number(room.NumberOfSeats || 0)) {
+    return false;
+}
+
+// Verify room has the required room type for this course
+const course = courseProgCache[courseId];
+if (course && course.RoomTypeId && (!room.RoomTypeIds || !room.RoomTypeIds.includes(course.RoomTypeId))) {
+    return false;
+}
+
+    // Check professor availability - using cached data
     if (!canScheduleProfessor(
         professorSchedule[professorId][day],
         startHour, duration, settings, professorId, day, 
-        professorAvailabilityCache, progressFactor
+        professorAvailabilityCache
     )) {
         return false;
     }
 
-    // Check student conflicts & breaks - with dynamic break handling
+    // Check student conflicts & breaks
     for (const secId of sectionIds) {
         if (!canScheduleStudents(
             progYrSecSchedules[secId][day],
-            startHour, duration, settings, progressFactor
+            startHour, duration, settings
         )) {
             return false;
         }
@@ -148,23 +131,10 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
     );
 };
 
-// Enhanced student scheduling with progressive break flexibility
-const canScheduleStudents = (secSchedule, startHour, duration, settings, progressFactor) => {
-    // Dynamically adjust break requirements based on scheduling progress
-    // Early in the process: strict breaks, Later: more flexible
-    let requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration
-    
-    // As we progress, we can slightly reduce the break requirement if necessary
-    if (progressFactor > 0.7) {
-        requiredBreak = Math.max(0.25, requiredBreak * 0.8);
-    }
+const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
+    const requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration
 
-    // Dynamic max hours adjustment - slightly more flexible in later stages
-    const maxHours = progressFactor > 0.8 
-        ? settings.StudentMaxHours * 1.1  // Allow 10% more hours in late stage
-        : settings.StudentMaxHours;
-        
-    if (secSchedule.hours + duration > maxHours) return false;
+    if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
 
     // Check for overlapping schedules
     for (const time of secSchedule.dailyTimes) {
@@ -181,13 +151,10 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings, progres
     const intervals = [...secSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
         .sort((a, b) => a.start - b.start);
 
-    // Look for potential break violations
     for (let i = 0; i < intervals.length - 1; i++) {
         let currentEnd = intervals[i].end;
         let nextStart = intervals[i + 1].start;
 
-        // During early scheduling, enforce strict break requirements
-        // During late scheduling, allow reduced breaks if necessary
         if (nextStart < currentEnd + requiredBreak) {
             return false; // Not enough break time
         }
@@ -195,22 +162,9 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings, progres
     return true;
 };
 
-// Enhanced professor scheduling with progressive constraints
-const canScheduleProfessor = (profSchedule, startHour, duration, settings, professorId, day, professorAvailabilityCache, progressFactor) => {
-    // Dynamically adjust break requirements based on scheduling progress
-    let requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
-    
-    // Relax break requirements slightly for later scheduling stages
-    if (progressFactor > 0.7) {
-        requiredBreak = Math.max(0.5, requiredBreak * 0.75);
-    }
-    
+const canScheduleProfessor = (profSchedule, startHour, duration, settings, professorId, day, professorAvailabilityCache) => {
+    const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
     const maxContinuousHours = settings.maxAllowedGap || 5; // Max hours before break is required
-    
-    // Progressively allow longer continuous teaching blocks in later stages
-    const adjustedMaxContinuous = progressFactor > 0.8 
-        ? maxContinuousHours * 1.1 // Allow 10% longer blocks in late stages
-        : maxContinuousHours;
 
     // Use the cached professor availability data
     const cacheKey = `prof-${professorId}`;
@@ -238,12 +192,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             const availStartHour = parseInt(avail.Start_time.split(':')[0]);
             const availEndHour = parseInt(avail.End_time.split(':')[0]);
 
-            // Allow slight flexibility (15 min) for end times in later scheduling stages
-            const flexEndHour = progressFactor > 0.8 
-                ? availEndHour + 0.25  // Add 15 minutes flexibility
-                : availEndHour;
-
-            if (startHour >= availStartHour && (startHour + duration) <= flexEndHour) {
+            if (startHour >= availStartHour && (startHour + duration) <= availEndHour) {
                 isAvailable = true;
                 break;
             }
@@ -252,13 +201,8 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
         if (!isAvailable) return false;
     }
 
-    // Progressively adjust max hours constraint
-    const maxHours = progressFactor > 0.8 
-        ? settings.ProfessorMaxHours * 1.05  // Allow 5% more hours in late stage
-        : settings.ProfessorMaxHours;
-        
     // Check if adding this schedule would exceed max hours
-    if (profSchedule.hours + duration > maxHours) return false;
+    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
 
     // Check for overlapping schedules
     for (const time of profSchedule.dailyTimes) {
@@ -273,7 +217,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
 
     // If no schedules yet, no need to check for contiguous blocks
     if (profSchedule.dailyTimes.length === 0) {
-        return duration <= adjustedMaxContinuous; // Check if this single class exceeds max continuous hours
+        return duration <= maxContinuousHours; // Check if this single class exceeds max continuous hours
     }
 
     // Sort schedules by start time to find contiguous blocks and check break requirements
@@ -291,7 +235,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             if (next.start === current.end) {
                 // Classes are adjacent - check if combined duration exceeds max continuous hours
                 const continuousDuration = next.end - current.start;
-                if (continuousDuration > adjustedMaxContinuous) {
+                if (continuousDuration > maxContinuousHours) {
                     return false; // Exceeds max continuous teaching hours
                 }
             }
@@ -300,7 +244,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
                 return false; // Not enough break time
             }
             // Case 3: Check if this class itself exceeds max continuous hours
-            else if (duration > adjustedMaxContinuous) {
+            else if (duration > maxContinuousHours) {
                 return false;
             }
         }
@@ -316,7 +260,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             contiguousEnd = intervals[i].end;
 
             // Check if this extension would exceed the maximum allowed continuous hours
-            if (contiguousEnd - contiguousStart > adjustedMaxContinuous) {
+            if (contiguousEnd - contiguousStart > maxContinuousHours) {
                 return false;
             }
         } else {
@@ -324,7 +268,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             const gap = intervals[i].start - contiguousEnd;
 
             // If the previous block reached maximum allowed hours, check if there's enough break
-            if (contiguousEnd - contiguousStart >= adjustedMaxContinuous && gap < requiredBreak) {
+            if (contiguousEnd - contiguousStart >= maxContinuousHours && gap < requiredBreak) {
                 return false; // Not enough break after reaching max continuous hours
             }
 
@@ -336,21 +280,6 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
 
     return true;
 };
-
-// Deterministic shuffle function for consistent variants
-function shuffleDeterministic(array, seed) {
-    const newArray = [...array];
-    const pseudoRandom = (n) => {
-        // Simple deterministic random function
-        return (n * 9301 + 49297) % 233280 / 233280;
-    };
-
-    for (let i = newArray.length - 1; i > 0; i--) {
-        const j = Math.floor(pseudoRandom(i + seed) * (i + 1));
-        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-    }
-    return newArray;
-}
 
 const trueBacktrackScheduleVariant = async (
     assignations,
@@ -831,7 +760,15 @@ const generateScheduleVariants = async (req, res, next) => {
                         { model: Professor, attributes: ['id', 'Name'] }
                     ]
                 },
-                { model: Room, as: 'DeptRooms' }
+                { 
+                    model: Room, 
+                    as: 'DeptRooms',
+                    include: [{ 
+                        model: RoomType, 
+                        as: 'TypeRooms', // This matches your association name
+                        through: { attributes: [] } // Don't include junction table attributes
+                    }]
+                }
             ]
         });
         
@@ -868,7 +805,8 @@ const generateScheduleVariants = async (req, res, next) => {
                 id: room.id,
                 Code: room.Code,
                 NumberOfSeats: room.NumberOfSeats,
-                RoomTypeId: room.RoomTypeId
+                // Store array of room type IDs
+                RoomTypeIds: room.TypeRooms ? room.TypeRooms.map(rt => rt.id) : []
             };
         });
 
@@ -1236,6 +1174,23 @@ const generateScheduleVariants = async (req, res, next) => {
         });
     }
 };
+
+
+
+// Deterministic shuffle function for consistent variants
+function shuffleDeterministic(array, seed) {
+    const newArray = [...array];
+    const pseudoRandom = (n) => {
+        // Simple deterministic random function
+        return (n * 9301 + 49297) % 233280 / 233280;
+    };
+
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(pseudoRandom(i + seed) * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+}
 
 // Endpoint to save a selected variant to the database
 const saveScheduleVariant = async (req, res, next) => {
