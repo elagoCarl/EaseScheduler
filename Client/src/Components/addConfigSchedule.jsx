@@ -145,6 +145,9 @@ const AddConfigSchedule = () => {
     }
   }, [notification]);
 
+const [semesterData, setSemesterData] = useState({});
+const [currentAssignations, setCurrentAssignations] = useState([]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -183,26 +186,44 @@ const AddConfigSchedule = () => {
         // Fetch Assignations
         try {
           const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
-  
+        
           if (assignationsRes.data.successful) {
             const assignationsData = assignationsRes.data.data;
             setAssignations(assignationsData);
-  
-            const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
-            setSemesters(uniqueSemesters);
-  
-            if (uniqueSemesters.length > 0 && !selectedSemester) {
-              setSelectedSemester(uniqueSemesters[0]);
+        
+            // ✅ Define and build semesterMap right here
+            const semesterMap = {};
+            assignationsData.forEach(a => {
+              if (!semesterMap[a.Semester]) {
+                semesterMap[a.Semester] = [];
+              }
+              semesterMap[a.Semester].push(a);
+            });
+        
+            const semesters = [...new Set(assignationsData.map(a => a.Semester))].sort((a, b) => a - b);
+        
+            setSemesterData(semesterMap);
+            setSemesters(semesters);
+        
+            if (semesters.length > 0 && !selectedSemester) {
+              setSelectedSemester(semesters[0]);
+              setCurrentAssignations(semesterMap[semesters[0]] || []);
+            } else if (selectedSemester && semesterMap[selectedSemester]) {
+              setCurrentAssignations(semesterMap[selectedSemester]);
             }
+        
+            console.log("Semester data organized:", semesterMap);
           } else {
             console.error("Failed to fetch assignations:", assignationsRes.data.message);
             setAssignations([]);
+            setSemesterData({});
           }
         } catch (assignationError) {
           console.error("Error fetching assignations:", assignationError);
           setAssignations([]);
+          setSemesterData({});
         }
-  
+        
         // Fetch Professors
         try {
           const professorsRes = await axios.get(`/prof/getProfByDept/${deptId}`);
@@ -231,22 +252,29 @@ const AddConfigSchedule = () => {
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [deptId, selectedSemester]);
+  }, [deptId]);
   
 
   useEffect(() => {
-    if (selectedSemester) {
-      const filtered = assignations.filter(a => a.Semester === selectedSemester);
-      setFilteredAssignations(filtered);
-
-      // If a room is already selected, refetch schedules for the new semester
-      if (formData.room_id) {
-        fetchSchedulesForRoom(formData.room_id);
-      }
+    console.log("Semester changed to:", selectedSemester);
+    console.log("Current assignations:", assignations);
+    
+    if (!selectedSemester) {
+      setFilteredAssignations([]);
+      return;
+    }
+  
+    // Use semesterData directly (already grouped by semester)
+    if (semesterData && semesterData[selectedSemester]) {
+      setFilteredAssignations(semesterData[selectedSemester]);
     } else {
       setFilteredAssignations([]);
     }
-  }, [selectedSemester, assignations]);
+  
+    if (formData.room_id) {
+      fetchSchedulesForRoom(formData.room_id);
+    }
+  }, [selectedSemester, semesterData, formData.room_id]);
 
   // API handlers
   const fetchSchedulesForRoom = (roomId) => {
@@ -269,6 +297,27 @@ const AddConfigSchedule = () => {
         setSchedules([]);
       });
   };
+
+  function usePersistentState(key, initialValue) {
+    const [value, setValue] = useState(() => {
+      try {
+        const item = sessionStorage.getItem(key);
+        return item ? JSON.parse(item) : initialValue;
+      } catch (error) {
+        return initialValue;
+      }
+    });
+
+    useEffect(() => {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(value));
+      } catch (error) {
+        console.error("Error storing value in sessionStorage:", error);
+      }
+    }, [key, value]);
+  
+    return [value, setValue];
+  }
 
   const fetchSectionsForCourse = (courseId) => {
     axios.post('/progYrSec/getProgYrSecByCourse', { CourseId: courseId, DepartmentId: deptId })
@@ -428,6 +477,29 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const handleSemesterChange = e => {
+    const { value } = e.target;
+    
+    // Update selected semester state
+    setSelectedSemester(value);
+    
+    // Update current assignations for the selected semester
+    setCurrentAssignations(semesterData[value] || []);
+    
+    // Reset assignation and professor info when semester changes
+    setFormData(prev => ({ 
+      ...prev, 
+      assignation_id: "", 
+      professorId: null, 
+      professorName: null 
+    }));
+    
+    // If a room is already selected, refetch schedules
+    if (formData.room_id) {
+      fetchSchedulesForRoom(formData.room_id);
+    }
+  };
+
   // Add this function to handle saving the selected variant
   const handleSelectVariant = async (variantIndex) => {
     try {
@@ -472,34 +544,49 @@ const AddConfigSchedule = () => {
   // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
-
+  
     if (name === "semester") {
       // Update selected semester state immediately
       setSelectedSemester(value);
-
+  
       // Reset assignation selection when semester changes
-      setFormData(prev => ({ ...prev, assignation_id: "", professorId: null, professorName: null }));
-
+      setFormData(prev => ({ 
+        ...prev, 
+        assignation_id: "", 
+        professorId: null, 
+        professorName: null 
+      }));
+  
       // If a room is already selected, refetch schedules with the new semester
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
       }
-    } else if (name === "assignation_id" && value) {
-      // Rest of your existing assignation handler...
-      const selectedAssignation = assignations.find(a => a.id === parseInt(value));
-      if (selectedAssignation?.CourseId) {
-        fetchSectionsForCourse(selectedAssignation.CourseId);
-        setFormData(prev => ({
-          ...prev,
+    } else if (name === "assignation_id") {
+      if (value) {
+        // If a valid assignation is selected
+        const selectedAssignation = assignations.find(a => a.id === parseInt(value));
+        if (selectedAssignation?.CourseId) {
+          fetchSectionsForCourse(selectedAssignation.CourseId);
+          setFormData(prev => ({
+            ...prev,
+            [name]: value,
+            professorId: selectedAssignation.ProfessorId,
+            professorName: selectedAssignation.Professor?.Name || "Professor"
+          }));
+        }
+      } else {
+        // If empty option is selected, clear professor information
+        setFormData(prev => ({ 
+          ...prev, 
           [name]: value,
-          professorId: selectedAssignation.ProfessorId,
-          professorName: selectedAssignation.Professor?.Name || "Professor"
+          professorId: null,
+          professorName: null
         }));
       }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-
+  
     if (name === "room_id" && value) fetchSchedulesForRoom(value);
   };
 
@@ -1070,11 +1157,11 @@ const AddConfigSchedule = () => {
                 <select
                   name="semester"
                   value={selectedSemester}
-                  onChange={handleInputChange}
+                  onChange={handleSemesterChange}
                   className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="" disabled>Select Semester</option>
+                  <option value="">Select Semester</option>
                   {semesters.map(semester => (
                     <option key={semester} value={semester}>
                       Semester {semester}
@@ -1103,7 +1190,7 @@ const AddConfigSchedule = () => {
                   value={formData.assignation_id}
                   onChange={handleInputChange}
                   className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSemester ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                  disabled={!selectedSemester}
+                  disabled={activeMode !== 'manual'}
                 >
                   <option value="">Select Assignation</option>
                   {filteredAssignations.map(a => (
@@ -1118,7 +1205,7 @@ const AddConfigSchedule = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Day:</label>
-                    <select name="day" value={formData.day} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select name="day" value={formData.day} onChange={handleInputChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="">Select Day</option>
                       {days.map((d, i) => (
                         <option key={d} value={i + 1}>{d}</option>
@@ -1127,11 +1214,11 @@ const AddConfigSchedule = () => {
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
-                    <input type="time" name="custom_start_time" value={customStartTime} onChange={handleTimeChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="time" name="custom_start_time" value={customStartTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
-                    <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
 
@@ -1144,6 +1231,7 @@ const AddConfigSchedule = () => {
                   </button>
                 </div>
                 {/* {renderManualSchedulingSection()} */}
+                {activeMode === 'manual' && renderSectionsSelect()}
                 {renderAutomationSection()}
               </div>
             </div>
