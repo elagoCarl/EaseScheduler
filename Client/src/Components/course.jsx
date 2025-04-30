@@ -9,9 +9,11 @@ import AddCourseModal from "./callComponents/addCourseModal";
 import EditCourseModal from "./callComponents/editCourseModal";
 import DeleteWarning from "./callComponents/deleteWarning";
 import { useAuth } from '../Components/authContext';
+import { useNavigate } from 'react-router-dom';
 
 const CourseManagement = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const deptId = user?.DepartmentId;
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -239,7 +241,7 @@ const CourseManagement = () => {
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
   return (
-    <div className="bg-slate-900 min-h-screen flex flex-col">
+    <div className="bg-gray-800 min-h-screen flex flex-col">
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <ToastContainer position="top-right" autoClose={3000} />
@@ -250,13 +252,22 @@ const CourseManagement = () => {
           <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
             <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Course Management</h1>
             <div className="bg-white px-4 py-2 rounded shadow-md">
+            <button
+                onClick={() => navigate('/addConfigSchedule')}
+                className="bg-blue-500 text-white rounded-full p-3 mr-5 hover:bg-blue-200 duration-300 transition"
+                title="Go Back"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
               <span className="text-gray-800 font-medium">Total Courses: <span className="text-blue-600">{courses.length}</span></span>
             </div>
           </div>
 
           {/* Search and Filter */}
-          <div className="bg-white p-4 rounded shadow-md mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
+          <div className="bg-white p-12 rounded shadow-md mb-6">
+            <div className="flex flex-col md:flex-row gap-8">
               <div className="relative flex-grow">
                 <input
                   type="text"
@@ -293,7 +304,7 @@ const CourseManagement = () => {
                   </button>
 
                   {showFilters && (
-                    <div className="absolute right-0 mt-2 rounded bg-white shadow-xl z-10 w-64">
+                    <div className="absolute right-0 mt-2 rounded bg-white shadow-xl z-10 w-80">
                       <div className="p-4 space-y-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Year Level</label>
@@ -356,11 +367,11 @@ const CourseManagement = () => {
           </div>
 
           {/* Course Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 mt-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 mt-15">
             {currentCourses.length > 0 ? (
               currentCourses.map(course => (
                 <div key={course.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
-                  <div className="bg-blue-600 p-4">
+                  <div className="bg-blue-600 p-8">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold text-white">{course.code}</h2>
@@ -420,7 +431,7 @@ const CourseManagement = () => {
                       </button>
                     </div>
 
-                    <div className="p-4 max-h-200 overflow-y-auto">
+                    <div className="p-8 max-h-200 overflow-y-auto">
                       {courseActiveTabs[course.id] === 'programs' ? (
                         <>
                           <h3 className="font-medium text-gray-800 mb-2">Associated Programs</h3>

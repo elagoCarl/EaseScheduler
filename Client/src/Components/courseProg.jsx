@@ -231,7 +231,7 @@ const CourseProg = () => {
     };
 
     return (
-        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center p-20" style={{ backgroundImage: `url(${Background})` }}>
+        <div className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center p-20 bg-gray-800">
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
             <TopMenu toggleSidebar={toggleSidebar} />
 

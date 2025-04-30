@@ -135,7 +135,7 @@ const AddConfigSchedule = () => {
 
   const safeRenderRoomType = (typeRooms) => {
     if (!typeRooms) return '';
-    return typeof typeRooms === 'object' ? typeRooms.Type || 'Unknown' : typeRooms;
+    return typeRooms.map(item => item.Type).join(', ')
   };
   
   useEffect(() => {
@@ -148,8 +148,6 @@ const AddConfigSchedule = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log("Fetching data for department ID:", deptId);
-  
         if (!deptId) {
           console.error("Invalid department ID:", deptId);
           setNotification({
@@ -162,11 +160,9 @@ const AddConfigSchedule = () => {
         // Fetch Rooms
         try {
           const roomsRes = await axios.get(`/room/getRoomsByDept/${deptId}`);
-          console.log("Rooms API response:", roomsRes.data);
   
           if (roomsRes.data.successful) {
             setRooms(roomsRes.data.data);
-            console.log("Rooms set:", roomsRes.data.data);
           } else {
             console.error("Failed to fetch rooms:", roomsRes.data.message);
             setRooms([]);
@@ -187,19 +183,15 @@ const AddConfigSchedule = () => {
         // Fetch Assignations
         try {
           const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
-          console.log("Assignations API response:", assignationsRes.data);
   
           if (assignationsRes.data.successful) {
             const assignationsData = assignationsRes.data.data;
             setAssignations(assignationsData);
-            console.log("Assignations set:", assignationsData);
   
             const uniqueSemesters = [...new Set(assignationsData.map(a => a.Semester))].sort();
-            console.log("Unique semesters found:", uniqueSemesters);
             setSemesters(uniqueSemesters);
   
             if (uniqueSemesters.length > 0 && !selectedSemester) {
-              console.log("Setting default semester:", uniqueSemesters[0]);
               setSelectedSemester(uniqueSemesters[0]);
             }
           } else {
@@ -216,7 +208,6 @@ const AddConfigSchedule = () => {
           const professorsRes = await axios.get(`/prof/getProfByDept/${deptId}`);
           if (professorsRes.data.successful) {
             setProfessors(professorsRes.data.data);
-            console.log("Professors set:", professorsRes.data.data);
           } else {
             console.error("Failed to fetch professors:", professorsRes.data.message);
             setProfessors([]);
@@ -391,8 +382,6 @@ const AddConfigSchedule = () => {
 
       // Fire the request
       const response = await axios.post(endpoint, payload);
-
-      // console.log("Schedule variants response:", response.data);
 
       if (response.data.successful) {
         // Store the variants
@@ -690,7 +679,6 @@ const AddConfigSchedule = () => {
           <div className="mt-2 text-xs">
             <div className="flex justify-between items-center">
               <div>
-                <div>School Year: {schedule.Assignation?.School_Year || 'N/A'}</div>
                 <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
               </div>
               <div className="flex">
@@ -770,7 +758,7 @@ const AddConfigSchedule = () => {
           {event.Start_time.substring(0, 5)} - {event.End_time.substring(0, 5)}
         </div>
         <div>{event.Assignation?.Professor?.Name}</div>
-        <div>{event.Assignation?.School_Year} / Semester {event.Assignation?.Semester}</div>
+        <div>Semester {event.Assignation?.Semester}</div>
         {event.ProgYrSecs?.length > 0 && (
           <div className="mt-1">
             {event.ProgYrSecs.map((sec, sIdx) => (
@@ -1004,7 +992,7 @@ const AddConfigSchedule = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundImage: `url(${bg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div className="min-h-screen flex flex-col bg-gray-800">
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       </div>
@@ -1104,7 +1092,7 @@ const AddConfigSchedule = () => {
                 <option value="">Select Room</option>
                 {rooms.map(room => (
                   <option key={room.id} value={room.id}>
-                    {room.Code} - {room.Building} {room.Floor} (Type: {typeof room.TypeRooms === 'object' ? room.TypeRooms.Type : room.TypeRooms})
+                    {room.Code} - {room.Building} {room.Floor} (Type: {safeRenderRoomType(room.TypeRooms)})
                   </option>
                 ))}
               </select>

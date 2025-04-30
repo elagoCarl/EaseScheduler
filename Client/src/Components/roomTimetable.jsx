@@ -155,13 +155,7 @@ const RoomTimetable = () => {
 
   return (
     <div
-    className="min-h-screen flex flex-col"
-    style={{
-      backgroundImage: `url(${Image3})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
-    }}
+    className="min-h-screen flex flex-col bg-gray-800"
   >
     {/* Sidebar and TopMenu */}
     <div className="fixed top-0 h-full z-50">
@@ -187,7 +181,7 @@ const RoomTimetable = () => {
                     <span>•</span>
                     <span>{selectedRoom.Building} Building</span>
                     <span>•</span>
-                    <span>{selectedRoom.Type}</span>
+                    <span>{selectedRoom.TypeRooms.map(item => item.Type).join(', ')}</span>
                   </div>
                 </div>
               ) : (
