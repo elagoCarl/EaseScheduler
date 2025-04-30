@@ -1512,17 +1512,42 @@ const addSchedule = async (req, res, next) => {
             const currentScheduleDuration = (newEndSec - newStartSec) / 3600; // seconds to hours
 
             // Fetch and validate the room
-            const room = await Room.findByPk(RoomId);
+            const room = await Room.findByPk(RoomId, {
+                include: [
+                    {
+                        model: RoomType,
+                        as: 'TypeRooms',
+                        attributes: ['id', 'Type'],
+                        through: {
+                            attributes: []
+                        }
+                    }
+                ]
+            })
             if (!room) {
                 return res.status(404).json({
                     successful: false,
                     message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
                 });
             }
-
-
+            const courseRoomTypeId = assignation.Course.RoomTypeId;
+            const roomHasRequiredType = room.TypeRooms.some(type => type.id === courseRoomTypeId);
+            
+            if (!roomHasRequiredType) {
+                // Get the required room type name for better error message
+                const requiredRoomType = await RoomType.findByPk(courseRoomTypeId);
+                const requiredTypeName = requiredRoomType ? requiredRoomType.Type : "required type";
+                
+                // Get the room's available types for better error messaging
+                const availableTypes = room.TypeRooms.map(type => type.Type).join(", ");
+                
+                return res.status(400).json({
+                    successful: false,
+                    message: `Room type mismatch: Course requires room type ${requiredTypeName} but Room ${room.Code} has types: [${availableTypes}].`
+                });
+            }
             // Validate the semester matches the assignation's semester
-            if (assignation.Semester !== Semester) {
+            if (assignation.Semester != Semester) {
                 return res.status(400).json({
                     successful: false,
                     message: `Semester mismatch: Schedule is for ${Semester} but Assignation is for ${assignation.Semester}.`
@@ -1650,8 +1675,27 @@ const addSchedule = async (req, res, next) => {
                 });
             }
 
+            const allProfAvailability = await ProfAvail.findAll({
+                where: {
+                    ProfessorId: { [Op.in]: professorId },
+                }
+            });
+            const professorAvailabilityCache = {};
+            // Organize by professor ID for quick access
+            allProfAvailability.forEach(avail => {
+                const cacheKey = `prof-${avail.ProfessorId}`;
+                if (!professorAvailabilityCache[cacheKey]) {
+                    professorAvailabilityCache[cacheKey] = [];
+                }
+                professorAvailabilityCache[cacheKey].push(avail);
+            });
+            
+            // Also cache availability counts per professor
+                const availData = professorAvailabilityCache[`prof-${professorId}`] || [];
+                professorAvailabilityCache[`prof-count-${professorId}`] = availData.length;
+
             // Validate professor workload using your helper
-            if (!(await canScheduleProfessor(profScheduleForDay, newStartHour, currentScheduleDuration, settings, assignation.Professor.id, Day))) {
+            if (!(canScheduleProfessor(profScheduleForDay, newStartHour, currentScheduleDuration, settings, assignation.Professor.id, Day, professorAvailabilityCache))) {
                 return res.status(400).json({
                     successful: false,
                     message: `The professor ${assignation.Professor.Name} would exceed the allowed teaching hours for ${Semester} semester.`
@@ -1722,7 +1766,97 @@ const addSchedule = async (req, res, next) => {
                         message: `For section with ID ${sectionId} in ${Semester} semester, adding ${currentScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
                     });
                 }
+
+                // NEW VALIDATION: Check if the section is already scheduled for this course with a different professor
+                const existingCourseSchedules = await Schedule.findAll({
+                    include: [
+                        {
+                            model: ProgYrSec,
+                            where: { id: sectionId }
+                        },
+                        {
+                            model: Assignation,
+                            where: {
+                                CourseId: assignation.Course.id,
+                                Semester,
+                                // Exclude current assignation to check others only
+                                id: { [Op.ne]: AssignationId }
+                            },
+                            include: [{ model: Professor }]
+                        }
+                    ]
+                });
+
+                if (existingCourseSchedules.length > 0) {
+                    // Found schedules where this section is taking this course with a different professor
+                    const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Section ${sectionId} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
+                    });
+                }
+
+                // NEW VALIDATION: Check if lecture and lab components are taught by the same professor
+                // Get the current course code
+                const currentCourseCode = assignation.Course.Code;
+                
+                // Determine if this is a lecture or lab course
+                const isLabCourse = currentCourseCode.endsWith('L');
+                let relatedCourseCode;
+                
+                // If current course is a lab, find its lecture; if it's a lecture, find its lab
+                if (isLabCourse) {
+                    // For lab course "XXXL", find lecture course "XXX"
+                    relatedCourseCode = currentCourseCode.slice(0, -1);
+                } else {
+                    // For lecture course "XXX", find lab course "XXXL"
+                    relatedCourseCode = currentCourseCode + 'L';
+                }
+                
+                // Look for related course in the database
+                const relatedCourse = await Course.findOne({
+                    where: { Code: relatedCourseCode }
+                });
+                
+                // If related course exists, check for professor consistency
+                if (relatedCourse) {
+                    // Find assignations for the related course for the same section and semester
+                    const relatedAssignations = await Schedule.findAll({
+                        include: [
+                            {
+                                model: ProgYrSec,
+                                where: { id: sectionId }
+                            },
+                            {
+                                model: Assignation,
+                                where: {
+                                    CourseId: relatedCourse.id,
+                                    Semester
+                                },
+                                include: [{ model: Professor }]
+                            }
+                        ]
+                    });
+                    
+                    // If the related course is already scheduled for this section with a different professor
+                    if (relatedAssignations.length > 0) {
+                        const relatedProfessorId = relatedAssignations[0].Assignation.Professor.id;
+                        const relatedProfessorName = relatedAssignations[0].Assignation.Professor.Name;
+                        
+                        // If professors don't match, reject the schedule
+                        if (relatedProfessorId !== assignation.Professor.id) {
+                            const currentComponent = isLabCourse ? "lab" : "lecture";
+                            const relatedComponent = isLabCourse ? "lecture" : "lab";
+                            
+                            return res.status(400).json({
+                                successful: false,
+                                message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionId}. Both components must be taught by the same professor.`
+                            });
+                        }
+                    }
+                }
             }
+            
 
             // ****************** All Validations Passed - Create Schedule ******************
 
@@ -1765,9 +1899,6 @@ const updateSchedule = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester } = req.body;
-        console.log(Semester);
-
-
         // Validate mandatory fields - now including Semester
         if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester])) {
             return res.status(400).json({
@@ -1819,11 +1950,38 @@ const updateSchedule = async (req, res, next) => {
         }
 
         // Validate Room existence
-        const room = await Room.findByPk(RoomId);
+        const room = await Room.findByPk(RoomId, {
+            include: [
+                {
+                    model: RoomType,
+                    as: 'TypeRooms',
+                    attributes: ['id', 'Type'],
+                    through: {
+                        attributes: []
+                    }
+                }
+            ]
+        })
         if (!room) {
             return res.status(404).json({
                 successful: false,
                 message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
+            });
+        }
+        const courseRoomTypeId = assignation.Course.RoomTypeId;
+        const roomHasRequiredType = room.TypeRooms.some(type => type.id === courseRoomTypeId);
+        
+        if (!roomHasRequiredType) {
+            // Get the required room type name for better error message
+            const requiredRoomType = await RoomType.findByPk(courseRoomTypeId);
+            const requiredTypeName = requiredRoomType ? requiredRoomType.Type : "required type";
+            
+            // Get the room's available types for better error messaging
+            const availableTypes = room.TypeRooms.map(type => type.Type).join(", ");
+            
+            return res.status(400).json({
+                successful: false,
+                message: `Room type mismatch: Course requires room type ${requiredTypeName} but Room ${room.Code} has types: [${availableTypes}].`
             });
         }
 
@@ -1963,8 +2121,26 @@ const updateSchedule = async (req, res, next) => {
             });
         }
 
+        const allProfAvailability = await ProfAvail.findAll({
+            where: {
+                ProfessorId: { [Op.in]: professorId },
+            }
+        });
+        const professorAvailabilityCache = {};
+        // Organize by professor ID for quick access
+        allProfAvailability.forEach(avail => {
+            const cacheKey = `prof-${avail.ProfessorId}`;
+            if (!professorAvailabilityCache[cacheKey]) {
+                professorAvailabilityCache[cacheKey] = [];
+            }
+            professorAvailabilityCache[cacheKey].push(avail);
+        });
+        
+        // Also cache availability counts per professor
+            const availData = professorAvailabilityCache[`prof-${professorId}`] || [];
+            professorAvailabilityCache[`prof-count-${professorId}`] = availData.length;
         // Validate professor availability and workload using helper function
-        if (!canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day)) {
+        if (!canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day, professorAvailabilityCache)) {
             return res.status(400).json({
                 successful: false,
                 message: `The professor ${assignation.Professor.Name} is not available at the specified time or would exceed the allowed teaching hours for ${Semester} semester.`
@@ -2036,6 +2212,94 @@ const updateSchedule = async (req, res, next) => {
                     message: `For section with ID ${sectionId} in ${Semester} semester, adding ${updatedScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
                 });
             }
+            // NEW VALIDATION: Check if the section is already scheduled for this course with a different professor
+            const existingCourseSchedules = await Schedule.findAll({
+                include: [
+                    {
+                        model: ProgYrSec,
+                        where: { id: sectionId }
+                    },
+                    {
+                        model: Assignation,
+                        where: {
+                            CourseId: assignation.Course.id,
+                            Semester,
+                            // Exclude current assignation to check others only
+                            id: { [Op.ne]: AssignationId }
+                        },
+                        include: [{ model: Professor }]
+                    }
+                ]
+            });
+
+            if (existingCourseSchedules.length > 0) {
+                // Found schedules where this section is taking this course with a different professor
+                const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
+                return res.status(400).json({
+                    successful: false,
+                    message: `Section ${sectionId} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
+                });
+            }
+
+            // NEW VALIDATION: Check if lecture and lab components are taught by the same professor
+            // Get the current course code
+            const currentCourseCode = assignation.Course.Code;
+            
+            // Determine if this is a lecture or lab course
+            const isLabCourse = currentCourseCode.endsWith('L');
+            let relatedCourseCode;
+            
+            // If current course is a lab, find its lecture; if it's a lecture, find its lab
+            if (isLabCourse) {
+                // For lab course "XXXL", find lecture course "XXX"
+                relatedCourseCode = currentCourseCode.slice(0, -1);
+            } else {
+                // For lecture course "XXX", find lab course "XXXL"
+                relatedCourseCode = currentCourseCode + 'L';
+            }
+            
+            // Look for related course in the database
+            const relatedCourse = await Course.findOne({
+                where: { Code: relatedCourseCode }
+            });
+            
+            // If related course exists, check for professor consistency
+            if (relatedCourse) {
+                // Find assignations for the related course for the same section and semester
+                const relatedAssignations = await Schedule.findAll({
+                    include: [
+                        {
+                            model: ProgYrSec,
+                            where: { id: sectionId }
+                        },
+                        {
+                            model: Assignation,
+                            where: {
+                                CourseId: relatedCourse.id,
+                                Semester
+                            },
+                            include: [{ model: Professor }]
+                        }
+                    ]
+                });
+                
+                // If the related course is already scheduled for this section with a different professor
+                if (relatedAssignations.length > 0) {
+                    const relatedProfessorId = relatedAssignations[0].Assignation.Professor.id;
+                    const relatedProfessorName = relatedAssignations[0].Assignation.Professor.Name;
+                    
+                    // If professors don't match, reject the schedule
+                    if (relatedProfessorId !== assignation.Professor.id) {
+                        const currentComponent = isLabCourse ? "lab" : "lecture";
+                        const relatedComponent = isLabCourse ? "lecture" : "lab";
+                        
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionId}. Both components must be taught by the same professor.`
+                        });
+                    }
+                }
+            }
         }
 
         // ******************** Check for Time Conflicts Among Section Schedules ********************
@@ -2073,6 +2337,8 @@ const updateSchedule = async (req, res, next) => {
                 });
             }
         }
+
+        
 
         // ******************** Update the Schedule and Associations ********************
 
@@ -2137,8 +2403,8 @@ const getSchedsByRoom = async (req, res, next) => {
             include: [
                 {
                     model: Assignation,
-                    where: { Semester: Semester },
-                    attributes: ['id', 'School_Year', 'Semester', 'DepartmentId'],
+                    where: {  Semester },
+                    attributes: ['id', 'Semester', 'DepartmentId'],
                     include: [
                         {
                             model: Course,
@@ -2201,7 +2467,7 @@ const getSchedsByProf = async (req, res, next) => {
                     // only include schedules linked to this professor
                     model: Assignation,
                     where: { ProfessorId: profId, Semester },
-                    attributes: ['id', 'School_Year', 'Semester'],
+                    attributes: ['id', 'Semester'],
                     include: [
                         {
                             model: Course,
@@ -2277,7 +2543,7 @@ const getSchedsByDept = async (req, res, next) => {
                 {
                     model: Assignation,
                     where: { DepartmentId: deptId, Semester },
-                    attributes: ['id', 'School_Year', 'Semester'],
+                    attributes: ['id', 'Semester'],
                     include: [
                         {
                             model: Course,
