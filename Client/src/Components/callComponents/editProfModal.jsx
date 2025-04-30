@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { X, Check, AlertCircle, Save } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import axios from '../../axiosConfig';
 
 const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
     name: professor.Name || '',
     email: professor.Email || '',
-    ProfStatusId: professor.ProfStatus.id || '',
+    ProfStatusId: professor.ProfStatus?.id || '',
   });
   const [statuses, setStatuses] = useState([]);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialize form data when professor prop changes
   useEffect(() => {
@@ -20,7 +19,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
       name: professor.Name || '',
       email: professor.Email || '',
       // Use Status as fallback if StatusId is undefined
-      ProfStatusId: professor.ProfStatus.id || professor.Status || '',
+      ProfStatusId: professor.ProfStatus?.id || professor.Status || '',
     });
   }, [professor]);
 
@@ -28,7 +27,9 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
   useEffect(() => {
     const fetchStatuses = async () => {
       try {
-        const response = await axios.get('/profStatus/getAllStatus');
+        const response = await axios.get('/profStatus/getAllStatus', {
+          withCredentials: true
+        });
         setStatuses(response.data.data);
 
         // If StatusId is missing but we have Status name, try to find the ID
@@ -45,7 +46,7 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
         }
       } catch (error) {
         console.error('Error fetching statuses:', error);
-        setError('Failed to load teaching statuses.');
+        setErrorMessage(error.response?.data?.message || 'Failed to load teaching statuses.');
       }
     };
 
@@ -61,40 +62,35 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
     e.preventDefault();
 
     if (!formData.name || !formData.email || !formData.ProfStatusId) {
-      setError('Please fill out all required fields.');
+      setErrorMessage('Please fill out all required fields.');
       return;
     }
 
     try {
-      setSuccessMessage('');
-      setError('');
-      setIsLoading(true);
+      setErrorMessage('');
+      setIsSubmitting(true);
 
       const response = await axios.put(
         `/prof/updateProf/${professor.id}`,
         formData,
         {
           headers: { 'Content-Type': 'application/json' },
+          withCredentials: true,
         }
       );
 
-      // Update the UI with the new professor data
+      // Update the UI with the new professor data and pass success message
       if (onUpdate) {
-        onUpdate(response.data);
+        onUpdate(response.data, 'Professor updated successfully!');
       }
 
-      setSuccessMessage('Professor updated successfully!');
-
-      // Close the modal after a short delay
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      // Close the modal after submission
+      onClose();
 
     } catch (error) {
-      setError(error.response?.data?.message || 'An error occurred while updating professor.');
-      setSuccessMessage('');
-    } finally {
-      setIsLoading(false);
+      console.error("Error updating professor:", error);
+      setErrorMessage(error.response?.data?.message || 'An error occurred while updating professor.');
+      setIsSubmitting(false);
     }
   };
 
@@ -167,18 +163,14 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
           </div>
 
           {/* Error Message */}
-          {error && (
+          {errorMessage && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start space-x-2">
-              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {successMessage && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start space-x-2">
-              <Check size={18} className="flex-shrink-0 mt-0.5" />
-              <p className="text-sm">{successMessage}</p>
+              <div className="flex-shrink-0 mt-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm">{errorMessage}</p>
             </div>
           )}
 
@@ -193,12 +185,12 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
-              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isLoading ? "opacity-75 cursor-not-allowed" : ""
+              disabled={isSubmitting}
+              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""
                 }`}
             >
-              {isLoading ? (
-                <>Loading...</>
+              {isSubmitting ? (
+                <>Updating...</>
               ) : (
                 <>
                   <Save size={16} />
@@ -215,12 +207,14 @@ const EditProfModal = ({ professor, onClose, onUpdate }) => {
 
 EditProfModal.propTypes = {
   professor: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     Name: PropTypes.string.isRequired,
     Email: PropTypes.string.isRequired,
-    // Make StatusId optional with Status as an alternative
-    StatusId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    Status: PropTypes.string,
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    ProfStatus: PropTypes.shape({
+      id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      Status: PropTypes.string
+    }),
+    Status: PropTypes.string, // Fallback if ProfStatus object is not available
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onUpdate: PropTypes.func.isRequired,

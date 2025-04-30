@@ -181,7 +181,7 @@ const RoomTimetable = () => {
                     <span>•</span>
                     <span>{selectedRoom.Building} Building</span>
                     <span>•</span>
-                    <span>{selectedRoom.Type}</span>
+                    <span>{selectedRoom.TypeRooms.map(item => item.Type).join(', ')}</span>
                   </div>
                 </div>
               ) : (

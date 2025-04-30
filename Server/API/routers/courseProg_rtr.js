@@ -7,5 +7,6 @@ router.use(requireAuth)
 router.post('/addCourseProg', courseProg_ctrl.addCourseProg)
 router.delete('/deleteCourseProg/:id', courseProg_ctrl.deleteCourseProg)
 router.get('/getCoursesByProg/:id', courseProg_ctrl.getCoursesByProg)
+router.get('/getProgramsByCourse/:id', courseProg_ctrl.getProgramsByCourse)
 router.put('/updateCourseProg/:id', courseProg_ctrl.updateCourseProg)
 module.exports = router;
