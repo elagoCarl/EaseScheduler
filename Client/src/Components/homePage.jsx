@@ -142,8 +142,7 @@ const HomePage = () => {
   };
 
   return (
-    <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto'
-      style={{ backgroundImage: `url(${image5})` }}>
+    <div className='bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto bg-gray-800'>
       <div className="absolute top-15 right-15 flex justify-between items-center px-4 py-2 w-full bg-opacity-70 md:px-8">
         <button
           id="logoBtn"

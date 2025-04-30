@@ -365,7 +365,7 @@ const ProfessorManagement = () => {
     };
 
     return (
-        <div className="bg-gray-900 min-h-screen flex flex-col">
+        <div className="bg-gray-800 min-h-screen flex flex-col">
             <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
             <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
             <ToastContainer position="top-right" autoClose={3000} />

@@ -48,8 +48,7 @@ const ForgotPass = () => {
 
     return (
         <div
-            className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-center items-center overflow-y-auto"
-            style={{ backgroundImage: `url(${image5})` }}
+            className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-center items-center overflow-y-auto bg-gray-800"
         >
             {isLoading || isRedirecting ? (
                 // Show loading spinner or redirecting message

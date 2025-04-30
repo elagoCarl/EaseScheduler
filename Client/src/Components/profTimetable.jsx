@@ -32,9 +32,7 @@ const ProfTimetable = () => {
         const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
         if (data.successful && data.data.length) {
           // Extract unique semesters from assignations
-          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean);
-          
-          uniqueSemesters.sort((a, b) => b.localeCompare(a)); // Most recent first
+          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean)
           
           setSemesters(uniqueSemesters);
           setSelectedSemester(uniqueSemesters[0] || null);
@@ -114,7 +112,7 @@ const ProfTimetable = () => {
       code: room.Code || 'Unknown',
       building: room.Building || 'Unknown',
       floor: room.Floor || '',
-      type: room.RoomType?.Type || ''
+      type: room.TypeRooms.map(item => item.Type).join(', ') || ''
     };
   };
 
@@ -195,13 +193,7 @@ const ProfTimetable = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundImage: `url(${Image3})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
+      className="min-h-screen flex flex-col bg-gray-800"
     >
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
