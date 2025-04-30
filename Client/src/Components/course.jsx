@@ -8,6 +8,7 @@ import TopMenu from "./callComponents/topMenu";
 import AddCourseModal from "./callComponents/addCourseModal";
 import EditCourseModal from "./callComponents/editCourseModal";
 import DeleteWarning from "./callComponents/deleteWarning";
+import ViewProgramsModal from "./callComponents/courseProgModal";
 import { useAuth } from '../Components/authContext';
 
 const CourseManagement = () => {
@@ -31,12 +32,11 @@ const CourseManagement = () => {
   const [selectedCourseIds, setSelectedCourseIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [assignations, setAssignations] = useState([]);
-  const [programs, setPrograms] = useState([]);
-  const [courseActiveTabs, setCourseActiveTabs] = useState({});
-  const [programCourses, setProgramCourses] = useState({});
+  const [isProgramsModalOpen, setIsProgramsModalOpen] = useState(false);
+  const [selectedCourseForPrograms, setSelectedCourseForPrograms] = useState(null);
   const coursesPerPage = 8;
 
-  const uniqueYears = ['All', ...new Set(courses.map(c => c.Year).filter(Boolean))].sort((a, b) => a - b);
+  const uniqueYears = ['All', ...new Set(courses.map(c => c.year).filter(Boolean))].sort((a, b) => a - b);
   const showNotification = (message, type = "info") => toast[type](message);
 
   const fetchCourses = async () => {
@@ -64,12 +64,6 @@ const CourseManagement = () => {
         }));
         setCourses(transformedData);
         setFilteredCourses(transformedData);
-
-        const tabs = {};
-        transformedData.forEach(course => {
-          tabs[course.id] = 'programs';
-        });
-        setCourseActiveTabs(tabs);
       } else {
         setError(response.data.message);
         showNotification("Failed to fetch courses", "error");
@@ -89,32 +83,6 @@ const CourseManagement = () => {
       else showNotification("Failed to fetch professor assignations", "error");
     } catch (error) {
       showNotification("Error fetching professor assignations", "error");
-    }
-  };
-
-  const fetchCoursesByProgram = async (programId) => {
-    try {
-      const response = await Axios.get(`/course/getCoursesByProg/${programId}`);
-      if (response.data.successful) {
-        setProgramCourses(prev => ({
-          ...prev,
-          [programId]: response.data.data
-        }));
-      } else {
-        showNotification(`Failed to fetch courses for program`, "error");
-      }
-    } catch (error) {
-      showNotification(`Error fetching program courses: ${error.message}`, "error");
-    }
-  };
-
-  const fetchPrograms = async () => {
-    try {
-      const response = await Axios.get(`/program/getAllProgByDept/${deptId}`);
-      if (response.data.successful) setPrograms(response.data.data);
-      else showNotification("Failed to fetch programs", "error");
-    } catch (error) {
-      showNotification("Error fetching programs", "error");
     }
   };
 
@@ -143,25 +111,10 @@ const CourseManagement = () => {
     return uniqueProfessors;
   };
 
-  const getProgramsByCourse = (courseId) => {
-    return programs
-      .filter(program => program.Courses?.some(course => course.id === courseId))
-      .map(program => ({
-        id: program.id,
-        name: program.Name || program.Title || "Unnamed Program",
-        code: program.Code || "",
-        description: program.Description || "",
-        courses: programCourses[program.id] || []
-      }));
-  };
   const toggleMinimize = (id) => {
     setCourses(courses.map(course =>
       course.id === id ? { ...course, minimized: !course.minimized } : course
     ));
-  };
-
-  const toggleCourseTab = (courseId, tab) => {
-    setCourseActiveTabs(prev => ({ ...prev, [courseId]: tab }));
   };
 
   const handleEditClick = (courseId) => {
@@ -169,6 +122,17 @@ const CourseManagement = () => {
     if (course) {
       setSelectedCourse(course.rawData);
       setIsEditModalOpen(true);
+    }
+  };
+
+  const handleViewPrograms = (courseId) => {
+    const course = courses.find(c => c.id === courseId);
+    if (course) {
+      setSelectedCourseForPrograms({
+        id: courseId,
+        name: course.code
+      });
+      setIsProgramsModalOpen(true);
     }
   };
 
@@ -201,17 +165,8 @@ const CourseManagement = () => {
     if (deptId) {
       fetchCourses();
       fetchAssignations();
-      fetchPrograms();
     }
   }, [deptId]);
-
-  useEffect(() => {
-    if (programs.length > 0) {
-      programs.forEach(program => {
-        fetchCoursesByProgram(program.id);
-      });
-    }
-  }, [programs]);
 
   useEffect(() => {
     const filtered = courses.filter(course => {
@@ -230,13 +185,14 @@ const CourseManagement = () => {
     setCurrentPage(1);
   }, [searchTerm, yearFilter, typeFilter, courses]);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>{error}</div>;
-
+  // Calculate pagination values
   const indexOfLastCourse = currentPage * coursesPerPage;
   const indexOfFirstCourse = indexOfLastCourse - coursesPerPage;
   const currentCourses = filteredCourses.slice(indexOfFirstCourse, indexOfLastCourse);
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
 
   return (
     <div className="bg-slate-900 min-h-screen flex flex-col">
@@ -271,21 +227,18 @@ const CourseManagement = () => {
                   </button>
                 )}
               </div>
-
               <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    setYearFilter('All');
-                    setTypeFilter('All');
-                    setActiveTab('all');
-                  }}
+                <button onClick={() => {
+                  setYearFilter('All');
+                  setTypeFilter('All');
+                  setActiveTab('all');
+                }}
                   className={`px-4 py-2.5 rounded text-sm font-medium ${activeTab === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
                   All
                 </button>
                 <div className="relative ml-1">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
+                  <button onClick={() => setShowFilters(!showFilters)}
                     className={`px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                   >
                     <Filter size={16} />
@@ -377,8 +330,7 @@ const CourseManagement = () => {
                           )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleMinimize(course.id)}
+                      <button onClick={() => toggleMinimize(course.id)}
                         className="p-1.5 bg-white bg-opacity-20 text-white rounded-md hover:bg-opacity-30 transition-all"
                       >
                         {course.minimized ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
@@ -403,115 +355,53 @@ const CourseManagement = () => {
                   </div>
 
                   <div className={`transition-all duration-300 ${course.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                    <div className="flex border-b border-gray-200">
-                      <button
-                        onClick={() => toggleCourseTab(course.id, 'programs')}
-                        className={`px-4 py-2 text-sm font-medium ${courseActiveTabs[course.id] === 'programs' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
-                      >
-                        <BookOpen size={16} className="inline mr-1" />
-                        Programs
-                      </button>
-                      <button
-                        onClick={() => toggleCourseTab(course.id, 'professors')}
-                        className={`px-4 py-2 text-sm font-medium ${courseActiveTabs[course.id] === 'professors' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 hover:text-blue-600'}`}
-                      >
-                        <User size={16} className="inline mr-1" />
-                        Professors
-                      </button>
-                    </div>
-
-                    <div className="p-4 max-h-200 overflow-y-auto">
-                      {courseActiveTabs[course.id] === 'programs' ? (
-                        <>
-                          <h3 className="font-medium text-gray-800 mb-2">Associated Programs</h3>
-                          {getProgramsByCourse(course.id).length > 0 ? (
-                            <div className="space-y-3">
-                              {getProgramsByCourse(course.id).map(program => (
-                                <div key={`${course.id}-${program.id}`} className="bg-gray-50 p-3 rounded border border-gray-100">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <h4 className="text-sm font-medium text-gray-800">{program.name}</h4>
-                                      {program.code && <p className="text-xs text-gray-500">{program.code}</p>}
-                                    </div>
-                                  </div>
-                                  {program.description && <p className="text-xs text-gray-600 mt-2">{program.description}</p>}
-
-                                  {/* Added section to display courses in this program */}
-                                  <div className="mt-3 pt-2 border-t border-gray-200">
-                                    <h5 className="text-xs font-medium text-gray-700 mb-1">Other Courses in this Program:</h5>
-                                    {program.courses && program.courses.length > 0 ? (
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {program.courses
-                                          .filter(programCourse => programCourse.id !== course.id) // Filter out current course
-                                          .slice(0, 3) // Show only up to 3 courses
-                                          .map(programCourse => (
-                                            <span key={programCourse.id} className="px-2 py-0.5 text-xs bg-blue-50 text-blue-600 rounded-md">
-                                              {programCourse.Code}
-                                            </span>
-                                          ))}
-                                        {program.courses.length > 4 && (
-                                          <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-md">
-                                            +{program.courses.length - 4} more
-                                          </span>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <p className="text-xs text-gray-500">No other courses in this program</p>
-                                    )}
-                                  </div>
+                    <div className="p-4">
+                      <h3 className="font-medium text-gray-800 mb-2">Assigned Professors</h3>
+                      {getProfessorsByCourse(course.id).length > 0 ? (
+                        <div className="space-y-3">
+                          {getProfessorsByCourse(course.id).map(professor => (
+                            <div key={`${course.id}-${professor.id}-${professor.semester}`} className="flex items-start bg-gray-50 p-3 rounded border border-gray-100">
+                              <div className="flex-shrink-0 mr-3">
+                                <div className="bg-blue-100 p-2 rounded-full">
+                                  <User size={18} className="text-blue-600" />
                                 </div>
-                              ))}
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-800">{professor.name}</h4>
+                                <p className="text-xs text-gray-500">Semester {professor.semester}</p>
+                                {professor.email && <p className="text-xs text-gray-500">{professor.email}</p>}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
-                              <p className="text-gray-500 text-sm">No programs associated</p>
-                            </div>
-                          )}
-                        </>
+                          ))}
+                        </div>
                       ) : (
-                        <>
-                          <h3 className="font-medium text-gray-800 mb-2">Assigned Professors</h3>
-                          {getProfessorsByCourse(course.id).length > 0 ? (
-                            <div className="space-y-3">
-                              {getProfessorsByCourse(course.id).map(professor => (
-                                <div key={`${course.id}-${professor.id}-${professor.semester}`} className="flex items-start bg-gray-50 p-3 rounded border border-gray-100">
-                                  <div className="flex-shrink-0 mr-3">
-                                    <div className="bg-blue-100 p-2 rounded-full">
-                                      <User size={18} className="text-blue-600" />
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <h4 className="text-sm font-medium text-gray-800">{professor.name}</h4>
-                                    <p className="text-xs text-gray-500">Semester {professor.semester}</p>
-                                    {professor.email && <p className="text-xs text-gray-500">{professor.email}</p>}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
-                              <p className="text-gray-500 text-sm">No professors assigned</p>
-                            </div>
-                          )}
-                        </>
+                        <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
+                          <p className="text-gray-500 text-sm">No professors assigned</p>
+                        </div>
                       )}
+
+                      <div className="mt-4">
+                        <button
+                          onClick={() => handleViewPrograms(course.id)}
+                          className="w-full py-2.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                        >
+                          <BookOpen size={18} />
+                          View Associated Programs
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end items-center">
                     <div className="flex gap-1">
-                      <button
-                        className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded"
-                        onClick={() => handleEditClick(course.id)}
+                      <button className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded" onClick={() => handleEditClick(course.id)}
                       >
                         <Edit size={16} />
                       </button>
-                      <button
-                        className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded"
-                        onClick={() => {
-                          setSelectedCourseIds([course.id]);
-                          setIsDeleteWarningOpen(true);
-                        }}
+                      <button className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded" onClick={() => {
+                        setSelectedCourseIds([course.id]);
+                        setIsDeleteWarningOpen(true);
+                      }}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -523,13 +413,12 @@ const CourseManagement = () => {
               <div className="col-span-1 md:col-span-2 text-center py-12 bg-white rounded shadow-md">
                 <h3 className="text-lg font-semibold text-gray-800 mb-2">No courses found</h3>
                 <p className="text-gray-500 mb-4">No courses match your current search or filters.</p>
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setYearFilter('All');
-                    setTypeFilter('All');
-                    setActiveTab('all');
-                  }}
+                <button onClick={() => {
+                  setSearchTerm('');
+                  setYearFilter('All');
+                  setTypeFilter('All');
+                  setActiveTab('all');
+                }}
                   className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 shadow-md"
                 >
                   Clear Filters
@@ -545,16 +434,12 @@ const CourseManagement = () => {
                   Showing {indexOfFirstCourse + 1} to {Math.min(indexOfLastCourse, filteredCourses.length)} of {filteredCourses.length} courses
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-                    disabled={currentPage === 1}
+                  <button onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
                     className={`p-2 rounded border border-gray-300 ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-gray-700 hover:bg-gray-50"}`}
                   >
                     <ChevronLeft size={18} />
                   </button>
-                  <button
-                    onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
+                  <button onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages}
                     className={`p-2 rounded border border-gray-300 ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-gray-700 hover:bg-gray-50"}`}
                   >
                     <ChevronRight size={18} />
@@ -566,6 +451,7 @@ const CourseManagement = () => {
         </div>
       </div>
 
+      {/* Modals */}
       {isAddCourseModalOpen && (
         <AddCourseModal
           isOpen={isAddCourseModalOpen}
@@ -593,6 +479,15 @@ const CourseManagement = () => {
           onClose={() => setIsDeleteWarningOpen(false)}
           onConfirm={handleConfirmDelete}
           coursesToDelete={selectedCourseIds.length > 0 ? filteredCourses.filter(course => selectedCourseIds.includes(course.id)) : []}
+        />
+      )}
+
+      {isProgramsModalOpen && selectedCourseForPrograms && (
+        <ViewProgramsModal
+          isOpen={isProgramsModalOpen}
+          onClose={() => setIsProgramsModalOpen(false)}
+          courseId={selectedCourseForPrograms.id}
+          courseName={selectedCourseForPrograms.name}
         />
       )}
     </div>

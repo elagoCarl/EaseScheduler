@@ -131,19 +131,8 @@ const ProfAvailabilityModal = ({ isOpen, onClose, professorId, professorName }) 
             const response = await axios.post(`/profAvail/addProfAvail`, availabilityData);
 
             if (response.data.successful) {
-                let newId = response.data.data?.id ? `existing-${response.data.data.id}` :
-                    (response.data.id ? `existing-${response.data.id}` :
-                        (typeof response.data.data === 'number' ? `existing-${response.data.data}` : `existing-temp-${Date.now()}`));
-
-                setScheduleData([...scheduleData, {
-                    id: newId,
-                    professorId,
-                    professorName,
-                    day: formData.day,
-                    timeIn: startHour.toString(),
-                    timeOut: endHour.toString(),
-                    isExisting: true
-                }]);
+                // After successfully adding, refresh the availability data to get updated IDs
+                await fetchProfessorAvailability();
                 setNotification({ type: 'success', message: "Availability added successfully!" });
                 resetForm();
             } else {
@@ -175,6 +164,34 @@ const ProfAvailabilityModal = ({ isOpen, onClose, professorId, professorName }) 
             setLoading(false);
             setIsDeleteConfirmOpen(false);
             setSelectedAvailabilityId(null);
+        }
+    };
+
+    // Function to refresh availability IDs without refreshing the UI
+    const refreshAvailabilityIds = async () => {
+        if (!professorId) return;
+
+        try {
+            const response = await axios.get(`/profAvail/getProfAvailByProf/${professorId}`);
+            if (response.data.successful) {
+                const availabilityData = response.data.data;
+                if (availabilityData) {
+                    const processedData = Array.isArray(availabilityData) ? availabilityData : [availabilityData];
+                    // Update the existing scheduleData with correct IDs from the server
+                    const updatedScheduleData = processedData.map(avail => ({
+                        id: `existing-${avail.id}`,
+                        professorId,
+                        professorName,
+                        day: avail.Day,
+                        timeIn: avail.Start_time.split(':')[0],
+                        timeOut: avail.End_time.split(':')[0],
+                        isExisting: true
+                    }));
+                    setScheduleData(updatedScheduleData);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to refresh availability IDs:", error);
         }
     };
 
@@ -251,9 +268,21 @@ const ProfAvailabilityModal = ({ isOpen, onClose, professorId, professorName }) 
                         </h2>
                         <p className="text-blue-100 text-sm mt-1">{professorName}</p>
                     </div>
-                    <button onClick={onClose} className="p-1.5 bg-white bg-opacity-20 text-white rounded hover:bg-opacity-30 transition duration-200">
-                        <X size={18} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* <button
+                            onClick={refreshAvailabilityIds}
+                            className="p-1.5 bg-white bg-opacity-20 text-white rounded hover:bg-opacity-30 transition duration-200 flex items-center"
+                            title="Refresh Availability IDs"
+                        >
+                            <ArrowLeftRight size={16} />
+                        </button> */}
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 bg-white bg-opacity-20 text-white rounded hover:bg-opacity-30 transition duration-200"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Notification */}
