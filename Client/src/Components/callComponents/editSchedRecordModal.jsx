@@ -307,7 +307,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                                 <option value="">Select Room</option>
                                 {rooms.map(room => (
                                     <option key={room.id} value={room.id}>
-                                        {room.Code} - {room.Building} {room.Floor} (Type: {room.RoomType.Type})
+                                        {room.Code} - {room.Building} {room.Floor} (Type: {room.TypeRooms.map(item => item.Type).join(', ')})
                                     </option>
                                 ))}
                             </select>
