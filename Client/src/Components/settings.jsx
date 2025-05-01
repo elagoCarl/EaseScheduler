@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Axios from '../axiosConfig.js';
 import { useAuth } from '../Components/authContext.jsx';
 
-const SettingsModal = ({ isOpen, closeSettingsModal}) => {
+const SettingsModal = ({ isOpen, closeSettingsModal }) => {
   const modalRef = useRef();
   const { user } = useAuth();
   const deptId = user?.DepartmentId;
@@ -24,7 +24,7 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
-    if (deptId && isOpen) {   // Only fetch when modal is open
+    if (deptId && isOpen) {
       fetchSettings();
     }
   }, [deptId, isOpen]);
@@ -32,7 +32,7 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (modalRef.current && !modalRef.current.contains(event.target)) {
-        closeSettingsModal(); // Click outside the modal
+        closeSettingsModal();
       }
     };
 
@@ -47,14 +47,12 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
     };
   }, [isOpen, closeSettingsModal]);
 
-  if (!isOpen) return null;
-
   const fetchSettings = async () => {
     try {
       const response = await Axios.get(`/settings/getSettingsByDept/${deptId}`);
       if (response.data.successful) {
         setSettings(response.data.data);
-        setOriginalSettings(response.data.data);
+        setOriginalSettings(JSON.parse(JSON.stringify(response.data.data))); // Deep copy
       } else {
         setError(response.data.message);
       }
@@ -65,15 +63,23 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setSettings({
-      ...settings,
+    setSettings(prevSettings => ({
+      ...prevSettings,
       [name]: parseFloat(value)
+    }));
+  };
+
+  const hasUnsavedChanges = () => {
+    if (!originalSettings) return false;
+    
+    // Compare each property
+    return Object.keys(settings).some(key => {
+      return settings[key] !== originalSettings[key];
     });
   };
 
   const handleSaveClick = () => {
-    const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
-    if (hasChanges) {
+    if (hasUnsavedChanges()) {
       setShowSaveModal(true);
     } else {
       setIsEditing(false);
@@ -81,8 +87,7 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
   };
 
   const handleCancelClick = () => {
-    const hasChanges = JSON.stringify(settings) !== JSON.stringify(originalSettings);
-    if (hasChanges) {
+    if (hasUnsavedChanges()) {
       setShowCancelModal(true);
     } else {
       setIsEditing(false);
@@ -97,11 +102,11 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
-        setOriginalSettings({ ...settings });
+        setOriginalSettings(JSON.parse(JSON.stringify(settings))); // Deep copy
         setIsEditing(false);
         setShowSaveModal(false);
       } else {
-        setError(response.data.data.message);
+        setError(response.data.message || "Failed to update settings");
         setShowSaveModal(false);
       }
     } catch (err) {
@@ -111,7 +116,7 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
   };
 
   const handleCancelConfirm = () => {
-    setSettings({ ...originalSettings });
+    setSettings(JSON.parse(JSON.stringify(originalSettings))); // Deep copy
     setIsEditing(false);
     setShowCancelModal(false);
   };
@@ -128,23 +133,33 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
     return options;
   };
 
-  if (!isOpen) return null; // Don't render if not open
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50 overflow-auto">
       <div 
-      ref={modalRef} 
-      className="bg-gray-100 rounded-lg w-full max-w-4xl p-8 relative">
+        ref={modalRef} 
+        className="bg-gray-100 rounded-lg w-full max-w-4xl p-8 relative"
+      >
         {/* Close button */}
         <button 
-        onClick={closeSettingsModal} 
-        className="absolute top-4 right-4 text-gray-900 hover:text-gray-700 text-2xl">&times;</button>
+          onClick={closeSettingsModal} 
+          className="absolute top-4 right-4 text-gray-900 hover:text-gray-700 text-2xl"
+        >
+          &times;
+        </button>
         <h2 className="text-2xl font-bold text-center mb-6">Department Settings</h2>
+        
         {successMessage && (
-          <div className="bg-green-100 border border-green-400 text-green-700 p-3 rounded mb-4">{successMessage}</div>
+          <div className="bg-green-100 border border-green-400 text-green-700 p-3 rounded mb-4">
+            {successMessage}
+          </div>
         )}
+        
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 p-3 rounded mb-4">{error}</div>
+          <div className="bg-red-100 border border-red-400 text-red-700 p-3 rounded mb-4">
+            {error}
+          </div>
         )}
 
         {/* Settings Form */}
@@ -246,7 +261,6 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
                 step="0.5"
               />
             </div>
-
           </div>
 
           {/* Action Buttons */}
@@ -276,8 +290,57 @@ const SettingsModal = ({ isOpen, closeSettingsModal}) => {
             )}
           </div>
         </form>
+
+        {/* Save Confirmation Modal */}
+        {showSaveModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h3 className="text-xl font-bold mb-4">Save Changes</h3>
+              <p className="mb-6">Are you sure you want to save these changes?</p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                >
+                  No
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Yes, Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h3 className="text-xl font-bold mb-4">Discard Changes</h3>
+              <p className="mb-6">Are you sure you want to discard your changes?</p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setShowCancelModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                >
+                  No
+                </button>
+                <button
+                  onClick={handleCancelConfirm}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Yes, Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
 export default SettingsModal;
