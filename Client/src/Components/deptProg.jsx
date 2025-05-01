@@ -85,7 +85,7 @@ const DeptProg = () => {
           });
           setTimeout(() => {
             setMessage(null);
-          }, 2000);
+          }, 3000);
           return;
         }
         
@@ -104,7 +104,7 @@ const DeptProg = () => {
           });
           setTimeout(() => {
             setMessage(null);
-          }, 2000);
+          }, 3000);
           return;
         }
         
@@ -125,7 +125,7 @@ const DeptProg = () => {
             setSuccess(true);
             setTimeout(() => {
               setSuccess(false);
-            }, 2000);
+            }, 3000);
           }
       
           setMessage({
@@ -245,7 +245,7 @@ const DeptProg = () => {
           });
           setTimeout(() => {
             setMessage(null);
-          }, 2000);
+          }, 3000);
           return;
         }
         
@@ -257,7 +257,7 @@ const DeptProg = () => {
           });
           setTimeout(() => {
             setMessage(null);
-          }, 2000);
+          }, 3000);
           return;
         }
         
@@ -275,7 +275,7 @@ const DeptProg = () => {
           });
           setTimeout(() => {
             setMessage(null);
-          }, 2000);
+          }, 3000);
           return;
         }
         
@@ -286,7 +286,7 @@ const DeptProg = () => {
           });
           setTimeout(() => {
             setMessage(null);
-          }, 2000);
+          }, 3000);
           return;
         }
         
@@ -307,7 +307,7 @@ const DeptProg = () => {
             setSuccess(true);
             setTimeout(() => {
               setSuccess(false);
-            }, 2000);
+            }, 3000);
           }
       
           setMessage({
