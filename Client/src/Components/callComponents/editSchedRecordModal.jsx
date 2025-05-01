@@ -203,6 +203,9 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
             // Validate form for both cases
             if (selectedSections.length === 0 && isDepartmentMatch) {
                 setError("Please select at least one section.");
+                setTimeout(() => {
+                    setError(null);
+                  }, 3000);
                 setLoading(false);
                 return;
             }
@@ -210,6 +213,9 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
             if (!payload.Day || !payload.Start_time || !payload.End_time || 
                 !payload.RoomId || !payload.AssignationId) {
                 setError("Please fill in all fields.");
+                setTimeout(() => {
+                    setError(null);
+                  }, 3000);
                 setLoading(false);
                 return;
             }
@@ -244,10 +250,16 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 }
             } else {
                 setError(transformErrorMessage(response.data.message || "Failed to update schedule."));
+                setTimeout(() => {
+                    setError(null);
+                  }, 3000);
             }
         } catch (err) {
             console.error("Error updating schedule:", err);
             setError(transformErrorMessage(err.response?.data?.message || err.message || "An error occurred."));
+            setTimeout(() => {
+                setError(null);
+              }, 3000);
         } finally {
             setLoading(false);
         }
@@ -307,7 +319,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                                 <option value="">Select Room</option>
                                 {rooms.map(room => (
                                     <option key={room.id} value={room.id}>
-                                        {room.Code} - {room.Building} {room.Floor} (Type: {room.RoomType.Type})
+                                        {room.Code} - {room.Building} {room.Floor} (Type: {room.TypeRooms.map(item => item.Type).join(', ')})
                                     </option>
                                 ))}
                             </select>
