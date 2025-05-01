@@ -205,12 +205,13 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             setSemesterData(semesterMap);
             setSemesters(semesters);
         
-            if (semesters.length > 0 && !selectedSemester) {
-              setSelectedSemester(semesters[0]);
-              setCurrentAssignations(semesterMap[semesters[0]] || []);
-            } else if (selectedSemester && semesterMap[selectedSemester]) {
+            if (selectedSemester && semesterMap[selectedSemester]) {
               setCurrentAssignations(semesterMap[selectedSemester]);
+            } else {
+              setCurrentAssignations([]); // Reset if no semester selected
             }
+            
+            console.log("Semester data organized:", semesterMap);
         
             console.log("Semester data organized:", semesterMap);
           } else {
@@ -901,7 +902,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         {/* Lock/Unlock/Delete All buttons section */}
         {formData.room_id && schedules.length > 0 && (
           <div className="mb-4">
-            <div className="flex gap-10">
+            <div className="flex gap-10 mb-5">
               <button
                 onClick={() => handleToggleLockAllSchedules(true)}
                 className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
@@ -1157,7 +1158,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 <select
                   name="semester"
                   value={selectedSemester}
-                  onChange={handleSemesterChange}
+                  onChange={handleInputChange}
                   className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
@@ -1200,7 +1201,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                   ))}
                 </select>
 
-                {renderSectionsSelect()}
+                {/* {renderSectionsSelect()} */}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
@@ -1221,7 +1222,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                     <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
-
+                {activeMode === 'manual' && renderSectionsSelect()}
                 <div className="flex pt-3 sm:pt-4 gap-10">
                   <button onClick={resetForm} className="flex flex-1 justify-center bg-red-500 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors">
                     Reset
@@ -1231,7 +1232,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                   </button>
                 </div>
                 {/* {renderManualSchedulingSection()} */}
-                {activeMode === 'manual' && renderSectionsSelect()}
                 {renderAutomationSection()}
               </div>
             </div>
