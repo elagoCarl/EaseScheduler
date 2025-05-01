@@ -323,9 +323,9 @@ const CourseManagement = () => {
                               {course.type}
                             </span>
                           )}
-                          {course.year && (
+                          {course.rawData.RoomType.Type && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded-md border bg-blue-100 text-blue-800 border-blue-200">
-                              Year {course.year}
+                              {course.rawData.RoomType.Type}
                             </span>
                           )}
                         </div>
@@ -347,15 +347,24 @@ const CourseManagement = () => {
                       </div>
                       {course.details.duration && (
                         <div className="flex items-center gap-1">
-                          <Clock size={14} className="text-blue-200" />
-                          <span>{course.details.duration}</span>
+                          <Clock onClick={console.log("sdcscsacaswfdsav", course)} size={14} className="text-blue-200" />
+                          <span>Course Duration: {course.details.duration}</span>
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div className={`transition-all duration-300 ${course.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                    <div className="p-4">
+                    <div className="p-4 overflow-y-auto max-h-200">
+                      <div className="">
+                        <button
+                          onClick={() => handleViewPrograms(course.id)}
+                          className="w-full py-2.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center  hover:bg-blue-100 transition-colors "
+                        >
+                          <BookOpen size={18} />
+                          View Associated Programs
+                        </button>
+                      </div>
                       <h3 className="font-medium text-gray-800 mb-2">Assigned Professors</h3>
                       {getProfessorsByCourse(course.id).length > 0 ? (
                         <div className="space-y-3">
@@ -379,16 +388,6 @@ const CourseManagement = () => {
                           <p className="text-gray-500 text-sm">No professors assigned</p>
                         </div>
                       )}
-
-                      <div className="mt-4">
-                        <button
-                          onClick={() => handleViewPrograms(course.id)}
-                          className="w-full py-2.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
-                        >
-                          <BookOpen size={18} />
-                          View Associated Programs
-                        </button>
-                      </div>
                     </div>
                   </div>
 

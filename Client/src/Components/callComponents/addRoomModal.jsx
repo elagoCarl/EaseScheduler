@@ -1,20 +1,22 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import axios from "../../axiosConfig";
+import { X, Check, AlertCircle, Plus, Trash } from "lucide-react";
 
 const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
     const [formData, setFormData] = useState({
         Code: "",
         Floor: "1st",
         Building: "LV",
-        Type: "",
-        RoomTypeId: "",
-        NumberOfSeats: ""
+        NumberOfSeats: "",
+        selectedRoomTypes: [] // Array to store multiple room types
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [roomTypes, setRoomTypes] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isShaking, setIsShaking] = useState(false);
 
     // Options for dropdowns
     const floorOptions = [
@@ -23,6 +25,28 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
     ];
     const buildingOptions = ["LV", "GP"];
 
+    // Reset form and fetch room types when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            resetForm();
+            fetchRoomTypes();
+        }
+    }, [isOpen]);
+
+    // Reset form to initial state
+    const resetForm = () => {
+        setFormData({
+            Code: "",
+            Floor: "1st",
+            Building: "LV",
+            NumberOfSeats: "",
+            selectedRoomTypes: []
+        });
+        setErrorMessage("");
+        setSuccessMessage("");
+        setIsSubmitting(false);
+    };
+
     // Fetch room types from API
     const fetchRoomTypes = async () => {
         try {
@@ -30,119 +54,182 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
             const response = await axios.get("/roomType/getAllRoomTypes");
             if (response.data.successful) {
                 setRoomTypes(response.data.data);
-                // Set default value to first room type if available
-                if (response.data.data.length > 0) {
-                    setFormData(prev => ({
-                        ...prev,
-                        RoomTypeId: response.data.data[0].id,
-                        Type: response.data.data[0].Type // Also set the Type field
-                    }));
-                }
+            } else {
+                setErrorMessage("Failed to load room types.");
             }
         } catch (error) {
             console.error("Error fetching room types:", error);
-            setErrorMessage("Failed to load room types.");
+            setErrorMessage("Failed to load room types. Please try again.");
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchRoomTypes();
-            setFormData({
-                Code: "",
-                Floor: "1st",
-                Building: "LV",
-                Type: "",
-                RoomTypeId: "",
-                NumberOfSeats: ""
-            });
-            setErrorMessage("");
-            setSuccessMessage("");
-        }
-    }, [isOpen]);
-
     if (!isOpen) return null;
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setErrorMessage("");
-        setSuccessMessage("");
-
-        // Validate numeric input for NumberOfSeats
-        const seats = parseInt(formData.NumberOfSeats);
-        if (isNaN(seats) || seats < 1) {
-            setErrorMessage("Number of seats must be a positive number.");
-            return;
-        }
-
-        try {
-            // Send both Type and RoomTypeId, but the backend will use Type
-            const response = await axios.post("/room/addRoom", {
-                Code: formData.Code,
-                Floor: formData.Floor,
-                Building: formData.Building,
-                Type: formData.Type,
-                RoomTypeId: formData.RoomTypeId,
-                NumberOfSeats: seats
-            }, {
-                headers: { "Content-Type": "application/json" }
-            });
-
-            setSuccessMessage("Room added successfully!");
-
-            // Get the complete room data with the RoomType relationship
-            try {
-                const roomResponse = await axios.get(`/room/getRoom/${response.data.data?.id || response.data.id}`);
-                if (roomResponse.data.successful && roomResponse.data.data) {
-                    if (onAdd) onAdd(roomResponse.data.data);
-                }
-            } catch (error) {
-                console.error("Error fetching new room details:", error);
-                // Fall back to the original response data if we can't get the complete data
-                if (onAdd) onAdd(response.data.data || response.data);
-            }
-
-            // Don't close the modal immediately so the user can see the success message
-            setTimeout(onClose, 2000);
-        } catch (error) {
-            setErrorMessage(error.response?.data?.message || error.message || "Failed to add room.");
-        }
+    // Shake form animation for validation errors
+    const shakeForm = () => {
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 500);
     };
 
-    const handleRoomTypeChange = (e) => {
-        const selectedId = e.target.value;
-        const selectedType = roomTypes.find(type => type.id.toString() === selectedId.toString());
-
-        setFormData({
-            ...formData,
-            RoomTypeId: selectedId,
-            Type: selectedType ? selectedType.Type : ""
-        });
-    };
-
+    // Handle input changes
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
+    // Add a room type to the list
+    const addRoomType = () => {
+        // Check if there are available room types to add
+        if (roomTypes.length === 0 ||
+            formData.selectedRoomTypes.length === roomTypes.length) {
+            return;
+        }
+
+        // Find first room type that hasn't been selected yet
+        const availableRoomTypes = roomTypes.filter(
+            type => !formData.selectedRoomTypes.some(
+                selectedType => selectedType.id === type.id
+            )
+        );
+
+        if (availableRoomTypes.length > 0) {
+            setFormData({
+                ...formData,
+                selectedRoomTypes: [
+                    ...formData.selectedRoomTypes,
+                    {
+                        id: availableRoomTypes[0].id,
+                        Type: availableRoomTypes[0].Type
+                    }
+                ]
+            });
+        }
+    };
+
+    // Remove a room type from the list
+    const removeRoomType = (index) => {
+        const updatedRoomTypes = [...formData.selectedRoomTypes];
+        updatedRoomTypes.splice(index, 1);
+        setFormData({ ...formData, selectedRoomTypes: updatedRoomTypes });
+    };
+
+    // Handle room type selection change
+    const handleRoomTypeChange = (index, value) => {
+        const selectedType = roomTypes.find(type => type.id.toString() === value.toString());
+
+        if (!selectedType) return;
+
+        // Check if this type is already selected in another slot
+        const isDuplicate = formData.selectedRoomTypes.some(
+            (type, idx) => idx !== index && type.id.toString() === value.toString()
+        );
+
+        if (isDuplicate) {
+            setErrorMessage("This room type is already selected. Please choose another one.");
+            return;
+        }
+
+        const updatedRoomTypes = [...formData.selectedRoomTypes];
+        updatedRoomTypes[index] = {
+            id: selectedType.id,
+            Type: selectedType.Type
+        };
+
+        setFormData({ ...formData, selectedRoomTypes: updatedRoomTypes });
+        setErrorMessage("");
+    };
+
+    // Form submission handler
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setErrorMessage("");
+        setSuccessMessage("");
+        setIsSubmitting(true);
+
+        // Validate inputs
+        const seats = parseInt(formData.NumberOfSeats);
+        if (isNaN(seats) || seats < 1) {
+            setErrorMessage("Number of seats must be a positive number.");
+            shakeForm();
+            setIsSubmitting(false);
+            return;
+        }
+
+        if (formData.selectedRoomTypes.length === 0) {
+            setErrorMessage("Please select at least one room type.");
+            shakeForm();
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            // Create room data object
+            const roomData = {
+                Code: formData.Code,
+                Floor: formData.Floor,
+                Building: formData.Building,
+                NumberOfSeats: seats,
+                RoomTypeIds: formData.selectedRoomTypes.map(type => type.id)
+            };
+
+            // Call the new combined API endpoint
+            const response = await axios.post("/room/addRoomWithTypes", {
+                rooms: [roomData]  // API supports array of rooms
+            }, {
+                headers: { "Content-Type": "application/json" }
+            });
+
+            if (!response.data.successful) {
+                throw new Error(response.data.message || "Failed to add room");
+            }
+
+            setSuccessMessage("Room added successfully!");
+
+            // Pass the newly created room back to parent component
+            if (onAdd && response.data.data && response.data.data.length > 0) {
+                onAdd(response.data.data[0]);
+            }
+
+            // Don't close the modal immediately so user can see success message
+            setTimeout(() => {
+                onClose();
+            }, 2000);
+        } catch (error) {
+            setErrorMessage(error.response?.data?.message || error.message || "Failed to add room.");
+            shakeForm();
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-customBlue1 p-8 rounded-lg w-11/12 md:w-1/3">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl text-white font-semibold mx-auto">Add Room</h2>
-                    <button className="text-xl text-white hover:text-black" onClick={onClose}>&times;</button>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl w-11/12 md:max-w-xl overflow-hidden transform transition-all">
+                <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+                    <h2 className="text-xl text-white font-semibold">Add Room</h2>
+                    <button
+                        type="button"
+                        className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
+                        onClick={onClose}
+                    >
+                        <X size={20} />
+                    </button>
                 </div>
-                <form className="space-y-6 px-4" onSubmit={handleSubmit}>
-                    {/* Code Field */}
-                    <div>
-                        <label className="block font-semibold text-white">Code</label>
+
+                <form
+                    className={`p-6 space-y-4 max-h-[80vh] overflow-y-auto ${isShaking ? 'animate-shake' : ''}`}
+                    onSubmit={handleSubmit}
+                >
+                    {/* Room Code Field */}
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Room Code</label>
                         <input
                             type="text"
                             name="Code"
                             placeholder="Room Code (eg: 101)"
-                            className="w-full p-2 border rounded bg-customWhite"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                             value={formData.Code}
                             onChange={handleChange}
                             required
@@ -150,11 +237,11 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                     </div>
 
                     {/* Floor Field as Dropdown */}
-                    <div>
-                        <label className="block font-semibold text-white">Floor</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Floor</label>
                         <select
                             name="Floor"
-                            className="w-full p-2 border rounded bg-customWhite"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                             value={formData.Floor}
                             onChange={handleChange}
                             required
@@ -166,11 +253,11 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                     </div>
 
                     {/* Building Field as Dropdown */}
-                    <div>
-                        <label className="block font-semibold text-white">Building</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Building</label>
                         <select
                             name="Building"
-                            className="w-full p-2 border rounded bg-customWhite"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                             value={formData.Building}
                             onChange={handleChange}
                             required
@@ -181,39 +268,14 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                         </select>
                     </div>
 
-                    {/* Room Type Field as Dropdown - Now populated from API */}
-                    <div>
-                        <label className="block font-semibold text-white">Room Type</label>
-                        <select
-                            name="RoomTypeId"
-                            className="w-full p-2 border rounded bg-customWhite"
-                            value={formData.RoomTypeId}
-                            onChange={handleRoomTypeChange}
-                            required
-                            disabled={loading || roomTypes.length === 0}
-                        >
-                            {loading ? (
-                                <option value="">Loading room types...</option>
-                            ) : roomTypes.length === 0 ? (
-                                <option value="">No room types available</option>
-                            ) : (
-                                roomTypes.map((type) => (
-                                    <option key={type.id} value={type.id}>
-                                        {type.Type}
-                                    </option>
-                                ))
-                            )}
-                        </select>
-                    </div>
-
                     {/* NumberOfSeats Field */}
-                    <div>
-                        <label className="block font-semibold text-white">Number of Seats</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Number of Seats</label>
                         <input
                             type="number"
                             name="NumberOfSeats"
                             placeholder="Number of Seats"
-                            className="w-full p-2 border rounded bg-customWhite"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                             value={formData.NumberOfSeats}
                             onChange={handleChange}
                             min="1"
@@ -221,33 +283,89 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                         />
                     </div>
 
-                    {/* Success/Error Messages - Enhanced styling */}
+                    {/* Room Types Section */}
+                    <div className="space-y-3 pt-2">
+                        <div className="flex justify-between items-center">
+                            <label className="block text-sm font-medium text-gray-700">Room Types</label>
+                            <button
+                                type="button"
+                                disabled={loading || roomTypes.length === 0 ||
+                                    formData.selectedRoomTypes.length === roomTypes.length}
+                                className={`flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors
+                                          ${(loading || roomTypes.length === 0 ||
+                                        formData.selectedRoomTypes.length === roomTypes.length) ?
+                                        'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={addRoomType}
+                            >
+                                <Plus size={16} className="mr-1" /> Add Room Type
+                            </button>
+                        </div>
+
+                        {formData.selectedRoomTypes.length > 0 ? (
+                            formData.selectedRoomTypes.map((roomType, index) => (
+                                <div key={index} className="flex items-center space-x-2 p-3 bg-gray-50 rounded-md">
+                                    <div className="flex-1">
+                                        <select
+                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            value={roomType.id}
+                                            onChange={(e) => handleRoomTypeChange(index, e.target.value)}
+                                            required
+                                        >
+                                            <option value="">Select Room Type</option>
+                                            {roomTypes.map((type) => (
+                                                <option key={type.id} value={type.id}>{type.Type}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="text-red-500 hover:text-red-700 p-1"
+                                        onClick={() => removeRoomType(index)}
+                                    >
+                                        <Trash size={16} />
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-sm text-gray-500 italic">
+                                {loading ? "Loading room types..." :
+                                    roomTypes.length === 0 ? "No room types available" :
+                                        "Please add at least one room type"}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Error Message */}
                     {errorMessage && (
-                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-                            <span className="block sm:inline">{errorMessage}</span>
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start space-x-2">
+                            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                            <p className="text-sm">{errorMessage}</p>
                         </div>
                     )}
 
+                    {/* Success Message */}
                     {successMessage && (
-                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
-                            <span className="block sm:inline">{successMessage}</span>
+                        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start space-x-2">
+                            <Check size={18} className="flex-shrink-0 mt-0.5" />
+                            <p className="text-sm">{successMessage}</p>
                         </div>
                     )}
 
-                    <div className="flex justify-center mt-4 gap-4">
-                        <button
-                            type="submit"
-                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
-                            disabled={loading || roomTypes.length === 0}
-                        >
-                            Add
-                        </button>
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                         <button
                             type="button"
-                            className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
+                            className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition duration-200"
                             onClick={onClose}
                         >
                             Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || loading || roomTypes.length === 0}
+                            className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
+                        >
+                            {isSubmitting ? "Adding..." : "Add Room"}
                         </button>
                     </div>
                 </form>

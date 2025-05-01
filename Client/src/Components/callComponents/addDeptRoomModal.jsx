@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
+import { X, AlertCircle, Check } from "lucide-react";
 
 const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
     const { user } = useAuth();
@@ -12,9 +13,11 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const [addingRoom, setAddingRoom] = useState(false);
     const [validationError, setValidationError] = useState("");
+    const [isShaking, setIsShaking] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -22,6 +25,7 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
             setSelectedRoom(null);
             setSearchTerm("");
             setErrorMessage("");
+            setSuccessMessage("");
             setValidationError("");
             fetchRooms();
             fetchDepartmentName();
@@ -112,10 +116,16 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
 
     const handleSelectRoom = (room) => {
         setSelectedRoom(room);
-        setSearchTerm(`${room.Code} - ${room.Building}, Floor ${room.Floor} (${room.Type})`);
+        setSearchTerm(`${room.Code} - ${room.Building}, Floor ${room.Floor}`);
         setIsDropdownOpen(false);
         // Clear validation error when room is selected
         setValidationError("");
+    };
+
+    // Shake form animation for validation errors
+    const shakeForm = () => {
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 500);
     };
 
     const handleSubmit = async (e) => {
@@ -123,11 +133,13 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
         // Clear previous errors
         setErrorMessage("");
         setValidationError("");
+        setSuccessMessage("");
 
         if (!selectedRoom) {
             setValidationError("Please select a room before adding");
             // Focus on the search input to draw attention
             document.getElementById("room-search").focus();
+            shakeForm();
             return;
         }
 
@@ -141,13 +153,18 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
             });
 
             if (response.data.successful) {
+                setSuccessMessage("Room added to department successfully!");
                 // Pass the selected room back to the parent component
                 if (typeof onSelect === 'function') {
                     onSelect(selectedRoom);
                 }
-                onClose();
+                // Wait for a moment to show success message before closing
+                setTimeout(() => {
+                    onClose();
+                }, 2000);
             } else {
                 setErrorMessage(response.data.message || "Failed to add room to department");
+                shakeForm();
             }
         } catch (error) {
             setErrorMessage(
@@ -155,6 +172,7 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                 error.message ||
                 "Failed to add room to department"
             );
+            shakeForm();
         } finally {
             setAddingRoom(false);
         }
@@ -191,52 +209,56 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-customBlue1 p-8 rounded-lg md:w-1/2 w-6/12">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl text-white font-semibold mx-auto">Department Room</h2>
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl w-11/12 md:max-w-xl overflow-hidden transform transition-all">
+                <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+                    <h2 className="text-xl text-white font-semibold">Add Department Room</h2>
                     <button
-                        className="text-3xl text-white hover:text-red-500 duration-300"
+                        type="button"
+                        className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
                         onClick={onClose}
                         disabled={addingRoom}
-                        type="button"
-                        aria-label="Close"
                     >
-                        &times;
+                        <X size={20} />
                     </button>
                 </div>
-                <form className="space-y-6 px-4" onSubmit={handleSubmit}>
+
+                <form
+                    className={`p-6 space-y-4 h-350 overflow-y-auto ${isShaking ? 'animate-shake' : ''}`}
+                    onSubmit={handleSubmit}
+                >
                     {/* Department Name Display Field */}
-                    <div className="mb-4">
-                        <label className="block font-semibold text-white mb-2">Department</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-gray-700">Department</label>
                         <input
                             type="text"
                             value={departmentName}
-                            className="w-full p-4 border rounded bg-gray-100 text-gray-800"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-gray-50"
                             disabled
                             readOnly
                         />
                     </div>
 
-                    <div className="relative dropdown-container">
-                        <label className="block font-semibold text-white mb-2">
+                    {/* Room Search Field */}
+                    <div className="space-y-1.5 relative dropdown-container">
+                        <label className="block text-sm font-medium text-gray-700">
                             Search and select room to add to your Department
                             {validationError && (
-                                <span className="ml-2 text-red-400">*</span>
+                                <span className="ml-2 text-red-500">*</span>
                             )}
                         </label>
                         <input
                             id="room-search"
                             type="text"
                             placeholder="Search for a room by code, building, floor, or type..."
-                            className="w-full p-2 border rounded bg-customWhite"
+                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                             value={searchTerm}
                             onChange={handleSearch}
                             onClick={() => setIsDropdownOpen(true)}
                         />
-                        
+
                         {validationError && (
-                            <p className="text-red-400 text-sm mt-1">
+                            <p className="text-red-500 text-sm mt-1">
                                 {validationError}
                             </p>
                         )}
@@ -246,21 +268,25 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                                 className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg z-50"
                                 style={{ maxHeight: "250px" }}
                             >
-                                {filteredRooms.length > 0 ? (
+                                {loading ? (
+                                    <div className="p-3 text-center text-gray-500">
+                                        Loading rooms...
+                                    </div>
+                                ) : filteredRooms.length > 0 ? (
                                     filteredRooms.map((room) => (
                                         <div
                                             key={room.id}
-                                            className="p-2 hover:bg-gray-100 cursor-pointer"
+                                            className="p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
                                             onClick={() => handleSelectRoom(room)}
                                         >
-                                            <div className="font-semibold">{room.Code}</div>
+                                            <div className="font-medium">{room.Code}</div>
                                             <div className="text-sm text-gray-600">
-                                                {room.Building}, Floor {room.Floor} - {room.Type}
+                                                {room.Building}, {room.Floor} Floor
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="p-2">
+                                    <div className="p-3 text-center text-gray-500">
                                         No rooms found matching your search.
                                     </div>
                                 )}
@@ -268,33 +294,45 @@ const AddDeptRoomModal = ({ isOpen, onClose, onSelect }) => {
                         )}
                     </div>
 
+                    {/* Loading indicator */}
                     {loading && (
-                        <div className="text-white text-center">
+                        <div className="text-center text-gray-500 py-2">
                             <p>Loading rooms...</p>
                         </div>
                     )}
 
+                    {/* Error Message */}
                     {errorMessage && (
-                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                            <p className="text-center">{errorMessage}</p>
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-start space-x-2">
+                            <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                            <p className="text-sm">{errorMessage}</p>
                         </div>
                     )}
 
-                    <div className="flex justify-end mt-10 gap-8 p-4">
-                        <button
-                            type="submit"
-                            className="bg-blue-500 text-white px-14 py-2 rounded-lg" 
-                            disabled={!selectedRoom || addingRoom}
-                        >
-                            {addingRoom ? "Adding..." : "Add"}
-                        </button>
+                    {/* Success Message */}
+                    {successMessage && (
+                        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex items-start space-x-2">
+                            <Check size={18} className="flex-shrink-0 mt-0.5" />
+                            <p className="text-sm">{successMessage}</p>
+                        </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                         <button
                             type="button"
-                            className="bg-gray-500 hover:bg-gray-600 duration-300 text-white px-6 py-2 rounded-lg"
+                            className="px-4 py-2.5 bg-gray-100 text-gray-700 font-medium rounded hover:bg-gray-200 transition duration-200"
                             onClick={onClose}
                             disabled={addingRoom}
                         >
                             Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${addingRoom ? "opacity-75 cursor-not-allowed" : ""}`}
+                            disabled={!selectedRoom || addingRoom}
+                        >
+                            {addingRoom ? "Adding..." : "Add Room"}
                         </button>
                     </div>
                 </form>

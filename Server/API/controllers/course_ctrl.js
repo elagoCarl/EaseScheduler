@@ -550,7 +550,6 @@ const getCoursesByDept = async (req, res, next) => {
   try {
     const deptId = req.params.id;
     const courses = await Course.findAll({
-      // Do not exclude the new alias here, as it might cause conflicts.
       where: {
         [Op.or]: [
           { Type: "Core" },
@@ -558,17 +557,23 @@ const getCoursesByDept = async (req, res, next) => {
         ]
       },
       order: [['Code', 'DESC']],
-      include: {
-        model: Department,
-        as: "CourseDepts",
-        attributes: [], // Exclude department attributes if you don't need them
-        required: false,
-        through: {
-          attributes: [] // Hide junction table fields
+      include: [
+        {
+          model: Department,
+          as: "CourseDepts",
+          attributes: [], // Exclude department attributes if you don't need them
+          required: false,
+          through: {
+            attributes: [] // Hide junction table fields
+          }
+        },
+        {
+          model: RoomType,
+          attributes: ['id', 'Type'], // Include the RoomType attributes you want to show
+          required: false
         }
-      },
-
-    })
+      ]
+    });
 
     if (!courses || courses.length === 0) {
       return res.status(200).send({

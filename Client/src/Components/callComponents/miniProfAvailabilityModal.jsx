@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from '../../axiosConfig';
-
+//para to sa add config schedule
 const ProfAvailabilityModal = ({ isOpen, onClose, professorId }) => {
     const [scheduleData, setScheduleData] = useState([]);
     const [loading, setLoading] = useState(false);

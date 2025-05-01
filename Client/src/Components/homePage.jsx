@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { BASE_URL } from '../axiosConfig';
-import image5 from './Img/5.jpg';
-import room from './Img/room.svg';
-import person from './Img/person.svg'
-import course from './Img/course.svg';
 import bigpic from './Img/BigBog.svg';
-import timetables from './Img/timetable.svg';
 import ProfileBtn from './Img/ProfileBtn.png';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../Components/authContext';
+
+// Import Lucide React Icons
+import { Home, Settings, Calendar, Users, Building2, BookOpen, Layers, UserCog } from 'lucide-react';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -29,6 +27,9 @@ const HomePage = () => {
 
   // Check if user is an admin
   const isAdmin = user?.Roles === 'Admin';
+  const isProgramHead = user?.Roles === 'Program Head';
+  const isAdminOrProgramHead = isAdmin || isProgramHead;
+  const isNonAdmin = user?.Roles !== 'Admin';
 
   // Fetch user data including department when component mounts
   useEffect(() => {
@@ -183,11 +184,13 @@ const HomePage = () => {
                 Account Settings
               </a>
             </li>
-            <li>
-              <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md text-sm">
-                Create Account
-              </a>
-            </li>
+            {isAdminOrProgramHead && (
+              <li>
+                <a href="/createAccount" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md text-sm">
+                  Create Account
+                </a>
+              </li>
+            )}
             <li>
               <a href="/historyLogs" className="text-customBlue1 hover:bg-customLightBlue2 px-4 py-2 block rounded-md text-sm">
                 History Logs
@@ -236,8 +239,8 @@ const HomePage = () => {
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid xs:grid-cols-2 sm:grid-cols-2 gap-15 mt-30'>
-                {/* 1st Card (Timetable) - Disabled for Admin */}
+              <div className='grid grid-cols-2 sm:grid-cols-3 gap-15 mt-30'>
+                {/* Timetables Card - Disabled for Admin */}
                 <button
                   className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
                     ${isAdmin
@@ -246,24 +249,35 @@ const HomePage = () => {
                   onClick={() => !isAdmin && openModal('Timetables')}
                   disabled={isAdmin}
                 >
-                  <img className={`h-70 w-70 md:h-100 md:w-100 ${isAdmin ? 'opacity-50' : ''}`} src={timetables} alt="" />
+                  <Calendar className="h-70 w-70 md:h-100 md:w-100" />
                   <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
                     Timetables
                   </span>
                 </button>
 
-                {/* 2nd Card (Professor) */}
+                {/* Professor Management Card */}
                 <button
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
-                  onClick={() => openModal('Professor')}
+                  onClick={() => navigate('/professorManagement')}
                 >
-                  <img className='h-70 w-70 md:h-100 md:w-100' src={person} alt="" />
+                  <Users className="h-70 w-70 md:h-100 md:w-100" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
-                    Professor
+                    Professor Management
                   </span>
                 </button>
 
-                {/* 3rd Card (Course) - Disabled for Admin */}
+                {/* Room Management Card */}
+                <button
+                  onClick={() => navigate('/room')}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                >
+                  <Building2 className="h-70 w-70 md:h-100 md:w-100" />
+                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
+                    Room Management
+                  </span>
+                </button>
+
+                {/* Course Management Card - Disabled for Admin */}
                 <button
                   onClick={() => !isAdmin && navigate('/course')}
                   disabled={isAdmin}
@@ -272,20 +286,31 @@ const HomePage = () => {
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
                 >
-                  <img className={`h-70 w-70 md:h-100 md:w-100 ${isAdmin ? 'opacity-50' : ''}`} src={course} alt="" />
+                  <BookOpen className={`h-70 w-70 md:h-100 md:w-100 ${isAdmin ? 'opacity-50' : ''}`} />
                   <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
-                    Course
+                    Course Management
                   </span>
                 </button>
 
-                {/* 4th Card (Room) */}
+                {/* Departments & Programs Card */}
                 <button
-                  onClick={() => navigate('/room')}
+                  onClick={() => openModal('DeptProg')}
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <img className='h-70 w-70 md:h-100 md:w-100' src={room} alt="" />
+                  <Layers className="h-70 w-70 md:h-100 md:w-100" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
-                    Room
+                    Depts & Programs
+                  </span>
+                </button>
+
+                {/* Account Card */}
+                <button
+                  onClick={() => openModal('Account')}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                >
+                  <UserCog className="h-70 w-70 md:h-100 md:w-100" />
+                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
+                    Account
                   </span>
                 </button>
               </div>
@@ -309,55 +334,86 @@ const HomePage = () => {
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/addConfigSchedule')}>
-                            Configure Timetable
+                            Add/Configure Timetables
                           </a>
                         </li>
                         <li className=''>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/roomTimetable')}
                           >
-                            Room Timetable
+                            Room Timetables
                           </a>
                         </li>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/profTimetable')}>
-                            Professor Timetable
+                            Professors Timetables
                           </a>
                         </li>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
                             onClick={() => navigate('/sectionTimetable')}>
-                            Section Timetable
+                            Section Timetables
                           </a>
                         </li>
                       </>
                     )}
-                    {modalContent === 'Professor' && (
+                    {modalContent === 'DeptProg' && (
+                      <>
+                        {isAdmin && (
+                          <li>
+                            <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                              onClick={() => navigate('/deptProg')}
+                            >
+                              Manage Depts & Programs
+                            </a>
+                          </li>
+                        )}
+                        {isNonAdmin && (
+                          <li>
+                            <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                              onClick={() => navigate('/progYrSec')}>
+                              Program, Year, & Sections
+                            </a>
+                          </li>
+                        )}
+                      </>
+                    )}
+                    {modalContent === 'Account' && (
                       <>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
-                            onClick={() => navigate('/professor')}
+                            onClick={() => navigate('/accountSettings')}
                           >
-                            Configure Professor
+                            Account Settings
+                          </a>
+                        </li>
+                        {isAdminOrProgramHead && (
+                          <li>
+                            <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                              onClick={() => navigate('/createAccount')}>
+                              Create Account
+                            </a>
+                          </li>
+                        )}
+                        {isAdmin && (
+                          <li>
+                            <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                              onClick={() => navigate('/accountList')}>
+                              Account List
+                            </a>
+                          </li>
+                        )}
+                        <li>
+                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
+                            onClick={() => navigate('/historyLogs')}>
+                            History Logs
                           </a>
                         </li>
                         <li>
                           <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
-                            onClick={() => navigate('/profAvailability')}>
-                            Professor Availability
-                          </a>
-                        </li>
-                        <li>
-                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
-                            onClick={() => navigate('/assignationsCourseProf')}>
-                            Professor Assignations
-                          </a>
-                        </li>
-                        <li>
-                          <a href="#" className="text-customBlue1 border border-customBlue1 rounded-md px-4 py-2 hover:bg-customBlue1 hover:text-white duration-300"
-                            onClick={() => navigate('/profStatus')}>
-                            Professor Status
+                            onClick={handleLogout}>
+                            Logout
                           </a>
                         </li>
                       </>
