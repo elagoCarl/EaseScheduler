@@ -136,7 +136,7 @@ const updateCourseProg = async (req, res, next) => {
             });
         }
 
-        const existingPairing = await CourseProg.findOne({ where: { CourseId, ProgramId, Year, id: { [Op.ne]: req.params.id }}});
+        const existingPairing = await CourseProg.findOne({ where: { CourseId, ProgramId, Year, id: { [Op.ne]: req.params.id } } });
         if (existingPairing) {
             return res.status(400).json({
                 successful: false,
@@ -167,7 +167,7 @@ const deleteCourseProg = async (req, res) => {
             });
         }
 
-        await CourseProg.destroy({ where: { id: req.params.id }});
+        await CourseProg.destroy({ where: { id: req.params.id } });
 
         return res.status(200).json({
             successful: true,
@@ -181,9 +181,67 @@ const deleteCourseProg = async (req, res) => {
     }
 }
 
+const getProgramsByCourse = async (req, res) => {
+    try {
+        const courseId = req.params.id;
+
+        // Check if course exists
+        const course = await Course.findByPk(courseId);
+        if (!course) {
+            return res.status(404).json({
+                successful: false,
+                message: "Course not found.",
+            });
+        }
+
+        // Find all programs associated with this course
+        const coursePrograms = await CourseProg.findAll({
+            where: { CourseId: courseId },
+            include: [
+                {
+                    model: Program,
+                    attributes: ['id', 'Code', 'Name',]
+                }
+            ]
+        });
+
+        if (!coursePrograms || coursePrograms.length === 0) {
+            return res.status(200).send({
+                successful: true,
+                message: "No programs found for this course",
+                count: 0,
+                data: [],
+            });
+        }
+
+        // Transform data to include year from CourseProg and the CourseProg ID
+        const formattedPrograms = coursePrograms.map(cp => ({
+            id: cp.Program.id,             // Program ID
+            courseProgramId: cp.id,        // Include CourseProg ID for deletion
+            code: cp.Program.Code,
+            name: cp.Program.Name,
+            year: cp.Year
+        }));
+
+        return res.status(200).send({
+            successful: true,
+            message: "Retrieved all programs for this course",
+            count: formattedPrograms.length,
+            data: formattedPrograms,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred.",
+        });
+    }
+}
+
+
 module.exports = {
     addCourseProg,
     getCoursesByProg,
     updateCourseProg,
-    deleteCourseProg
+    deleteCourseProg,
+    getProgramsByCourse
 }
