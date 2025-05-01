@@ -94,9 +94,26 @@ if (!room || totalStudents > Number(room.NumberOfSeats || 0)) {
 }
 
 // Verify room has the required room type for this course
-const course = courseProgCache[courseId];
-if (course && course.RoomTypeId && (!room.RoomTypeIds || !room.RoomTypeIds.includes(course.RoomTypeId))) {
-    return false;
+// First, get the actual course data
+const courseData = await Course.findByPk(courseId);
+if (courseData?.RoomTypeId) {
+    // If course has a specific room type requirement
+    if (!room.RoomTypeIds || !room.RoomTypeIds.includes(courseData.RoomTypeId)) {
+        return false; // Room doesn't support this course's required room type
+    }
+}
+
+// Alternative implementation with caching:
+// Cache course room type requirements if not already cached
+if (!courseProgCache[`roomType-${courseId}`]) {
+    const courseData = await Course.findByPk(courseId);
+    courseProgCache[`roomType-${courseId}`] = courseData?.RoomTypeId || null;
+}
+
+// Check room type compatibility using cached data
+const requiredRoomType = courseProgCache[`roomType-${courseId}`];
+if (requiredRoomType && (!room.RoomTypeIds || !room.RoomTypeIds.includes(requiredRoomType))) {
+    return false; // Room doesn't support this course's required room type
 }
 
     // Check professor availability - using cached data
@@ -315,109 +332,123 @@ const trueBacktrackScheduleVariant = async (
 
     try {
         // --- 1) Determine valid sections for this assignation (by department & course type) ---
-        const departmentId = assignation.DepartmentId;
-        let validProgramIds;
+// Replace the section that determines valid sections in trueBacktrackScheduleVariant
+// Starting at line ~453 where we determine validProgYrSecs
 
-        // Use cached program IDs if available
-        if (programCache[departmentId]) {
-            validProgramIds = programCache[departmentId];
-        } else {
-            const departmentPrograms = await Program.findAll({
-                where: { DepartmentId: departmentId },
-                attributes: ['id']
-            });
-            validProgramIds = departmentPrograms.map(p => p.id);
-            programCache[departmentId] = validProgramIds;
-        }
+// --- 1) Determine valid sections for this assignation (by department & course type) ---
+const departmentId = assignation.DepartmentId;
+let validProgramIds;
 
-        // Use cached courseYear from courseProgCache instead of querying each time
-        const cacheKey = `course-year-${courseParam.id}`;
-        let courseYear;
-        
-        if (courseProgCache[cacheKey]) {
-            courseYear = courseProgCache[cacheKey];
-        } else {
-            // Get the Year from CourseProg instead of Course
-            const courseProgEntry = await CourseProg.findOne({
-                where: { CourseId: courseParam.id }
-            });
-            courseYear = courseProgEntry ? courseProgEntry.Year : null;
-            // Store in cache for future use
-            courseProgCache[cacheKey] = courseYear;
-        }
+// Use cached program IDs if available
+if (programCache[departmentId]) {
+    validProgramIds = programCache[departmentId];
+} else {
+    const departmentPrograms = await Program.findAll({
+        where: { DepartmentId: departmentId },
+        attributes: ['id']
+    });
+    validProgramIds = departmentPrograms.map(p => p.id);
+    programCache[departmentId] = validProgramIds;
+}
 
-        // For valid sections, use cached sections instead of querying repeatedly
-        const secCacheKey = `sections-${courseParam.Type}-${departmentId}-${courseYear}`;
-        
-        if (sectionsCache[secCacheKey]) {
-            validProgYrSecs = sectionsCache[secCacheKey];
-        } else {
-            if (courseParam.Type === "Core") {
-                validProgYrSecs = await ProgYrSec.findAll({
-                    where: {
-                        Year: courseYear,
-                        ProgramId: { [Op.in]: validProgramIds }
-                    },
-                    include: [{
-                        model: Program,
-                        attributes: ['Code']
-                    }]
-                });
-            } else if (courseParam.Type === "Professional") {
-                // Use cached course programs
-                const courseProgramsCacheKey = `course-programs-${courseParam.id}`;
-                let allowed;
+// MODIFIED SECTION START: Get course-specific programs and year
+// Key change: Query CourseProgs by CourseId to get specific program associations
+const courseProgramRelations = await CourseProg.findAll({
+    where: { CourseId: courseParam.id }
+});
 
-                if (courseProgCache[courseProgramsCacheKey]) {
-                    allowed = courseProgCache[courseProgramsCacheKey].filter(id => validProgramIds.includes(id));
-                } else {
-                    const courseWithPrograms = await Course.findOne({
-                        where: { id: courseParam.id },
-                        include: { model: Program, as: 'Programs', attributes: ['id'] }
-                    });
+// If no CourseProgs found for this course, we can't schedule it
+if (!courseProgramRelations || courseProgramRelations.length === 0) {
+    failedAssignations.push({
+        id: assignation.id,
+        Course: courseParam.Code,
+        Professor: professorInfo.Name,
+        reason: "No program associations found for this course"
+    });
+    return trueBacktrackScheduleVariant(
+        assignations, rooms, professorSchedule, courseSchedules,
+        progYrSecSchedules, roomSchedules, index + 1,
+        report, startHour, endHour, settings, priorities,
+        failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
+        programCache, courseProgCache, sectionsCache
+    );
+}
 
-                    if (courseWithPrograms) {
-                        allowed = courseWithPrograms.Programs
-                            .map(p => p.id)
-                            .filter(id => validProgramIds.includes(id));
-                        courseProgCache[courseProgramsCacheKey] = courseWithPrograms.Programs.map(p => p.id);
-                    }
-                }
+// Create a map of program-year combinations this course should be assigned to
+const programYearMap = new Map();
+courseProgramRelations.forEach(cp => {
+    // Cache the year for this course as well
+    const cacheKey = `course-year-${courseParam.id}`;
+    courseProgCache[cacheKey] = cp.Year;
+    
+    // Only add valid program IDs from the department
+    if (validProgramIds.includes(cp.ProgramId)) {
+        programYearMap.set(cp.ProgramId, cp.Year);
+    }
+});
 
-                if (allowed && allowed.length) {
-                    validProgYrSecs = await ProgYrSec.findAll({
-                        where: {
-                            Year: courseYear,
-                            ProgramId: { [Op.in]: validProgramIds }
-                        },
-                        include: [{
-                            model: Program,
-                            attributes: ['Code']
-                        }]
-                    });
-                }
-            }
-            
-            // Cache the results for future use
-            sectionsCache[secCacheKey] = validProgYrSecs;
-        }
+// If no valid programs found in this department, we can't schedule
+if (programYearMap.size === 0) {
+    failedAssignations.push({
+        id: assignation.id,
+        Course: courseParam.Code,
+        Professor: professorInfo.Name,
+        reason: "Course is not associated with any programs in this department"
+    });
+    return trueBacktrackScheduleVariant(
+        assignations, rooms, professorSchedule, courseSchedules,
+        progYrSecSchedules, roomSchedules, index + 1,
+        report, startHour, endHour, settings, priorities,
+        failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
+        programCache, courseProgCache, sectionsCache
+    );
+}
 
-        // If none found, make a placeholder
-        if (!validProgYrSecs.length) {
-            const placeholderSection = {
-                id: `placeholder-${assignation.id}`,
-                ProgramId: validProgramIds[0] || 1,
-                Year: courseYear,
-                Section: "No Section",
-                toJSON() { return this; }
-            };
-            progYrSecSchedules[placeholderSection.id] = {};
-            for (let d = 1; d <= 6; d++) {
-                progYrSecSchedules[placeholderSection.id][d] = { hours: 0, dailyTimes: [] };
-            }
-            validProgYrSecs = [placeholderSection];
-        }
+// Find sections that match the specific program-year combinations
+validProgYrSecs = [];
 
+// Build complex where clause for efficient querying
+const whereClause = {
+    [Op.or]: [...programYearMap.entries()].map(([progId, year]) => ({
+        ProgramId: progId,
+        Year: year
+    }))
+};
+
+// For valid sections, use cached sections instead of querying repeatedly
+const secCacheKey = `sections-specific-${courseParam.id}`;
+if (sectionsCache[secCacheKey]) {
+    validProgYrSecs = sectionsCache[secCacheKey];
+} else {
+    // Query all matching sections in one go with the complex where clause
+    validProgYrSecs = await ProgYrSec.findAll({
+        where: whereClause,
+        include: [{
+            model: Program,
+            attributes: ['Code']
+        }]
+    });
+    
+    // Cache the results for future use
+    sectionsCache[secCacheKey] = validProgYrSecs;
+}
+// MODIFIED SECTION END
+
+// If none found, make a placeholder
+if (!validProgYrSecs.length) {
+    const placeholderSection = {
+        id: `placeholder-${assignation.id}`,
+        ProgramId: validProgramIds[0] || 1,
+        Year: courseProgCache[`course-year-${courseParam.id}`] || 1,
+        Section: "No Section",
+        toJSON() { return this; }
+    };
+    progYrSecSchedules[placeholderSection.id] = {};
+    for (let d = 1; d <= 6; d++) {
+        progYrSecSchedules[placeholderSection.id][d] = { hours: 0, dailyTimes: [] };
+    }
+    validProgYrSecs = [placeholderSection];
+}
         // If section-priorities exist, filter them
         if (priorities?.sections && !validProgYrSecs[0].id.toString().includes('placeholder')) {
             validProgYrSecs = validProgYrSecs.filter(sec =>
@@ -439,14 +470,6 @@ const trueBacktrackScheduleVariant = async (
                 );
             }
         }
-
-        // Group by Program-Year for chunk scheduling
-        const sectionGroups = {};
-        validProgYrSecs.forEach(sec => {
-            const key = `${sec.ProgramId}-${sec.Year}`;
-            sectionGroups[key] = sectionGroups[key] || [];
-            sectionGroups[key].push(sec);
-        });
 
         // --- 2) Build the candidate room list, enforcing RoomType === assignation.RoomType ---
         // build two lists: prioritized, then the rest
@@ -502,141 +525,220 @@ const trueBacktrackScheduleVariant = async (
             dayOrdering = [3, 2, 4, 1, 5, 6]; // Try middle of week first
         }
 
-        for (const group of Object.values(sectionGroups)) {
-            // Order days by existing vs. empty load for each section group
-            const [firstSec] = group;
-            const daysWith = dayOrdering.filter(d => progYrSecSchedules[firstSec.id][d].hours > 0);
-            const daysWithout = dayOrdering.filter(d => progYrSecSchedules[firstSec.id][d].hours === 0);
+        // Group by Program-Year for chunk scheduling
+        const sectionGroups = {};
+        validProgYrSecs.forEach(sec => {
+            const key = `${sec.ProgramId}-${sec.Year}`;
+            sectionGroups[key] = sectionGroups[key] || [];
+            sectionGroups[key].push(sec);
+        });
 
-            // Order days differently based on variant
-            let days;
-            if (seed % 4 === 0) {
-                days = daysWith.concat(daysWithout); // Prioritize days with existing schedules
-            } else if (seed % 4 === 1) {
-                days = daysWithout.concat(daysWith); // Prioritize empty days
-            } else if (seed % 4 === 2) {
-                days = dayOrdering.filter(d => d % 2 === 1).concat(dayOrdering.filter(d => d % 2 === 0)); // Odd days first
-            } else {
-                days = dayOrdering; // Default order
-            }
+        // Track which sections have been scheduled
+        const scheduledSections = new Set();
+        let allSectionsCount = 0;
+        Object.values(sectionGroups).forEach(group => {
+            allSectionsCount += group.length;
+        });
 
-            for (const day of days) {
-                let scheduledHours = 0;
-                for (const room of roomsToTry) {
-                    // Get different hour orderings based on seed
-                    let hourOptions = [];
-                    for (let h = startHour; h + duration <= endHour; h++) {
-                        hourOptions.push(h);
-                    }
+        // Continue scheduling batches until all sections are scheduled
+        while (scheduledSections.size < allSectionsCount) {
+            let scheduledAnyThisIteration = false;
 
-                    // Apply variant-specific hour ordering
-                    if (seed % 3 === 1) {
-                        // Reverse (descending order)
-                        hourOptions.reverse();
-                    } else if (seed % 3 === 2) {
-                        // Start from middle of the day
-                        const mid = Math.floor(hourOptions.length / 2);
-                        hourOptions = [...hourOptions.slice(mid), ...hourOptions.slice(0, mid)];
-                    }
+            // Create batches based on room capacities
+            for (const room of roomsToTry) {
+                const roomCapacity = Number(room.NumberOfSeats || 0);
+                if (roomCapacity <= 0) continue;
 
-                    for (let hour of hourOptions) {
-                        if (scheduledHours >= settings.StudentMaxHours) break;
+                // Order days by existing vs. empty load for each section group
+                for (const originalGroup of Object.values(sectionGroups)) {
+                    // Skip already scheduled sections
+                    const remainingGroup = originalGroup.filter(sec => !scheduledSections.has(sec.id));
+                    if (remainingGroup.length === 0) continue;
 
-                        const sectionIds = group.map(s => s.id);
-                        const isPlaceholder = sectionIds.some(id => typeof id === 'string' && id.includes('placeholder'));
-
-                        const courseId = courseParam.id;
-                        
-                        // Check if this schedule is possible using all cached data
-                        const isPossible = await isSchedulePossible(
-                            roomSchedules, professorSchedule, progYrSecSchedules,
-                            room.id, professorInfo.id, sectionIds, day, hour,
-                            duration, settings, priorities, courseId,
-                            roomCache, professorAvailabilityCache, courseProgCache, sectionsCache
-                        );
-
-                        if (isPossible) {
-                            // Update trackers
-                            professorSchedule[professorInfo.id][day].hours += duration;
-                            professorSchedule[professorInfo.id][day].dailyTimes.push({ start: hour, end: hour + duration });
-                            courseSchedules[courseId][day].push({ start: hour, end: hour + duration });
-                            roomSchedules[room.id] = roomSchedules[room.id] || {};
-                            roomSchedules[room.id][day] = roomSchedules[room.id][day] || [];
-                            roomSchedules[room.id][day].push({ start: hour, end: hour + duration });
-                            group.forEach(sec => {
-                                progYrSecSchedules[sec.id][day].hours += duration;
-                                progYrSecSchedules[sec.id][day].dailyTimes.push({ start: hour, end: hour + duration });
-                            });
-
-                            report.push({
-                                Professor: professorInfo.Name,
-                                Course: courseParam.Code,
-                                CourseType: courseParam.Type,
-                                Sections: isPlaceholder ? ["No Section"] : group.map(s => {
-                                    return `${s.Program ? s.Program.Code : ""}${s.Year}${s.Section}`;
-                                }),
-                                SectionIds: sectionIds,
-                                ProgYrSecIds: sectionIds,
-                                Room: room.Code,
-                                RoomId: room.id,
-                                Day: day,
-                                Start_time: `${hour}:00`,
-                                End_time: `${hour + duration}:00`,
-                                isLocked: false,
-                                AssignationId: assignation.id
-                            });
-
-                            hour += duration;
-                            scheduledHours += duration;
-                            assignationSuccessfullyScheduled = true;
-
-                            // For roomId specific runs, we don't need backtracking
-                            if (roomId) {
-                                return trueBacktrackScheduleVariant(
-                                    assignations, rooms, professorSchedule, courseSchedules,
-                                    progYrSecSchedules, roomSchedules, index + 1,
-                                    report, startHour, endHour, settings, priorities,
-                                    failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                                    programCache, courseProgCache, sectionsCache
-                                );
-                            }
-
-                            // Try next level of backtracking
-                            if (await trueBacktrackScheduleVariant(
-                                assignations, rooms, professorSchedule, courseSchedules,
-                                progYrSecSchedules, roomSchedules, index + 1,
-                                report, startHour, endHour, settings, priorities,
-                                failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                                programCache, courseProgCache, sectionsCache
-                            )) {
-                                return true;
-                            }
-
-                            // Backtrack by rolling back the changes
-                            professorSchedule[professorInfo.id][day].hours -= duration;
-                            professorSchedule[professorInfo.id][day].dailyTimes.pop();
-                            courseSchedules[courseId][day].pop();
-                            roomSchedules[room.id][day].pop();
-                            group.forEach(sec => {
-                                progYrSecSchedules[sec.id][day].hours -= duration;
-                                progYrSecSchedules[sec.id][day].dailyTimes.pop();
-                            });
-                            report.pop();
-                            assignationSuccessfullyScheduled = false;
+                    // Calculate total students in this remaining group
+                    let totalStudentsInGroup = 0;
+                    for (const sec of remainingGroup) {
+                        if (sectionsCache[sec.id]) {
+                            totalStudentsInGroup += Number(sectionsCache[sec.id].NumberOfStudents || 0);
                         }
                     }
+
+                    // Skip empty groups
+                    if (totalStudentsInGroup === 0) {
+                        // Mark all sections in group as scheduled - empty groups can be scheduled together
+                        remainingGroup.forEach(sec => scheduledSections.add(sec.id));
+                        continue;
+                    }
+
+                    // Create batches that fit in room capacity
+                    const batches = [];
+                    let currentBatch = [];
+                    let currentBatchStudents = 0;
+
+                    for (const sec of remainingGroup) {
+                        const secStudents = Number(sectionsCache[sec.id]?.NumberOfStudents || 0);
+                        
+                        // If adding this section would exceed capacity, start a new batch
+                        if (currentBatchStudents + secStudents > roomCapacity && currentBatch.length > 0) {
+                            batches.push([...currentBatch]);
+                            currentBatch = [];
+                            currentBatchStudents = 0;
+                        }
+                        
+                        // Add section to current batch
+                        currentBatch.push(sec);
+                        currentBatchStudents += secStudents;
+                    }
+                    
+                    // Add the last batch if not empty
+                    if (currentBatch.length > 0) {
+                        batches.push(currentBatch);
+                    }
+
+                    // Try scheduling each batch
+                    for (const batch of batches) {
+                        const [firstSec] = batch;
+                        const daysWith = dayOrdering.filter(d => progYrSecSchedules[firstSec.id][d].hours > 0);
+                        const daysWithout = dayOrdering.filter(d => progYrSecSchedules[firstSec.id][d].hours === 0);
+
+                        // Order days differently based on variant
+                        let days;
+                        if (seed % 4 === 0) {
+                            days = daysWith.concat(daysWithout); // Prioritize days with existing schedules
+                        } else if (seed % 4 === 1) {
+                            days = daysWithout.concat(daysWith); // Prioritize empty days
+                        } else if (seed % 4 === 2) {
+                            days = dayOrdering.filter(d => d % 2 === 1).concat(dayOrdering.filter(d => d % 2 === 0)); // Odd days first
+                        } else {
+                            days = dayOrdering; // Default order
+                        }
+
+                        // Try to schedule this batch on available days
+                        for (const day of days) {
+                            // Get different hour orderings based on seed
+                            let hourOptions = [];
+                            for (let h = startHour; h + duration <= endHour; h++) {
+                                hourOptions.push(h);
+                            }
+
+                            // Apply variant-specific hour ordering
+                            if (seed % 3 === 1) {
+                                // Reverse (descending order)
+                                hourOptions.reverse();
+                            } else if (seed % 3 === 2) {
+                                // Start from middle of the day
+                                const mid = Math.floor(hourOptions.length / 2);
+                                hourOptions = [...hourOptions.slice(mid), ...hourOptions.slice(0, mid)];
+                            }
+
+                            for (let hour of hourOptions) {
+                                const sectionIds = batch.map(s => s.id);
+                                const isPlaceholder = sectionIds.some(id => typeof id === 'string' && id.includes('placeholder'));
+                                const courseId = courseParam.id;
+                                
+                                // Check if students already reached max hours for the day
+                                let exceedsStudentMaxHours = false;
+                                for (const sec of batch) {
+                                    if (progYrSecSchedules[sec.id][day].hours + duration > settings.StudentMaxHours) {
+                                        exceedsStudentMaxHours = true;
+                                        break;
+                                    }
+                                }
+                                if (exceedsStudentMaxHours) continue;
+
+                                // Check if this schedule is possible using all cached data
+                                const isPossible = await isSchedulePossible(
+                                    roomSchedules, professorSchedule, progYrSecSchedules,
+                                    room.id, professorInfo.id, sectionIds, day, hour,
+                                    duration, settings, priorities, courseId,
+                                    roomCache, professorAvailabilityCache, courseProgCache, sectionsCache
+                                );
+
+                                if (isPossible) {
+                                    // Update trackers
+                                    professorSchedule[professorInfo.id][day].hours += duration;
+                                    professorSchedule[professorInfo.id][day].dailyTimes.push({ start: hour, end: hour + duration });
+                                    courseSchedules[courseId][day].push({ start: hour, end: hour + duration });
+                                    roomSchedules[room.id] = roomSchedules[room.id] || {};
+                                    roomSchedules[room.id][day] = roomSchedules[room.id][day] || [];
+                                    roomSchedules[room.id][day].push({ start: hour, end: hour + duration });
+                                    
+                                    batch.forEach(sec => {
+                                        progYrSecSchedules[sec.id][day].hours += duration;
+                                        progYrSecSchedules[sec.id][day].dailyTimes.push({ start: hour, end: hour + duration });
+                                        // Mark this section as scheduled
+                                        scheduledSections.add(sec.id);
+                                    });
+
+                                    report.push({
+                                        Professor: professorInfo.Name,
+                                        Course: courseParam.Code,
+                                        CourseType: courseParam.Type,
+                                        Sections: isPlaceholder ? ["No Section"] : batch.map(s => {
+                                            return `${s.Program ? s.Program.Code : ""}${s.Year}${s.Section}`;
+                                        }),
+                                        SectionIds: sectionIds,
+                                        ProgYrSecIds: sectionIds,
+                                        Room: room.Code,
+                                        RoomId: room.id,
+                                        Day: day,
+                                        Start_time: `${hour}:00`,
+                                        End_time: `${hour + duration}:00`,
+                                        isLocked: false,
+                                        AssignationId: assignation.id
+                                    });
+
+                                    scheduledAnyThisIteration = true;
+                                    assignationSuccessfullyScheduled = true;
+                                    
+                                    // Break out of hour loop for this batch - it's been scheduled
+                                    break;
+                                }
+                            }
+                            
+                            // If this batch was scheduled, move to next batch
+                            if (scheduledAnyThisIteration) break;
+                        }
+                        
+                        // If this batch was scheduled, move to next batch
+                        if (scheduledAnyThisIteration) break;
+                    }
+                    
+                    // If any scheduling happened in this room, try next room
+                    if (scheduledAnyThisIteration) break;
                 }
+                
+                // If any scheduling happened in this room, try next room
+                if (scheduledAnyThisIteration) break;
+            }
+            
+            // If no sections were scheduled in this iteration, we're stuck
+            if (!scheduledAnyThisIteration) {
+                // Find which sections couldn't be scheduled
+                const unscheduledSections = [];
+                Object.values(sectionGroups).forEach(group => {
+                    group.forEach(sec => {
+                        if (!scheduledSections.has(sec.id)) {
+                            unscheduledSections.push(sec.id);
+                        }
+                    });
+                });
+                
+                failedAssignations.push({
+                    id: assignation.id,
+                    Course: courseParam.Code,
+                    Professor: professorInfo.Name,
+                    reason: `Could not find valid slots for some sections: ${unscheduledSections.join(', ')}`
+                });
+                
+                // Break out of the main scheduling loop
+                break;
             }
         }
 
-        // If nothing fit, record failure
-        if (!assignationSuccessfullyScheduled) {
-            failedAssignations.push({
-                id: assignation.id,
-                Course: courseParam.Code,
-                Professor: professorInfo.Name,
-                reason: "No valid time slot found with given constraints"
-            });
+        // If all sections were scheduled, mark this assignation as successful
+        if (scheduledSections.size === allSectionsCount) {
+            assignationSuccessfullyScheduled = true;
         }
 
         // Move on to next assignation
@@ -665,7 +767,6 @@ const trueBacktrackScheduleVariant = async (
         );
     }
 };
-
 const generateScheduleVariants = async (req, res, next) => {
     try {
         const {
