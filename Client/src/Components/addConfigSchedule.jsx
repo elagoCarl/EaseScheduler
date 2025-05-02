@@ -197,9 +197,6 @@ const AddConfigSchedule = () => {
               setCurrentAssignations([]);
             }
 
-            console.log("Semester data organized:", semesterMap);
-
-            console.log("Semester data organized:", semesterMap);
           } else {
             console.error("Failed to fetch assignations:", assignationsRes.data.message);
             setAssignations([]);
@@ -242,9 +239,6 @@ const AddConfigSchedule = () => {
 
 
   useEffect(() => {
-    console.log("Semester changed to:", selectedSemester);
-    console.log("Current assignations:", assignations);
-
     if (!selectedSemester) {
       setFilteredAssignations([]);
       return;
@@ -362,7 +356,19 @@ const AddConfigSchedule = () => {
       const response = await axios.post("/schedule/addSchedule", payload);
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule added successfully!" });
-        resetForm();
+        // Only reset assignation, day, times and sections
+        setFormData(prev => ({
+          ...prev,
+          assignation_id: "",
+          day: "",
+          start_time: "",
+          end_time: "",
+          // If you want to keep assignation, remove assignation_id
+        }));
+        setCustomStartTime("");
+        setCustomEndTime("");
+        setAvailableSections([]);
+        setSelectedSections([]);
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
       } else {
         setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
@@ -387,7 +393,7 @@ const AddConfigSchedule = () => {
       const payload = {
         DepartmentId: deptId,
         semester: selectedSemester,
-        variantCount: 2, 
+        variantCount: 2,
         prioritizedProfessor:
           prioritizedProfessors.length > 0
             ? prioritizedProfessors.map((value) => parseInt(value, 10))
@@ -446,13 +452,13 @@ const AddConfigSchedule = () => {
     const { value } = e.target;
     setSelectedSemester(value);
     setCurrentAssignations(semesterData[value] || []);
-    setFormData(prev => ({ 
-      ...prev, 
-      assignation_id: "", 
-      professorId: null, 
-      professorName: null 
+    setFormData(prev => ({
+      ...prev,
+      assignation_id: "",
+      professorId: null,
+      professorName: null
     }));
-    
+
     if (formData.room_id) {
       fetchSchedulesForRoom(formData.room_id);
     }
@@ -500,11 +506,11 @@ const AddConfigSchedule = () => {
     const { name, value } = e.target;
     if (name === "semester") {
       setSelectedSemester(value);
-      setFormData(prev => ({ 
-        ...prev, 
-        assignation_id: "", 
-        professorId: null, 
-        professorName: null 
+      setFormData(prev => ({
+        ...prev,
+        assignation_id: "",
+        professorId: null,
+        professorName: null
       }));
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
@@ -518,12 +524,14 @@ const AddConfigSchedule = () => {
             ...prev,
             [name]: value,
             professorId: selectedAssignation.ProfessorId,
-            professorName: selectedAssignation.Professor?.Name || "Professor"
+            professorName: selectedAssignation.Professor?.Name || "Professor",
+            courseDuration: selectedAssignation.Course?.Duration,
+            courseType: selectedAssignation.Course.RoomType?.Type,
           }));
         }
       } else {
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           [name]: value,
           professorId: null,
           professorName: null
@@ -642,15 +650,11 @@ const AddConfigSchedule = () => {
   const handleDeleteAllSchedules = async () => {
     try {
       const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
-  
-      if (response.data.successful) {
-        setSchedules([]);
+      if (response.data.success) {
         setIsDeleteModalOpen(false);
         setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
-
-        if (formData.room_id) {
-          await fetchSchedulesForRoom(formData.room_id);
-        }
+        // REFETCH schedules after delete all
+        if (formData.room_id) await fetchSchedulesForRoom(formData.room_id);
         setSelectedSchedule(null);
         setSelectedScheduleId(null);
       } else {
@@ -840,14 +844,14 @@ const AddConfigSchedule = () => {
                 Unlock All
               </button>
             </div>
-  
+
             <button
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
-            disabled={activeMode !== 'automation'}
-          >
-            Delete All Department Schedules
-          </button>
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
+              disabled={activeMode !== 'automation'}
+            >
+              Delete All Department Schedules
+            </button>
           </div>
         )}
 
@@ -934,7 +938,7 @@ const AddConfigSchedule = () => {
                 const room = rooms.find(r => r.id.toString() === id.toString());
                 return (
                   <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
-                    <span>{room ? `${room.Code} - ${room.Building}${room.TypeRooms ? ` (${typeof room.TypeRooms === 'object' ? room.TypeRooms.Type : room.TypeRooms})` : ''}` : id}</span>
+                    <span>{room ? `${room.Code} - ${room.Building}` : id}</span>
                     <button onClick={() => handleRemovePriorityRoom(id)} className="text-red-600 hover:text-red-800" disabled={activeMode !== 'automation'}
                     >
                       Remove
@@ -1054,7 +1058,7 @@ const AddConfigSchedule = () => {
                   <option value="">Select Assignation</option>
                   {filteredAssignations.map(a => (
                     <option key={a.id} value={a.id}>
-                      {a.Course?.Code} - {a.Course?.Description} ({a.Course?.Units} units) | {a.Professor?.Name}
+                      {a.Course?.Code}, Duration: {a.Course.Duration}, {a.Course.RoomType.Type} - {a.Course?.Description} ({a.Course?.Units} units) | {a.Professor?.Name}
                     </option>
                   ))}
                 </select>
@@ -1163,16 +1167,16 @@ const AddConfigSchedule = () => {
         }}
       />
 
-        <DeleteConfirmationModal
-          isOpen={isDeleteModalOpen}
-          onClose={() => setIsDeleteModalOpen(false)}
-          onConfirm={() => {
-            handleDeleteAllSchedules();
-            setIsDeleteModalOpen(false);
-          }}
-          title="Delete Confirmation"
-          message="Are you sure you want to delete ALL schedules in this department? This action cannot be undone."
-        />
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={() => {
+          handleDeleteAllSchedules();
+          setIsDeleteModalOpen(false);
+        }}
+        title="Delete Confirmation"
+        message="Are you sure you want to delete ALL schedules in this department? This action cannot be undone."
+      />
 
       <EditSchedRecordModal isOpen={isEditModalOpen} schedule={selectedSchedule} onClose={() => {
         setIsEditModalOpen(false);
