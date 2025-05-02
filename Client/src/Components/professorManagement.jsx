@@ -140,7 +140,11 @@ const ProfessorManagement = () => {
     };
 
     const toggleMinimize = (id) => {
-        setProfessors(professors.map(prof =>
+        setProfessors(prevProfessors => prevProfessors.map(prof =>
+            prof.id === id ? { ...prof, minimized: !prof.minimized } : prof
+        ));
+        // Also update the filtered professors to avoid page reset
+        setFilteredProfessors(prevFiltered => prevFiltered.map(prof =>
             prof.id === id ? { ...prof, minimized: !prof.minimized } : prof
         ));
     };
@@ -250,9 +254,15 @@ const ProfessorManagement = () => {
             if (activeTab === 'all') return searchMatch;
             return searchMatch && professor.status === activeTab;
         });
+
         setFilteredProfessors(filtered);
-        setCurrentPage(1);
+
+        // Only reset page when search term or active tab changes, not when just minimizing
+        if (searchTerm !== '' || activeTab !== 'all') {
+            setCurrentPage(1);
+        }
     }, [searchTerm, activeTab, professors]);
+
 
     useEffect(() => {
         fetchData();
@@ -465,7 +475,7 @@ const ProfessorManagement = () => {
                                     <div className="bg-blue-600 p-4">
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <h2 className="text-lg font-semibold text-white">{professor.name}</h2>
+                                                <h2 className="text-lg font-semibold text-white tracking-tight">{professor.name}</h2>
                                                 <div className="flex flex-wrap gap-1.5 mt-1">
                                                     {/* Existing status badge */}
                                                     <span className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getStatusColor(professor.status)}`}>

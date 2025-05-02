@@ -497,7 +497,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
             where: { DepartmentId: departmentId },
             include: [
                 {
-                    model: Course, attributes: ['Code', 'Description', 'Units'],
+                    model: Course, attributes: ['Code', 'Description', 'Units', 'Type', 'Duration'],
                     include: [
                         {
                             model: RoomType,

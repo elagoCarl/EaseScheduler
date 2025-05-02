@@ -112,7 +112,7 @@ const CourseManagement = () => {
   };
 
   const toggleMinimize = (id) => {
-    setCourses(courses.map(course =>
+    setCourses(prevCourses => prevCourses.map(course =>
       course.id === id ? { ...course, minimized: !course.minimized } : course
     ));
   };
@@ -182,8 +182,13 @@ const CourseManagement = () => {
       return searchMatch && yearMatch && typeMatch;
     });
     setFilteredCourses(filtered);
-    setCurrentPage(1);
+    // Remove the setCurrentPage(1) here - we don't want to reset page when just collapsing
   }, [searchTerm, yearFilter, typeFilter, courses]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, yearFilter, typeFilter])
+
 
   // Calculate pagination values
   const indexOfLastCourse = currentPage * coursesPerPage;
@@ -338,7 +343,7 @@ const CourseManagement = () => {
                     </div>
 
                     <div className="mt-3 pt-2 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap gap-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 tracking-tight">
                         <span>{course.description}</span>
                       </div>
                       <div className="flex items-center gap-1 mr-3">
@@ -347,7 +352,7 @@ const CourseManagement = () => {
                       </div>
                       {course.details.duration && (
                         <div className="flex items-center gap-1">
-                          <Clock onClick={console.log("sdcscsacaswfdsav", course)} size={14} className="text-blue-200" />
+                          <Clock size={14} className="text-blue-200" />
                           <span>Course Duration: {course.details.duration}</span>
                         </div>
                       )}
@@ -438,6 +443,37 @@ const CourseManagement = () => {
                   >
                     <ChevronLeft size={18} />
                   </button>
+
+                  {/* Page number buttons */}
+                  <div className="flex items-center space-x-5">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Logic to show current page +/- 2 pages
+                      let pageToShow;
+                      if (totalPages <= 5) {
+                        pageToShow = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageToShow = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageToShow = totalPages - 4 + i;
+                      } else {
+                        pageToShow = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <button
+                          key={pageToShow}
+                          onClick={() => setCurrentPage(pageToShow)}
+                          className={`w-20 h-20 flex items-center justify-center rounded ${currentPage === pageToShow
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                            }`}
+                        >
+                          {pageToShow}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <button onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages}
                     className={`p-2 rounded border border-gray-300 ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-gray-700 hover:bg-gray-50"}`}
                   >
