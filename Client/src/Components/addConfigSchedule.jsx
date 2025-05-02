@@ -16,6 +16,7 @@ import unlock from './Img/unlock.svg';
 import { useNavigate } from 'react-router-dom';
 import { Home, Users, BookOpen, Settings} from 'lucide-react'
 import SettingsModal from './settings.jsx'
+import DeleteConfirmationModal from './callComponents/deleteConfirmationModal.jsx';
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
@@ -61,7 +62,7 @@ const AddConfigSchedule = () => {
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [selectedProfessorId, setSelectedProfessorId] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const openSettingsModal = () => setIsSettingsOpen(true);
   const closeSettingsModal = () => setIsSettingsOpen(false);
 
@@ -159,8 +160,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           });
           return;
         }
-  
-        // Fetch Rooms
+
         try {
           const roomsRes = await axios.get(`/room/getRoomsByDept/${deptId}`);
   
@@ -182,16 +182,14 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             message: 'Room fetch failed. Check network connection or API configuration.'
           });
         }
-  
-        // Fetch Assignations
+
         try {
           const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
         
           if (assignationsRes.data.successful) {
             const assignationsData = assignationsRes.data.data;
             setAssignations(assignationsData);
-        
-            // ✅ Define and build semesterMap right here
+
             const semesterMap = {};
             assignationsData.forEach(a => {
               if (!semesterMap[a.Semester]) {
@@ -208,7 +206,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             if (selectedSemester && semesterMap[selectedSemester]) {
               setCurrentAssignations(semesterMap[selectedSemester]);
             } else {
-              setCurrentAssignations([]); // Reset if no semester selected
+              setCurrentAssignations([]);
             }
             
             console.log("Semester data organized:", semesterMap);
@@ -224,8 +222,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           setAssignations([]);
           setSemesterData({});
         }
-        
-        // Fetch Professors
+
         try {
           const professorsRes = await axios.get(`/prof/getProfByDept/${deptId}`);
           if (professorsRes.data.successful) {
@@ -264,8 +261,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
       setFilteredAssignations([]);
       return;
     }
-  
-    // Use semesterData directly (already grouped by semester)
+
     if (semesterData && semesterData[selectedSemester]) {
       setFilteredAssignations(semesterData[selectedSemester]);
     } else {
@@ -392,7 +388,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
   const handleAutomateSchedule = async () => {
     setIsAutomating(true);
     try {
-      // First, validate that a room is selected when automating a single room
       if (automateType === 'room' && !formData.room_id) {
         setNotification({
           type: 'error',
@@ -402,67 +397,51 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         return;
       }
 
-      // Prepare basic payload
       const payload = {
         DepartmentId: deptId,
         semester: selectedSemester,
-        variantCount: 2,  // Generate 2 variants
-        // Use prioritized professors if available
+        variantCount: 2, 
         prioritizedProfessor:
           prioritizedProfessors.length > 0
             ? prioritizedProfessors.map((value) => parseInt(value, 10))
             : undefined,
-        // Use prioritized rooms if available
         prioritizedRoom:
           prioritizedRooms.length > 0
             ? prioritizedRooms.map((value) => parseInt(value, 10))
             : undefined,
       };
 
-      // If automating a single room, include the roomId in the payload
       if (automateType === 'room') {
         payload.roomId = parseInt(formData.room_id, 10);
       }
 
-      // Use the schedules/variants endpoint instead of automateSchedule
       const endpoint = '/schedule/generateScheduleVariants';
-
-      // Show modal early to indicate loading to user
       setShowVariantModal(true);
 
-      // Fire the request
       const response = await axios.post(endpoint, payload);
 
       if (response.data.successful) {
-        // Store the variants
         const variants = response.data.variants;
         setScheduleVariants(variants);
 
-        // Save to localStorage
         localStorage.setItem('scheduleVariants', JSON.stringify({
           variants: variants,
           departmentId: deptId,
           timestamp: Date.now()
         }));
-
-        // Notify user of success
         setNotification({
           type: 'success',
           message: `Successfully generated ${variants.length} schedule variants. Please select one to save.`
         });
       } else {
-        // Backend returned a controlled failure
         setNotification({
           type: 'error',
           message: transformErrorMessage(response.data.message)
         });
-        // Hide the modal if we got an error
         setShowVariantModal(false);
       }
     } catch (error) {
       console.error('Schedule variant generation error:', error.response || error);
-
-      // Network / unexpected error
       setNotification({
         type: 'error',
         message: transformErrorMessage(
@@ -470,8 +449,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           `An error occurred while generating schedule variants.`
         )
       });
-
-      // Hide the modal if we got an error
       setShowVariantModal(false);
     } finally {
       setIsAutomating(false);
@@ -480,14 +457,8 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
 
   const handleSemesterChange = e => {
     const { value } = e.target;
-    
-    // Update selected semester state
     setSelectedSemester(value);
-    
-    // Update current assignations for the selected semester
     setCurrentAssignations(semesterData[value] || []);
-    
-    // Reset assignation and professor info when semester changes
     setFormData(prev => ({ 
       ...prev, 
       assignation_id: "", 
@@ -495,13 +466,11 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
       professorName: null 
     }));
     
-    // If a room is already selected, refetch schedules
     if (formData.room_id) {
       fetchSchedulesForRoom(formData.room_id);
     }
   };
 
-  // Add this function to handle saving the selected variant
   const handleSelectVariant = async (variantIndex) => {
     try {
       const selectedVariant = scheduleVariants[variantIndex];
@@ -509,7 +478,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
       const response = await axios.post('/schedule/saveScheduleVariants', {
         variant: selectedVariant,
         DepartmentId: deptId,
-        semester: selectedSemester  // Add the missing semester parameter
+        semester: selectedSemester
       });
 
       if (response.data.successful) {
@@ -519,8 +488,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         });
 
         setShowVariantModal(false);
-
-        // Refresh schedules for the current room if one is selected
         if (formData.room_id) {
           fetchSchedulesForRoom(formData.room_id);
         }
@@ -542,29 +509,21 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
     }
   };
 
-  // Input handlers
   const handleInputChange = e => {
     const { name, value } = e.target;
-  
     if (name === "semester") {
-      // Update selected semester state immediately
       setSelectedSemester(value);
-  
-      // Reset assignation selection when semester changes
       setFormData(prev => ({ 
         ...prev, 
         assignation_id: "", 
         professorId: null, 
         professorName: null 
       }));
-  
-      // If a room is already selected, refetch schedules with the new semester
       if (formData.room_id) {
         fetchSchedulesForRoom(formData.room_id);
       }
     } else if (name === "assignation_id") {
       if (value) {
-        // If a valid assignation is selected
         const selectedAssignation = assignations.find(a => a.id === parseInt(value));
         if (selectedAssignation?.CourseId) {
           fetchSectionsForCourse(selectedAssignation.CourseId);
@@ -576,7 +535,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           }));
         }
       } else {
-        // If empty option is selected, clear professor information
         setFormData(prev => ({ 
           ...prev, 
           [name]: value,
@@ -648,7 +606,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
     }
   };
 
-  // Rename function to reflect both locking and unlocking capability
   const handleToggleLockAllSchedules = async (lockAction = true) => {
     if (!formData.room_id || schedules.length === 0) {
       setNotification({ type: 'error', message: "No room selected or no schedules to toggle lock status." });
@@ -656,7 +613,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
     }
 
     try {
-      // Get relevant schedule IDs based on lockAction
       const targetSchedules = lockAction
         ? schedules.filter(schedule => !schedule.isLocked).map(schedule => schedule.id)
         : schedules.filter(schedule => schedule.isLocked).map(schedule => schedule.id);
@@ -671,7 +627,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         return;
       }
 
-      // Make a PUT request to toggle lock status for all relevant schedules
       const response = await axios.put("/schedule/toggleLockAllSchedules", {
         scheduleIds: targetSchedules,
         isLocked: lockAction,
@@ -683,7 +638,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           type: 'success',
           message: `Successfully ${lockAction ? 'locked' : 'unlocked'} ${targetSchedules.length} schedules.`
         });
-        // Refresh schedules for the room
         fetchSchedulesForRoom(formData.room_id);
       } else {
         setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
@@ -700,21 +654,24 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
 
   const handleDeleteAllSchedules = async () => {
     try {
-      // Instead of getting schedules for a specific room, we'll delete all for the department
       const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
-
+  
       if (response.data.successful) {
+        setSchedules([]);
+        setIsDeleteModalOpen(false);
         setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
-        // Refresh schedules for the current room if one is selected
+
         if (formData.room_id) {
-          fetchSchedulesForRoom(formData.room_id);
+          await fetchSchedulesForRoom(formData.room_id);
         }
+        setSelectedSchedule(null);
+        setSelectedScheduleId(null);
       } else {
         setNotification({ type: 'error', message: transformErrorMessage(response.data.message) });
       }
     } catch (error) {
       setNotification({
-        successful: 'false',
+        type: 'error',
         message: error.message
       });
     }
@@ -735,13 +692,10 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
     setAvailableSections([]);
     setSelectedSections([]);
   };
-  // Components
-  // Original ScheduleEvent component with fix
   const ScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
 
-    // Add a null check for ProgYrSecs before mapping
     const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
       ? schedule.ProgYrSecs
         .filter(sec => sec && sec.Program) // Filter out entries with missing data
@@ -898,8 +852,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
   const renderAutomationSection = () => {
     return (
       <div className={`mt-4 ${activeMode !== 'automation' ? 'opacity-50 pointer-events-none' : ''}`}>
-        {/* Your existing automation UI from paste.txt goes here */}
-        {/* Lock/Unlock/Delete All buttons section */}
         {formData.room_id && schedules.length > 0 && (
           <div className="mb-4">
             <div className="flex gap-10 mb-5">
@@ -920,16 +872,12 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             </div>
   
             <button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to delete ALL schedules in this department? This action cannot be undone.")) {
-                  handleDeleteAllSchedules();
-                }
-              }}
-              className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
-              disabled={activeMode !== 'automation'}
-            >
-              Delete All Department Schedules
-            </button>
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
+            disabled={activeMode !== 'automation'}
+          >
+            Delete All Department Schedules
+          </button>
           </div>
         )}
   
@@ -1306,6 +1254,17 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           setSelectedScheduleId(null);
         }}
       />
+
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={() => {
+            handleDeleteAllSchedules();
+            setIsDeleteModalOpen(false);
+          }}
+          title="Delete Confirmation"
+          message="Are you sure you want to delete ALL schedules in this department? This action cannot be undone."
+        />
 
       <EditSchedRecordModal
         isOpen={isEditModalOpen}
