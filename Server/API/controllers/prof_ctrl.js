@@ -214,6 +214,12 @@ const deleteProf = async (req, res, next) => {
 
         await addHistoryLog(accountId, page, details);
 
+        await Assignation.destroy({
+            where: {
+                ProfessorId: req.params.id
+            }
+        });
+
         // Delete the professor record
         const deleteProf = await Professor.destroy({
             where: {
