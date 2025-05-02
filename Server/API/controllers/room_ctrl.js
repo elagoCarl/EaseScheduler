@@ -478,7 +478,7 @@ const getRoomsByDept = async (req, res, next) => {
     try {
         const deptId = req.params.id;
         const rooms = await Room.findAll({
-            order: [['Building', 'ASC'], ['Floor', 'ASC'], ['Code', 'ASC']],
+            order: [['createdAt', 'DESC']],
             attributes: { exclude: ['RoomDepts'] },
             include: [
                 {
