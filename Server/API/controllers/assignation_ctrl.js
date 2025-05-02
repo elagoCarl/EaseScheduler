@@ -456,6 +456,7 @@ const getAllAssignationsByDept = async (req, res, next) => {
         }
 
         const assignations = await Assignation.findAll({
+            order: [['createdAt', 'DESC']],
             where: { DepartmentId: departmentId },
             include: [
                 {
@@ -494,6 +495,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
         }
 
         const assignations = await Assignation.findAll({
+            order: [['createdAt', 'DESC']],
             where: { DepartmentId: departmentId },
             include: [
                 {

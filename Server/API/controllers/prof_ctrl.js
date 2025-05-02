@@ -103,7 +103,7 @@ const getAllProf = async (req, res, next) => {
                 model: ProfStatus,  // Include ProfStatus relation
                 // attributes: ['Status'] // Fetch only the Status column
             },
-            order: [['Name', 'ASC']]
+            order: [['createdAt', 'DESC']]
         });
 
         if (!professors || professors.length === 0) {
