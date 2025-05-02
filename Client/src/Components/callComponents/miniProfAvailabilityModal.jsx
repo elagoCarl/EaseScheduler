@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from '../../axiosConfig';
-
+//para to sa add config schedule
 const ProfAvailabilityModal = ({ isOpen, onClose, professorId }) => {
     const [scheduleData, setScheduleData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -128,14 +128,14 @@ const ProfAvailabilityModal = ({ isOpen, onClose, professorId }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 overflow-auto bg-gray-800 bg-opacity-50 flex justify-center items-center">
+        <div className="fixed inset-0 z-50 overflow-auto bg-gray-800 bg-opacity-50 backdrop-blur-sm flex justify-center items-center">
             <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl m-4">
-                <div className="bg-blue-600 p-3 flex justify-between items-center">
+                <div className="bg-blue-600 p-12 flex justify-between items-center rounded">
                     <h2 className="text-lg font-bold text-white">
                         {professorName ? `${professorName}'s Availability` : 'Professor Availability'}
                     </h2>
-                    <button onClick={onClose} className="text-white hover:text-gray-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button onClick={onClose} className="text-white hover:text-gray-300 duration-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -213,7 +213,7 @@ const ProfAvailabilityModal = ({ isOpen, onClose, professorId }) => {
                 <div className="border-t border-gray-200 p-4 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm rounded-lg transition-colors"
+                        className="bg-blue-600 hover:bg-blue-700 duration-300 text-white px-8 py-4 mb-4 mt-2 text-sm rounded-lg transition-colors"
                     >
                         Close
                     </button>

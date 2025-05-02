@@ -374,7 +374,7 @@ const ProfessorManagement = () => {
                 <div className="w-full max-w-sm sm:max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl my-50">
                     <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
                         <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Professor Management</h1>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-6">
                             <div className="bg-white px-4 py-2 rounded shadow-md">
                                 <span className="text-gray-800 font-medium">Total Professors: <span className="text-blue-600">{professors.length}</span></span>
                             </div>
@@ -416,14 +416,14 @@ const ProfessorManagement = () => {
 
                                     {showFilters && (
                                         <div className="absolute right-0 mt-2 rounded bg-white shadow-xl z-10">
-                                            <div className="p-2">
+                                            <div className="p-2 w-80">
                                                 {statusList.length > 0 ? (
                                                     statusList.map((status, index) => (
                                                         <button key={index} onClick={() => {
                                                             setActiveTab(status);
                                                             setShowFilters(false);
                                                         }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded hover:text-blue-700 transition duration-150 flex items-center"
+                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-100 duration-300 rounded hover:text-blue-700 transition duration-150 flex items-center"
                                                         >
                                                             <span className={`w-3 h-3 rounded-md ${status === 'Full-time' ? 'bg-emerald-400' : status === 'Part-time' ? 'bg-blue-400' : 'bg-gray-400'} mr-2`}></span>
                                                             {status}

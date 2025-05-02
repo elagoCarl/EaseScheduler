@@ -190,7 +190,7 @@ const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
     <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-md overflow-hidden transform transition-all">
         {/* Header */}
-        <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+        <div className="bg-blue-600 px-6 py-4 pb-8 pt-10 flex justify-between items-center">
           <h2 className="text-xl text-white font-semibold">Add Professor</h2>
           <button
             className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"

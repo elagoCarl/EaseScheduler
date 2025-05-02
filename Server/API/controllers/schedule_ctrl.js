@@ -1661,14 +1661,25 @@ const addSchedule = async (req, res, next) => {
 
             // Validate course duration balance for each section
             const courseTotalDuration = assignation.Course.Duration;
+            
+            // Get all section details including Program info
             const sectionsData = await ProgYrSec.findAll({
-                where: { id: { [Op.in]: Sections } }
+                where: { id: { [Op.in]: Sections } },
+                include: [{ model: Program }]
             });
+            
             if (sectionsData.length !== Sections.length) {
                 return res.status(404).json({
                     successful: false,
                     message: "One or more sections not found. Please provide valid section IDs."
                 });
+            }
+
+            // Create a map of section identifiers for easier reference
+            const sectionIdentifiers = {};
+            for (const section of sectionsData) {
+                const sectionIdentifier = `${section.Program.Code}-${section.Year}${section.Section}`;
+                sectionIdentifiers[section.id] = sectionIdentifier;
             }
 
             let totalStudents = 0;
@@ -1811,6 +1822,8 @@ const addSchedule = async (req, res, next) => {
 
             // For each section, build the day's schedule and check for both time conflicts and break requirements.
             for (const sectionId of Sections) {
+                const sectionIdentifier = sectionIdentifiers[sectionId];
+                
                 // Fetch all schedules associated with the section for the given day - now filtered by semester
                 const sectionSchedules = await Schedule.findAll({
                     include: [
@@ -1836,7 +1849,7 @@ const addSchedule = async (req, res, next) => {
                 if (!canScheduleStudents(sectionScheduleForDay, newStartHour, currentScheduleDuration, settings)) {
                     return res.status(400).json({
                         successful: false,
-                        message: `Section with ID ${sectionId} cannot be scheduled at the specified time in ${Semester} semester, as it violates scheduling constraints (overlap or insufficient break between sessions).`
+                        message: `Section ${sectionIdentifier} cannot be scheduled at the specified time in ${Semester} semester, as it violates scheduling constraints (overlap or insufficient break between sessions).`
                     });
                 }
 
@@ -1868,7 +1881,7 @@ const addSchedule = async (req, res, next) => {
                     const remainingHours = courseTotalDuration - scheduledHours;
                     return res.status(400).json({
                         successful: false,
-                        message: `For section with ID ${sectionId} in ${Semester} semester, adding ${currentScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
+                        message: `For section ${sectionIdentifier} in ${Semester} semester, adding ${currentScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
                     });
                 }
 
@@ -1897,7 +1910,7 @@ const addSchedule = async (req, res, next) => {
                     const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
                     return res.status(400).json({
                         successful: false,
-                        message: `Section ${sectionId} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
+                        message: `Section ${sectionIdentifier} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
                     });
                 }
 
@@ -1955,7 +1968,7 @@ const addSchedule = async (req, res, next) => {
                             
                             return res.status(400).json({
                                 successful: false,
-                                message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionId}. Both components must be taught by the same professor.`
+                                message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionIdentifier}. Both components must be taught by the same professor.`
                             });
                         }
                     }
@@ -2091,7 +2104,7 @@ const updateSchedule = async (req, res, next) => {
         }
 
         // Validate the semester matches the assignation's semester
-        if (assignation.Semester !== Semester) {
+        if (assignation.Semester != Semester) {
             return res.status(400).json({
                 successful: false,
                 message: `Semester mismatch: Schedule is for ${Semester} but Assignation is for ${assignation.Semester}.`
@@ -2101,18 +2114,34 @@ const updateSchedule = async (req, res, next) => {
         // Get course total duration from the assignation's course
         const courseTotalDuration = assignation.Course.Duration;
 
-        // Validate all sections exist
+        // Validate all sections exist and fetch with full details
         const sectionsData = await ProgYrSec.findAll({
             where: {
                 id: { [Op.in]: Sections }
-            }
+            },
+            include: [{ model: Program }] // Include the Program information
         });
+        
         if (sectionsData.length !== Sections.length) {
             return res.status(404).json({
                 successful: false,
                 message: "One or more sections not found. Please provide valid section IDs."
             });
         }
+        
+        // Function to get formatted section names
+        const getSectionName = (section) => {
+            return section.Program ? 
+                `${section.Program.Code} - ${section.Year}${section.Section}` : 
+                `Section ID ${section.id}`;
+        };
+        
+        // Create a map of section IDs to section names for easy access
+        const sectionNamesMap = {};
+        sectionsData.forEach(section => {
+            sectionNamesMap[section.id] = getSectionName(section);
+        });
+        
         let totalStudents = 0;
         for (const section of sectionsData) {
             totalStudents += section.NumberOfStudents;
@@ -2179,7 +2208,6 @@ const updateSchedule = async (req, res, next) => {
         const newStartHour = parseInt(Start_time.split(":")[0]);
         // Check if the professor is available during the scheduled time
         const professorId = assignation.Professor.id;
-        console.log(Day);
 
         const professorAvailabilities = await ProfAvail.findAll({
             where: {
@@ -2278,9 +2306,10 @@ const updateSchedule = async (req, res, next) => {
                 sectionScheduleForDay.dailyTimes.push({ start: sectionStart, end: sectionEnd });
             });
             if (!canScheduleStudents(sectionScheduleForDay, newStartHour, updatedScheduleDuration, settings)) {
+                const sectionName = sectionNamesMap[sectionId];
                 return res.status(400).json({
                     successful: false,
-                    message: `Section with ID ${sectionId} cannot be updated at the specified time in ${Semester} semester, as it violates scheduling constraints (overlap or insufficient break between sessions).`
+                    message: `Section ${sectionName} cannot be updated at the specified time in ${Semester} semester, as it violates scheduling constraints (overlap or insufficient break between sessions).`
                 });
             }
 
@@ -2290,7 +2319,8 @@ const updateSchedule = async (req, res, next) => {
                 include: [
                     {
                         model: ProgYrSec,
-                        where: { id: sectionId }
+                        where: { id: sectionId },
+                        through: { attributes: [] } // Excludes join table attributes from results
                     },
                     {
                         model: Assignation,
@@ -2303,18 +2333,22 @@ const updateSchedule = async (req, res, next) => {
                 where: {
                     id: { [Op.ne]: id } // Exclude current schedule
                 }
-            });
+            })
+            
             let scheduledHours = 0;
             existingSectionSchedules.forEach(sched => {
                 const schedStart = timeToSeconds(sched.Start_time);
                 const schedEnd = timeToSeconds(sched.End_time);
                 scheduledHours += (schedEnd - schedStart) / 3600;
+                
             });
             if (scheduledHours + updatedScheduleDuration > courseTotalDuration) {
-                const remainingHours = courseTotalDuration - scheduledHours;
+                const remainingHours = courseTotalDuration-scheduledHours
+                const sectionName = sectionNamesMap[sectionId];
+                
                 return res.status(400).json({
                     successful: false,
-                    message: `For section with ID ${sectionId} in ${Semester} semester, adding ${updatedScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
+                    message: `For section ${sectionName} in ${Semester} semester, adding ${updatedScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
                 });
             }
             // NEW VALIDATION: Check if the section is already scheduled for this course with a different professor
@@ -2340,9 +2374,10 @@ const updateSchedule = async (req, res, next) => {
             if (existingCourseSchedules.length > 0) {
                 // Found schedules where this section is taking this course with a different professor
                 const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
+                const sectionName = sectionNamesMap[sectionId];
                 return res.status(400).json({
                     successful: false,
-                    message: `Section ${sectionId} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
+                    message: `Section ${sectionName} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
                 });
             }
 
@@ -2397,10 +2432,11 @@ const updateSchedule = async (req, res, next) => {
                     if (relatedProfessorId !== assignation.Professor.id) {
                         const currentComponent = isLabCourse ? "lab" : "lecture";
                         const relatedComponent = isLabCourse ? "lecture" : "lab";
+                        const sectionName = sectionNamesMap[sectionId];
                         
                         return res.status(400).json({
                             successful: false,
-                            message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionId}. Both components must be taught by the same professor.`
+                            message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionName}. Both components must be taught by the same professor.`
                         });
                     }
                 }
@@ -2436,14 +2472,13 @@ const updateSchedule = async (req, res, next) => {
                 return (newStartSec < existingEnd && newEndSec > existingStart);
             });
             if (conflictingSchedules.length > 0) {
+                const sectionName = sectionNamesMap[section];
                 return res.status(400).json({
                     successful: false,
-                    message: `Schedule conflict detected: Section with ID ${section} already has a schedule on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester.`
+                    message: `Schedule conflict detected: Section ${sectionName} already has a schedule on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester.`
                 });
             }
         }
-
-        
 
         // ******************** Update the Schedule and Associations ********************
 
