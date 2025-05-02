@@ -2057,7 +2057,7 @@ const updateSchedule = async (req, res, next) => {
         }
 
         // Validate the semester matches the assignation's semester
-        if (assignation.Semester !== Semester) {
+        if (assignation.Semester != Semester) {
             return res.status(400).json({
                 successful: false,
                 message: `Semester mismatch: Schedule is for ${Semester} but Assignation is for ${assignation.Semester}.`
