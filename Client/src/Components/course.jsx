@@ -253,7 +253,7 @@ const CourseManagement = () => {
                   {showFilters && (
                     <div className="absolute right-0 mt-2 rounded bg-white shadow-xl z-10 w-64">
                       <div className="p-4 space-y-3">
-                        <div>
+                        {/* <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Year Level</label>
                           <select
                             value={yearFilter}
@@ -269,7 +269,7 @@ const CourseManagement = () => {
                               </option>
                             ))}
                           </select>
-                        </div>
+                        </div> */}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Course Type</label>
                           <select
