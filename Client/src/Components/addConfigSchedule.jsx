@@ -3,7 +3,6 @@ import ScheduleReportModal from '../Components/callComponents/scheduleReport.jsx
 import ScheduleVariantModal from '../Components/callComponents/variantSelectHandler.jsx';
 import ProfAvailabilityModal from '../Components/callComponents/miniProfAvailabilityModal.jsx';
 import axios from '../axiosConfig.js';
-import bg from './Img/bg.jpg';
 import delBtn from './Img/delBtn.png';
 import editBtn from './Img/editBtn.png';
 import TopMenu from "./callComponents/topMenu.jsx";
@@ -14,7 +13,7 @@ import { useAuth } from '../Components/authContext.jsx';
 import lock from './Img/lock.svg';
 import unlock from './Img/unlock.svg';
 import { useNavigate } from 'react-router-dom';
-import { Home, Users, BookOpen, Settings} from 'lucide-react'
+import { Home, Users, BookOpen, Settings } from 'lucide-react'
 import SettingsModal from './settings.jsx'
 import DeleteConfirmationModal from './callComponents/deleteConfirmationModal.jsx';
 
@@ -23,11 +22,8 @@ const AddConfigSchedule = () => {
   const deptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
-
-  // first 2 are for report modal
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportData, setReportData] = useState(null);
-  // new automate
   const navigate = useNavigate();
   const [activeMode, setActiveMode] = useState('manual');
   const [scheduleVariants, setScheduleVariants] = useState([]);
@@ -65,7 +61,6 @@ const AddConfigSchedule = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const openSettingsModal = () => setIsSettingsOpen(true);
   const closeSettingsModal = () => setIsSettingsOpen(false);
-
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
 
   const uniqueSemesters = useMemo(() => {
@@ -96,7 +91,6 @@ const AddConfigSchedule = () => {
 
   const toggleMode = (mode) => {
     setActiveMode(mode);
-    // Reset forms or specific state values when switching modes
     if (mode === 'manual') {
       // Reset automation-specific state if needed
     } else {
@@ -109,22 +103,16 @@ const AddConfigSchedule = () => {
       <div className="mb-4 border-b pb-4">
         <p className="text-sm font-medium text-gray-700 mb-2">Scheduling Mode</p>
         <div className="flex w-full border rounded-lg overflow-hidden">
-          <button
-            onClick={() => toggleMode('manual')}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              activeMode === 'manual'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          <button onClick={() => toggleMode('manual')} className={`flex-1 py-2 text-sm font-medium transition-colors ${activeMode === 'manual'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
             Manual Scheduling
           </button>
-          <button
-            onClick={() => toggleMode('automation')}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              activeMode === 'automation'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          <button onClick={() => toggleMode('automation')} className={`flex-1 py-2 text-sm font-medium transition-colors ${activeMode === 'automation'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
             Automation
@@ -138,7 +126,7 @@ const AddConfigSchedule = () => {
     if (!typeRooms) return '';
     return typeRooms.map(item => item.Type).join(', ')
   };
-  
+
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => setNotification(null), 5000);
@@ -146,8 +134,8 @@ const AddConfigSchedule = () => {
     }
   }, [notification]);
 
-const [semesterData, setSemesterData] = useState({});
-const [currentAssignations, setCurrentAssignations] = useState([]);
+  const [semesterData, setSemesterData] = useState({});
+  const [currentAssignations, setCurrentAssignations] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,7 +151,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
 
         try {
           const roomsRes = await axios.get(`/room/getRoomsByDept/${deptId}`);
-  
+
           if (roomsRes.data.successful) {
             setRooms(roomsRes.data.data);
           } else {
@@ -185,7 +173,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
 
         try {
           const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
-        
+
           if (assignationsRes.data.successful) {
             const assignationsData = assignationsRes.data.data;
             setAssignations(assignationsData);
@@ -197,20 +185,20 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
               }
               semesterMap[a.Semester].push(a);
             });
-        
+
             const semesters = [...new Set(assignationsData.map(a => a.Semester))].sort((a, b) => a - b);
-        
+
             setSemesterData(semesterMap);
             setSemesters(semesters);
-        
+
             if (selectedSemester && semesterMap[selectedSemester]) {
               setCurrentAssignations(semesterMap[selectedSemester]);
             } else {
               setCurrentAssignations([]);
             }
-            
+
             console.log("Semester data organized:", semesterMap);
-        
+
             console.log("Semester data organized:", semesterMap);
           } else {
             console.error("Failed to fetch assignations:", assignationsRes.data.message);
@@ -235,7 +223,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           console.error("Error fetching professors:", profError);
           setProfessors([]);
         }
-  
+
       } catch (error) {
         console.error("General error fetching data:", error);
         setNotification({
@@ -244,19 +232,19 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         });
       }
     };
-  
+
     fetchData();
-  
+
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [deptId]);
-  
+
 
   useEffect(() => {
     console.log("Semester changed to:", selectedSemester);
     console.log("Current assignations:", assignations);
-    
+
     if (!selectedSemester) {
       setFilteredAssignations([]);
       return;
@@ -267,13 +255,12 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
     } else {
       setFilteredAssignations([]);
     }
-  
+
     if (formData.room_id) {
       fetchSchedulesForRoom(formData.room_id);
     }
   }, [selectedSemester, semesterData, formData.room_id]);
 
-  // API handlers
   const fetchSchedulesForRoom = (roomId) => {
     if (!roomId || !selectedSemester) {
       setSchedules([]);
@@ -312,7 +299,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         console.error("Error storing value in sessionStorage:", error);
       }
     }, [key, value]);
-  
+
     return [value, setValue];
   }
 
@@ -545,7 +532,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-  
+
     if (name === "room_id" && value) fetchSchedulesForRoom(value);
   };
 
@@ -698,7 +685,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
 
     const sections = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
       ? schedule.ProgYrSecs
-        .filter(sec => sec && sec.Program) // Filter out entries with missing data
+        .filter(sec => sec && sec.Program)
         .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
         .join(', ')
       : 'No sections';
@@ -724,13 +711,10 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
               </div>
               <div className="flex">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleLockStatus(schedule.id, schedule.isLocked);
-                  }}
-                  className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors"
-                  title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  toggleLockStatus(schedule.id, schedule.isLocked);
+                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors" title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
                 >
                   <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
                 </button>
@@ -778,10 +762,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             {event.Assignation?.Course?.Code} - {event.Assignation?.Course?.Description}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => toggleLockStatus(event.id, event.isLocked)}
-              className="p-1 hover:bg-blue-100 rounded-full transition-colors"
-              title={event.isLocked ? "Unlock schedule" : "Lock schedule"}
+            <button onClick={() => toggleLockStatus(event.id, event.isLocked)} className="p-1 hover:bg-blue-100 rounded-full transition-colors" title={event.isLocked ? "Unlock schedule" : "Lock schedule"}
             >
               <img src={event.isLocked ? lock : unlock} alt={event.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
             </button>
@@ -821,12 +802,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         <div className="p-2 border border-gray-300 rounded-lg bg-white">
           {availableSections.map(section => (
             <div key={section.id} className="mb-1 flex items-center">
-              <input
-                type="checkbox"
-                id={section.id}
-                value={section.id}
-                checked={selectedSections.includes(section.id)}
-                onChange={handleSectionChange}
+              <input type="checkbox" id={section.id} value={section.id} checked={selectedSections.includes(section.id)} onChange={handleSectionChange}
                 className="w-auto h-auto text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
               />
               <label htmlFor={section.id} className="ml-2 text-xs sm:text-sm text-gray-700 cursor-pointer">
@@ -855,17 +831,11 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
         {formData.room_id && schedules.length > 0 && (
           <div className="mb-4">
             <div className="flex gap-10 mb-5">
-              <button
-                onClick={() => handleToggleLockAllSchedules(true)}
-                className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-                disabled={activeMode !== 'automation'}
+              <button onClick={() => handleToggleLockAllSchedules(true)} className="flex flex-1 justify-center bg-amber-600 hover:bg-amber-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors" disabled={activeMode !== 'automation'}
               >
                 Lock All
               </button>
-              <button
-                onClick={() => handleToggleLockAllSchedules(false)}
-                className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors"
-                disabled={activeMode !== 'automation'}
+              <button onClick={() => handleToggleLockAllSchedules(false)} className="flex flex-1 justify-center bg-blue-500 hover:bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors" disabled={activeMode !== 'automation'}
               >
                 Unlock All
               </button>
@@ -880,41 +850,25 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           </button>
           </div>
         )}
-  
+
         <p className="text-sm font-medium text-gray-700 mb-2">Schedule Automation</p>
-  
+
         <div className="mb-3">
           <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
           <div className="flex gap-4">
             <div className="flex items-center">
-              <input
-                type="radio"
-                id="room-automation"
-                name="automate-type"
-                value="room"
-                checked={automateType === 'room'}
-                onChange={() => setAutomateType('room')}
-                className="mr-2"
-                disabled={activeMode !== 'automation'}
+              <input type="radio" id="room-automation" name="automate-type" value="room" checked={automateType === 'room'} onChange={() => setAutomateType('room')} className="mr-2" disabled={activeMode !== 'automation'}
               />
               <label htmlFor="room-automation" className="text-xs sm:text-sm text-gray-700">Single Room</label>
             </div>
             <div className="flex items-center">
-              <input
-                type="radio"
-                id="all-automation"
-                name="automate-type"
-                value="all"
-                checked={automateType === 'all'}
-                onChange={() => setAutomateType('all')}
-                className="mr-2"
-                disabled={activeMode !== 'automation'}
+              <input type="radio" id="all-automation" name="automate-type" value="all" checked={automateType === 'all'} onChange={() => setAutomateType('all')} className="mr-2" disabled={activeMode !== 'automation'}
               />
               <label htmlFor="all-automation" className="text-xs sm:text-sm text-gray-700">All Department Rooms</label>
             </div>
           </div>
         </div>
-  
+
         {automateType === 'room' && (
           <div className="mb-3">
             <p className="text-xs text-gray-500 mb-1">Selected room will be used for automation</p>
@@ -923,15 +877,11 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             )}
           </div>
         )}
-  
+
         <div className="mb-3">
           <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Professors (Optional):</label>
           <div className="flex items-center gap-2">
-            <select
-              value={newPriorityProfessor}
-              onChange={(e) => setNewPriorityProfessor(e.target.value)}
-              className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={activeMode !== 'automation'}
+            <select value={newPriorityProfessor} onChange={(e) => setNewPriorityProfessor(e.target.value)} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={activeMode !== 'automation'}
             >
               <option value="">Select Professor</option>
               {professors.map(prof => (
@@ -940,10 +890,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 </option>
               ))}
             </select>
-            <button 
-              onClick={handleAddPriorityProfessor} 
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded"
-              disabled={activeMode !== 'automation'}
+            <button onClick={handleAddPriorityProfessor} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded" disabled={activeMode !== 'automation'}
             >
               Add
             </button>
@@ -955,10 +902,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 return (
                   <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
                     <span>{prof ? `${prof.Name}` : id}</span>
-                    <button 
-                      onClick={() => handleRemovePriorityProfessor(id)} 
-                      className="text-red-600 hover:text-red-800"
-                      disabled={activeMode !== 'automation'}>
+                    <button onClick={() => handleRemovePriorityProfessor(id)} className="text-red-600 hover:text-red-800" disabled={activeMode !== 'automation'}>
                       Remove
                     </button>
                   </li>
@@ -967,15 +911,11 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             </ul>
           )}
         </div>
-  
+
         <div className="mb-3">
           <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Priority Rooms (Optional):</label>
           <div className="flex items-center gap-2">
-            <select
-              value={newPriorityRoom}
-              onChange={(e) => setNewPriorityRoom(e.target.value)}
-              className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={activeMode !== 'automation'}
+            <select value={newPriorityRoom} onChange={(e) => setNewPriorityRoom(e.target.value)} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={activeMode !== 'automation'}
             >
               <option value="">Select Room</option>
               {rooms.map(room => (
@@ -984,10 +924,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 </option>
               ))}
             </select>
-            <button 
-              onClick={handleAddPriorityRoom} 
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded"
-              disabled={activeMode !== 'automation'}>
+            <button onClick={handleAddPriorityRoom} className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-3 py-1 rounded" disabled={activeMode !== 'automation'}>
               Add
             </button>
           </div>
@@ -998,10 +935,7 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 return (
                   <li key={id} className="flex justify-between items-center bg-blue-100 px-2 py-1 rounded text-xs">
                     <span>{room ? `${room.Code} - ${room.Building}${room.TypeRooms ? ` (${typeof room.TypeRooms === 'object' ? room.TypeRooms.Type : room.TypeRooms})` : ''}` : id}</span>
-                    <button 
-                      onClick={() => handleRemovePriorityRoom(id)} 
-                      className="text-red-600 hover:text-red-800"
-                      disabled={activeMode !== 'automation'}
+                    <button onClick={() => handleRemovePriorityRoom(id)} className="text-red-600 hover:text-red-800" disabled={activeMode !== 'automation'}
                     >
                       Remove
                     </button>
@@ -1011,14 +945,10 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
             </ul>
           )}
         </div>
-  
-        <button
-          onClick={handleAutomateSchedule}
-          disabled={isAutomating || (automateType === 'room' && !formData.room_id) || activeMode !== 'automation'}
-          className={`flex flex-1 justify-center mt-2 ${
-            automateType === 'room' && !formData.room_id || activeMode !== 'automation' 
-              ? 'bg-gray-400' 
-              : 'bg-green-600 hover:bg-green-700'
+
+        <button onClick={handleAutomateSchedule} disabled={isAutomating || (automateType === 'room' && !formData.room_id) || activeMode !== 'automation'} className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id || activeMode !== 'automation'
+          ? 'bg-gray-400'
+          : 'bg-green-600 hover:bg-green-700'
           } text-white px-4 py-2 rounded-lg transition-colors`}
         >
           {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
@@ -1035,49 +965,41 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
       <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <div className="container mx-auto my-50 sm:px-4 sm:pt-54 pb-6 sm:pb-10 flex-1 flex justify-center items-center">
         <div className="bg-gray-100 rounded-lg sm:rounded-xl shadow-lg sm:shadow-xl overflow-hidden w-full max-w-full">
-        <div className="bg-blue-600 p-3 sm:p-5 flex justify-between items-center">
-        <div>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Add/Configure Schedule</h1>
-          <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Create and manage class schedules</p>
-        </div>
-        
-        <div className="flex flex-row gap-6 items-center mt-16">
-          <h5 className='text-white font-semibold'>Reports:</h5>
-          <button 
-            onClick={() => navigate('/roomTimetable')}
-            className="px-10 py-6 rounded-full text-sm font-medium transition-colors bg-blue-800 text-white hover:bg-blue-500"
-          >
-            <span className="flex items-center gap-1">
-              <Home size={16} />
-              Room
-            </span>
-          </button>
-          <button 
-            onClick={() => navigate('/profTimetable')}
-            className="px-8 py-6 rounded-full text-sm font-medium transition-colors bg-blue-800 text-white hover:bg-blue-500"
-          >
-            <span className="flex items-center gap-1">
-              <Users size={16} />
-              Professor
-            </span>
-          </button>
-          <button 
-            onClick={() => navigate('/sectionTimetable')}
-            className="px-8 py-6 rounded-full text-sm font-medium transition-colors bg-blue-800 text-white hover:bg-blue-500"
-          >
-            <span className="flex items-center gap-1">
-              <BookOpen size={16} />
-              Section
-            </span>
-          </button>
-          <button 
-          onClick={openSettingsModal}
-          className="text-xl transition text-white"
-          >
-            <Settings size={20} />
-            </button>
-        </div>
-      </div>
+          <div className="bg-blue-600 p-3 sm:p-5 flex justify-between items-center">
+            <div>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white ml-4">Add/Configure Schedule</h1>
+              <p className="text-blue-100 mt-1 text-md sm:text-sm ml-4">Create and manage class schedules</p>
+            </div>
+
+            <div className="flex flex-row gap-6 items-center mt-16">
+              <h5 className='text-white font-semibold'>Reports:</h5>
+              <button onClick={() => navigate('/roomTimetable')} className="px-10 py-6 rounded-full text-sm font-medium transition-colors bg-blue-800 text-white hover:bg-blue-500"
+              >
+                <span className="flex items-center gap-1">
+                  <Home size={16} />
+                  Room
+                </span>
+              </button>
+              <button onClick={() => navigate('/profTimetable')} className="px-8 py-6 rounded-full text-sm font-medium transition-colors bg-blue-800 text-white hover:bg-blue-500"
+              >
+                <span className="flex items-center gap-1">
+                  <Users size={16} />
+                  Professor
+                </span>
+              </button>
+              <button onClick={() => navigate('/sectionTimetable')} className="px-8 py-6 rounded-full text-sm font-medium transition-colors bg-blue-800 text-white hover:bg-blue-500"
+              >
+                <span className="flex items-center gap-1">
+                  <BookOpen size={16} />
+                  Section
+                </span>
+              </button>
+              <button onClick={openSettingsModal} className="text-xl transition text-white"
+              >
+                <Settings size={20} />
+              </button>
+            </div>
+          </div>
           {notification && (
             <div className={`mx-4 my-4 p-3 rounded-lg text-sm font-medium border ${notification.type === 'error' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
               {notification.message}
@@ -1087,13 +1009,10 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           <div className="flex flex-col lg:flex-row ml-2 p-2">
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
-              {renderModeToggle()}
+                {renderModeToggle()}
                 <div className="flex items-center mt-2">
                   {formData.professorId && formData.professorName && (
-                    <button
-                      type="button"
-                      onClick={() => handleCheckAvailability(formData.professorId)}
-                      className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+                    <button type="button" onClick={() => handleCheckAvailability(formData.professorId)} className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mr-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1119,27 +1038,18 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                 </select>
 
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-                <select
-                name="room_id"
-                value={formData.room_id}
-                onChange={handleInputChange}
-                className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Room</option>
-                {rooms.map(room => (
-                  <option key={room.id} value={room.id}>
-                    {room.Code} - {room.Building} {room.Floor} (Type: {safeRenderRoomType(room.TypeRooms)})
-                  </option>
-                ))}
-              </select>
+                <select name="room_id" value={formData.room_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Room</option>
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>
+                      {room.Code} - {room.Building} {room.Floor} (Type: {safeRenderRoomType(room.TypeRooms)})
+                    </option>
+                  ))}
+                </select>
 
                 <label className={`block text-xs sm:text-sm font-medium mb-1 ${!selectedSemester ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
-                <select
-                  name="assignation_id"
-                  value={formData.assignation_id}
-                  onChange={handleInputChange}
-                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSemester ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                  disabled={activeMode !== 'manual'}
+                <select name="assignation_id" value={formData.assignation_id} onChange={handleInputChange} className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSemester ? 'bg-gray-100 cursor-not-allowed' : ''}`} disabled={activeMode !== 'manual'}
                 >
                   <option value="">Select Assignation</option>
                   {filteredAssignations.map(a => (
@@ -1148,8 +1058,6 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
                     </option>
                   ))}
                 </select>
-
-                {/* {renderSectionsSelect()} */}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
@@ -1266,48 +1174,26 @@ const [currentAssignations, setCurrentAssignations] = useState([]);
           message="Are you sure you want to delete ALL schedules in this department? This action cannot be undone."
         />
 
-      <EditSchedRecordModal
-        isOpen={isEditModalOpen}
-        schedule={selectedSchedule}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedSchedule(null);
-        }}
-        onUpdate={(updatedSchedule) => {
-          // Fetch the updated schedule with all relations after successful update
-          if (formData.room_id) {
-            fetchSchedulesForRoom(formData.room_id);
-          }
-        }}
-        rooms={rooms}
-        assignations={assignations}
-        Semester={selectedSemester}
+      <EditSchedRecordModal isOpen={isEditModalOpen} schedule={selectedSchedule} onClose={() => {
+        setIsEditModalOpen(false);
+        setSelectedSchedule(null);
+      }} onUpdate={(updatedSchedule) => {
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      }} rooms={rooms} assignations={assignations} Semester={selectedSemester}
       />
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        closeSettingsModal={closeSettingsModal}
+      <SettingsModal isOpen={isSettingsOpen} closeSettingsModal={closeSettingsModal}
       />
 
-      <ScheduleReportModal
-        isOpen={isReportOpen}
-        onClose={() => setIsReportOpen(false)}
-        scheduleData={reportData}
+      <ScheduleReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} scheduleData={reportData}
       />
 
-      <ScheduleVariantModal
-        show={showVariantModal}
-        onHide={() => setShowVariantModal(false)}
-        variants={scheduleVariants}
-        loading={isAutomating}
-        onSelectVariant={handleSelectVariant}
-        departmentId={deptId}
+      <ScheduleVariantModal show={showVariantModal} onHide={() => setShowVariantModal(false)} variants={scheduleVariants} loading={isAutomating} onSelectVariant={handleSelectVariant} departmentId={deptId}
       />
 
-      <ProfAvailabilityModal
-        isOpen={isAvailabilityModalOpen}
-        onClose={() => setIsAvailabilityModalOpen(false)}
-        professorId={selectedProfessorId}
+      <ProfAvailabilityModal isOpen={isAvailabilityModalOpen} onClose={() => setIsAvailabilityModalOpen(false)} professorId={selectedProfessorId}
       />
     </div>
   );

@@ -3,9 +3,7 @@ import axios from "../../axiosConfig";
 import { useAuth } from '../authContext';
 
 const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assignations, Semester }) => {
-    
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
     const [formData, setFormData] = useState({
         assignation_id: "",
         room_id: "",
@@ -21,11 +19,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
     const [myDeptSections, setMyDeptSections] = useState([]);
     const [otherDeptSections, setOtherDeptSections] = useState([]);
     const deptId = user.DepartmentId;
-    
-    // Check if user's department matches schedule's department
     const [isDepartmentMatch, setIsDepartmentMatch] = useState(true);
-
-    // Helper function to transform error messages
     const transformErrorMessage = (message) => {
         if (!message) return message;
         let newMessage = message;
@@ -40,7 +34,6 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         return newMessage;
     };
 
-    // Fetch sections for a course (for user's own department schedules)
     const fetchSectionsForCourse = async (courseId) => {
         try {
             const response = await axios.post('/progYrSec/getProgYrSecByCourse', {
@@ -59,7 +52,6 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         }
     };
 
-    // Fetch sections for the user's department (for other department schedules)
     const fetchSectionsForDepartment = async () => {
         try {
             const response = await axios.get(`/progYrSec/getProgYrSecByDept/${deptId}`);
@@ -74,12 +66,10 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         }
     };
 
-    // Initialize and fetch my department sections when component mounts
     useEffect(() => {
         fetchSectionsForDepartment();
     }, [deptId]);
 
-    // Populate form data when the schedule prop changes
     useEffect(() => {
         if (schedule) {
             setFormData({
@@ -90,11 +80,9 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 end_time: schedule.End_time ? schedule.End_time.slice(0, 5) : ""
             });
 
-            // Check if schedule's department matches user's department
             const isMatch = schedule.Assignation?.DepartmentId === deptId;
             setIsDepartmentMatch(isMatch);
 
-            // For own department schedules, fetch sections for the course
             if (isMatch && schedule.AssignationId) {
                 const selectedAssignation = assignations.find(a => a.id === schedule.AssignationId);
                 if (selectedAssignation?.CourseId) {
@@ -102,9 +90,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 }
             }
 
-            // Store other department's sections separately
             if (!isMatch && schedule.ProgYrSecs) {
-                // Filter sections that don't belong to the user's department
                 const otherDeptSecs = schedule.ProgYrSecs.filter(
                     sec => sec.Program.DepartmentId !== deptId
                 );
@@ -113,10 +99,8 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         }
     }, [schedule, assignations, deptId]);
 
-    // Update selected sections when available sections change for own department
     useEffect(() => {
         if (isDepartmentMatch && schedule && schedule.id && availableSections.length > 0) {
-            // Match ProgYrSecs with available sections
             if (schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0) {
                 const matchedSectionIds = availableSections.filter(available =>
                     schedule.ProgYrSecs.some(section =>
@@ -131,10 +115,8 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         }
     }, [availableSections, schedule, isDepartmentMatch]);
 
-    // Update selected sections for other department schedules
     useEffect(() => {
         if (!isDepartmentMatch && schedule && schedule.id && myDeptSections.length > 0) {
-            // Match ProgYrSecs with my department sections
             if (schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0) {
                 const matchedSectionIds = myDeptSections.filter(available =>
                     schedule.ProgYrSecs.some(section =>
@@ -151,20 +133,18 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
     }, [myDeptSections, schedule, isDepartmentMatch, deptId]);
 
     const handleInputChange = (e) => {
-        // Don't allow changes if fields should be disabled
         if (!isDepartmentMatch && e.target.name !== "sections") {
             return;
         }
-        
+
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
-        // If assignation changes, fetch sections for the selected course
         if (name === "assignation_id" && value && isDepartmentMatch) {
             const selectedAssignation = assignations.find(a => a.id === parseInt(value));
             if (selectedAssignation?.CourseId) {
                 fetchSectionsForCourse(selectedAssignation.CourseId);
-                setSelectedSections([]); // Reset section selection when assignation changes
+                setSelectedSections([]);
             }
         }
     };
@@ -187,9 +167,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
 
         try {
             let payload;
-            
-            // Always include all necessary fields regardless of department match
-            // Backend requires these fields to be present, even for other dept schedules
+
             payload = {
                 Day: parseInt(formData.day),
                 Start_time: formData.start_time,
@@ -200,50 +178,46 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 Semester: Semester,
             };
 
-            // Validate form for both cases
             if (selectedSections.length === 0 && isDepartmentMatch) {
                 setError("Please select at least one section.");
                 setTimeout(() => {
                     setError(null);
-                  }, 3000);
+                }, 3000);
                 setLoading(false);
                 return;
             }
 
-            if (!payload.Day || !payload.Start_time || !payload.End_time || 
+            if (!payload.Day || !payload.Start_time || !payload.End_time ||
                 !payload.RoomId || !payload.AssignationId) {
                 setError("Please fill in all fields.");
                 setTimeout(() => {
                     setError(null);
-                  }, 3000);
+                }, 3000);
                 setLoading(false);
                 return;
             }
-            
-            // If department doesn't match, use existing schedule values for fields that shouldn't be modified
+
             if (!isDepartmentMatch) {
                 const otherDeptSectionIds = otherDeptSections.map(s => s.id);
                 payload = {
-                  Day: schedule.Day,
-                  Start_time: schedule.Start_time.slice(0, 5),
-                  End_time: schedule.End_time.slice(0, 5),
-                  RoomId: schedule.RoomId,
-                  AssignationId: schedule.AssignationId,
-                  Semester: Semester,
-                  Sections: [...selectedSections, ...otherDeptSectionIds],
+                    Day: schedule.Day,
+                    Start_time: schedule.Start_time.slice(0, 5),
+                    End_time: schedule.End_time.slice(0, 5),
+                    RoomId: schedule.RoomId,
+                    AssignationId: schedule.AssignationId,
+                    Semester: Semester,
+                    Sections: [...selectedSections, ...otherDeptSectionIds],
                 };
-              }
+            }
 
             const response = await axios.put(`/schedule/updateSchedule/${schedule.id}`, payload);
 
             if (response.data.successful) {
-                // Fetch the updated schedule to get the complete data with sections
                 const updatedResponse = await axios.get(`/schedule/getSchedule/${schedule.id}`);
                 if (updatedResponse.data.successful) {
                     onUpdate(updatedResponse.data.data);
                     onClose();
                 } else {
-                    // Fall back to updating with the original payload if fetch fails
                     const updatedSchedule = { ...schedule, ...payload };
                     onUpdate(updatedSchedule);
                     onClose();
@@ -252,14 +226,14 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 setError(transformErrorMessage(response.data.message || "Failed to update schedule."));
                 setTimeout(() => {
                     setError(null);
-                  }, 3000);
+                }, 3000);
             }
         } catch (err) {
             console.error("Error updating schedule:", err);
             setError(transformErrorMessage(err.response?.data?.message || err.message || "An error occurred."));
             setTimeout(() => {
                 setError(null);
-              }, 3000);
+            }, 3000);
         } finally {
             setLoading(false);
         }
@@ -271,8 +245,6 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div className="bg-white rounded-lg shadow-lg w-11/12 max-w-md p-10">
                 <h2 className="text-xl font-semibold mb-4">Edit Schedule Record</h2>
-                
-                {/* Display schedule information for different department */}
                 {!isDepartmentMatch && schedule?.Assignation && (
                     <div className="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200">
                         <p className="text-sm font-medium text-gray-700">Different Department Schedule:</p>
@@ -290,20 +262,20 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                         </p>
                     </div>
                 )}
-                
+
                 {!isDepartmentMatch && (
                     <div className="mb-4 text-sm text-amber-600 bg-amber-50 p-2 rounded">
                         This schedule belongs to a different department. You can only add or remove sections from your department.
                         The existing sections from other departments will be preserved.
                     </div>
                 )}
-                
+
                 {error && (
                     <div className="mb-4 text-sm text-red-600">
                         {typeof error === "object" ? JSON.stringify(error) : error}
                     </div>
                 )}
-                
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Room Dropdown - Only if same department */}
                     {isDepartmentMatch && (
@@ -314,7 +286,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                                 value={formData.room_id}
                                 onChange={handleInputChange}
                                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-                                required
+                                disabled
                             >
                                 <option value="">Select Room</option>
                                 {rooms.map(room => (
@@ -335,7 +307,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                                 value={formData.assignation_id}
                                 onChange={handleInputChange}
                                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-                                required
+                                disabled
                             >
                                 <option value="">Select Assignation</option>
                                 {assignations.map(assign => (
@@ -354,21 +326,21 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             <label className="block text-sm font-medium text-gray-700">Sections</label>
                             <div className="mt-1 p-2 border border-gray-300 rounded-md">
                                 <div className="grid grid-cols-3 gap-1">
-                                {availableSections.map(section => (
-                                    <div key={section.id} className="flex items-center mb-1">
-                                        <input
-                                            type="checkbox"
-                                            id={`section-${section.id}`}
-                                            value={section.id}
-                                            checked={selectedSections.includes(section.id)}
-                                            onChange={handleSectionChange}
-                                            className="h-auto w-auto text-blue-600 border-gray-300 rounded"
-                                        />
-                                        <label htmlFor={`section-${section.id}`} className="ml-2 text-sm text-gray-700">
-                                            {section.Program?.Code} {section.Year}-{section.Section}
-                                        </label>
-                                    </div>
-                                ))}
+                                    {availableSections.map(section => (
+                                        <div key={section.id} className="flex items-center mb-1">
+                                            <input
+                                                type="checkbox"
+                                                id={`section-${section.id}`}
+                                                value={section.id}
+                                                checked={selectedSections.includes(section.id)}
+                                                onChange={handleSectionChange}
+                                                className="h-auto w-auto text-blue-600 border-gray-300 rounded"
+                                            />
+                                            <label htmlFor={`section-${section.id}`} className="ml-2 text-sm text-gray-700">
+                                                {section.Program?.Code} {section.Year}-{section.Section}
+                                            </label>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                             <div className="flex justify-end mt-1 text-xs">
@@ -398,21 +370,21 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                             </label>
                             <div className="mt-1 p-2 border border-gray-300 rounded-md">
                                 <div className="grid grid-cols-3 gap-1">
-                                {myDeptSections.map(section => (
-                                    <div key={section.id} className="flex items-center mb-1">
-                                        <input
-                                            type="checkbox"
-                                            id={`section-${section.id}`}
-                                            value={section.id}
-                                            checked={selectedSections.includes(section.id)}
-                                            onChange={handleSectionChange}
-                                            className="h-auto w-auto text-blue-600 border-gray-300 rounded"
-                                        />
-                                        <label htmlFor={`section-${section.id}`} className="ml-2 text-sm text-gray-700">
-                                            {section.Program?.Code} {section.Year}-{section.Section}
-                                        </label>
-                                    </div>
-                                ))}
+                                    {myDeptSections.map(section => (
+                                        <div key={section.id} className="flex items-center mb-1">
+                                            <input
+                                                type="checkbox"
+                                                id={`section-${section.id}`}
+                                                value={section.id}
+                                                checked={selectedSections.includes(section.id)}
+                                                onChange={handleSectionChange}
+                                                className="h-auto w-auto text-blue-600 border-gray-300 rounded"
+                                            />
+                                            <label htmlFor={`section-${section.id}`} className="ml-2 text-sm text-gray-700">
+                                                {section.Program?.Code} {section.Year}-{section.Section}
+                                            </label>
+                                        </div>
+                                    ))}
                                 </div>
                                 {myDeptSections.length === 0 && (
                                     <p className="text-sm text-gray-500 p-2">No sections available for your department.</p>

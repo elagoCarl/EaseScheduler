@@ -62,9 +62,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const MenuItem = ({ label, onClick, hasChildren, isActive, icon: Icon, children }) => (
     <div className="w-full mb-6">
       <button
-      className={`hover:bg-[#787897b6] duration-300 py-6 px-4 rounded w-full flex items-center gap-12 transition-all ${
-        isActive ? 'border-l-4 border-blue-400 bg-gray-700/50' : ''
-      }`}
+        className={`hover:bg-[#787897b6] duration-300 py-6 px-4 rounded w-full flex items-center gap-12 transition-all ${isActive ? 'border-l-4 border-blue-400 bg-gray-700/50' : ''
+          }`}
         onClick={onClick}
       >
         {Icon && <Icon className="w-20 h-20" />}
@@ -91,10 +90,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   return (
     <div ref={sidebarRef}
-    className={`fixed left-0 min-h-screen bg-[#28365c] text-white shadow-lg transform ${
-      isOpen ? 'translate-x-0' : '-translate-x-full'
-    } transition-transform duration-300 w-[260px] z-50 flex flex-col items-center overflow-y-auto`}>
-     
+      className={`fixed left-0 min-h-screen bg-[#28365c] text-white shadow-lg transform ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        } transition-transform duration-300 w-[260px] z-50 flex flex-col items-center overflow-y-auto`}>
+
 
       {/* User Profile Section */}
       <div className="flex items-center text-center justify-center p-12 absolute top-120 w-full border-b-2 border-white/80">
@@ -109,8 +107,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
       {/* Navigation Menu */}
       <div className="flex flex-col w-full py-240 px-3 overflow-y-auto">
-        <MenuItem 
-          label="Home" 
+        <MenuItem
+          label="Home"
           icon={Home}
           onClick={() => {
             navigate('/homePage');
@@ -140,9 +138,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             onClick={() => toggleSubContent('Timetables')}
           >
             <div
-              className={`space-y-5 overflow-hidden transition-all duration-300 ${
-                activeSection === 'Timetables' ? 'max-h-screen py-5' : 'max-h-0'
-              }`}
+              className={`space-y-5 overflow-hidden transition-all duration-300 ${activeSection === 'Timetables' ? 'max-h-screen py-5' : 'max-h-0'
+                }`}
             >
               <SubMenuItem
                 label="Add/Configure Timetables"
@@ -176,56 +173,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           </MenuItem>
         )}
 
-        {/* Professors Section */}
+        {/* Professor Management - No dropdown, direct link */}
         <MenuItem
-          label="Professors"
+          label="Professor Management"
           icon={Users}
-          hasChildren={true}
-          isActive={activeSection === 'professors'}
-          onClick={() => toggleSubContent('professors')}
-        >
-          <div
-            className={`space-y-5 overflow-hidden transition-all duration-300 ${
-              activeSection === 'professors' ? 'max-h-screen py-5' : 'max-h-0'
-            }`}
-          >
-            <SubMenuItem
-              label="Add/Configure Professors"
-              onClick={() => {
-                navigate('/professor');
-                toggleSidebar(false);
-              }}
-            />
-            <SubMenuItem
-              label="Professor Availability"
-              onClick={() => {
-                navigate('/profAvailability');
-                toggleSidebar(false);
-              }}
-            />
-            {/* Professor Assignations - Admin cannot access */}
-            {isNonAdmin && (
-              <SubMenuItem
-                label="Professor Assignations"
-                onClick={() => {
-                  navigate('/assignationsCourseProf');
-                  toggleSidebar(false);
-                }}
-              />
-            )}
-            <SubMenuItem
-              label="Professor Status"
-              onClick={() => {
-                navigate('/profStatus');
-                toggleSidebar(false);
-              }}
-            />
-          </div>
-        </MenuItem>
+          onClick={() => {
+            navigate('/professorManagement');
+            toggleSidebar(false);
+          }}
+        />
 
         {/* Rooms Section */}
         <MenuItem
-          label="Rooms"
+          label="Room Management"
           icon={Building2}
           onClick={() => {
             navigate('/room');
@@ -236,7 +196,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {/* Courses Section - Admin cannot access */}
         {isNonAdmin && (
           <MenuItem
-            label="Courses"
+            label="Course Management"
             icon={BookOpen}
             onClick={() => {
               navigate('/course');
@@ -254,9 +214,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           onClick={() => toggleSubContent('deptProg')}
         >
           <div
-            className={`space-y-5 overflow-hidden transition-all duration-300 ${
-              activeSection === 'deptProg' ? 'max-h-screen py-5' : 'max-h-0'
-            }`}
+            className={`space-y-5 overflow-hidden transition-all duration-300 ${activeSection === 'deptProg' ? 'max-h-screen py-5' : 'max-h-0'
+              }`}
           >
             {/* Admin-only access to Manage Depts & Programs */}
             {isAdmin && (
@@ -280,16 +239,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               />
             )}
 
-            {/* Course & Program - Admin cannot access */}
-            {isNonAdmin && (
-              <SubMenuItem
-                label="Course & Program"
-                onClick={() => {
-                  navigate('/courseProg');
-                  toggleSidebar(false);
-                }}
-              />
-            )}
+            {/* Course & Program - Removed as requested */}
           </div>
         </MenuItem>
 
@@ -302,9 +252,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           onClick={() => toggleSubContent('account')}
         >
           <div
-            className={`space-y-5 overflow-hidden transition-all duration-300 ${
-              activeSection === 'account' ? 'max-h-screen py-5' : 'max-h-0'
-            }`}
+            className={`space-y-5 overflow-hidden transition-all duration-300 ${activeSection === 'account' ? 'max-h-screen py-5' : 'max-h-0'
+              }`}
           >
             <SubMenuItem
               label="Account Settings"

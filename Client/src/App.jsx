@@ -14,14 +14,12 @@ import RoomTimetable from "./Components/roomTimetable";
 import ProfTimetable from "./Components/profTimetable";
 import SectionTimetable from "./Components/sectionTimetable";
 import AccountList from "./Components/accountList";
-import AssignationsCourseProf from "./Components/assignationsCourseProf";
 import Page404 from "./Components/page404";
 import Page403 from "./Components/page403";
 import { AuthProvider } from "./Components/authContext";
 import ProtectedRoute from "./Components/protectedRoute";
 import DeptProg from "./Components/deptProg";
 import ProgYrSec from "./Components/progYrSec";
-import CourseProg from "./Components/courseProg";
 import Settings from "./Components/settings"
 import ProfessorManagement from "./Components/professorManagement";
 
@@ -52,10 +50,8 @@ const App = () => {
             <Route path="/profTimetable" element={<ProfTimetable />} />
             <Route path="/sectionTimetable" element={<SectionTimetable />} />
             <Route path="/accountList" element={<AccountList />} />
-            <Route path="/assignationsCourseProf" element={<AssignationsCourseProf />} />
             <Route path="/deptProg" element={<DeptProg />} />
             <Route path="/progYrSec" element={<ProgYrSec />} />
-            <Route path="/courseProg" element={<CourseProg />} />
 
             {/* ERROR handling routes */}
             <Route path="*" element={<Page404 />} />
