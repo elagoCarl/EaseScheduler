@@ -239,7 +239,7 @@ const HomePage = () => {
         <div className='w-fit m-auto'>
           <section>
             <div className='relative pt-4 mx-auto'>
-              <div className='grid grid-cols-2 sm:grid-cols-3 gap-15 mt-30'>
+              <div className='grid lg:grid-cols-2 sm:grid-cols-3 gap-15 mt-30'>
                 {/* Timetables Card - Disabled for Admin */}
                 <button
                   className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
@@ -249,7 +249,7 @@ const HomePage = () => {
                   onClick={() => !isAdmin && openModal('Timetables')}
                   disabled={isAdmin}
                 >
-                  <Calendar className="h-70 w-70 md:h-100 md:w-100" />
+                  <Calendar className="h-70 w-70 md:h-100 md:w-100 text-white" />
                   <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
                     Timetables
                   </span>
@@ -260,7 +260,7 @@ const HomePage = () => {
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                   onClick={() => navigate('/professorManagement')}
                 >
-                  <Users className="h-70 w-70 md:h-100 md:w-100" />
+                  <Users className="h-70 w-70 md:h-100 md:w-100 text-white" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Professor Management
                   </span>
@@ -271,7 +271,7 @@ const HomePage = () => {
                   onClick={() => navigate('/room')}
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <Building2 className="h-70 w-70 md:h-100 md:w-100" />
+                  <Building2 className="h-70 w-70 md:h-100 md:w-100 text-white" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Room Management
                   </span>
@@ -286,7 +286,7 @@ const HomePage = () => {
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
                 >
-                  <BookOpen className={`h-70 w-70 md:h-100 md:w-100 ${isAdmin ? 'opacity-50' : ''}`} />
+                  <BookOpen className={`h-70 w-70 md:h-100 md:w-100 text-white ${isAdmin ? 'opacity-50' : ''}`} />
                   <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
                     Course Management
                   </span>
@@ -297,7 +297,7 @@ const HomePage = () => {
                   onClick={() => openModal('DeptProg')}
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <Layers className="h-70 w-70 md:h-100 md:w-100" />
+                  <Layers className="h-70 w-70 md:h-100 md:w-100 text-white" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Depts & Programs
                   </span>
@@ -308,7 +308,7 @@ const HomePage = () => {
                   onClick={() => openModal('Account')}
                   className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <UserCog className="h-70 w-70 md:h-100 md:w-100" />
+                  <UserCog className="h-70 w-70 md:h-100 md:w-100 text-white" />
                   <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Account
                   </span>
