@@ -273,7 +273,7 @@ const Room = () => {
           </div>
 
           {/* Search and Filter */}
-          <div className="bg-white p-4 rounded shadow-md mb-6">
+          <div className="bg-white p-12 rounded shadow-md mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-grow">
                 <input
@@ -308,7 +308,7 @@ const Room = () => {
                   </button>
 
                   {showFilters && (
-                    <div className="absolute right-0 rounded bg-white shadow-xl w-120">
+                    <div className="absolute right-0 rounded bg-gray-100 shadow-xl w-120">
                       <div className="p-4 space-y-3 w-120">
                         {isAdmin && (
                           <div>
@@ -393,7 +393,7 @@ const Room = () => {
           </div>
 
           {/* Room Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 p-3 mt-10">
             {currentRooms.length > 0 ? (
               currentRooms.map(room => (
                 <div key={room.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">

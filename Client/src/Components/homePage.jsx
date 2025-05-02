@@ -62,7 +62,6 @@ const HomePage = () => {
 
   const openModal = (content) => {
     if (isAdmin && content === 'Timetables') {
-      // Don't open modal if admin tries to access timetables
       return;
     }
     setModalContent(content);
@@ -135,7 +134,6 @@ const HomePage = () => {
     }
   };
 
-  // Helper function to render department info
   const renderDepartmentInfo = () => {
     if (!user) return 'Department';
     if (!departmentLoaded) return 'Loading department...';

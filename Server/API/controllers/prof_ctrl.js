@@ -103,7 +103,7 @@ const getAllProf = async (req, res, next) => {
                 model: ProfStatus,  // Include ProfStatus relation
                 // attributes: ['Status'] // Fetch only the Status column
             },
-            order: [['Name', 'ASC']]
+            order: [['createdAt', 'DESC']]
         });
 
         if (!professors || professors.length === 0) {
@@ -213,6 +213,12 @@ const deleteProf = async (req, res, next) => {
         const details = `Deleted Professor record for: ${professor.Name}`;
 
         await addHistoryLog(accountId, page, details);
+
+        await Assignation.destroy({
+            where: {
+                ProfessorId: req.params.id
+            }
+        });
 
         // Delete the professor record
         const deleteProf = await Professor.destroy({

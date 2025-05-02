@@ -471,20 +471,44 @@ if (!validProgYrSecs.length) {
             }
         }
 
-        // --- 2) Build the candidate room list, enforcing RoomType === assignation.RoomType ---
-        // build two lists: prioritized, then the rest
-        const prioritizedList = priorities?.room
-            ? rooms.filter(r => priorities.room.includes(r.id))
-            : [];
-        const fallbackList = priorities?.room
-            ? rooms.filter(r => !priorities.room.includes(r.id))
-            : rooms;
+// --- 2) Build the candidate room list, enforcing RoomType === assignation.RoomType ---
+// build two lists: prioritized, then the rest
+const prioritizedList = priorities?.room
+    ? rooms.filter(r => priorities.room.includes(r.id))
+    : [];
+const fallbackList = priorities?.room
+    ? rooms.filter(r => !priorities.room.includes(r.id))
+    : rooms;
 
-        // Combine room lists
-        let roomsToTry = [
-            ...prioritizedList,
-            ...fallbackList
-        ].filter(r => r.RoomTypeId === assignation.RoomTypeId);
+// Combine room lists
+let roomsToTry = [
+    ...prioritizedList,
+    ...fallbackList
+].filter(r => r.RoomTypeId === assignation.RoomTypeId);
+
+// Further sort rooms by moving "lec" to the end
+roomsToTry.sort((a, b) => {
+    // Get room types from roomCache
+    const aRoomTypes = roomCache[a.id]?.RoomTypeIds || [];
+    const bRoomTypes = roomCache[b.id]?.RoomTypeIds || [];
+    
+    // Check for "lec" room type in the cached data
+    const aHasLecType = aRoomTypes.some(typeId => {
+        // Get the room type object
+        const roomTypeObj = a.TypeRooms?.find(rt => rt.id === typeId);
+        return roomTypeObj && roomTypeObj.Name?.toLowerCase().includes('lec');
+    });
+    
+    const bHasLecType = bRoomTypes.some(typeId => {
+        const roomTypeObj = b.TypeRooms?.find(rt => rt.id === typeId);
+        return roomTypeObj && roomTypeObj.Name?.toLowerCase().includes('lec');
+    });
+    
+    // If only one has "lec" type, put it last
+    if (aHasLecType && !bHasLecType) return 1;
+    if (!aHasLecType && bHasLecType) return -1;
+    return 0;
+});
 
         if (!roomsToTry.length) {
             failedAssignations.push({
@@ -1054,14 +1078,37 @@ const generateScheduleVariants = async (req, res, next) => {
             professorAvailabilityCache[`prof-count-${profId}`] = availData.length;
         });
 
-        // 7) IMPORTANT: Sort assignations by prioritizedProfessor (consistent across variants)
-        if (priorities.professor) {
-            unscheduledAssignations.sort((a, b) => {
-                const aP = priorities.professor.includes(a.Professor?.id);
-                const bP = priorities.professor.includes(b.Professor?.id);
-                return (bP === aP) ? 0 : (aP ? -1 : 1); // Prioritized first (-1)
-            });
-        }
+// 7) Sort assignations by prioritizedProfessor (consistent across variants)
+if (priorities.professor) {
+    unscheduledAssignations.sort((a, b) => {
+        const aP = priorities.professor.includes(a.Professor?.id);
+        const bP = priorities.professor.includes(b.Professor?.id);
+        return (bP === aP) ? 0 : (aP ? -1 : 1); // Prioritized first (-1)
+    });
+}
+
+// Modify room ordering to place "lec" types at the end
+rooms.sort((a, b) => {
+    // Get room types from cache
+    const aRoomTypes = roomCache[a.id]?.RoomTypeIds || [];
+    const bRoomTypes = roomCache[b.id]?.RoomTypeIds || [];
+    
+    // Check if any room type contains "lec" (case insensitive)
+    const aHasLecType = aRoomTypes.some(typeId => {
+        const typeObj = a.TypeRooms?.find(tr => tr.id === typeId);
+        return typeObj && typeObj.Name?.toLowerCase().includes('lec');
+    });
+    
+    const bHasLecType = bRoomTypes.some(typeId => {
+        const typeObj = b.TypeRooms?.find(tr => tr.id === typeId);
+        return typeObj && typeObj.Name?.toLowerCase().includes('lec');
+    });
+    
+    // If only one has "lec" type, put it last
+    if (aHasLecType && !bHasLecType) return 1;
+    if (!aHasLecType && bHasLecType) return -1;
+    return 0;
+});
 
         // 8) Array to store our variants
         const scheduleVariants = [];

@@ -16,27 +16,33 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId 
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [courses, setCourses] = useState([]);
+    const [filteredAvailableCourses, setFilteredAvailableCourses] = useState([]);
     const [professors, setProfessors] = useState([]);
     const [roomTypes, setRoomTypes] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // New state variables for searchable course dropdown
     const [courseSearch, setCourseSearch] = useState("");
     const [showCourseDropdown, setShowCourseDropdown] = useState(false);
     const [selectedCourseName, setSelectedCourseName] = useState("");
-
-    // New state for load warning
     const [willOverload, setWillOverload] = useState(false);
     const [selectedCourseUnits, setSelectedCourseUnits] = useState(0);
     const [selectedProfessorLoad, setSelectedProfessorLoad] = useState(0);
     const [profStatuses, setProfStatuses] = useState([]);
     const [maxAllowedUnits, setMaxAllowedUnits] = useState(0);
+    const [departmentAssignations, setDepartmentAssignations] = useState([]);
 
-    // Fetch necessary data when the modal is opened
     useEffect(() => {
         if (isOpen) {
             const fetchData = async () => {
                 try {
+                    // Fetch assignations to check for already assigned courses
+                    const assignationsResponse = await axios.get(`/assignation/getAllAssignationsByDept/${user.DepartmentId}`);
+                    if (assignationsResponse.status === 200) {
+                        setDepartmentAssignations(assignationsResponse.data.data);
+                    } else {
+                        setErrorMessage(assignationsResponse.data.message || "Failed to fetch assignations.");
+                        return;
+                    }
+
                     // Fetch courses by department ID instead of all courses
                     const coursesResponse = await axios.get(`course/getCoursesByDept/${user.DepartmentId}`)
                     if (coursesResponse.status === 200) {
@@ -74,6 +80,29 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId 
             fetchData();
         }
     }, [isOpen, user.DepartmentId]);
+
+    // Filter available courses when courses or professor selection changes
+    useEffect(() => {
+        if (courses.length > 0 && departmentAssignations.length > 0 && formData.ProfessorId) {
+            const profIdAsNumber = parseInt(formData.ProfessorId, 10);
+
+            // Filter out courses that are already assigned to this professor
+            const availableCourses = courses.filter(course => {
+                // Check if this course is already assigned to this professor
+                const isAlreadyAssigned = departmentAssignations.some(
+                    assignment =>
+                        assignment.ProfessorId === profIdAsNumber &&
+                        assignment.CourseId === course.id
+                );
+
+                return !isAlreadyAssigned;
+            });
+
+            setFilteredAvailableCourses(availableCourses);
+        } else {
+            setFilteredAvailableCourses(courses);
+        }
+    }, [courses, departmentAssignations, formData.ProfessorId]);
 
     // Reset form when modal opens
     useEffect(() => {
@@ -168,8 +197,8 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId 
         setShowCourseDropdown(false);
     };
 
-    // Filter courses based on search input
-    const filteredCourses = courses.filter(course =>
+    // Filter courses based on search input (from already filtered available courses)
+    const filteredCourses = filteredAvailableCourses.filter(course =>
         course.Code.toLowerCase().includes(courseSearch.toLowerCase()) ||
         course.Description.toLowerCase().includes(courseSearch.toLowerCase())
     );
@@ -322,7 +351,11 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId 
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="p-2 text-gray-500">No courses found</div>
+                                    <div className="p-2 text-gray-500">
+                                        {formData.ProfessorId
+                                            ? "No available courses for this professor"
+                                            : "No courses found"}
+                                    </div>
                                 )}
                             </div>
                         )}
