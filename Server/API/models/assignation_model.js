@@ -6,15 +6,11 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
             allowNull: false,
         },
-        School_Year: {
-            type: DataTypes.STRING,
-            allowNull: false,
-            defaultValue: "2025-2026"  // Set a default value as needed
-        },
         Semester: {
-            type: DataTypes.STRING,
+            type: DataTypes.INTEGER,
             allowNull: false,
-            defaultValue: "Fall"  // Set a default value as needed
+            min: 1,
+            max: 2
         },
         ProfessorId: {
             type: DataTypes.INTEGER,
@@ -33,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
             {
                 name: 'assignation_unique_idx',
                 unique: true,
-                fields: ['School_Year', 'Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
+                fields: ['Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
             },
             {
                 name: 'Assignations_DepartmentId_ProfessorId_index',
@@ -49,11 +45,6 @@ module.exports = (sequelize, DataTypes) => {
     });
 
     Assignation.associate = (models) => {
-        Assignation.belongsTo(models.RoomType, {
-            onDelete: 'RESTRICT',
-            onUpdate: 'CASCADE'
-        });
-
         Assignation.belongsTo(models.Professor, {
             foreignKey: {
                 name: 'ProfessorId',

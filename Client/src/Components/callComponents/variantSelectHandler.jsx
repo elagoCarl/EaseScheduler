@@ -141,7 +141,7 @@ const ScheduleVariantModal = ({
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
-    <div className="modalOverlay" onClick={onHide}>
+    <div className="modalOverlay">
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modalHeader">
           <h5 className="modalTitle">Schedule Variants</h5>

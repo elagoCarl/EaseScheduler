@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
 import axios from "../axiosConfig.js";
-import Background from "./Img/bg.jpg";
+import { ChevronUp, ChevronDown, Plus, X, Filter, ChevronRight, ChevronLeft, Trash2, Edit, Home, Building } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
-import Door from "./Img/Vector4.png";
-import addBtn from "./Img/addBtn.png";
-import editBtn from "./Img/editBtn.png";
-import delBtn from "./Img/delBtn.png";
 import LoadingSpinner from './callComponents/loadingSpinner.jsx';
 import ErrorDisplay from './callComponents/errDisplay.jsx';
 import AddRoomModal from "./callComponents/addRoomModal.jsx";
@@ -16,12 +14,14 @@ import DeleteWarning from "./callComponents/deleteWarning.jsx";
 import DeleteDeptRoomWarning from "./callComponents/deleteDeptRoomWarning.jsx";
 import RoomTypesModal from "./callComponents/roomTypesModal.jsx";
 import { useAuth } from '../Components/authContext.jsx';
+import AddTypeRoomModal from "./callComponents/addTypeRoomModal.jsx";
+import DeleteTypeRoomWarning from "./callComponents/deleteTypeRoomWarning.jsx";
 
 const Room = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [checkboxes, setCheckboxes] = useState([]);
-  const [isAllChecked, setAllChecked] = useState(false);
-  const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState("Select Campus");
   const [selectedFloor, setSelectedFloor] = useState("Select Floor");
   const [selectedDepartment, setSelectedDepartment] = useState("Select Department");
@@ -30,17 +30,25 @@ const Room = () => {
   const [filteredRooms, setFilteredRooms] = useState([]);
   const [availableFloors, setAvailableFloors] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isAddRoomModalOpen, setIsAddRoomModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteWarningOpen, setIsDeleteWarningOpen] = useState(false);
   const [isDeleteDeptRoomWarningOpen, setIsDeleteDeptRoomWarningOpen] = useState(false);
+  const [isRoomTypesModalOpen, setIsRoomTypesModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isRoomTypesModalOpen, setIsRoomTypesModalOpen] = useState(false);
   const [dataFetched, setDataFetched] = useState(false);
-  const [warningMessage, setWarningMessage] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isAddTypeRoomModalOpen, setIsAddTypeRoomModalOpen] = useState(false);
+  const [selectedRoomForType, setSelectedRoomForType] = useState(null);
+  const [isDeleteTypeRoomWarningOpen, setIsDeleteTypeRoomWarningOpen] = useState(false);
+  const [selectedTypeForDeletion, setSelectedTypeForDeletion] = useState(null);
   const { user } = useAuth();
   const campuses = ["LV", "GP"];
   const isAdmin = user && user.DepartmentId === null;
+  const roomsPerPage = 8;
+
+  const showNotification = (message, type = "info") => toast[type](message);
 
   const fetchDepartments = async () => {
     try {
@@ -48,6 +56,16 @@ const Room = () => {
       if (response.data.successful) setDepartments(response.data.data);
     } catch (error) {
       setError("Error fetching departments: " + error.message);
+    }
+  };
+
+  const fetchRoomTypes = async (roomId) => {
+    try {
+      const response = await axios.get(`/room/getRoomTypeByRoom/${roomId}`);
+      return response.data.successful ? response.data.data : [];
+    } catch (error) {
+      console.error("Error fetching room types:", error);
+      return [];
     }
   };
 
@@ -62,49 +80,73 @@ const Room = () => {
       } else if (departmentId) {
         response = await axios.get(`/room/getRoomsByDept/${departmentId}`);
       } else {
-        // Handle case where no department is selected yet for non-admin users
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
         setLoading(false);
-        setDataFetched(true); // Mark as fetched even if empty
+        setDataFetched(true);
         return;
       }
 
       if (response?.data.successful) {
         const roomData = response.data.data || [];
-        setRooms(roomData);
 
-        // Apply filters if they are selected
-        let filtered = roomData;
-        if (selectedCampus !== "Select Campus") {
-          filtered = filtered.filter(room => room.Building === selectedCampus);
-        }
-        if (selectedFloor !== "Select Floor") {
-          filtered = filtered.filter(room => room.Floor === selectedFloor);
-        }
+        // Create an array of promises to fetch room types for each room
+        const roomsWithTypesPromises = roomData.map(async room => {
+          const roomTypes = await fetchRoomTypes(room.id);
+          return {
+            ...room,
+            id: room.id,
+            code: room.Code,
+            building: room.Building,
+            floor: room.Floor,
+            seats: room.NumberOfSeats,
+            roomTypes: roomTypes, // Store all room types
+            minimized: false
+          };
+        });
 
-        setFilteredRooms(filtered);
-        setCheckboxes(Array(filtered.length).fill(false));
+        // Wait for all promises to resolve
+        const transformedRooms = await Promise.all(roomsWithTypesPromises);
+
+        setRooms(transformedRooms);
         setAvailableFloors([...new Set(roomData.map((room) => room.Floor))]);
+        applyFilters(transformedRooms);
       } else {
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
       }
-      setDataFetched(true); // Mark data as fetched regardless of result
+      setDataFetched(true);
     } catch (error) {
       if (error.response?.status === 400 && error.response.data.message === "No rooms found") {
         setRooms([]);
         setFilteredRooms([]);
         setAvailableFloors([]);
-        setDataFetched(true); // Mark as fetched even if error
+        setDataFetched(true);
       } else {
         setError("Error fetching rooms: " + error.message);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = (roomsData = rooms) => {
+    let filtered = roomsData;
+    if (selectedCampus !== "Select Campus") {
+      filtered = filtered.filter(room => room.Building === selectedCampus);
+    }
+    if (selectedFloor !== "Select Floor") {
+      filtered = filtered.filter(room => room.Floor === selectedFloor);
+    }
+    if (searchTerm) {
+      filtered = filtered.filter(room =>
+        room.Code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.roomTypes.some(type => type.Type.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    setFilteredRooms(filtered);
   };
 
   const handleEditClick = async (roomId) => {
@@ -115,323 +157,426 @@ const Room = () => {
         setIsEditModalOpen(true);
       }
     } catch (error) {
-      console.error('Error fetching room details:', error);
+      showNotification("Error fetching room details", "error");
     }
   };
 
-  const handleDeleteClick = () => {
-    const selectedRooms = filteredRooms.filter((_, index) => checkboxes[index]);
-
-    if (selectedRooms.length === 0) {
-      isAdmin
-        ? setWarningMessage("Please select at least one room to DELETE.")
-        : setWarningMessage("Please select at least one room to remove from your Department!");
-      return;
-    }
-
+  const handleDeleteClick = (roomId) => {
+    setSelectedRoom({ id: roomId });
     isAdmin ? setIsDeleteWarningOpen(true) : setIsDeleteDeptRoomWarningOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    const selectedRooms = filteredRooms.filter((_, index) => checkboxes[index]);
-    if (!selectedRooms.length) return;
-
+    if (!selectedRoom) return;
     try {
-      for (const room of selectedRooms) {
-        if (isAdmin) {
-          await axios.delete(`/room/deleteRoom/${room.id}`);
-        } else {
-          await axios.delete('/room/deleteDeptRoom', {
-            data: { roomId: room.id, deptId: user.DepartmentId }
-          });
-        }
+      if (isAdmin) {
+        await axios.delete(`/room/deleteRoom/${selectedRoom.id}`);
+      } else {
+        await axios.delete('/room/deleteDeptRoom', {
+          data: { roomId: selectedRoom.id, deptId: user.DepartmentId }
+        });
       }
-
-      // After successful deletion, refresh the rooms data
       fetchRooms();
-      setAllChecked(false);
+      setSelectedRoom(null);
       setIsDeleteWarningOpen(false);
       setIsDeleteDeptRoomWarningOpen(false);
+      showNotification("Room deleted successfully", "success");
     } catch (error) {
-      console.error("Error deleting rooms:", error.message);
-      setError("Error deleting rooms: " + error.message);
+      showNotification("Error deleting room", "error");
     }
   };
 
-  // Initial data fetch when component mounts
+  const confirmDeleteRoomType = async () => {
+    if (!selectedTypeForDeletion) return;
+
+    try {
+      const response = await axios.delete('/room/deleteTypeRoom', {
+        data: { RoomId: selectedTypeForDeletion.roomId, RoomTypeId: selectedTypeForDeletion.roomTypeId }
+      });
+
+      if (response.data.successful) {
+        showNotification("Room type removed successfully", "success");
+        fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+      } else {
+        showNotification(response.data.message || "Failed to remove room type", "error");
+      }
+    } catch (error) {
+      showNotification("Error removing room type: " + (error.response?.data?.message || error.message), "error");
+    } finally {
+      setIsDeleteTypeRoomWarningOpen(false);
+      setSelectedTypeForDeletion(null);
+    }
+  };
+
+  const handleAddRoomType = (room) => {
+    setSelectedRoomForType(room);
+    setIsAddTypeRoomModalOpen(true);
+  };
+
+  const handleDeleteRoomType = (roomId, roomTypeId, roomTypeName) => {
+    setSelectedTypeForDeletion({ roomId, roomTypeId, name: roomTypeName });
+    setIsDeleteTypeRoomWarningOpen(true);
+  };
+
+  const toggleMinimize = (id) => {
+    setRooms(rooms.map(room =>
+      room.id === id ? { ...room, minimized: !room.minimized } : room
+    ));
+  };
+
   useEffect(() => {
     const initData = async () => {
       if (isAdmin) await fetchDepartments();
       await fetchRooms();
     };
-
     initData();
   }, [isAdmin]);
 
-  // Effect to update filtered rooms when filters or rooms change
   useEffect(() => {
-    if (!dataFetched) return; // Skip if data hasn't been fetched yet
+    if (dataFetched) applyFilters();
+  }, [selectedCampus, selectedFloor, searchTerm, rooms, dataFetched]);
 
-    let filtered = rooms;
-    if (selectedCampus !== "Select Campus") {
-      filtered = filtered.filter(room => room.Building === selectedCampus);
-    }
-    if (selectedFloor !== "Select Floor") {
-      filtered = filtered.filter(room => room.Floor === selectedFloor);
-    }
-
-    setFilteredRooms(filtered);
-    setCheckboxes(Array(filtered.length).fill(false));
-    setAllChecked(false);
-  }, [selectedCampus, selectedFloor, rooms, dataFetched]);
-
-  // Auto-hide warning message after 3 seconds
-  useEffect(() => {
-    let timeout;
-    if (warningMessage) {
-      timeout = setTimeout(() => {
-        setWarningMessage("");
-      }, 3000);
-    }
-    return () => clearTimeout(timeout);
-  }, [warningMessage]);
-
-  // Handle department change
-  const handleDepartmentChange = (e) => {
-    const value = e.target.value;
-    setSelectedDepartment(value);
-    fetchRooms(value);
+  const getRoomTypeColor = (type) => {
+    const colors = {
+      "Lecture Room": "bg-blue-100 text-blue-800 border-blue-200",
+      "Laboratory": "bg-green-100 text-green-800 border-green-200",
+      "Conference Room": "bg-purple-100 text-purple-800 border-purple-200",
+      "Office": "bg-yellow-100 text-yellow-800 border-yellow-200",
+      "Computer Lab": "bg-red-100 text-red-800 border-red-200"
+    };
+    return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
   };
+
+  // Pagination
+  const indexOfLastRoom = currentPage * roomsPerPage;
+  const indexOfFirstRoom = indexOfLastRoom - roomsPerPage;
+  const currentRooms = filteredRooms.slice(indexOfFirstRoom, indexOfLastRoom);
+  const totalPages = Math.ceil(filteredRooms.length / roomsPerPage);
 
   if (loading && !dataFetched) return <LoadingSpinner />;
   if (error) return <ErrorDisplay error={error} />;
 
   return (
-    <div className="bg-cover bg-no-repeat min-h-screen flex justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${Background})` }}>
+    <div className="bg-slate-900 min-h-screen flex flex-col">
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <TopMenu toggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
+      <ToastContainer position="top-right" autoClose={3000} />
 
-      <div className="flex flex-col justify-center items-center h-screen w-full px-8">
-        <div className="flex justify-end w-10/12 mb-4">
-          <div className="flex gap-4 items-center">
-            {/* Room Types button */}
-            {isAdmin && (
-              <button
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm md:text-base transition duration-200"
-                onClick={() => setIsRoomTypesModalOpen(true)}
-              >
-                Room Types
+      <div className="flex-grow flex justify-center items-center pt-20 pb-8 px-4">
+        <div className="w-full max-w-7xl my-50">
+          {/* Header */}
+          <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
+            <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Room Management</h1>
+            <div className="bg-white px-4 py-2 rounded shadow-md">
+              <span className="text-gray-800 font-medium">Total Rooms: <span className="text-blue-600">{rooms.length}</span></span>
+            </div>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="bg-white p-4 rounded shadow-md mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-grow">
+                <input
+                  type="text"
+                  placeholder="Search rooms..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full p-3 pl-11 border rounded shadow-sm border-gray-300 hover:border-gray-400"
+                />
+                {searchTerm && (
+                  <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600">
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-10">
+                <button onClick={() => {
+                  setSelectedCampus("Select Campus");
+                  setSelectedFloor("Select Floor");
+                  setActiveTab('all');
+                }}
+                  className={`px-4 py-2.5 rounded text-sm font-medium ${activeTab === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                >
+                  All
+                </button>
+                <div className="relative ml-1">
+                  <button onClick={() => setShowFilters(!showFilters)}
+                    className={`px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  >
+                    <Filter size={16} />
+                    Filters
+                  </button>
+
+                  {showFilters && (
+                    <div className="absolute right-0 rounded bg-white shadow-xl w-120">
+                      <div className="p-4 space-y-3 w-120">
+                        {isAdmin && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                            <select
+                              value={selectedDepartment}
+                              onChange={(e) => {
+                                setSelectedDepartment(e.target.value);
+                                fetchRooms(e.target.value);
+                              }}
+                              className="w-full border border-gray-300 rounded p-2 text-sm"
+                            >
+                              <option value="Select Department">Select Department</option>
+                              {departments.map((dept) => (
+                                <option key={dept.id} value={dept.id}>{dept.Name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
+                          <select
+                            value={selectedCampus}
+                            onChange={(e) => {
+                              setSelectedCampus(e.target.value);
+                              setActiveTab('filtered');
+                            }}
+                            className="w-full border border-gray-300 rounded p-2 text-sm"
+                          >
+                            <option value="Select Campus">All Campuses</option>
+                            {campuses.map((campus, index) => (
+                              <option key={index} value={campus}>{campus}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
+                          <select
+                            value={selectedFloor}
+                            onChange={(e) => {
+                              setSelectedFloor(e.target.value);
+                              setActiveTab('filtered');
+                            }}
+                            className="w-full border border-gray-300 rounded p-2 text-sm"
+                          >
+                            <option value="Select Floor">All Floors</option>
+                            {availableFloors.map((floor, index) => (
+                              <option key={index} value={floor}>{floor}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 mt-4 border-t border-gray-100 pt-4">
+              <button onClick={() => setRooms(rooms.map(room => ({ ...room, minimized: false })))}
+                className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition duration-200 flex items-center gap-2 shadow-md">
+                <ChevronDown size={16} />
+                Expand All
               </button>
-            )}
-
-            {/* Department selector for admins */}
-            {isAdmin && (
-              <select
-                value={selectedDepartment}
-                onChange={handleDepartmentChange}
-                className="px-4 py-2 border rounded text-sm md:text-base"
-              >
-                <option value="Select Department">Select Department</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>{dept.Name}</option>
-                ))}
-              </select>
-            )}
-
-            {/* Campus selector */}
-            <select
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base"
-            >
-              <option>Select Campus</option>
-              {campuses.map((campus, index) => (
-                <option key={index} value={campus}>{campus}</option>
-              ))}
-            </select>
-
-            {/* Floor selector */}
-            <select
-              value={selectedFloor}
-              onChange={(e) => setSelectedFloor(e.target.value)}
-              className="px-4 py-2 border rounded text-sm md:text-base"
-            >
-              <option>Select Floor</option>
-              {availableFloors.map((floor, index) => (
-                <option key={index} value={floor}>{floor}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center w-10/12 max-h-[70vh]">
-          <div className="flex items-center bg-blue-500 text-white px-4 md:px-10 py-4 rounded-t-lg w-full">
-            <img src={Door} className="w-12 h-12 md:w-25 md:h-25" alt="Room img" />
-            <h2 className="text-sm md:text-lg font-semibold flex-grow text-center">Room</h2>
+              <button onClick={() => setRooms(rooms.map(room => ({ ...room, minimized: true })))}
+                className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition duration-200 flex items-center gap-2">
+                <ChevronUp size={16} />
+                Collapse All
+              </button>
+              <button onClick={() => setIsAddRoomModalOpen(true)}
+                className="ml-auto px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition duration-200 flex items-center gap-2 shadow-md">
+                <Plus size={16} />
+                Add Room
+              </button>
+              {isAdmin && (
+                <button onClick={() => setIsRoomTypesModalOpen(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition duration-200 flex items-center gap-2 shadow-md">
+                  Room Types
+                </button>
+              )}
+            </div>
           </div>
 
-          {warningMessage && (
-            <div className="sticky text-center mb-5 w-full mt-5 font-medium bg-red-600 text-white px-4 py-5 rounded shadow-md">
-              {warningMessage}
+          {/* Room Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
+            {currentRooms.length > 0 ? (
+              currentRooms.map(room => (
+                <div key={room.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
+                  <div className="bg-blue-600 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-white">{room.Code}</h2>
+                      </div>
+                      <button onClick={() => toggleMinimize(room.id)}
+                        className="p-1.5 bg-white bg-opacity-20 text-white rounded-md hover:bg-opacity-30 transition-all"
+                      >
+                        {room.minimized ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                      </button>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap gap-4">
+                      <div className="flex items-center gap-1">
+                        <Building size={14} className="text-blue-200" />
+                        <span>Campus: {room.Building}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Home size={14} className="text-blue-200" />
+                        <span>Floor: {room.Floor}</span>
+                      </div>
+                      {isAdmin && (
+                        <button
+                          className="p-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded"
+                          onClick={() => handleAddRoomType(room)}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-300 ${room.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
+                    <div className="p-4 overflow-y-auto max-h-200">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-gray-50 rounded border border-gray-100">
+                          <h4 className="text-sm font-medium text-gray-800 mb-2">Room Details</h4>
+                          <div className="space-y-2 text-sm text-gray-600">
+                            <p>Code: {room.Code}</p>
+                            <p>Building: {room.Building}</p>
+                            <p>Floor: {room.Floor}</p>
+                            {isAdmin && <p>Capacity: {room.NumberOfSeats} seats</p>}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded border border-gray-100">
+                          <h4 className="text-sm font-medium text-gray-800 mb-2">Room Types</h4>
+                          <div className="flex flex-wrap gap-10">
+                            {room.roomTypes && room.roomTypes.length > 0 ? (
+                              room.roomTypes.map((type, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-1"
+                                >
+                                  <span
+                                    className={`px-2 py-1 text-xs font-medium rounded-md border ${getRoomTypeColor(type.Type)}`}
+                                  >
+                                    {type.Type}
+                                  </span>
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => handleDeleteRoomType(room.id, type.id, type.Type)}
+                                      className="p-0.5 text-red-600 hover:bg-red-50 rounded-full"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-gray-500">No room types assigned</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-end items-center">
+                    <div className="flex gap-2">
+                      {isAdmin && (
+                        <button className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded" onClick={() => handleEditClick(room.id)}>
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      <button className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded" onClick={() => handleDeleteClick(room.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-1 md:col-span-2 text-center py-12 bg-white rounded shadow-md">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">No rooms found</h3>
+                <p className="text-gray-500 mb-4">No rooms match your current search or filters.</p>
+                <button onClick={() => {
+                  setSearchTerm('');
+                  setSelectedCampus('Select Campus');
+                  setSelectedFloor('Select Floor');
+                  setActiveTab('all');
+                }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 shadow-md"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {filteredRooms.length > 0 && (
+            <div className="mt-8 bg-white rounded shadow-md p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing {indexOfFirstRoom + 1} to {Math.min(indexOfLastRoom, filteredRooms.length)} of {filteredRooms.length} rooms
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)} disabled={currentPage === 1}
+                    className={`p-2 rounded border border-gray-300 ${currentPage === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages}
+                    className={`p-2 rounded border border-gray-300 ${currentPage === totalPages ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
-
-          <div className="overflow-auto w-full h-full flex-grow mt-3">
-            <table className="text-center w-full border-collapse">
-              <thead>
-                <tr className="bg-blue-500">
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border font-medium border-gray-300">Campus</th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border font-medium border-gray-300">Room Code</th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border font-medium border-gray-300">Floor</th>
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border font-medium border-gray-300">Room Type</th>
-                  {isAdmin && (
-                    <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border font-medium border-gray-300">Seats</th>
-                  )}
-                  <th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300">
-                    <input
-                      type="checkbox"
-                      checked={isAllChecked && filteredRooms.length > 0}
-                      onChange={() => {
-                        const newState = !isAllChecked;
-                        setAllChecked(newState);
-                        setCheckboxes(Array(filteredRooms.length).fill(newState));
-                      }}
-                      disabled={filteredRooms.length === 0}
-                    />
-                  </th>
-                  {isAdmin && (<th className="whitespace-nowrap px-4 md:px-6 py-2 text-xs md:text-sm text-white border border-gray-300"></th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={isAdmin ? "7" : "5"} className="px-6 py-8 text-center">
-                      <div className="flex justify-center">
-                        <LoadingSpinner />
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredRooms.length > 0 ? (
-                  filteredRooms.map((room, index) => (
-                    <tr key={room.id || room.Code} className="hover:bg-customLightBlue2 border-t border-gray-300">
-                      <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Building}</td>
-                      <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Code}</td>
-                      <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.Floor}</td>
-                      <td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">
-                        {room.RoomType ? room.RoomType.Type : "N/A"}
-                      </td>
-                      {isAdmin && (<td className="px-4 md:px-6 py-2 border border-gray-300 text-xs md:text-sm">{room.NumberOfSeats}</td>)}
-                      <td className="py-2 border border-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={checkboxes[index]}
-                          onChange={() => {
-                            const updatedCheckboxes = [...checkboxes];
-                            updatedCheckboxes[index] = !updatedCheckboxes[index];
-                            setCheckboxes(updatedCheckboxes);
-                            setAllChecked(updatedCheckboxes.every((isChecked) => isChecked) && updatedCheckboxes.length > 0);
-                          }}
-                        />
-                      </td>
-                      {isAdmin && (
-                        <td className="py-2 border border-gray-300">
-                          <button className="text-white rounded" onClick={() => handleEditClick(room.id)}>
-                            <img src={editBtn} className="w-9 h-9 md:w-15 md:h-15 hover:scale-110" alt="Edit Room" />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={isAdmin ? "7" : "5"} className="px-6 py-8 text-center text-gray-600 border border-gray-300">
-                      <div className="flex flex-col items-center justify-center">
-                        <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <p className="text-lg font-medium">No rooms found</p>
-                        <p className="text-sm text-gray-500 mt-1">Try selecting a different department, campus, or floor</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
         </div>
-      </div>
-
-      <div className="fixed top-1/4 right-4 border border-gray-900 bg-white rounded p-4 flex flex-col gap-4">
-        <button className="py-2 px-4 text-white rounded" onClick={() => setIsAddRoomModalOpen(true)}>
-          <img src={addBtn} className="w-12 h-12 md:w-25 md:h-25 hover:scale-110" alt="Add Room" />
-        </button>
-        <button
-          className="py-2 px-4 text-white rounded"
-          onClick={handleDeleteClick}
-        >
-          <img
-            src={delBtn}
-            className="w-12 h-12 md:w-25 md:h-25 hover:scale-110"
-            alt="Delete Room"
-          />
-        </button>
       </div>
 
       {/* Modals */}
       {isAdmin ? (
-        <AddRoomModal
-          isOpen={isAddRoomModalOpen}
-          onClose={() => setIsAddRoomModalOpen(false)}
-          onAdd={(newRoom) => {
-            // After adding a room, refresh the room data to ensure consistency
-            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
-            setIsAddRoomModalOpen(false);
-          }}
+        <AddRoomModal isOpen={isAddRoomModalOpen} onClose={() => setIsAddRoomModalOpen(false)} onAdd={() => {
+          fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+          setIsAddRoomModalOpen(false);
+        }}
         />
       ) : (
-        <AddDeptRoomModal
-          isOpen={isAddRoomModalOpen}
-          onClose={() => setIsAddRoomModalOpen(false)}
-          onSelect={(newRoom) => {
-            // After adding a department room, refresh the room data
-            fetchRooms();
-            setIsAddRoomModalOpen(false);
-          }}
+        <AddDeptRoomModal isOpen={isAddRoomModalOpen} onClose={() => setIsAddRoomModalOpen(false)} onSelect={() => {
+          fetchRooms();
+          setIsAddRoomModalOpen(false);
+        }}
         />
       )}
 
       {isEditModalOpen && selectedRoom && (
-        <EditRoomModal
-          room={selectedRoom}
-          onClose={() => setIsEditModalOpen(false)}
-          onUpdate={(updatedRoom) => {
-            // After updating a room, refresh the room data
-            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
-            setIsEditModalOpen(false);
-          }}
+        <EditRoomModal room={selectedRoom} onClose={() => setIsEditModalOpen(false)} onUpdate={() => {
+          fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+          setIsEditModalOpen(false);
+        }}
         />
       )}
 
       {isAdmin ? (
-        <DeleteWarning
-          isOpen={isDeleteWarningOpen}
-          onClose={() => setIsDeleteWarningOpen(false)}
-          onConfirm={handleConfirmDelete}
+        <DeleteWarning isOpen={isDeleteWarningOpen} onClose={() => setIsDeleteWarningOpen(false)} onConfirm={handleConfirmDelete}
         />
       ) : (
-        <DeleteDeptRoomWarning
-          isOpen={isDeleteDeptRoomWarningOpen}
-          onClose={() => setIsDeleteDeptRoomWarningOpen(false)}
-          onConfirm={handleConfirmDelete}
+        <DeleteDeptRoomWarning isOpen={isDeleteDeptRoomWarningOpen} onClose={() => setIsDeleteDeptRoomWarningOpen(false)} onConfirm={handleConfirmDelete}
         />
       )}
 
-      {/* Room Types Modal */}
       {isAdmin && (
-        <RoomTypesModal
-          isOpen={isRoomTypesModalOpen}
-          onClose={() => setIsRoomTypesModalOpen(false)}
+        <RoomTypesModal isOpen={isRoomTypesModalOpen} onClose={() => setIsRoomTypesModalOpen(false)}
+        />
+      )}
+
+      {isAddTypeRoomModalOpen && selectedRoomForType && (
+        <AddTypeRoomModal isOpen={isAddTypeRoomModalOpen} onClose={() => setIsAddTypeRoomModalOpen(false)} roomId={selectedRoomForType.id} currentRoomTypes={selectedRoomForType.roomTypes || []} onAdd={() => {
+          fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+          setIsAddTypeRoomModalOpen(false);
+        }}
+        />
+      )}
+
+      {isDeleteTypeRoomWarningOpen && selectedTypeForDeletion && (
+        <DeleteTypeRoomWarning isOpen={isDeleteTypeRoomWarningOpen} onClose={() => setIsDeleteTypeRoomWarningOpen(false)} onConfirm={confirmDeleteRoomType} roomTypeName={selectedTypeForDeletion.name}
         />
       )}
     </div>

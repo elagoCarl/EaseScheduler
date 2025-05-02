@@ -86,7 +86,7 @@ const HistoryLogs = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="rounded-md h-12 w-12 border-4 border-t-4 border-blue-500 animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -99,7 +99,7 @@ const HistoryLogs = () => {
           <p className="mt-4 text-gray-500">Error: {error}</p>
           <button
             onClick={() => navigate('/')}
-            className="mt-6 inline-block rounded bg-blue-600 px-5 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring">
+            className="mt-6 inline-block rounded bg-indigo-600 px-5 py-3 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring">
             Go Back Home
           </button>
           <button
@@ -113,87 +113,109 @@ const HistoryLogs = () => {
   }
 
   const SortIcon = ({ columnName }) => {
-    if (sortConfig.key !== columnName) return <span className="text-gray-300">↕</span>;
-    return sortConfig.direction === 'asc' ? <span>↑</span> : <span>↓</span>;
+    if (sortConfig.key !== columnName) return <span className="text-gray-300 ml-4 mb-3">↕</span>;
+    return sortConfig.direction === 'asc' ? <span className="ml-5 mb-2">↑</span> : <span className="ml-5 mb-2">↓</span>;
   };
 
   return (
-    <div className="bg-cover bg-no-repeat min-h-screen" style={{ backgroundImage: `url(${ Background })` }}>
+    <div className="bg-cover bg-no-repeat min-h-screen bg-gray-800">
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
       <TopMenu toggleSidebar={toggleSidebar} />
 
-      <div className="container mx-auto px-4 py-8 pt-20">
-        <div className="bg-gray-100 bg-opacity-95 shadow-lg rounded-lg w-full p-4 md:p-8 my-60">
-          <div className="mb-5 flex flex-col md:flex-row md:justify-end md:items-center gap-5">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search logs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-6 top-3 text-gray-400 hover:text-gray-700 duration-300"
-                >
-                  ✕
-                </button>
-              )}
+      <div className="container mx-auto px-4 py-8 pt-20 flex items-center justify-center min-h-screen">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden border border-gray-100">
+          {/* Header with floating search bar */}
+          <div className="bg-gradient-to-r from-indigo-600 to-blue-500 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <h1 className="text-2xl font-bold text-white">History Logs</h1>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-grow">
+                <input
+                  type="text"
+                  placeholder="Search logs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-4 pl-18 pr-10 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-md"
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-2.5 h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute top-2.5 text-gray-400 hover:text-gray-700"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={fetchHistoryLogs}
+                className="p-2.5 bg-white text-indigo-600 rounded-full hover:bg-indigo-50 transition-colors duration-300 flex items-center justify-center shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
-
-            <button
-              onClick={fetchHistoryLogs}
-              className="px-4 py-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-300"
-            >
-              <span className="mr-2">↻</span> Refresh
-            </button>
           </div>
-          <h1 className="text-xl md:text-2xl font-bold text-white text-center mb-4 bg-blue-600 p-5 rounded-lg">History Logs</h1>
-
-
 
           {filteredLogs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No logs found matching your search criteria.
+            <div className="text-center py-16 px-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-lg font-medium text-gray-600">No logs found matching your search criteria.</p>
+              <p className="text-gray-400 mt-1">Try adjusting your search or refresh the page</p>
             </div>
           ) : (
             <>
               {/* Table for medium screens and above */}
-              <div className="hidden md:block overflow-hidden rounded-lg border border-gray-200">
-                <div className="overflow-auto max-h-[70vh]">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-blue-600 text-white text-sm uppercase sticky top-0">
+              <div className="hidden md:block">
+                <div className="max-h-[60vh] overflow-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 text-gray-700 text-sm uppercase sticky top-0">
                       <tr>
-                        <th className="px-6 py-3 cursor-pointer" onClick={() => requestSort('createdAt')}>
+                        <th className="px-6 py-4 cursor-pointer" onClick={() => requestSort('createdAt')}>
                           <div className="flex items-center">
-                            Timestamp <SortIcon columnName="createdAt" />
+                            <span>Timestamp</span>
+                            <SortIcon columnName="createdAt" />
                           </div>
                         </th>
-                        <th className="px-6 py-3 cursor-pointer" onClick={() => requestSort('Account.Email')}>
+                        <th className="px-6 py-4 cursor-pointer" onClick={() => requestSort('Account.Email')}>
                           <div className="flex items-center">
-                            Email <SortIcon columnName="Account.Email" />
+                            <span>Email</span>
+                            <SortIcon columnName="Account.Email" />
                           </div>
                         </th>
-                        <th className="px-6 py-3 cursor-pointer" onClick={() => requestSort('Page')}>
+                        <th className="px-6 py-4 cursor-pointer" onClick={() => requestSort('Page')}>
                           <div className="flex items-center">
-                            Page <SortIcon columnName="Page" />
+                            <span>Page</span>
+                            <SortIcon columnName="Page" />
                           </div>
                         </th>
-                        <th className="px-6 py-3">Details</th>
+                        <th className="px-6 py-4">Details</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 text-gray-700 bg-white">
+                    <tbody className="divide-y divide-gray-100 text-gray-700">
                       {filteredLogs.map((log, index) => (
                         <tr key={index} className="hover:bg-gray-50 transition-colors duration-200">
-                          <td className="px-6 py-4 whitespace-nowrap">{formatDate(log.createdAt)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {log.Account?.Email || 'N/A'}
-                            {log.Account?.Name && <span className="text-xs text-gray-500 block">{log.Account.Name}</span>}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className="font-medium text-gray-900">{formatDate(log.createdAt)}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">{log.Page}</td>
-                          <td className="px-6 py-4">{log.Details}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className="font-semibold text-indigo-600">{log.Account?.Email || 'N/A'}</span>
+                            {log.Account?.Name && <span className="text-xs text-gray-500 block mt-1">{log.Account.Name}</span>}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {log.Page}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <div className="max-w-sm overflow-hidden text-ellipsis">{log.Details}</div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -202,29 +224,29 @@ const HistoryLogs = () => {
               </div>
 
               {/* Cards for small screens */}
-              <div className="block md:hidden space-y-4 max-h-[70vh] overflow-auto">
+              <div className="block md:hidden space-y-4 max-h-[60vh] overflow-auto p-4">
                 {filteredLogs.map((log, index) => (
-                  <div key={index} className="bg-white p-4 rounded-lg shadow border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start">
+                  <div key={index} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{log.Page}</span>
                       <p className="text-xs text-gray-400">{formatDate(log.createdAt)}</p>
-                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{log.Page}</span>
                     </div>
-                    <p className="text-sm font-medium text-gray-700 mt-2">
-                      <span className="font-bold">Email: </span>{log.Account?.Email || 'N/A'}
-                      {log.Account?.Name && <span className="text-xs text-gray-500 block ml-1">{log.Account.Name}</span>}
+                    <p className="text-sm font-medium text-indigo-600 mb-1">
+                      {log.Account?.Email || 'N/A'}
                     </p>
-                    <p className="text-sm text-gray-600 mt-2 border-t pt-2">
+                    {log.Account?.Name && <p className="text-xs text-gray-500 mb-2">{log.Account.Name}</p>}
+                    <p className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-100">
                       {log.Details}
                     </p>
                   </div>
                 ))}
               </div>
-
-              <div className="mt-4 text-right text-sm text-gray-500">
-                Showing {filteredLogs.length} of {logs.length} logs
-              </div>
             </>
           )}
+          
+          <div className="px-6 py-3 bg-gray-50 text-right text-sm text-gray-500 border-t border-gray-100">
+            Showing {filteredLogs.length} of {logs.length} logs
+          </div>
         </div>
       </div>
     </div>

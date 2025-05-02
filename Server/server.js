@@ -12,8 +12,8 @@ db.sequelize.sync({ alter: false }) // Change `force` to `true` only for develop
     console.log('Database connected and synchronized successfully.');
     server.listen(port, () => {
       console.log(`Server is listening on port ${port}`);
-    });
+    })
   })
   .catch((err) => {
     console.error('Failed to connect and sync database:', err);
-  });
+  })

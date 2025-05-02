@@ -21,10 +21,10 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = assignation;
-
+            let { Semester, CourseId, ProfessorId, DepartmentId } = assignation;
+            Semester = parseInt(Semester, 10); // Ensure Semester is an integer
             // Check mandatory fields - note ProfessorId can be null based on the model
-            if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId, RoomTypeId])) {
+            if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
@@ -43,6 +43,10 @@ const addAssignation = async (req, res, next) => {
                 return res.status(404).json({ successful: false, message: "Department not found." });
             }
 
+            if (Semester < 1 || Semester > 2) {
+                return res.status(400).json({ successful: false, message: "Semester must be 1 or 2." });
+            }
+
             // Validate Professor if provided
             let professor = null;
             if (ProfessorId) {
@@ -52,18 +56,9 @@ const addAssignation = async (req, res, next) => {
                 }
             }
 
-            // Validate RoomType if provided
-            if (RoomTypeId) {
-                const roomType = await RoomType.findByPk(RoomTypeId);
-                if (!roomType) {
-                    return res.status(404).json({ successful: false, message: "Room type not found." });
-                }
-            }
-
             // Check for duplicate assignation based on schedule
             const existingAssignation = await Assignation.findOne({
                 where: {
-                    School_Year,
                     Semester,
                     CourseId,
                     DepartmentId,
@@ -78,6 +73,19 @@ const addAssignation = async (req, res, next) => {
                 });
             }
 
+            const existAssignationSem = await Assignation.findOne({
+                where: {
+                    CourseId,
+                    DepartmentId
+                },
+            });
+            if (existAssignationSem && existAssignationSem.Semester !== Semester) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "The course is already assigned to another semester."
+                })
+            }
+
             // If professor is provided, check unit limits
             if (professor) {
                 // Get professor's status to check unit limits
@@ -85,24 +93,38 @@ const addAssignation = async (req, res, next) => {
                 if (!status) {
                     return res.status(404).json({ successful: false, message: "Professor status not found." });
                 }
+                if (Semester === 1) {
+                    // Calculate new total units
+                    const unitsToAdd = course.Units;
+                    const newTotalUnits = professor.FirstSemUnits + unitsToAdd;
 
-                // Calculate new total units
-                const unitsToAdd = course.Units;
-                const newTotalUnits = professor.Total_units + unitsToAdd;
+                    // Check if the total new units will exceed the limit
+                    if (newTotalUnits > status.Max_units) {
+                        // Instead of returning an error, set a warning message
+                        warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                    }
 
-                // Check if the total new units will exceed the limit
-                if (newTotalUnits > status.Max_units) {
-                    // Instead of returning an error, set a warning message
-                    warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                    // Update professor's units with the new calculated value
+                    await professor.update({ FirstSemUnits: newTotalUnits });
                 }
+                if (Semester === 2) {
+                    // Calculate new total units
+                    const unitsToAdd = course.Units;
+                    const newTotalUnits = professor.SecondSemUnits + unitsToAdd;
 
-                // Update professor's Total_units with the new calculated value
-                await professor.update({ Total_units: newTotalUnits });
+                    // Check if the total new units will exceed the limit
+                    if (newTotalUnits > status.Max_units) {
+                        // Instead of returning an error, set a warning message
+                        warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                    }
+
+                    // Update professor's units with the new calculated value
+                    await professor.update({ SecondSemUnits: newTotalUnits });
+                }
             }
 
             // Create Assignation
             const assignationData = {
-                School_Year,
                 Semester,
                 CourseId,
                 DepartmentId,
@@ -111,11 +133,6 @@ const addAssignation = async (req, res, next) => {
             // Add ProfessorId if it was provided
             if (ProfessorId) {
                 assignationData.ProfessorId = ProfessorId;
-            }
-
-            // Add RoomTypeId if it was provided
-            if (RoomTypeId) {
-                assignationData.RoomTypeId = RoomTypeId;
             }
 
             const newAssignation = await Assignation.create(assignationData);
@@ -187,7 +204,7 @@ const addAssignation = async (req, res, next) => {
 const updateAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { School_Year, Semester, CourseId, ProfessorId, DepartmentId, RoomTypeId } = req.body;
+        const { Semester, CourseId, ProfessorId, DepartmentId } = req.body;
         let warningMessage = null;
 
         // Check mandatory fields - ProfessorId can be null based on the model
@@ -201,8 +218,9 @@ const updateAssignation = async (req, res, next) => {
             return res.status(404).json({ successful: false, message: "Assignation not found." });
         }
 
-        const oldA = assignation;
-
+        if (Semester < 1 || Semester > 2) {
+            return res.status(400).json({ successful: false, message: "Semester must be 1 or 2." });
+        }
         // Validate related models
         const course = await Course.findByPk(CourseId);
         if (!course) return res.status(404).json({ successful: false, message: "Course not found." });
@@ -210,13 +228,6 @@ const updateAssignation = async (req, res, next) => {
         const department = await Department.findByPk(DepartmentId);
         if (!department) return res.status(404).json({ successful: false, message: "Department not found." });
 
-        // Validate RoomType if provided
-        if (RoomTypeId) {
-            const roomType = await RoomType.findByPk(RoomTypeId);
-            if (!roomType) {
-                return res.status(404).json({ successful: false, message: "Room type not found." });
-            }
-        }
 
         // Validate Professor if provided
         let professor = null;
@@ -230,7 +241,6 @@ const updateAssignation = async (req, res, next) => {
         // Check if the assignation already exists
         const existingAssignation = await Assignation.findOne({
             where: {
-                School_Year,
                 Semester,
                 CourseId,
                 DepartmentId,
@@ -311,7 +321,6 @@ const updateAssignation = async (req, res, next) => {
 
         // Update Assignation
         const updateData = {
-            School_Year,
             Semester,
             CourseId,
             DepartmentId,
@@ -319,11 +328,6 @@ const updateAssignation = async (req, res, next) => {
 
         // Add ProfessorId if it was provided (can be null)
         updateData.ProfessorId = ProfessorId;
-
-        // Add RoomTypeId if it was provided
-        if (RoomTypeId !== undefined) {
-            updateData.RoomTypeId = RoomTypeId;
-        }
 
         await assignation.update(updateData);
 
@@ -355,8 +359,6 @@ const updateAssignation = async (req, res, next) => {
             warning: warningMessage
         });
     } catch (error) {
-        console.error("Error in updateAssignation:", error);
-
         if (error instanceof ValidationError) {
             return res.status(400).json({
                 successful: false,
@@ -383,10 +385,22 @@ const getAssignation = async (req, res, next) => {
 
         const assignation = await Assignation.findByPk(id, {
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
-                { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
+                {
+                    model: Course,
+                    attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
                 { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] }
+                {
+                    model: RoomType,
+                    attributes: ['id', 'Type']
+                }
             ],
         });
 
@@ -408,10 +422,17 @@ const getAllAssignations = async (req, res, next) => {
     try {
         const assignations = await Assignation.findAll({
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
-                { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
-                { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] }
+                {
+                    model: Course, attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
+                { model: Department, attributes: ['Name'] }
             ],
         });
 
@@ -438,8 +459,14 @@ const getAllAssignationsByDept = async (req, res, next) => {
             where: { DepartmentId: departmentId },
             include: [
                 {
-                    model: RoomType,
-                    attributes: ['id', 'Type']
+                    model: Course,
+                    attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
                 }
             ]
         });
@@ -469,10 +496,17 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
         const assignations = await Assignation.findAll({
             where: { DepartmentId: departmentId },
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units', 'Year'] },
-                { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
-                { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] }
+                {
+                    model: Course, attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
+                { model: Department, attributes: ['Name'] }
             ],
         });
 
@@ -485,7 +519,6 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
     }
 };
 
-// Delete Assignation by ID
 const deleteAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -507,17 +540,21 @@ const deleteAssignation = async (req, res, next) => {
         // Get Course and Professor
         const course = await Course.findByPk(CourseId);
 
-        // Delete the Assignation
-        await assignation.destroy();
-
-        // Update professor's Total_units if professor exists
+        // Update professor's units if professor exists
         if (ProfessorId) {
             const professor = await Professor.findByPk(ProfessorId);
             if (professor) {
-                const decrementedUnit = professor.Total_units - course.Units;
-                await professor.update({ Total_units: Math.max(0, decrementedUnit) });
+                if (assignation.Semester === 1) {
+                    const decrementedUnit = professor.FirstSemUnits - course.Units;
+                    await professor.update({ FirstSemUnits: Math.max(0, decrementedUnit) });
+                }
+                if (assignation.Semester === 2) {
+                    const decrementedUnit = professor.SecondSemUnits - course.Units;
+                    await professor.update({ SecondSemUnits: Math.max(0, decrementedUnit) });
+                }
             }
         }
+        await assignation.destroy();
 
         const token = req.cookies?.refreshToken;
         if (!token) {
@@ -559,12 +596,25 @@ const getAssignationsWithSchedules = async (req, res, next) => {
     try {
         const assignations = await Assignation.findAll({
             include: [
-                { model: Course, attributes: ['Code', 'Description', 'Units'] },
-                { model: Professor, attributes: ['Name', 'Email', 'Total_units'] },
+                {
+                    model: Course, attributes: ['Code', 'Description', 'Units'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
                 { model: Department, attributes: ['Name'] },
-                { model: RoomType, attributes: ['id', 'Type'] },
                 {
                     model: Room,
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ],
                     through: {
                         attributes: ['Day', 'StartTime', 'EndTime']
                     }

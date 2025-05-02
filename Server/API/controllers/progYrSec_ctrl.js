@@ -1,4 +1,4 @@
-const { ProgYrSec, Program, Course } = require('../models');
+const { ProgYrSec, Program, Course, Department, CourseProg } = require('../models');
 const util = require('../../utils');
 const { Op } = require('sequelize');
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -50,11 +50,23 @@ const addProgYrSec = async (req, res, next) => {
                     message: `ProgYrSec with Year ${Year} and Section ${Section} already exists for Program ID ${ProgramId}.`
                 });
             }
-
-            if(NumberOfStudents <= 0){
+            if (Year < 1 || Year > 6) {
                 return res.status(400).json({
                     successful: false,
-                    message: "Number of Students must be greater than 0."
+                    message: "Year must be between 1 and 6."
+                })
+            }
+            const sectionRegex = /^[A-Z]$/
+            if (!sectionRegex.test(Section)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Section must be a single uppercase letter from A to Z."
+                });
+            }
+            if (NumberOfStudents <= 0 || NumberOfStudents > 60) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Number of Students must be greater than 0 or less than 60."
                 });
             }
             // Create ProgYrSec record
@@ -99,73 +111,73 @@ const addProgYrSec = async (req, res, next) => {
 
 const getDepartmentProgYrSecs = async (req, res) => {
     try {
-      const { departmentId } = req.params;
-      const { courseType } = req.query;
-      
-      // Find all programs under the current department
-      const departmentPrograms = await Program.findAll({
-        where: { DepartmentId: departmentId },
-        attributes: ['id', 'Name']
-      });
-      
-      const validProgramIds = departmentPrograms.map(prog => prog.id);
-      
-      // Create a mapping from program ID to program name
-      const programNameMap = {};
-      departmentPrograms.forEach(prog => {
-        programNameMap[prog.id] = prog.Name;
-      });
-      
-      let whereClause = {
-        ProgramId: { [Op.in]: validProgramIds }
-      };
-      
-      // If filtering by core courses, we need to find which sections have core courses
-      if (courseType === 'Core') {
-        // This is a simplified approach - you may need to adjust based on your data structure
-        // Get all core courses for these programs
-        const coreCourses = await Course.findAll({
-          where: { Type: 'Core' }
+        const { departmentId } = req.params;
+        const { courseType } = req.query;
+
+        // Find all programs under the current department
+        const departmentPrograms = await Program.findAll({
+            where: { DepartmentId: departmentId },
+            attributes: ['id', 'Name']
         });
-        
-        if (coreCourses.length === 0) {
-          return res.status(200).json({
-            successful: true,
-            message: "No core courses found for this department",
-            sections: []
-          });
+
+        const validProgramIds = departmentPrograms.map(prog => prog.id);
+
+        // Create a mapping from program ID to program name
+        const programNameMap = {};
+        departmentPrograms.forEach(prog => {
+            programNameMap[prog.id] = prog.Name;
+        });
+
+        let whereClause = {
+            ProgramId: { [Op.in]: validProgramIds }
+        };
+
+        // If filtering by core courses, we need to find which sections have core courses
+        if (courseType === 'Core') {
+            // This is a simplified approach - you may need to adjust based on your data structure
+            // Get all core courses for these programs
+            const coreCourses = await Course.findAll({
+                where: { Type: 'Core' }
+            });
+
+            if (coreCourses.length === 0) {
+                return res.status(200).json({
+                    successful: true,
+                    message: "No core courses found for this department",
+                    sections: []
+                });
+            }
         }
-      }
-      
-      // Find all sections matching criteria
-      const sections = await ProgYrSec.findAll({
-        where: whereClause,
-        attributes: ['id', 'ProgramId', 'Year', 'Section']
-      });
-      
-      // Enhance sections with program names
-      const enhancedSections = sections.map(section => ({
-        id: section.id,
-        ProgramId: section.ProgramId,
-        ProgramName: programNameMap[section.ProgramId] || 'Unknown Program',
-        Year: section.Year,
-        Section: section.Section
-      }));
-      
-      return res.status(200).json({
-        successful: true,
-        message: "Sections retrieved successfully",
-        sections: enhancedSections
-      });
-      
+
+        // Find all sections matching criteria
+        const sections = await ProgYrSec.findAll({
+            where: whereClause,
+            attributes: ['id', 'ProgramId', 'Year', 'Section']
+        });
+
+        // Enhance sections with program names
+        const enhancedSections = sections.map(section => ({
+            id: section.id,
+            ProgramId: section.ProgramId,
+            ProgramName: programNameMap[section.ProgramId] || 'Unknown Program',
+            Year: section.Year,
+            Section: section.Section
+        }));
+
+        return res.status(200).json({
+            successful: true,
+            message: "Sections retrieved successfully",
+            sections: enhancedSections
+        });
+
     } catch (error) {
-      console.error("Error fetching department sections:", error);
-      return res.status(500).json({
-        successful: false,
-        message: error.message || "An unexpected error occurred."
-      });
+        console.error("Error fetching department sections:", error);
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred."
+        });
     }
-  };
+};
 
 // Get a Single ProgYrSec by ID
 const getProgYrSec = async (req, res, next) => {
@@ -251,7 +263,7 @@ const updateProgYrSec = async (req, res, next) => {
                 message: `Program with ID ${ProgramId} not found.`
             });
         }
-        
+
 
         // Ensure Year and Section combination is unique for the same ProgramId
         const existingProgYrSec = await ProgYrSec.findOne({
@@ -264,7 +276,7 @@ const updateProgYrSec = async (req, res, next) => {
             });
         }
 
-        if(NumberOfStudents <= 0){
+        if (NumberOfStudents <= 0) {
             return res.status(400).json({
                 successful: false,
                 message: "Number of Students must be greater than 0."
@@ -419,7 +431,7 @@ const getProgYrSecByDept = async (req, res, next) => {
                     where: { DepartmentId: req.params.id }
                 }
             ],
-            order: [['Year', 'ASC'],['Section', 'ASC']]
+            order: [['Year', 'ASC'], ['Section', 'ASC']]
         });
 
         if (!pys || pys.length === 0) {
@@ -457,53 +469,62 @@ const getProgYrSecByCourse = async (req, res, next) => {
             });
         }
 
-        const course = await Course.findByPk(CourseId, {
-            attributes: ['id', 'Year', 'Type'],
-            include: [{
-                model: Program,
-                as: 'CourseProgs',
-                attributes: ['id']
-            }]
-        });
-
+        const course = await Course.findByPk(CourseId);
         if (!course) {
             return res.status(404).json({
-                successful: false,
-                message: "Course not found."
+                success: false,
+                message: 'Course not found'
             });
         }
 
-        // Initialize whereCondition as an empty object
-        let whereCondition = {};
-
-        // Only filter by Year if course.Year is not null
-        if (course.Year !== null) {
-            whereCondition.Year = course.Year;
-
-            // If the course type is Professional, add filtering by associated program IDs.
-            if (course.Type === 'Professional') {
-                const courseProgramIds = course.CourseProgs.map(prog => prog.id);
-                whereCondition = {
-                    ...whereCondition,
-                    ProgramId: { [Op.in]: courseProgramIds }
-                };
-            }
+        // Validate if departmentId exists
+        const department = await Department.findByPk(DepartmentId);
+        if (!department) {
+            return res.status(404).json({
+                success: false,
+                message: 'Department not found'
+            });
         }
 
-        const programInclude = {
-            model: Program,
-            attributes: ['id', 'Code'],
-            // If departmentId is provided, filter programs by DepartmentId
-            where: DepartmentId ? { DepartmentId: DepartmentId } : undefined
-        };
-
-        const pys = await ProgYrSec.findAll({
-            where: whereCondition,
-            attributes: ['Year', 'Section', 'ProgramId', 'id'],
-            include: [programInclude]
+        // Find all programs associated with this course through CourseProg
+        // that belong to the specified department
+        const coursePrograms = await CourseProg.findAll({
+            where: { CourseId },
+            include: [
+                {
+                    model: Program,
+                    where: { DepartmentId }, // Filter by department
+                    include: [
+                        {
+                            model: ProgYrSec,
+                            attributes: ['id', 'Year', 'Section', 'NumberOfStudents', 'ProgramId'],
+                            include: [
+                                {
+                                    model: Program,
+                                    attributes: ['id', 'Code', 'Name']
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
         });
 
-        if (!pys || pys.length === 0) {
+        // Format the response data and flatten the array structure
+        let allSections = [];
+        
+        coursePrograms.forEach(cp => {
+            const program = cp.Program;
+            // Filter sections to match the year in CourseProg (if Year is specified)
+            const filteredSections = cp.Year
+                ? program.ProgYrSecs.filter(section => section.Year === cp.Year)
+                : program.ProgYrSecs;
+                
+            // Add sections to our flat array instead of returning them in nested arrays
+            allSections = [...allSections, ...filteredSections];
+        });
+
+        if (allSections.length === 0) {
             return res.status(200).send({
                 successful: true,
                 message: "No ProgYrSec found",
@@ -514,8 +535,8 @@ const getProgYrSecByCourse = async (req, res, next) => {
             return res.status(200).send({
                 successful: true,
                 message: "Retrieved all ProgYrSec",
-                count: pys.length,
-                data: pys
+                count: allSections.length,
+                data: allSections
             });
         }
     } catch (err) {
@@ -525,7 +546,6 @@ const getProgYrSecByCourse = async (req, res, next) => {
         });
     }
 }
-
 
 
 module.exports = {

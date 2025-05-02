@@ -5,9 +5,11 @@ import Sidebar from './callComponents/sideBar.jsx';
 import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const SectionTimetable = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -171,7 +173,7 @@ const SectionTimetable = () => {
 
   // Get room info from Assignation.Rooms
   const getRoomInfo = (schedule) => {
-    const room = schedule?.Assignation?.Rooms?.[0];
+    const room = schedule?.Room
     return {
       code: room?.Code || '?',
       building: room?.Building || '?'
@@ -250,13 +252,7 @@ const SectionTimetable = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundImage: `url(${Image3})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
+      className="min-h-screen flex flex-col bg-gray-800"
     >
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
@@ -265,113 +261,135 @@ const SectionTimetable = () => {
       <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header with filters */}
-          <div className="relative bg-blue-600 p-4 sm:p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
-                {selectedSemester && selectedProgram && selectedYear && selectedSection && (
-                  <div className="text-blue-100 mt-1">
-                    <p className="text-lg font-semibold">{getSelectedProgramCode()} Year {selectedYear} Section {selectedSection} - {selectedSemester}</p>
-                  </div>
-                )}
-              </div>
-              {/* Add ExportButton in desktop view */}
-              <div className="hidden md:block">
-                {selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
-                  <ExportButton
-                    selectedSection={{
-                      Program: getSelectedProgramCode(),
-                      Year: selectedYear,
-                      Section: selectedSection,
-                      Semester: selectedSemester // Add semester to export data
-                    }}
-                    schedules={filteredSchedules}
-                    days={days}
-                    timeSlots={timeSlots}
-                  />
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-4">
-              {/* Semester Dropdown - Added first */}
-              <div className="flex flex-col">
-                <label className="text-blue-100 text-sm mb-1">Semester</label>
-                <select
-                  value={selectedSemester || ''}
-                  onChange={e => setSelectedSemester(e.target.value || null)}
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                >
-                  {semesters.length > 0 ? (
-                    semesters.map(semester => (
-                      <option key={semester} value={semester}>Semester: {semester}</option>
-                    ))
-                  ) : (
-                    <option value="">No semesters available</option>
-                  )}
-                </select>
-              </div>
-              {/* Program Dropdown */}
-              <div className="flex flex-col">
-                <label className="text-blue-100 text-sm mb-1">Program</label>
-                <select
-                  value={selectedProgram || ''}
-                  onChange={e => setSelectedProgram(e.target.value ? parseInt(e.target.value) : null)}
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  disabled={!selectedSemester || programs.length === 0}
-                >
-                  {programs.length > 0 ? (
-                    programs.map(program => (
-                      <option key={program.id} value={program.id}>
-                        {program.Code || 'Unknown'}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No programs available</option>
-                  )}
-                </select>
-              </div>
-              {/* Year Dropdown */}
-              <div className="flex flex-col">
-                <label className="text-blue-100 text-sm mb-1">Year</label>
-                <select
-                  value={selectedYear || ''}
-                  onChange={e => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  disabled={!selectedSemester || years.length === 0}
-                >
-                  {years.length > 0 ? (
-                    years.map(year => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No years available</option>
-                  )}
-                </select>
-              </div>
-              {/* Section Dropdown */}
-              <div className="flex flex-col">
-                <label className="text-blue-100 text-sm mb-1">Section</label>
-                <select
-                  value={selectedSection || ''}
-                  onChange={e => setSelectedSection(e.target.value || null)}
-                  className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  disabled={!selectedSemester || sections.length === 0}
-                >
-                  {sections.length > 0 ? (
-                    sections.map(section => (
-                      <option key={section} value={section}>
-                        {section}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No sections available</option>
-                  )}
-                </select>
-              </div>
-            </div>
-          </div>
+          <div className="bg-blue-600 p-4 sm:p-6">
+  {/* Header section with title and selected info */}
+  
+  
+  {/* Filters and export button */}
+  <div className="flex flex-col md:flex-row md:items-end justify-end gap-4">
+    <div className='flex flex-grow'>
+    <div className="flex flex-col mb-4">
+    <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
+    {selectedSemester && selectedProgram && selectedYear && selectedSection && (
+      <div className="text-blue-100">
+        <p className="text-lg font-semibold">{getSelectedProgramCode()} Year {selectedYear} Section {selectedSection} - {selectedSemester}</p>
+      </div>
+    )}
+  </div>
+    </div>
+  
+    {/* Filter controls in a responsive row */}
+    <div className="flex flex-wrap items-end gap-2 sm:gap-4">
+    <button
+                onClick={() => navigate('/addConfigSchedule')}
+                className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
+                title="Go Back"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+      {/* Semester Dropdown */}
+      <div className="flex flex-col">
+        <label className="text-blue-100 text-sm mb-1">Semester</label>
+        <select
+          value={selectedSemester || ''}
+          onChange={e => setSelectedSemester(e.target.value || null)}
+          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+        >
+          {semesters.length > 0 ? (
+            semesters.map(semester => (
+              <option key={semester} value={semester}>Semester: {semester}</option>
+            ))
+          ) : (
+            <option value="">No semesters available</option>
+          )}
+        </select>
+      </div>
+      
+      {/* Program Dropdown */}
+      <div className="flex flex-col">
+        <label className="text-blue-100 text-sm mb-1">Program</label>
+        <select
+          value={selectedProgram || ''}
+          onChange={e => setSelectedProgram(e.target.value ? parseInt(e.target.value) : null)}
+          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+          disabled={!selectedSemester || programs.length === 0}
+        >
+          {programs.length > 0 ? (
+            programs.map(program => (
+              <option key={program.id} value={program.id}>
+                {program.Code || 'Unknown'}
+              </option>
+            ))
+          ) : (
+            <option value="">No programs available</option>
+          )}
+        </select>
+      </div>
+      
+      {/* Year Dropdown */}
+      <div className="flex flex-col">
+        <label className="text-blue-100 text-sm mb-1">Year</label>
+        <select
+          value={selectedYear || ''}
+          onChange={e => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+          disabled={!selectedSemester || years.length === 0}
+        >
+          {years.length > 0 ? (
+            years.map(year => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))
+          ) : (
+            <option value="">No years available</option>
+          )}
+        </select>
+      </div>
+      
+      {/* Section Dropdown */}
+      <div className="flex flex-col">
+        <label className="text-blue-100 text-sm mb-1">Section</label>
+        <select
+          value={selectedSection || ''}
+          onChange={e => setSelectedSection(e.target.value || null)}
+          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+          disabled={!selectedSemester || sections.length === 0}
+        >
+          {sections.length > 0 ? (
+            sections.map(section => (
+              <option key={section} value={section}>
+                {section}
+              </option>
+            ))
+          ) : (
+            <option value="">No sections available</option>
+          )}
+        </select>
+      </div>
+    </div>
+    
+    {/* Export button */}
+    {selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+      <div className="mt-2 md:mt-0">
+        <ExportButton
+          selectedSection={{
+            Program: getSelectedProgramCode(),
+            Year: selectedYear,
+            Section: selectedSection,
+            Semester: selectedSemester
+          }}
+          schedules={filteredSchedules}
+          days={days}
+          timeSlots={timeSlots}
+        />
+      </div>
+    )}
+  </div>
+</div>
+          
           {/* Calendar */}
           <div className="overflow-x-auto">
             <div className="p-2 sm:p-4">

@@ -78,8 +78,7 @@ const CreateAccount = () => {
 
   return (
     <div
-      className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center"
-      style={{ backgroundImage: `url(${Background})` }}
+      className="bg-cover bg-no-repeat min-h-screen flex justify-center items-center bg-gray-800"
     >
       {/* Sidebar */}
       <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
@@ -88,7 +87,7 @@ const CreateAccount = () => {
       <TopMenu toggleSidebar={toggleSidebar} />
 
       {/* Form Container */}
-      <div className="relative bg-blue-700/70 p-10 rounded-lg shadow-lg w-full lg:max-w-lg">
+      <div className="relative bg-blue-700/70 p-20 rounded-lg shadow-lg w-full lg:max-w-lg md:max-w-md sm:max-w-sm">
         {/* Close Button */}
         <button
           className="absolute top-5 right-15 text-white font-bold text-3xl hover:text-red-500 duration-300"

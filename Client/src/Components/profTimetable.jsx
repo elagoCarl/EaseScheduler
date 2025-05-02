@@ -5,9 +5,11 @@ import Sidebar from './callComponents/sideBar.jsx';
 import ExportButton from './callComponents/exportButton.jsx';
 import Image3 from './Img/3.jpg';
 import { useAuth } from '../Components/authContext.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const ProfTimetable = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedProf, setSelectedProf] = useState(null);
   const [professors, setProfessors] = useState([]);
@@ -30,9 +32,7 @@ const ProfTimetable = () => {
         const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
         if (data.successful && data.data.length) {
           // Extract unique semesters from assignations
-          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean);
-          
-          uniqueSemesters.sort((a, b) => b.localeCompare(a)); // Most recent first
+          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean)
           
           setSemesters(uniqueSemesters);
           setSelectedSemester(uniqueSemesters[0] || null);
@@ -112,7 +112,7 @@ const ProfTimetable = () => {
       code: room.Code || 'Unknown',
       building: room.Building || 'Unknown',
       floor: room.Floor || '',
-      type: room.RoomType?.Type || ''
+      type: room.TypeRooms.map(item => item.Type).join(', ') || ''
     };
   };
 
@@ -193,13 +193,7 @@ const ProfTimetable = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{
-        backgroundImage: `url(${Image3})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      }}
+      className="min-h-screen flex flex-col bg-gray-800"
     >
       <div className="fixed top-0 h-full z-50">
         <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
@@ -224,6 +218,15 @@ const ProfTimetable = () => {
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-3 mt-3 sm:mt-0">
+                <button
+                onClick={() => navigate('/addConfigSchedule')}
+                className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
+                title="Go Back"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
                 {/* Semester Dropdown */}
                 <div className="w-full sm:w-auto">
                   <select
