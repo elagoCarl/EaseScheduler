@@ -1,27 +1,23 @@
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './authContext';
+import { useAuth } from './authContext'; // ✅ Import AuthContext
 import axios from 'axios';
 import { BASE_URL } from '../axiosConfig';
+import image2 from './Img/2.jpg';
+import { Eye, EyeOff } from 'lucide-react'; // Import eye icons from lucide-react
 
-export default function LoginPage() {
-  const { setUser } = useAuth();
+const LoginPage = () => {
+  const navigate = useNavigate();
+  const { setUser } = useAuth(); // ✅ Set user manually after login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
-  
+  const [showPassword, setShowPassword] = useState(false); // State to track password visibility
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-    
+
     try {
-      console.log('Attempting login with:', { email });
-      
       const response = await axios.post(
         `${BASE_URL}/accounts/loginAccount`,
         {
@@ -29,153 +25,132 @@ export default function LoginPage() {
           Password: password,
         },
         {
-          withCredentials: true,
+          withCredentials: true, // ✅ Include credentials
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 15000 // 15 second timeout
         }
       );
 
-      console.log('Login response:', response.data);
-      
       if (response.data.successful) {
-        console.log('Login successful, setting user and redirecting');
-        setUser(response.data.account);
-        navigate('/homePage');
+        // console.log('Login successful. Redirecting to homepage...');
+        setUser(response.data.account); // ✅ Set user manually after login
+        navigate('/homePage'); // ✅ Redirect after successful login
       } else {
         if (response.data.message === "Account not verified. OTP sent to email.") {
-          navigate(`/otpVerification?email=${encodeURIComponent(email)}`);
+          navigate(`/otpVerification?email=${email}`); // ✅ Redirect to OTP verification
         } else {
           setError(response.data.message || 'Login failed. Please try again.');
-          // Auto-clear error after 5 seconds
-          setTimeout(() => setError(''), 5000);
         }
       }
     } catch (err) {
-      console.error('Login error:', err);
-      
-      // Handle specific error cases
-      if (err.response) {
-        console.error('Server responded with:', err.response.status, err.response.data);
-        if (err.response.status === 400) {
-          setError('Invalid login request. Please Check your credentials.');
-        } else if (err.response.status === 401) {
-          setError('Incorrect email or password.');
-        } else if (err.response?.data?.message === 'Account not verified. OTP sent to email.') {
-          navigate(`/otpVerification?email=${encodeURIComponent(email)}`);
-          return;
-        } else {
-          setError(err.response.data?.message || `Server error (${err.response.status}). Please try again.`);
-        }
-      } else if (err.request) {
-        console.error('No response received:', err.request);
-        setError('No response from server. Please check your connection.');
+      if (err.response?.data?.message === 'Account not verified. OTP sent to email.') {
+        navigate(`/otpVerification?email=${email}`);
       } else {
-        console.error('Request setup error:', err.message);
-        setError('An error occurred. Please try again later.');
+        setError(
+          err.response?.data?.message || 'An error occurred. Please try again later.'
+        );
       }
-      
-      // Auto-clear error after 5 seconds for all error cases
-      setTimeout(() => setError(''), 5000);
-    } finally {
-      setIsLoading(false);
     }
   };
 
+  // Toggle password visibility
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <button 
-            onClick={() => navigate('/')}
-            className="text-3xl font-bold"
-          >
-            <span className="text-blue-500">EASE</span>
-            <span className="text-white hover:text-gray-400 transition-colors duration-300">SCHEDULER</span>
-          </button>
-        </div>
-        
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-500 bg-opacity-20 border border-red-400 text-red-100 px-4 py-3 rounded mb-4">
-            <p>{error}</p>
-          </div>
-        )}
-        
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="bg-black bg-opacity-50 rounded-lg p-16 backdrop-blur-sm">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm mb-1 text-gray-300">Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-6 rounded bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="email@address.com"
-              />
-            </div>
-            
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label htmlFor="password" className="text-sm text-gray-300">Password</label>
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgotPassPage')}
-                  className="text-xs text-blue-400 hover:text-blue-300"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-              <div className="relative mb-8">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full p-6 rounded bg-gray-800 border border-gray-700 text-white pr-10 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  className="absolute right-8 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? 
-                    <EyeOff className="h-16 w-16" /> : 
-                    <Eye className="h-16 w-16" />
-                  }
-                </button>
-              </div>
-            </div>
-            
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full ${
-                isLoading ? 'bg-blue-700' : 'bg-blue-600 hover:bg-blue-500'
-              } text-white py-4 rounded transition-colors duration-200 mt-4`}
+    <div
+      className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-between items-center overflow-y-auto"
+      style={{ backgroundImage: `url(${image2})` }}
+    >
+      <section className="justify-center items-center text-center m-auto w-11/12 sm:w-9/12 md:w-5/12 lg:w-4/12">
+        <button
+          id="logoBtn"
+          className="text-xl md:text-3xl lg:text-4xl font-bold text-blue-500 mb-50"
+          onClick={() => navigate('/')}
+        >
+          EASE<span className="text-white hover:text-gray-500 duration-300">SCHEDULER</span>
+        </button>
+
+        <form
+          id="blueBox"
+          className="bg-black/40 p-15 md:p-30 items-center justify-center flex-col space-y-7 rounded-md w-full"
+          onSubmit={handleSubmit}
+        >
+          <div>
+            <label
+              htmlFor="email"
+              className="text-start block mb-2 text-sm font-medium text-gray-100"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </button>
-            
-            <div className="text-center mt-4 text-sm text-gray-400">
-              Don't have an account?{' '}
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              className="text-gray-700 rounded-lg w-full p-8 md:p-15 bg-gray-100"
+              placeholder="Email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="text-start block mb-2 text-sm font-medium text-gray-100"
+            >
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                className="text-gray-700 rounded-lg w-full p-8 md:p-15 bg-gray-100"
+                placeholder="*********"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
               <button
                 type="button"
-                onClick={() => navigate('/register')}
-                className="text-blue-400 hover:text-blue-300 hover:underline"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={togglePasswordVisibility}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                Sign up
+                {showPassword ? (
+                  <EyeOff className="h-20 w-20 mx-15 text-gray-500" />
+                ) : (
+                  <Eye className="h-20 w-20 mx-15 text-gray-500" />
+                )}
               </button>
             </div>
           </div>
+
+          <div className="flex items-center justify-end w-full">
+            <button
+              type="button"
+              className="text-blue-300 hover:underline"
+              onClick={() => navigate('/forgotPassPage')}
+            >
+              Forgot Password?
+            </button>
+          </div>
+
+          {error && <p className="text-red-500">{error}</p>}
+
+          <button
+            type="submit"
+            id="signInBtn"
+            className="w-full text-white bg-blue-700 hover:bg-blue-500 font-medium rounded-lg text-sm py-2.5 text-center duration-300"
+          >
+            Sign in
+          </button>
         </form>
-      </div>
+      </section>
     </div>
   );
-}
+};
+
+export default LoginPage;
