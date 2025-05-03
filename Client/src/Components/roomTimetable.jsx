@@ -234,6 +234,17 @@ const RoomTimetable = () => {
                 ))}
               </select>
 
+              {/* EXPORT BUTTON - Added to desktop view */}
+              {selectedRoom && selectedSemester && !loadingSchedules && (
+                <ExportButton
+                  selectedRoom={selectedRoom}
+                  schedules={schedules}
+                  days={days}
+                  timeSlots={timeSlots}
+                  semester={selectedSemester}
+                />
+              )}
+
             </div>
           </div>
         </div>
