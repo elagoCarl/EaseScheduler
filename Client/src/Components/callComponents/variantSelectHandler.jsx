@@ -84,7 +84,7 @@ const ScheduleVariantModal = ({
         // Auto-hide notification after 3 seconds
         setTimeout(() => {
           setNotification({ ...notification, show: false });
-        }, 3000);
+        }, 9000);
       } catch (error) {
         console.error("Error saving variant:", error);
         setNotification({ 

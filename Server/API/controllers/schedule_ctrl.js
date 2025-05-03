@@ -140,39 +140,74 @@ if (requiredRoomType && (!room.RoomTypeIds || !room.RoomTypeIds.includes(require
 
 const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
     if (!roomSchedules[roomId] || !roomSchedules[roomId][day]) return true;
-
-    return !roomSchedules[roomId][day].some(time =>
-        (startHour >= time.start && startHour < time.end) ||
-        (startHour + duration > time.start && startHour + duration <= time.end) ||
-        (startHour <= time.start && startHour + duration >= time.end)
-    );
+    
+    // Convert input to seconds for precision comparison
+    const startTimeSeconds = typeof startHour === 'number' ? startHour * 3600 : timeToSeconds(startHour);
+    const endTimeSeconds = typeof startHour === 'number' ? (startHour + duration) * 3600 : 
+                          timeToSeconds(startHour) + (duration * 3600);
+    
+    return !roomSchedules[roomId][day].some(time => {
+        // Convert scheduled times to seconds if they're not already
+        const timeStartSeconds = typeof time.start === 'number' && time.start < 100 ? 
+                              time.start * 3600 : (typeof time.start === 'string' ? 
+                              timeToSeconds(time.start) : time.start);
+        const timeEndSeconds = typeof time.end === 'number' && time.end < 100 ? 
+                            time.end * 3600 : (typeof time.end === 'string' ? 
+                            timeToSeconds(time.end) : time.end);
+        
+        return (startTimeSeconds >= timeStartSeconds && startTimeSeconds < timeEndSeconds) ||
+               (endTimeSeconds > timeStartSeconds && endTimeSeconds <= timeEndSeconds) ||
+               (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds);
+    });
 };
 
 const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
-    const requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration
+    const requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration in hours
+    const requiredBreakSeconds = requiredBreak * 3600;
 
     if (secSchedule.hours + duration > settings.StudentMaxHours) return false;
 
+    // Convert input to seconds
+    const startTimeSeconds = typeof startHour === 'number' ? startHour * 3600 : timeToSeconds(startHour);
+    const endTimeSeconds = typeof startHour === 'number' ? (startHour + duration) * 3600 : 
+                          timeToSeconds(startHour) + (duration * 3600);
+
     // Check for overlapping schedules
     for (const time of secSchedule.dailyTimes) {
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end) ||
-            (startHour <= time.start && startHour + duration >= time.end)
-        ) {
+        // Convert scheduled times to seconds
+        const timeStartSeconds = typeof time.start === 'number' && time.start < 100 ? 
+                              time.start * 3600 : (typeof time.start === 'string' ? 
+                              timeToSeconds(time.start) : time.start);
+        const timeEndSeconds = typeof time.end === 'number' && time.end < 100 ? 
+                            time.end * 3600 : (typeof time.end === 'string' ? 
+                            timeToSeconds(time.end) : time.end);
+        
+        if ((startTimeSeconds >= timeStartSeconds && startTimeSeconds < timeEndSeconds) ||
+            (endTimeSeconds > timeStartSeconds && endTimeSeconds <= timeEndSeconds) ||
+            (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds)) {
             return false;
         }
     }
 
-    // Sort schedules by start time to find contiguous blocks and enforce required break
-    const intervals = [...secSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
-        .sort((a, b) => a.start - b.start);
+    // Sort schedules and convert to seconds where needed
+    const intervals = [...secSchedule.dailyTimes.map(time => {
+        return {
+            start: typeof time.start === 'number' && time.start < 100 ? 
+                   time.start * 3600 : (typeof time.start === 'string' ? 
+                   timeToSeconds(time.start) : time.start),
+            end: typeof time.end === 'number' && time.end < 100 ? 
+                 time.end * 3600 : (typeof time.end === 'string' ? 
+                 timeToSeconds(time.end) : time.end)
+        };
+    }), { start: startTimeSeconds, end: endTimeSeconds }]
+    .sort((a, b) => a.start - b.start);
 
+    // Check for required breaks
     for (let i = 0; i < intervals.length - 1; i++) {
         let currentEnd = intervals[i].end;
         let nextStart = intervals[i + 1].start;
 
-        if (nextStart < currentEnd + requiredBreak) {
+        if (nextStart < currentEnd + requiredBreakSeconds) {
             return false; // Not enough break time
         }
     }
@@ -181,7 +216,15 @@ const canScheduleStudents = (secSchedule, startHour, duration, settings) => {
 
 const canScheduleProfessor = (profSchedule, startHour, duration, settings, professorId, day, professorAvailabilityCache) => {
     const requiredBreak = settings.ProfessorBreak || 1; // Default break duration: 1 hour
+    const requiredBreakSeconds = requiredBreak * 3600;
     const maxContinuousHours = settings.maxAllowedGap || 5; // Max hours before break is required
+    const maxContinuousSeconds = maxContinuousHours * 3600;
+
+    // Convert input to seconds
+    const startTimeSeconds = typeof startHour === 'number' ? startHour * 3600 : timeToSeconds(startHour);
+    const endTimeSeconds = typeof startHour === 'number' ? (startHour + duration) * 3600 : 
+                          timeToSeconds(startHour) + (duration * 3600);
+    const durationSeconds = duration * 3600;
 
     // Use the cached professor availability data
     const cacheKey = `prof-${professorId}`;
@@ -206,10 +249,10 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
         // If they have records for this day, check if the proposed time falls within any availability window
         let isAvailable = false;
         for (const avail of profAvails) {
-            const availStartHour = parseInt(avail.Start_time.split(':')[0]);
-            const availEndHour = parseInt(avail.End_time.split(':')[0]);
+            const availStartSeconds = timeToSeconds(avail.Start_time);
+            const availEndSeconds = timeToSeconds(avail.End_time);
 
-            if (startHour >= availStartHour && (startHour + duration) <= availEndHour) {
+            if (startTimeSeconds >= availStartSeconds && endTimeSeconds <= availEndSeconds) {
                 isAvailable = true;
                 break;
             }
@@ -221,25 +264,40 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
     // Check if adding this schedule would exceed max hours
     if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
 
-    // Check for overlapping schedules
+    // Check for overlapping schedules with second precision
     for (const time of profSchedule.dailyTimes) {
-        if (
-            (startHour >= time.start && startHour < time.end) ||
-            (startHour + duration > time.start && startHour + duration <= time.end) ||
-            (startHour <= time.start && startHour + duration >= time.end)
-        ) {
+        // Convert scheduled times to seconds
+        const timeStartSeconds = typeof time.start === 'number' && time.start < 100 ? 
+                              time.start * 3600 : (typeof time.start === 'string' ? 
+                              timeToSeconds(time.start) : time.start);
+        const timeEndSeconds = typeof time.end === 'number' && time.end < 100 ? 
+                            time.end * 3600 : (typeof time.end === 'string' ? 
+                            timeToSeconds(time.end) : time.end);
+        
+        if ((startTimeSeconds >= timeStartSeconds && startTimeSeconds < timeEndSeconds) ||
+            (endTimeSeconds > timeStartSeconds && endTimeSeconds <= timeEndSeconds) ||
+            (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds)) {
             return false;
         }
     }
 
     // If no schedules yet, no need to check for contiguous blocks
     if (profSchedule.dailyTimes.length === 0) {
-        return duration <= maxContinuousHours; // Check if this single class exceeds max continuous hours
+        return durationSeconds <= maxContinuousSeconds; // Check if this single class exceeds max continuous hours
     }
 
-    // Sort schedules by start time to find contiguous blocks and check break requirements
-    const intervals = [...profSchedule.dailyTimes, { start: startHour, end: startHour + duration }]
-        .sort((a, b) => a.start - b.start);
+    // Sort schedules and convert to seconds
+    const intervals = [...profSchedule.dailyTimes.map(time => {
+        return {
+            start: typeof time.start === 'number' && time.start < 100 ? 
+                   time.start * 3600 : (typeof time.start === 'string' ? 
+                   timeToSeconds(time.start) : time.start),
+            end: typeof time.end === 'number' && time.end < 100 ? 
+                 time.end * 3600 : (typeof time.end === 'string' ? 
+                 timeToSeconds(time.end) : time.end)
+        };
+    }), { start: startTimeSeconds, end: endTimeSeconds }]
+    .sort((a, b) => a.start - b.start);
 
     // Track continuous teaching blocks
     for (let i = 0; i < intervals.length - 1; i++) {
@@ -247,21 +305,21 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
         const next = intervals[i + 1];
 
         // Check if this is the new proposed schedule adjacent to an existing one
-        if (next.start === startHour || current.start === startHour) {
+        if (next.start === startTimeSeconds || current.start === startTimeSeconds) {
             // Case 1: This new class creates or extends a continuous block
             if (next.start === current.end) {
                 // Classes are adjacent - check if combined duration exceeds max continuous hours
                 const continuousDuration = next.end - current.start;
-                if (continuousDuration > maxContinuousHours) {
+                if (continuousDuration > maxContinuousSeconds) {
                     return false; // Exceeds max continuous teaching hours
                 }
             }
             // Case 2: Check if there's enough break between classes
-            else if (next.start < current.end + requiredBreak && next.start > current.end) {
+            else if (next.start < current.end + requiredBreakSeconds && next.start > current.end) {
                 return false; // Not enough break time
             }
             // Case 3: Check if this class itself exceeds max continuous hours
-            else if (duration > maxContinuousHours) {
+            else if (durationSeconds > maxContinuousSeconds) {
                 return false;
             }
         }
@@ -277,7 +335,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             contiguousEnd = intervals[i].end;
 
             // Check if this extension would exceed the maximum allowed continuous hours
-            if (contiguousEnd - contiguousStart > maxContinuousHours) {
+            if (contiguousEnd - contiguousStart > maxContinuousSeconds) {
                 return false;
             }
         } else {
@@ -285,7 +343,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             const gap = intervals[i].start - contiguousEnd;
 
             // If the previous block reached maximum allowed hours, check if there's enough break
-            if (contiguousEnd - contiguousStart >= maxContinuousHours && gap < requiredBreak) {
+            if (contiguousEnd - contiguousStart >= maxContinuousSeconds && gap < requiredBreakSeconds) {
                 return false; // Not enough break after reaching max continuous hours
             }
 
@@ -1147,39 +1205,53 @@ rooms.sort((a, b) => {
             // 9c) Initialize roomSchedules with ALL existing schedules from all departments
             for (const sch of allRoomSchedules) {
                 const day = sch.Day;
-                const startH = parseInt(sch.Start_time.split(':')[0], 10);
-                const endH = parseInt(sch.End_time.split(':')[0], 10);
-
+                const startTimeSeconds = timeToSeconds(sch.Start_time);
+                const endTimeSeconds = timeToSeconds(sch.End_time);
+            
                 // Room schedules from ALL departments
                 if (!roomSchedules[sch.RoomId]) roomSchedules[sch.RoomId] = {};
                 if (!roomSchedules[sch.RoomId][day]) roomSchedules[sch.RoomId][day] = [];
-                roomSchedules[sch.RoomId][day].push({ start: startH, end: endH });
+                roomSchedules[sch.RoomId][day].push({ 
+                    start: startTimeSeconds,
+                    end: endTimeSeconds
+                });
             }
 
             // Now also add our department's locked schedules to the tracking structures
             for (const sch of lockedSchedules) {
                 if (!sch.Assignation?.Professor || !sch.Assignation?.Course) continue;
-
+            
                 const day = sch.Day;
-                const startH = parseInt(sch.Start_time.split(':')[0], 10);
-                const endH = parseInt(sch.End_time.split(':')[0], 10);
-                const dur = endH - startH;
-
+                // Convert time strings to seconds for precision
+                const startTimeSeconds = timeToSeconds(sch.Start_time);
+                const endTimeSeconds = timeToSeconds(sch.End_time);
+                // Still calculate duration in hours for tracking total hours
+                const dur = (endTimeSeconds - startTimeSeconds) / 3600;
+            
                 // Professor
                 const profId = sch.Assignation.Professor.id;
                 professorSchedule[profId][day].hours += dur;
-                professorSchedule[profId][day].dailyTimes.push({ start: startH, end: endH });
-
+                professorSchedule[profId][day].dailyTimes.push({ 
+                    start: startTimeSeconds,
+                    end: endTimeSeconds
+                });
+            
                 // Course
-                courseSchedules[sch.Assignation.Course.id][day].push({ start: startH, end: endH });
-
+                courseSchedules[sch.Assignation.Course.id][day].push({ 
+                    start: startTimeSeconds,
+                    end: endTimeSeconds
+                });
+            
                 // Sections - use preloaded data
                 const linkedSecs = sch.ProgYrSecs || [];
                 console.log(`Schedule ${sch.id} has ${linkedSecs.length} linked sections`);
-
+            
                 for (const sec of linkedSecs) {
                     progYrSecSchedules[sec.id][day].hours += dur;
-                    progYrSecSchedules[sec.id][day].dailyTimes.push({ start: startH, end: endH });
+                    progYrSecSchedules[sec.id][day].dailyTimes.push({ 
+                        start: startTimeSeconds,
+                        end: endTimeSeconds
+                    });
                 }
             }
 
