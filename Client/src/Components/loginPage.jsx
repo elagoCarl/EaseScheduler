@@ -13,15 +13,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
+    
     try {
       console.log('Attempting login with:', { email });
-
+      
       const response = await axios.post(
         `${BASE_URL}/accounts/loginAccount`,
         {
@@ -38,7 +38,7 @@ export default function LoginPage() {
       );
 
       console.log('Login response:', response.data);
-
+      
       if (response.data.successful) {
         console.log('Login successful, setting user and redirecting');
         setUser(response.data.account);
@@ -54,7 +54,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Login error:', err);
-
+      
       // Handle specific error cases
       if (err.response) {
         console.error('Server responded with:', err.response.status, err.response.data);
@@ -75,7 +75,7 @@ export default function LoginPage() {
         console.error('Request setup error:', err.message);
         setError('An error occurred. Please try again later.');
       }
-
+      
       // Auto-clear error after 5 seconds for all error cases
       setTimeout(() => setError(''), 5000);
     } finally {
@@ -84,11 +84,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-800 text-white p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <button
+          <button 
             onClick={() => navigate('/')}
             className="text-3xl font-bold"
           >
@@ -96,14 +96,14 @@ export default function LoginPage() {
             <span className="text-white hover:text-gray-400 transition-colors duration-300">SCHEDULER</span>
           </button>
         </div>
-
+        
         {/* Error message */}
         {error && (
           <div className="bg-red-500 bg-opacity-20 border border-red-400 text-red-100 px-4 py-3 rounded mb-4">
             <p>{error}</p>
           </div>
         )}
-
+        
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="bg-black bg-opacity-50 rounded-lg p-16 backdrop-blur-sm">
           <div className="space-y-4">
@@ -118,7 +118,7 @@ export default function LoginPage() {
                 placeholder="email@address.com"
               />
             </div>
-
+            
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label htmlFor="password" className="text-sm text-gray-300">Password</label>
@@ -145,22 +145,34 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ?
-                    <EyeOff className="h-16 w-16" /> :
+                  {showPassword ? 
+                    <EyeOff className="h-16 w-16" /> : 
                     <Eye className="h-16 w-16" />
                   }
                 </button>
               </div>
             </div>
-
+            
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full ${isLoading ? 'bg-blue-700' : 'bg-blue-600 hover:bg-blue-500'
-                } text-white py-4 rounded transition-colors duration-200 mt-4`}
+              className={`w-full ${
+                isLoading ? 'bg-blue-700' : 'bg-blue-600 hover:bg-blue-500'
+              } text-white py-4 rounded transition-colors duration-200 mt-4`}
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
+            
+            <div className="text-center mt-4 text-sm text-gray-400">
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/register')}
+                className="text-blue-400 hover:text-blue-300 hover:underline"
+              >
+                Sign up
+              </button>
+            </div>
           </div>
         </form>
       </div>
