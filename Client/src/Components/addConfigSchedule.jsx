@@ -127,12 +127,12 @@ const AddConfigSchedule = () => {
     return typeRooms.map(item => item.Type).join(', ')
   };
 
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+  // useEffect(() => {
+  //   if (notification) {
+  //     const timer = setTimeout(() => setNotification(null), 5000);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [notification]);
 
   const [semesterData, setSemesterData] = useState({});
   const [currentAssignations, setCurrentAssignations] = useState([]);

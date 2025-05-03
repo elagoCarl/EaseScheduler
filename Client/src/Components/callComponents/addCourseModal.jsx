@@ -6,6 +6,7 @@ import { X, Check, AlertCircle, Plus, Trash } from "lucide-react";
 
 const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   const { user } = useAuth();
+  const isCore = user?.Department?.isCore;
   const [formData, setFormData] = useState({
     Code: "", Description: "", Duration: "", Units: "", Type: "",
     DepartmentId: "", RoomTypeId: "", ProgYears: []
@@ -27,6 +28,16 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
       }
     }
   }, [isOpen, user]);
+
+  useEffect(() => {
+    // If user is not from a core department and tries to select Core type, reset to Professional
+    if (!isCore && formData.Type === "Core") {
+      setFormData({
+        ...formData,
+        Type: "Professional"
+      });
+    }
+  }, [formData.Type, isCore]);
 
   const resetForm = () => {
     setFormData({
@@ -217,7 +228,12 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                 value={formData.Type} onChange={handleInputChange} required
               >
                 <option value="" disabled>Select Course Type</option>
-                <option value="Core">Core</option>
+                <option 
+                  value="Core" 
+                  disabled={!isCore}
+                >
+                  Core {!isCore && "(Requires Core Department Access)"}
+                </option>
                 <option value="Professional">Professional</option>
               </select>
             </div>

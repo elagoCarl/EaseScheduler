@@ -49,6 +49,13 @@ const addCourse = async (req, res) => {
         });
       }
 
+      if (Units < 1 || Units > 30){
+        return res.status(406).json({
+          successful: false,
+          message: "Units should be between 1 and 30",
+        });
+      }
+
       const availableHours = settings.EndHour - settings.StartHour;
       if (Duration > availableHours) {
         return res.status(406).json({
@@ -293,6 +300,13 @@ const updateCourse = async (req, res) => {
       return res.status(400).json({
         successful: false,
         message: "A mandatory field is missing.",
+      });
+    }
+
+    if (Units < 1 || Units > 30){
+      return res.status(406).json({
+        successful: false,
+        message: "Units should be between 1 and 30",
       });
     }
 

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import Axios from "../../axiosConfig";
-import { useAuth } from '../authContext';
+import { useAuth } from "../authContext";
 import PropTypes from "prop-types";
 import { X, Check, AlertCircle } from "lucide-react";
 
 const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
   const { user } = useAuth();
+  console.log("user: ", user);
+  const isCore = user.Department.isCore;
   const [formData, setFormData] = useState({
     Code: "",
     Description: "",
@@ -13,7 +15,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
     Duration: "",
     Units: "",
     RoomTypeId: "",
-    DepartmentId: ""
+    DepartmentId: "",
   });
   const [roomTypes, setRoomTypes] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -26,7 +28,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
     course: PropTypes.object,
-    onUpdateSuccess: PropTypes.func
+    onUpdateSuccess: PropTypes.func,
   };
 
   useEffect(() => {
@@ -39,13 +41,23 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
         Duration: course.Duration || "",
         Units: course.Units || "",
         RoomTypeId: course.RoomTypeId || "",
-        DepartmentId: user?.DepartmentId || course.DepartmentId || ""
+        DepartmentId: user?.DepartmentId || course.DepartmentId || "",
       });
       setErrorMessage("");
       setSuccessMessage("");
       fetchRoomTypes();
     }
   }, [isOpen, course, user]);
+
+  useEffect(() => {
+    // If user is not from a core department and tries to select Core type, reset to Professional
+    if (!isCore && formData.Type === "Core") {
+      setFormData({
+        ...formData,
+        Type: "Professional",
+      });
+    }
+  }, [formData.Type, isCore]);
 
   const fetchRoomTypes = async () => {
     try {
@@ -98,7 +110,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           Units: parseInt(formData.Units),
           Type: formData.Type,
           RoomTypeId: formData.RoomTypeId,
-          DepartmentId: user.DepartmentId
+          DepartmentId: user.DepartmentId,
         },
         {
           headers: { "Content-Type": "application/json" },
@@ -118,7 +130,10 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
         shakeForm();
       }
     } catch (error) {
-      const errorMsg = error.response?.data?.message || error.message || "An unexpected error occurred";
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "An unexpected error occurred";
       setErrorMessage(errorMsg);
       shakeForm();
       console.error("Error updating course:", error);
@@ -141,9 +156,16 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           </button>
         </div>
 
-        <form className={`p-6 space-y-4 max-h-[80vh] overflow-y-auto ${isShaking ? 'animate-shake' : ''}`} onSubmit={handleSubmit}>
+        <form
+          className={`p-6 space-y-4 max-h-[80vh] overflow-y-auto ${
+            isShaking ? "animate-shake" : ""
+          }`}
+          onSubmit={handleSubmit}
+        >
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">Course Code</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Course Code
+            </label>
             <input
               type="text"
               name="Code"
@@ -156,7 +178,9 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">Course Description</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Course Description
+            </label>
             <input
               type="text"
               name="Description"
@@ -170,7 +194,9 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Course Duration (hours)</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Course Duration (hours)
+              </label>
               <input
                 type="number"
                 name="Duration"
@@ -184,7 +210,9 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">No. of Units</label>
+              <label className="block text-sm font-medium text-gray-700">
+                No. of Units
+              </label>
               <input
                 type="number"
                 name="Units"
@@ -200,7 +228,9 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Course Type</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Course Type
+              </label>
               <select
                 name="Type"
                 className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
@@ -208,14 +238,20 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="" disabled>Select Course Type</option>
-                <option value="Core">Core</option>
+                <option value="" disabled>
+                  Select Course Type
+                </option>
+                <option value="Core" disabled={!isCore}>
+                  Core {!isCore && "(Requires Core Department Access)"}
+                </option>
                 <option value="Professional">Professional</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-gray-700">Room Type</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Room Type
+              </label>
               <select
                 name="RoomTypeId"
                 className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
@@ -223,9 +259,13 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="" disabled>Select Room Type</option>
+                <option value="" disabled>
+                  Select Room Type
+                </option>
                 {roomTypes.map((roomType) => (
-                  <option key={roomType.id} value={roomType.id}>{roomType.Type}</option>
+                  <option key={roomType.id} value={roomType.id}>
+                    {roomType.Type}
+                  </option>
                 ))}
               </select>
             </div>
@@ -256,7 +296,9 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
+              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${
+                isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+              }`}
             >
               {isSubmitting ? "Updating..." : "Save Changes"}
             </button>

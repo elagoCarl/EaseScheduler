@@ -746,7 +746,7 @@ const getCurrentAccount = async (req, res, next) => {
                 include: [
                     {
                         model: Department,
-                        attributes: ['Name']
+                        attributes: ['Name', 'isCore']
                     }
                 ]
             });

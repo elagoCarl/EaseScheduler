@@ -182,7 +182,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 setError("Please select at least one section.");
                 setTimeout(() => {
                     setError(null);
-                }, 3000);
+                }, 8000);
                 setLoading(false);
                 return;
             }
@@ -192,7 +192,7 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 setError("Please fill in all fields.");
                 setTimeout(() => {
                     setError(null);
-                }, 3000);
+                }, 8000);
                 setLoading(false);
                 return;
             }
@@ -226,14 +226,14 @@ const EditSchedRecordModal = ({ isOpen, schedule, onClose, onUpdate, rooms, assi
                 setError(transformErrorMessage(response.data.message || "Failed to update schedule."));
                 setTimeout(() => {
                     setError(null);
-                }, 3000);
+                }, 8000);
             }
         } catch (err) {
             console.error("Error updating schedule:", err);
             setError(transformErrorMessage(err.response?.data?.message || err.message || "An error occurred."));
             setTimeout(() => {
                 setError(null);
-            }, 3000);
+            }, 8000);
         } finally {
             setLoading(false);
         }
