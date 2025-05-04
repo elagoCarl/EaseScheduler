@@ -61,8 +61,7 @@ const LoginPage = () => {
 
   return (
     <div
-      className="bg-cover bg-no-repeat min-h-screen flex flex-col justify-between items-center overflow-y-auto"
-      style={{ backgroundImage: `url(${image2})` }}
+      className="bg-cover bg-gray-900 bg-no-repeat min-h-screen flex flex-col justify-between items-center overflow-y-auto"
     >
       <section className="justify-center items-center text-center m-auto w-11/12 sm:w-9/12 md:w-5/12 lg:w-4/12">
         <button
@@ -75,7 +74,7 @@ const LoginPage = () => {
 
         <form
           id="blueBox"
-          className="bg-black/40 p-15 md:p-30 items-center justify-center flex-col space-y-7 rounded-md w-full"
+          className="bg-black/50 p-15 md:p-30 items-center justify-center flex-col space-y-7 rounded-md w-full"
           onSubmit={handleSubmit}
         >
           <div>
