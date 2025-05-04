@@ -281,7 +281,7 @@ const ProfessorManagement = () => {
         const filteredAssignments = getFilteredAssignments(professor.id, assignmentSearch, activeSemester);
 
         return (
-            <div className="p-4">
+            <div className="p-8">
                 <div className="mb-3 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         <h3 className="font-medium text-gray-800">Course Assignments</h3>
@@ -308,7 +308,7 @@ const ProfessorManagement = () => {
                     </div>
 
                     {/* Semester filter */}
-                    <div className="flex gap-1">
+                    <div className="flex gap-4 ml-3">
                         <button onClick={() => setActiveSemester('all')}
                             className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
@@ -328,7 +328,7 @@ const ProfessorManagement = () => {
                 </div>
 
                 {filteredAssignments.length > 0 ? (
-                    <div className="max-h-200 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    <div className="max-h-150 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                         <div className="space-y-2">
                             {filteredAssignments.map((assignment) => (
                                 <div key={assignment.id} className="flex justify-between items-center p-2.5 bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
@@ -381,7 +381,7 @@ const ProfessorManagement = () => {
             <ToastContainer position="top-right" autoClose={3000} />
 
             <div className="flex-grow flex justify-center items-center pt-20 pb-8 px-4">
-                <div className="w-full max-w-sm sm:max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl my-50">
+                <div className="w-full max-w-sm sm:max-w-md md:max-w-3xl lg:max-w-5xl xl:max-w-7xl my-60">
                     <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
                         <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Professor Management</h1>
                         <div className="flex items-center gap-6">
@@ -412,13 +412,13 @@ const ProfessorManagement = () => {
 
                             <div className="flex flex-wrap gap-2">
                                 <button onClick={() => setActiveTab('all')}
-                                    className={`px-4 py-2.5 rounded text-sm font-medium transition duration-200 ${activeTab === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                    className={`px-4 rounded text-sm font-medium transition duration-200 ${activeTab === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                                 >
                                     All
                                 </button>
                                 <div className="relative ml-1">
                                     <button onClick={() => setShowFilters(!showFilters)}
-                                        className={`px-4 py-2.5 rounded text-sm font-medium transition duration-200 flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                        className={`px-4 py-1.5 rounded text-sm font-medium transition duration-200 flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-black hover:bg-gray-300 duration-300'}`}
                                     >
                                         <Filter size={16} />
                                         Status
@@ -433,7 +433,7 @@ const ProfessorManagement = () => {
                                                             setActiveTab(status);
                                                             setShowFilters(false);
                                                         }}
-                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-100 duration-300 rounded hover:text-blue-700 transition duration-150 flex items-center"
+                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-100 duration-300 rounded hover:text-blue-700 transition flex items-center"
                                                         >
                                                             <span className={`w-3 h-3 rounded-md ${status === 'Full-time' ? 'bg-emerald-400' : status === 'Part-time' ? 'bg-blue-400' : 'bg-gray-400'} mr-2`}></span>
                                                             {status}
@@ -468,11 +468,11 @@ const ProfessorManagement = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-16 mt-10">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:p-8 gap-12 lg:gap-16 mt-18">
                         {currentProfessors.length > 0 ? (
                             currentProfessors.map(professor => (
                                 <div key={professor.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
-                                    <div className="bg-blue-600 p-4">
+                                    <div className="bg-blue-600 p-6">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <h2 className="text-lg font-semibold text-white tracking-tight">{professor.name}</h2>
@@ -539,9 +539,9 @@ const ProfessorManagement = () => {
                                         <CourseAssignments professor={professor} />
                                     </div>
 
-                                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                                    <div className="px-4 py-3 m-2 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
                                         <button
-                                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 transition duration-150 flex items-center gap-1" onClick={() => {
+                                            className="px-3 py-1.5 bg-gray-200 gap-4 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition duration-150 flex items-center" onClick={() => {
                                                 setSelectedProfForAvailability(professor);
                                                 setIsAvailabilityModalOpen(true);
                                             }}
