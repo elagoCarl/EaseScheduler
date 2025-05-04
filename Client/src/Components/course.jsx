@@ -318,7 +318,7 @@ const CourseManagement = () => {
             {currentCourses.length > 0 ? (
               currentCourses.map(course => (
                 <div key={course.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
-                  <div className="bg-blue-600 p-4">
+                  <div className="bg-blue-600 p-12">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold text-white">{course.code}</h2>
@@ -343,16 +343,16 @@ const CourseManagement = () => {
                     </div>
 
                     <div className="mt-3 pt-2 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap gap-4">
-                      <div className="flex items-center gap-2 tracking-tight">
+                      <div className="flex items-center gap-6 tracking-tight">
                         <span>{course.description}</span>
                       </div>
-                      <div className="flex items-center gap-1 mr-3">
-                        <BookOpen size={14} className="text-blue-200" />
+                      <div className="flex items-center ml-8 gap-2 mr-3">
+                        <BookOpen size={15} className="text-blue-200" />
                         <span>{course.units} Units</span>
                       </div>
                       {course.details.duration && (
-                        <div className="flex items-center gap-1">
-                          <Clock size={14} className="text-blue-200" />
+                        <div className="flex items-center ml-5 gap-1">
+                          <Clock size={15} className="text-blue-200" />
                           <span>Course Duration: {course.details.duration}</span>
                         </div>
                       )}
@@ -360,13 +360,13 @@ const CourseManagement = () => {
                   </div>
 
                   <div className={`transition-all duration-300 ${course.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                    <div className="p-4 overflow-y-auto max-h-200">
+                    <div className="p-8 overflow-y-auto max-h-200">
                       <div className="">
                         <button
                           onClick={() => handleViewPrograms(course.id)}
-                          className="w-full py-2.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center  hover:bg-blue-100 transition-colors "
+                          className="w-full gap-8 py-1.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center  hover:bg-blue-200 transition-colors "
                         >
-                          <BookOpen size={18} />
+                          <BookOpen size={16} />
                           View Associated Programs
                         </button>
                       </div>
