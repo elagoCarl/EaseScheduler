@@ -468,7 +468,7 @@ const ProfessorManagement = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-2 lg:p-8 gap-12 lg:gap-16 mt-18">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:p-8 gap-12 lg:gap-16 mt-10">
                         {currentProfessors.length > 0 ? (
                             currentProfessors.map(professor => (
                                 <div key={professor.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
