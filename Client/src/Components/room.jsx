@@ -263,7 +263,7 @@ const Room = () => {
       <ToastContainer position="top-right" autoClose={3000} />
 
       <div className="flex-grow flex justify-center items-center pt-20 pb-8 px-4">
-        <div className="w-full max-w-7xl my-50">
+        <div className="w-full sm:max-w-7xl max-w-6xl my-50">
           {/* Header */}
           <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
             <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Room Management</h1>
@@ -289,19 +289,19 @@ const Room = () => {
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap gap-10">
+              <div className="flex flex-wrap gap-4">
                 <button onClick={() => {
                   setSelectedCampus("Select Campus");
                   setSelectedFloor("Select Floor");
                   setActiveTab('all');
                 }}
-                  className={`px-4 py-2.5 rounded text-sm font-medium ${activeTab === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`px-4 rounded text-sm font-medium ${activeTab === 'all' ? 'bg-blue-600 hover:bg-blue-700 duration-300 text-white shadow-md' : 'bg-gray-100 text-gray-700 duration-300'}`}
                 >
                   All
                 </button>
                 <div className="relative ml-1">
                   <button onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-black hover:bg-gray-300 duration-300'}`}
                   >
                     <Filter size={16} />
                     Filters
@@ -393,11 +393,11 @@ const Room = () => {
           </div>
 
           {/* Room Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 p-3 mt-10">
+          <div className="grid grid-cols-2 md:grid-cols-2 gap-16 p-3 mt-12">
             {currentRooms.length > 0 ? (
               currentRooms.map(room => (
-                <div key={room.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
-                  <div className="bg-blue-600 p-4">
+                <div key={room.id} className="bg-gray-200 rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
+                  <div className="bg-blue-600 p-8">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-lg font-semibold text-white">{room.Code}</h2>
@@ -409,12 +409,12 @@ const Room = () => {
                       </button>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap gap-4">
-                      <div className="flex items-center gap-1">
+                    <div className="mt-3 pt-2 gap-6 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap">
+                      <div className="flex items-center gap-4">
                         <Building size={14} className="text-blue-200" />
                         <span>Campus: {room.Building}</span>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-4 ml-4">
                         <Home size={14} className="text-blue-200" />
                         <span>Floor: {room.Floor}</span>
                       </div>
@@ -430,9 +430,9 @@ const Room = () => {
                   </div>
 
                   <div className={`transition-all duration-300 ${room.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                    <div className="p-4 overflow-y-auto max-h-200">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-3 bg-gray-50 rounded border border-gray-100">
+                    <div className="p-8 overflow-y-auto max-h-200">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="p-5 bg-gray-50 rounded border border-gray-100">
                           <h4 className="text-sm font-medium text-gray-800 mb-2">Room Details</h4>
                           <div className="space-y-2 text-sm text-gray-600">
                             <p>Code: {room.Code}</p>
@@ -441,7 +441,7 @@ const Room = () => {
                             {isAdmin && <p>Capacity: {room.NumberOfSeats} seats</p>}
                           </div>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded border border-gray-100">
+                        <div className="p-5 bg-gray-50 rounded border border-gray-100">
                           <h4 className="text-sm font-medium text-gray-800 mb-2">Room Types</h4>
                           <div className="flex flex-wrap gap-10">
                             {room.roomTypes && room.roomTypes.length > 0 ? (

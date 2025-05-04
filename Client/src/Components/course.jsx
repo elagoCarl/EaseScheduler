@@ -217,7 +217,7 @@ const CourseManagement = () => {
 
           {/* Search and Filter */}
           <div className="bg-white p-4 rounded shadow-md mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4 p-4">
               <div className="relative flex-grow">
                 <input
                   type="text"
@@ -238,13 +238,13 @@ const CourseManagement = () => {
                   setTypeFilter('All');
                   setActiveTab('all');
                 }}
-                  className={`px-4 py-2.5 rounded text-sm font-medium ${activeTab === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`px-4 rounded text-sm font-medium ${activeTab === 'all' ? 'bg-blue-600 hover:bg-blue-700 duration-300 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
                   All
                 </button>
                 <div className="relative ml-1">
                   <button onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-2.5 rounded text-sm font-medium flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    className={`px-4 py-1.5 rounded text-sm font-medium flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-black hover:bg-gray-300'}`}
                   >
                     <Filter size={16} />
                     Filters
