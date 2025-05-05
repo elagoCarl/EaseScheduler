@@ -41,15 +41,16 @@ const addCourse = async (req, res) => {
         });
       }
 
-      const settings = await Settings.findOne({ where: { DepartmentId } });
+      // Get global settings
+      const settings = await Settings.findOne();
       if (!settings) {
         return res.status(406).json({
           successful: false,
-          message: "Settings not found.",
+          message: "Global settings not found.",
         });
       }
 
-      if (Units < 1 || Units > 30){
+      if (Units < 1 || Units > 30) {
         return res.status(406).json({
           successful: false,
           message: "Units should be between 1 and 30",
@@ -303,7 +304,7 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    if (Units < 1 || Units > 30){
+    if (Units < 1 || Units > 30) {
       return res.status(406).json({
         successful: false,
         message: "Units should be between 1 and 30",
@@ -350,11 +351,11 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    const settings = await Settings.findOne({ where: { DepartmentId } })
+    const settings = await Settings.findOne();
     if (!settings) {
       return res.status(406).json({
         successful: false,
-        message: "Settings not found.",
+        message: "Global settings not found.",
       });
     }
 

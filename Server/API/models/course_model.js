@@ -25,6 +25,10 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             min: 1
         },
+        isTutorial: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: false
+        },
         Type: {
             type: DataTypes.STRING,
             allowNull: false,

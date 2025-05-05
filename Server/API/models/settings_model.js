@@ -1,6 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const Settings = sequelize.define(
-    "Settings",
+  const Settings = sequelize.define("Settings",
     {
       StartHour: {
         type: DataTypes.FLOAT,
