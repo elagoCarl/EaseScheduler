@@ -28,9 +28,8 @@ module.exports = (sequelize, DataTypes) => {
     
     ProgYrSec.associate = (models) => {
         ProgYrSec.belongsTo(models.Program, { foreignKey: 'ProgramId' });
-        ProgYrSec.belongsToMany(models.Schedule, { 
-            through: 'SectionSched', 
-            foreignKey: 'ProgYrSecId'
+        ProgYrSec.belongsToMany(models.Assignation, { 
+            through: 'AssignationSection',
         });
     };
     
