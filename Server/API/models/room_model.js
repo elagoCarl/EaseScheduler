@@ -36,7 +36,6 @@ module.exports = (sequelize, DataTypes) => {
 
         Room.belongsTo(models.RoomType, {
             foreignKey: 'PrimaryTypeId',
-            as: 'PrimaryType'
         })
 
         Room.belongsToMany(models.Department, {
