@@ -43,10 +43,7 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'AssignationId',
             constraints: false
         });
-        Schedule.belongsToMany(models.ProgYrSec, { 
-            through: 'SectionSched',
-            foreignKey: 'ScheduleId'
-        });
+        
     };
     
     return Schedule
