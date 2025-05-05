@@ -24,7 +24,7 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE'
         })
         RoomType.hasMany(models.Room, {
-            as: 'PrimaryType',
+            foreignKey: 'PrimaryTypeId',
             onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
         })
