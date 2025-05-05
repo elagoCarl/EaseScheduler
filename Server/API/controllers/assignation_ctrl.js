@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -21,10 +21,8 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            let { Semester, CourseId, ProfessorId, DepartmentId } = assignation;
-            Semester = parseInt(Semester, 10); // Ensure Semester is an integer
-            // Check mandatory fields - note ProfessorId can be null based on the model
-            if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
+            let { School_year, CourseId, ProfessorId, DepartmentId, SectionIds } = assignation;
+            if (!util.checkMandatoryFields([School_year, CourseId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
@@ -36,15 +34,19 @@ const addAssignation = async (req, res, next) => {
             if (!course) {
                 return res.status(404).json({ successful: false, message: "Course not found." });
             }
+            
+            // NEW: Check if tutorial course has sections
+            if (course.isTutorial && SectionIds && SectionIds.length > 0) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Tutorial courses cannot be assigned to sections.",
+                });
+            }
 
             // Validate Department
             const department = await Department.findByPk(DepartmentId);
             if (!department) {
                 return res.status(404).json({ successful: false, message: "Department not found." });
-            }
-
-            if (Semester < 1 || Semester > 2) {
-                return res.status(400).json({ successful: false, message: "Semester must be 1 or 2." });
             }
 
             // Validate Professor if provided
@@ -56,10 +58,32 @@ const addAssignation = async (req, res, next) => {
                 }
             }
 
+            // Validate each ProgYrSec ID if provided
+            if (SectionIds && SectionIds.length > 0) {
+                // Check if all ProgYrSec IDs exist
+                const sections = await ProgYrSec.findAll({
+                    where: {
+                        id: SectionIds
+                    }
+                });
+                
+                // If the number of found sections doesn't match the number of provided IDs
+                if (sections.length !== SectionIds.length) {
+                    // Find which IDs don't exist
+                    const foundIds = sections.map(section => section.id);
+                    const invalidIds = SectionIds.filter(id => !foundIds.includes(id));
+                    
+                    return res.status(404).json({
+                        successful: false,
+                        message: `One or more section IDs do not exist: ${invalidIds.join(', ')}`
+                    });
+                }
+            }
+
             // Check for duplicate assignation based on schedule
             const existingAssignation = await Assignation.findOne({
                 where: {
-                    Semester,
+                    School_year,
                     CourseId,
                     DepartmentId,
                     ProfessorId: ProfessorId || null
@@ -73,61 +97,11 @@ const addAssignation = async (req, res, next) => {
                 });
             }
 
-            const existAssignationSem = await Assignation.findOne({
-                where: {
-                    CourseId,
-                    DepartmentId
-                },
-            });
-            if (existAssignationSem && existAssignationSem.Semester !== Semester) {
-                return res.status(400).json({
-                    successful: false,
-                    message: "The course is already assigned to another semester."
-                })
-            }
-
-            // If professor is provided, check unit limits
-            if (professor) {
-                // Get professor's status to check unit limits
-                const status = await ProfStatus.findByPk(professor.ProfStatusId);
-                if (!status) {
-                    return res.status(404).json({ successful: false, message: "Professor status not found." });
-                }
-                if (Semester === 1) {
-                    // Calculate new total units
-                    const unitsToAdd = course.Units;
-                    const newTotalUnits = professor.FirstSemUnits + unitsToAdd;
-
-                    // Check if the total new units will exceed the limit
-                    if (newTotalUnits > status.Max_units) {
-                        // Instead of returning an error, set a warning message
-                        warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
-                    }
-
-                    // Update professor's units with the new calculated value
-                    await professor.update({ FirstSemUnits: newTotalUnits });
-                }
-                if (Semester === 2) {
-                    // Calculate new total units
-                    const unitsToAdd = course.Units;
-                    const newTotalUnits = professor.SecondSemUnits + unitsToAdd;
-
-                    // Check if the total new units will exceed the limit
-                    if (newTotalUnits > status.Max_units) {
-                        // Instead of returning an error, set a warning message
-                        warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
-                    }
-
-                    // Update professor's units with the new calculated value
-                    await professor.update({ SecondSemUnits: newTotalUnits });
-                }
-            }
-
             // Create Assignation
             const assignationData = {
-                Semester,
+                School_year,
                 CourseId,
-                DepartmentId,
+                DepartmentId
             };
 
             // Add ProfessorId if it was provided
@@ -136,6 +110,10 @@ const addAssignation = async (req, res, next) => {
             }
 
             const newAssignation = await Assignation.create(assignationData);
+            
+            if (SectionIds && SectionIds.length > 0) {
+                await newAssignation.setProgYrSecs(SectionIds);
+            }
 
             createdAssignations.push(newAssignation);
         }
@@ -198,17 +176,17 @@ const addAssignation = async (req, res, next) => {
             error: error.message,
         });
     }
-};
+}
 
 // Update Assignation by ID
 const updateAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Semester, CourseId, ProfessorId, DepartmentId } = req.body;
+        const { School_year, CourseId, ProfessorId, DepartmentId } = req.body;
         let warningMessage = null;
 
         // Check mandatory fields - ProfessorId can be null based on the model
-        if (!util.checkMandatoryFields([Semester, CourseId, DepartmentId])) {
+        if (!util.checkMandatoryFields([School_year, CourseId, DepartmentId])) {
             return res.status(400).json({ successful: false, message: "A mandatory field is missing." });
         }
 
@@ -217,13 +195,9 @@ const updateAssignation = async (req, res, next) => {
         if (!assignation) {
             return res.status(404).json({ successful: false, message: "Assignation not found." });
         }
-
-        if (Semester < 1 || Semester > 2) {
-            return res.status(400).json({ successful: false, message: "Semester must be 1 or 2." });
-        }
         // Validate related models
         const course = await Course.findByPk(CourseId);
-        if (!course) return res.status(404).json({ successful: false, message: "Course not found." });
+        if (!course) return res.status(404).json({ successful: false, message: "Course not found." })
 
         const department = await Department.findByPk(DepartmentId);
         if (!department) return res.status(404).json({ successful: false, message: "Department not found." });
@@ -241,7 +215,7 @@ const updateAssignation = async (req, res, next) => {
         // Check if the assignation already exists
         const existingAssignation = await Assignation.findOne({
             where: {
-                Semester,
+                School_year,
                 CourseId,
                 DepartmentId,
                 ProfessorId: ProfessorId || null,
@@ -542,20 +516,6 @@ const deleteAssignation = async (req, res, next) => {
         // Get Course and Professor
         const course = await Course.findByPk(CourseId);
 
-        // Update professor's units if professor exists
-        if (ProfessorId) {
-            const professor = await Professor.findByPk(ProfessorId);
-            if (professor) {
-                if (assignation.Semester === 1) {
-                    const decrementedUnit = professor.FirstSemUnits - course.Units;
-                    await professor.update({ FirstSemUnits: Math.max(0, decrementedUnit) });
-                }
-                if (assignation.Semester === 2) {
-                    const decrementedUnit = professor.SecondSemUnits - course.Units;
-                    await professor.update({ SecondSemUnits: Math.max(0, decrementedUnit) });
-                }
-            }
-        }
         await assignation.destroy();
 
         const token = req.cookies?.refreshToken;
@@ -584,14 +544,13 @@ const deleteAssignation = async (req, res, next) => {
             message: "Assignation deleted successfully.",
         });
     } catch (error) {
-        console.error("Error in deleteAssignation:", error);
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while deleting the assignation.",
             error: error.message,
         });
     }
-};
+}
 
 // Get assignments with room schedules
 const getAssignationsWithSchedules = async (req, res, next) => {
