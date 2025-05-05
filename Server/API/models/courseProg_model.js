@@ -12,13 +12,19 @@ module.exports = function (sequelize, DataTypes) {
             allowNull: true,
             max: 6,
             min: 1
-        }
+        },
+        Semester: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            max: 2,
+            min: 1
+        },
     }, {
         timestamps: true,
     })
     CourseProg.associate = (models) => {
-        CourseProg.belongsTo(models.Course, {foreignKey: {name: 'CourseId', allowNull: false}})
-        CourseProg.belongsTo(models.Program, {foreignKey: {name: 'ProgramId', allowNull: false}})
+        CourseProg.belongsTo(models.Course, { foreignKey: { name: 'CourseId', allowNull: false } })
+        CourseProg.belongsTo(models.Program, { foreignKey: { name: 'ProgramId', allowNull: false } })
     };
     return CourseProg;
 }

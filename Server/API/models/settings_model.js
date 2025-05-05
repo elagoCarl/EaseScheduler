@@ -47,61 +47,40 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     {
-      timestamps: true,
-      indexes: [
-        {
-          unique: true,
-          fields: ['DepartmentId']
-        }
-      ]
+      timestamps: true
     }
   );
 
-  // Modified hook to prevent multiple records per department
+  // Modified hook to ensure only one settings record exists globally
   Settings.beforeCreate(async (settings, options) => {
-    const count = await Settings.count({
-      where: { DepartmentId: settings.DepartmentId }
-    });
+    const count = await Settings.count();
     if (count > 0) {
-      throw new Error("Only one settings record is allowed per department.");
+      throw new Error("Only one global settings record is allowed.");
     }
   });
 
+  // Remove association with Department
   Settings.associate = (models) => {
-    Settings.belongsTo(models.Department, {
-      foreignKey: 'DepartmentId',
-      onDelete: 'CASCADE',
-      onUpdate: 'CASCADE'
-    });
+    // No associations needed for global settings
   };
 
-  // Auto-create a settings record for each department if none exists
+  // Auto-create a single global settings record if none exists
   Settings.afterSync(async () => {
     try {
-      const { Department } = sequelize.models;
+      // Check if any settings exist
+      const settingsExist = await Settings.findOne();
 
-      // Get all departments
-      const departments = await Department.findAll();
-
-      // For each department, check if settings exist, create if not
-      for (const department of departments) {
-        const settingsExist = await Settings.findOne({
-          where: { DepartmentId: department.id }
+      if (!settingsExist) {
+        await Settings.create({
+          StartHour: 7,
+          EndHour: 19,
+          ProfessorMaxHours: 12,
+          StudentMaxHours: 12,
+          ProfessorBreak: 1,
+          MaxAllowedGap: 5,
+          nextScheduleBreak: 0.5
         });
-
-        if (!settingsExist) {
-          await Settings.create({
-            DepartmentId: department.id,
-            StartHour: 7,
-            EndHour: 19,
-            ProfessorMaxHours: 12,
-            StudentMaxHours: 12,
-            ProfessorBreak: 1,
-            MaxAllowedGap: 5,
-            nextScheduleBreak: 0.5
-          });
-          console.log(`Created default settings for department: ${department.Name}`);
-        }
+        console.log("Created default global settings");
       }
     } catch (error) {
       console.error("Error creating default settings:", error);
