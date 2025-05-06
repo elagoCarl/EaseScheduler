@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -21,7 +21,7 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            let { School_year, CourseId, ProfessorId, DepartmentId, SectionIds } = assignation;
+            let { School_year, CourseId, ProfessorId, DepartmentId, SectionIds, Semester } = assignation;
             if (!util.checkMandatoryFields([School_year, CourseId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
@@ -30,12 +30,18 @@ const addAssignation = async (req, res, next) => {
             }
 
             // Validate Course
-            const course = await Course.findByPk(CourseId);
+            const course = await Course.findByPk(CourseId,
+                {
+                    include: [
+                        { model: CourseProg }
+                    ]
+                }
+            );
             if (!course) {
                 return res.status(404).json({ successful: false, message: "Course not found." });
             }
-            
-            // NEW: Check if tutorial course has sections
+
+            // Check if tutorial course has sections
             if (course.isTutorial && SectionIds && SectionIds.length > 0) {
                 return res.status(400).json({
                     successful: false,
@@ -52,70 +58,284 @@ const addAssignation = async (req, res, next) => {
             // Validate Professor if provided
             let professor = null;
             if (ProfessorId) {
-                professor = await Professor.findByPk(ProfessorId);
+                professor = await Professor.findByPk(ProfessorId, {
+                    include: [
+                        { model: ProfAvail }  // Include professor's availability
+                    ]
+                });
                 if (!professor) {
                     return res.status(404).json({ successful: false, message: "Professor not found." });
                 }
+
+                // Check professor's total availability against current and new assignations
+                if (professor.ProfAvail && professor.ProfAvail.length > 0) {
+                    // Calculate professor's total available hours
+                    let totalAvailableMinutes = 0;
+
+                    for (const avail of professor.ProfAvail) {
+                        const startTime = new Date(`1970-01-01T${avail.Start_time}`);
+                        const endTime = new Date(`1970-01-01T${avail.End_time}`);
+
+                        // Calculate minutes between start and end time
+                        const minutesDiff = (endTime - startTime) / (1000 * 60);
+                        totalAvailableMinutes += minutesDiff;
+                    }
+
+                    // Convert available minutes to hours
+                    const totalAvailableHours = totalAvailableMinutes / 60;
+
+                    // Get all current assignations for this professor
+                    const existingAssignations = await Assignation.findAll({
+                        where: {
+                            ProfessorId,
+                            School_year  // This ensures we only check against assignations for the same school year
+                        },
+                        include: [
+                            {
+                                model: Course,
+                                attributes: ['Duration']
+                            }
+                        ]
+                    });
+
+                    // Calculate total duration of current assignations WITH 0.5 hours added to each
+                    // Since Duration is in hours, we add 0.5 (30 minutes in hours)
+                    let currentTotalHours = 0;
+                    for (const existingAssign of existingAssignations) {
+                        // Add course duration plus 0.5 hours for each existing assignation
+                        currentTotalHours += (existingAssign.Course.Duration + 0.5);
+                    }
+
+                    // Add the duration of the new course WITH 0.5 hours added
+                    const newTotalHours = currentTotalHours + (course.Duration + 0.5);
+
+                    // Check if new total duration exceeds available time
+                    if (newTotalHours > totalAvailableHours) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Professor ${professor.Name} doesn't have enough available time. Required: ${newTotalHours.toFixed(2)} hours (including 30-minute buffers), Available: ${totalAvailableHours.toFixed(2)} hours.`
+                        });
+                    }
+                } else {
+                    // If professor has no availability set, return error
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Professor ${professor.Name} has no availability set. Please set availability before assigning courses.`
+                    });
+                }
             }
 
-            // Validate each ProgYrSec ID if provided
             if (SectionIds && SectionIds.length > 0) {
-                // Check if all ProgYrSec IDs exist
                 const sections = await ProgYrSec.findAll({
                     where: {
                         id: SectionIds
-                    }
+                    },
+                    include: [
+                        {
+                            model: Program,
+                        }
+                    ]
                 });
-                
-                // If the number of found sections doesn't match the number of provided IDs
+
+                // Check if all sections exist
                 if (sections.length !== SectionIds.length) {
-                    // Find which IDs don't exist
                     const foundIds = sections.map(section => section.id);
                     const invalidIds = SectionIds.filter(id => !foundIds.includes(id));
-                    
+
                     return res.status(404).json({
                         successful: false,
                         message: `One or more section IDs do not exist: ${invalidIds.join(', ')}`
                     });
                 }
+
+                // Get all program IDs from the sections
+                const programIds = [...new Set(sections.map(section => section.Program.id))];
+
+                // Find CourseProgs for this course and these programs
+                const courseProgs = await CourseProg.findAll({
+                    where: {
+                        CourseId: CourseId,
+                        ProgramId: programIds
+                    }
+                });
+
+                // Check if the course can be assigned to all section programs AND year levels
+                for (const section of sections) {
+                    const programId = section.Program.id;
+                    // Assuming ProgYrSec has a 'Year' field that represents the year level of the section
+                    const sectionYear = section.Year;
+
+                    // Find the CourseProgs that match both program and year
+                    const courseProgForSection = courseProgs.find(cp =>
+                        cp.ProgramId === programId &&
+                        (cp.Year === sectionYear || cp.Year === null) // null Year in CourseProg means it's valid for any year
+                    );
+
+                    if (!courseProgForSection) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Course ${course.Code} cannot be assigned to section ${section.id} (Program: ${section.Program.Code}, Year: ${sectionYear}) as it's not configured for this program-year combination`
+                        });
+                    }
+                }
+
+                // Check if all sections are in the same semester
+                if (courseProgs.length > 0) {
+                    // Group the sections by their corresponding CourseProgs
+                    const sectionCourseProgs = sections.map(section => {
+                        const programId = section.Program.id;
+                        const sectionYear = section.Year;
+
+                        return courseProgs.find(cp =>
+                            cp.ProgramId === programId &&
+                            (cp.Year === sectionYear || cp.Year === null)
+                        );
+                    }).filter(cp => cp !== undefined); // Remove any undefined entries
+
+                    if (sectionCourseProgs.length > 0) {
+                        const firstSemester = sectionCourseProgs[0].Semester;
+                        const allSameSemester = sectionCourseProgs.every(cp => cp.Semester === firstSemester);
+
+                        if (!allSameSemester) {
+                            return res.status(400).json({
+                                successful: false,
+                                message: "Cannot assign sections from different semesters to the same assignation."
+                            });
+                        }
+                    }
+                }
+
+                const totalStudents = sections.reduce((acc, section) => acc + section.NumberOfStudents, 0);
+                if (totalStudents > 50) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: "The total number of students in the sections exceeds 50."
+                    });
+                }
             }
 
-            // Check for duplicate assignation based on schedule
-            const existingAssignation = await Assignation.findOne({
-                where: {
+            // Start a transaction for database operations
+            const t = await sequelize.transaction();
+
+            try {
+                if (SectionIds && SectionIds.length > 0) {
+                    // Check if any of these sections already have this course assigned
+                    const sectionsWithSameCourse = await Assignation.findAll({
+                        where: {
+                            School_year,
+                            CourseId
+                        },
+                        include: [
+                            {
+                                model: ProgYrSec,
+                                where: {
+                                    id: SectionIds
+                                },
+                                required: true
+                            }
+                        ],
+                        transaction: t
+                    });
+
+                    if (sectionsWithSameCourse.length > 0) {
+                        // Get the section details for the error message
+                        const affectedSections = await ProgYrSec.findAll({
+                            where: {
+                                id: sectionsWithSameCourse.map(assign =>
+                                    assign.ProgYrSecs.map(sec => sec.id)
+                                ).flat()
+                            },
+                            include: [{ model: Program }],
+                            transaction: t
+                        });
+
+                        const sectionDetails = affectedSections.map(section =>
+                            `${section.Program.Code} ${section.Year}-${section.Section}`
+                        ).join(', ');
+
+                        await t.rollback();
+                        return res.status(400).json({
+                            successful: false,
+                            message: `This course is already assigned to the following section(s): ${sectionDetails}`
+                        });
+                    }
+                }
+
+                // Update professor units here instead of earlier in the code
+                if (professor) {
+                    // Get professor's status to check unit limits
+                    const status = await ProfStatus.findByPk(professor.ProfStatusId, {
+                        transaction: t
+                    });
+                    if (!status) {
+                        await t.rollback();
+                        return res.status(404).json({ successful: false, message: "Professor status not found." });
+                    }
+                    if (Semester === 1) {
+                        // Calculate new total units
+                        const unitsToAdd = course.Units;
+                        const newTotalUnits = professor.FirstSemUnits + unitsToAdd;
+
+                        // Check if the total new units will exceed the limit
+                        if (newTotalUnits > status.Max_units) {
+                            // Instead of returning an error, set a warning message
+                            warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                        }
+
+                        // Update professor's units with the new calculated value
+                        await professor.update({ FirstSemUnits: newTotalUnits }, {
+                            transaction: t
+                        });
+                    }
+                    if (Semester === 2) {
+                        // Calculate new total units
+                        const unitsToAdd = course.Units;
+                        const newTotalUnits = professor.SecondSemUnits + unitsToAdd;
+
+                        // Check if the total new units will exceed the limit
+                        if (newTotalUnits > status.Max_units) {
+                            // Instead of returning an error, set a warning message
+                            warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                        }
+
+                        // Update professor's units with the new calculated value
+                        await professor.update({ SecondSemUnits: newTotalUnits }, {
+                            transaction: t
+                        });
+                    }
+                }
+
+                // Create Assignation
+                const assignationData = {
                     School_year,
                     CourseId,
-                    DepartmentId,
-                    ProfessorId: ProfessorId || null
-                },
-            });
+                    DepartmentId
+                };
 
-            if (existingAssignation) {
-                return res.status(400).json({
-                    successful: false,
-                    message: "An assignation with the same details already exists."
+                // Add ProfessorId if it was provided
+                if (ProfessorId) {
+                    assignationData.ProfessorId = ProfessorId;
+                }
+
+                const newAssignation = await Assignation.create(assignationData, {
+                    transaction: t
                 });
+
+                if (SectionIds && SectionIds.length > 0) {
+                    await newAssignation.setProgYrSecs(SectionIds, {
+                        transaction: t
+                    });
+                }
+
+                // Commit the transaction
+                await t.commit();
+
+                createdAssignations.push(newAssignation);
+            } catch (error) {
+                // Roll back transaction on error
+                await t.rollback();
+                throw error; // Re-throw to be caught by the outer try/catch
             }
-
-            // Create Assignation
-            const assignationData = {
-                School_year,
-                CourseId,
-                DepartmentId
-            };
-
-            // Add ProfessorId if it was provided
-            if (ProfessorId) {
-                assignationData.ProfessorId = ProfessorId;
-            }
-
-            const newAssignation = await Assignation.create(assignationData);
-            
-            if (SectionIds && SectionIds.length > 0) {
-                await newAssignation.setProgYrSecs(SectionIds);
-            }
-
-            createdAssignations.push(newAssignation);
         }
 
         // If no assignations were created, return an error
@@ -156,27 +376,14 @@ const addAssignation = async (req, res, next) => {
             warning: warningMessage
         });
 
-    } catch (error) {
-        console.error("Error in addAssignation:", error);
-
-        if (error instanceof ValidationError) {
-            return res.status(400).json({
-                successful: false,
-                message: "Validation Error: One or more fields failed validation.",
-                errors: error.errors.map(err => ({
-                    field: err.path,
-                    message: err.message
-                })),
-            });
-        }
-
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while creating assignations.",
-            error: error.message,
+            error: err.message,
         });
     }
-}
+};
 
 // Update Assignation by ID
 const updateAssignation = async (req, res, next) => {
@@ -374,6 +581,16 @@ const getAssignation = async (req, res, next) => {
                 {
                     model: RoomType,
                     attributes: ['id', 'Type']
+                },
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code', 'Description']
+                        }
+                    ]
                 }
             ],
         });
@@ -406,7 +623,17 @@ const getAllAssignations = async (req, res, next) => {
                     ]
                 },
                 { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
-                { model: Department, attributes: ['Name'] }
+                { model: Department, attributes: ['Name'] },
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code', 'Description']
+                        }
+                    ]
+                }
             ],
         });
 
@@ -440,6 +667,16 @@ const getAllAssignationsByDept = async (req, res, next) => {
                         {
                             model: RoomType,
                             attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code', 'Description']
                         }
                     ]
                 }
@@ -482,7 +719,17 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                     ]
                 },
                 { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
-                { model: Department, attributes: ['Name'] }
+                { model: Department, attributes: ['Name'] },
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code', 'Description']
+                        }
+                    ]
+                }
             ],
         });
 
@@ -499,64 +746,149 @@ const deleteAssignation = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const assignation = await Assignation.findByPk(id, {
-            include: [
-                { model: Course, attributes: ['Units'] },
-                { model: Professor },
-            ],
-        });
-        if (!assignation) {
-            return res.status(404).json({ successful: false, message: "Assignation not found." });
-        }
+        // Start a transaction
+        const t = await sequelize.transaction();
 
-        const oldA = JSON.stringify(assignation);
-
-        const { CourseId, ProfessorId } = assignation;
-
-        // Get Course and Professor
-        const course = await Course.findByPk(CourseId);
-
-        await assignation.destroy();
-
-        const token = req.cookies?.refreshToken;
-        if (!token) {
-            return res.status(401).json({
-                successful: false,
-                message: "Unauthorized: refreshToken not found."
-            });
-        }
-        let decoded;
         try {
-            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
-        } catch (err) {
-            return res.status(403).json({
-                successful: false,
-                message: "Invalid refreshToken."
+            // Find the assignation with related information
+            const assignation = await Assignation.findByPk(id, {
+                include: [
+                    { 
+                        model: Course, 
+                        attributes: ['Units', 'isTutorial', 'id'] 
+                    },
+                    { 
+                        model: Professor
+                    },
+                    {
+                        model: ProgYrSec,
+                        include: [{ model: Program }]
+                    }
+                ],
+                transaction: t
             });
-        }
-        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
-        const page = 'Assignation';
-        const details = `Deleted Assignation ID: ${id}, Course: ${assignation.CourseId}, Prof: ${assignation.ProfessorId || 'None'}`;
-        await addHistoryLog(accountId, page, details);
+            
+            if (!assignation) {
+                await t.rollback();
+                return res.status(404).json({ 
+                    successful: false, 
+                    message: "Assignation not found." 
+                });
+            }
 
-        return res.status(200).json({
-            successful: true,
-            message: "Assignation deleted successfully.",
-        });
+            // If the assignation has a professor and the course is not a tutorial,
+            // decrease the professor's units
+            if (assignation.Professor && assignation.Course && !assignation.Course.isTutorial) {
+                const unitsToDecrease = assignation.Course.Units;
+                let semester = null;
+                
+                // Try to determine semester from the assigned sections
+                if (assignation.ProgYrSecs && assignation.ProgYrSecs.length > 0) {
+                    // Get the first section's program and year
+                    const section = assignation.ProgYrSecs[0];
+                    
+                    if (section && section.Program) {
+                        // Find the course program entry for this combination
+                        const courseProg = await CourseProg.findOne({
+                            where: {
+                                CourseId: assignation.Course.id,
+                                ProgramId: section.Program.id,
+                                Year: section.Year || null
+                            },
+                            transaction: t
+                        });
+                        
+                        if (courseProg) {
+                            semester = courseProg.Semester;
+                        }
+                    }
+                }
+                
+                // If we found a semester, update the professor's units
+                if (semester) {
+                    if (semester === 1) {
+                        // Ensure we don't go below 0
+                        const newUnits = Math.max(0, assignation.Professor.FirstSemUnits - unitsToDecrease);
+                        await assignation.Professor.update({ 
+                            FirstSemUnits: newUnits 
+                        }, { transaction: t });
+                    } else if (semester === 2) {
+                        // Ensure we don't go below 0
+                        const newUnits = Math.max(0, assignation.Professor.SecondSemUnits - unitsToDecrease);
+                        await assignation.Professor.update({ 
+                            SecondSemUnits: newUnits 
+                        }, { transaction: t });
+                    }
+                } else {
+                    // If we couldn't determine the semester, log a warning
+                    console.warn(`Could not determine semester for assignation ${id} - units not decreased for professor ${assignation.Professor.Name}`);
+                }
+            }
+
+            // Delete the assignation
+            await assignation.destroy({ transaction: t });
+            
+            // Commit the transaction
+            await t.commit();
+
+            const token = req.cookies?.refreshToken;
+            if (!token) {
+                return res.status(401).json({
+                    successful: false,
+                    message: "Unauthorized: refreshToken not found."
+                });
+            }
+            
+            let decoded;
+            try {
+                decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            } catch (err) {
+                return res.status(403).json({
+                    successful: false,
+                    message: "Invalid refreshToken."
+                });
+            }
+            
+            const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+            const page = 'Assignation';
+            const details = `Deleted Assignation ID: ${id}, Course: ${assignation.CourseId}, Prof: ${assignation.ProfessorId || 'None'}`;
+            await addHistoryLog(accountId, page, details);
+
+            return res.status(200).json({
+                successful: true,
+                message: "Assignation deleted successfully.",
+            });
+            
+        } catch (error) {
+            // Rollback transaction on error
+            await t.rollback();
+            throw error; // Re-throw to be caught by the outer try/catch
+        }
     } catch (error) {
+        console.error("Error in deleteAssignation:", error);
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while deleting the assignation.",
             error: error.message,
         });
     }
-}
+};
 
 // Get assignments with room schedules
 const getAssignationsWithSchedules = async (req, res, next) => {
     try {
         const assignations = await Assignation.findAll({
             include: [
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code', 'Description']
+                        }
+                    ]
+                },
                 {
                     model: Course, attributes: ['Code', 'Description', 'Units'],
                     include: [
