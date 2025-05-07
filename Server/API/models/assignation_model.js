@@ -6,14 +6,6 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
             allowNull: false,
         },
-        School_year: {
-            type: DataTypes.STRING(9), // Adjusted to 9 characters because "2024-2025" is 9 chars
-            allowNull: false,
-            validate: {
-                is: /^[0-9]{4}-[0-9]{4}$/
-            }
-        }
-
     }, {
         timestamps: true,
     });
@@ -50,6 +42,10 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         })
+        Assignation.belongsTo(models.SchoolYear, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        });
         Assignation.belongsToMany(models.ProgYrSec, { 
             through: 'AssignationSection'
         });
