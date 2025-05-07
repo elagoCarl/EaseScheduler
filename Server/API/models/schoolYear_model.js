@@ -14,12 +14,10 @@ module.exports = (sequelize, DataTypes) => {
 
     SchoolYear.associate = (models) => {
         SchoolYear.hasMany(models.ProfessorLoad, {
-            foreignKey: 'SY_Id',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         })
         SchoolYear.hasMany(models.Assignation, {
-            foreignKey: 'SY_Id',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });
