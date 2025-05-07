@@ -1,19 +1,24 @@
 module.exports = (sequelize, DataTypes) => {
     const SchoolYear = sequelize.define('SchoolYear', {
         SY_Name: {
-            type: DataTypes.STRING,
-            allowNull: false,
+            type: DataTypes.STRING(9), // Adjusted to 9 characters because "2024-2025" is 9 chars
             unique: true,
+            allowNull: false,
             validate: {
-                notEmpty: { msg: "School Year Name is required." }
+                is: /^[0-9]{4}-[0-9]{4}$/
             }
-        }
+        },
     }, {
         timestamps: true
     });
 
     SchoolYear.associate = (models) => {
         SchoolYear.hasMany(models.ProfessorLoad, {
+            foreignKey: 'SY_Id',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        })
+        SchoolYear.hasMany(models.Assignation, {
             foreignKey: 'SY_Id',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
