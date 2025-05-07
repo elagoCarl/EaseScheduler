@@ -704,13 +704,38 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                 message: "Department id is required.",
             });
         }
-
+        console.log(`Fetching assignations for department ID: ${departmentId}`);
+        
+        // First, check if department exists
+        const department = await Department.findByPk(departmentId);
+        if (!department) {
+            return res.status(404).json({
+                successful: false,
+                message: `Department with ID ${departmentId} not found`,
+            });
+        }
+        
         const assignations = await Assignation.findAll({
+            order: [['createdAt', 'DESC']],
+            where: { DepartmentId: departmentId }
+        });
+        
+        // If no assignations found, return empty array
+        if (!assignations || assignations.length === 0) {
+            return res.status(200).json({
+                successful: true,
+                message: "No assignations found for this department",
+                data: [],
+            });
+        }
+        
+        const assignationsWithIncludes = await Assignation.findAll({
             order: [['createdAt', 'DESC']],
             where: { DepartmentId: departmentId },
             include: [
                 {
-                    model: Course, attributes: ['Code', 'Description', 'Units', 'Type', 'Duration'],
+                    model: Course, 
+                    attributes: ['Code', 'Description', 'Units', 'Type', 'Duration'],
                     include: [
                         {
                             model: RoomType,
@@ -718,8 +743,14 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                         }
                     ]
                 },
-                { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
-                { model: Department, attributes: ['Name'] },
+                { 
+                    model: Professor, 
+                    attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] 
+                },
+                { 
+                    model: Department, 
+                    attributes: ['Name'] 
+                },
                 {
                     model: ProgYrSec,
                     attributes: ['id', 'Year', 'Section'],
@@ -732,13 +763,21 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                 }
             ],
         });
-
+        console.log(`Successfully retrieved ${assignationsWithIncludes.length} assignations with includes`);
+        
         return res.status(200).json({
             successful: true,
-            data: assignations,
+            data: assignationsWithIncludes,
         });
     } catch (error) {
-        next(error);
+        console.error("Error in getAllAssignationsByDeptInclude:", error.message);
+        console.error(error.stack);
+        
+        return res.status(500).json({
+            successful: false,
+            message: `Error retrieving assignations: ${error.message}`,
+            error: error.stack
+        });
     }
 };
 
