@@ -70,8 +70,6 @@ const addProf = async (req, res, next) => {
             const newProf = await Professor.create({
                 Name,
                 Email,
-                FirstSemUnits: 0,
-                SecondSemUnits: 0,
                 ProfStatusId: Status
             });
 
@@ -120,8 +118,6 @@ const getAllProf = async (req, res, next) => {
             id: prof.id,
             Name: prof.Name,
             Email: prof.Email,
-            FirstSemUnits: prof.FirstSemUnits,
-            SecondSemUnits: prof.SecondSemUnits,
             Status: prof.ProfStatus ? prof.ProfStatus.Status : "Unknown" // Handle missing status
         }));
 
