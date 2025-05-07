@@ -16,20 +16,20 @@ const addRoom = async (req, res, next) => {
         }
 
         for (const room of rooms) {
-            const { Code, Floor, Building, NumberOfSeats } = room;
+            const { Code, Floor, Building, PrimaryTypeId } = room;
 
-            if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
+            if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
                 });
             }
 
-            const existingRoom = await Room.findOne({ where: { Code } });
+            const existingRoom = await Room.findOne({ where: { Code, Building } });
             if (existingRoom) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Room code already exists."
+                    message: "Room code already exists for the same building."
                 });
             }
 
@@ -40,19 +40,11 @@ const addRoom = async (req, res, next) => {
                 });
             }
 
-            // Validate NumberOfSeats is a positive integer
-            if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Number of seats must be a positive integer."
-                });
-            }
-
             const newRoom = await Room.create({
                 Code,
                 Floor,
                 Building,
-                NumberOfSeats
+                PrimaryTypeId
             });
 
             const token = req.cookies?.refreshToken;
@@ -75,7 +67,7 @@ const addRoom = async (req, res, next) => {
 
             const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Added Room: ${Building}${Code} floor: ${Floor}, seats: ${NumberOfSeats}`;
+            const details = `Added Room: ${Building}${Code} floor: ${Floor}`;
 
             await addHistoryLog(accountId, page, details);
         }
@@ -237,10 +229,10 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        const { Code, Floor, Building, NumberOfSeats, RoomTypeIds } = req.body;
+        const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = req.body;
 
         // Validate required fields
-        if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
+        if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
@@ -255,31 +247,22 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        // Validate NumberOfSeats is a positive integer
-        if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
-            return res.status(406).json({
-                successful: false,
-                message: "Number of seats must be a positive integer."
-            });
-        }
-
         // Validate room code uniqueness if it changed
         if (Code !== room.Code) {
-            const roomConflict = await Room.findOne({ where: { Code } });
+            const roomConflict = await Room.findOne({ where: { Code, Building } });
             if (roomConflict) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Room code already exists."
+                    message: "Room code already exists for the same building."
                 });
             }
         }
 
-        // Validate room types
-        if (!Array.isArray(RoomTypeIds) || RoomTypeIds.length === 0) {
-            return res.status(400).json({
+        if(RoomTypeIds.includes(room.PrimaryTypeId)) {
+            return res.status(406).json({
                 successful: false,
-                message: "At least one room type is required."
-            });
+                message: "Room type cannot be the same as the primary type."
+            })
         }
 
         // Ensure all room types exist
@@ -299,7 +282,7 @@ const updateRoom = async (req, res, next) => {
             Code: room.Code,
             Floor: room.Floor,
             Building: room.Building,
-            NumberOfSeats: room.NumberOfSeats
+            PrimaryTypeId: room.PrimaryTypeId
         };
 
         // Get old room types for history log
@@ -315,7 +298,7 @@ const updateRoom = async (req, res, next) => {
                 Code,
                 Floor,
                 Building,
-                NumberOfSeats
+                PrimaryTypeId
             }, { transaction: t });
 
             // Update room types (clear and re-add)
@@ -348,7 +331,7 @@ const updateRoom = async (req, res, next) => {
 
             const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Updated Room: Old; Code: ${oldRoom.Code}, Floor: ${oldRoom.Floor}, Building: ${oldRoom.Building}, Types: ${oldRoomTypeNames}, Seats: ${oldRoom.NumberOfSeats};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Types: ${newRoomTypeNames}, Seats: ${NumberOfSeats}`;
+            const details = `Updated Room: Old; Code: ${oldRoom.Code}, Floor: ${oldRoom.Floor}, Building: ${oldRoom.Building}, Types: ${oldRoomTypeNames};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Types: ${newRoomTypeNames}`;
 
             await addHistoryLog(accountId, page, details);
 
@@ -739,21 +722,21 @@ const addRoomWithTypes = async (req, res, next) => {
             const createdRooms = [];
 
             for (const room of rooms) {
-                const { Code, Floor, Building, NumberOfSeats, RoomTypeIds } = room;
+                const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = room;
 
                 // Validate room data
-                if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
+                if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
                     throw new Error("A mandatory room field is missing.");
                 }
 
                 // Check if room code already exists
                 const existingRoom = await Room.findOne({
-                    where: { Code },
+                    where: { Code, Building },
                     transaction: t
                 });
 
                 if (existingRoom) {
-                    throw new Error(`Room code ${Code} already exists.`);
+                    throw new Error(`Room code ${Code} already exists for the same building.`);
                 }
 
                 // Validate building
@@ -761,17 +744,12 @@ const addRoomWithTypes = async (req, res, next) => {
                     throw new Error(`Invalid Building for room ${Code}.`);
                 }
 
-                // Validate NumberOfSeats
-                if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
-                    throw new Error(`Number of seats must be a positive integer for room ${Code}.`);
-                }
-
                 // Create new room
                 const newRoom = await Room.create({
                     Code,
                     Floor,
                     Building,
-                    NumberOfSeats
+                    PrimaryTypeId
                 }, { transaction: t });
 
                 // Associate room types if provided
