@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg,SchoolYear, ProfessorLoad } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -21,12 +21,18 @@ const addAssignation = async (req, res, next) => {
         let warningMessage = null;
 
         for (let assignation of assignations) {
-            let { School_year, CourseId, ProfessorId, DepartmentId, SectionIds, Semester } = assignation;
-            if (!util.checkMandatoryFields([School_year, CourseId, DepartmentId])) {
+            let { SchoolYearId, CourseId, ProfessorId, DepartmentId, SectionIds, Semester } = assignation;
+            if (!util.checkMandatoryFields([SchoolYearId, CourseId, DepartmentId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing.",
                 });
+            }
+
+            // Validate SchoolYear
+            const schoolYear = await SchoolYear.findByPk(SchoolYearId);
+            if (!schoolYear) {
+                return res.status(404).json({ successful: false, message: "School Year not found." });
             }
 
             // Validate Course
@@ -88,7 +94,7 @@ const addAssignation = async (req, res, next) => {
                     const existingAssignations = await Assignation.findAll({
                         where: {
                             ProfessorId,
-                            School_year  // This ensures we only check against assignations for the same school year
+                            SchoolYearId  // Changed from School_year to SchoolYearId
                         },
                         include: [
                             {
@@ -113,7 +119,7 @@ const addAssignation = async (req, res, next) => {
                     if (newTotalHours > totalAvailableHours) {
                         return res.status(400).json({
                             successful: false,
-                            message: `Professor ${professor.Name} doesn't have enough available time. Required: ${newTotalHours.toFixed(2)} hours (including 30-minute buffers), Available: ${totalAvailableHours.toFixed(2)} hours.`
+                            message: `Professor ${professor.Name} doesn't have enough available time. Required: ${newTotalHours.toFixed(2)} hours, Available: ${totalAvailableHours.toFixed(2)} hours.`
                         });
                     }
                 } else {
@@ -222,7 +228,7 @@ const addAssignation = async (req, res, next) => {
                     // Check if any of these sections already have this course assigned
                     const sectionsWithSameCourse = await Assignation.findAll({
                         where: {
-                            School_year,
+                            SchoolYearId, // Changed from School_year to SchoolYearId
                             CourseId
                         },
                         include: [
@@ -261,20 +267,36 @@ const addAssignation = async (req, res, next) => {
                     }
                 }
 
-                // Update professor units here instead of earlier in the code
-                if (professor) {
+                // Update professor units through ProfessorLoad model
+                if (professor && Semester) {
                     // Get professor's status to check unit limits
                     const status = await ProfStatus.findByPk(professor.ProfStatusId, {
                         transaction: t
                     });
+                    
                     if (!status) {
                         await t.rollback();
                         return res.status(404).json({ successful: false, message: "Professor status not found." });
                     }
+
+                    // Find or create the professor load record for this school year
+                    let [professorLoad, created] = await ProfessorLoad.findOrCreate({
+                        where: {
+                            ProfId: professor.id,
+                            SY_Id: SchoolYearId
+                        },
+                        defaults: {
+                            First_Sem_Units: 0,
+                            Second_Sem_Units: 0
+                        },
+                        transaction: t
+                    });
+
+                    const unitsToAdd = course.Units;
+                    
                     if (Semester === 1) {
-                        // Calculate new total units
-                        const unitsToAdd = course.Units;
-                        const newTotalUnits = professor.FirstSemUnits + unitsToAdd;
+                        // Calculate new total units for first semester
+                        const newTotalUnits = professorLoad.First_Sem_Units + unitsToAdd;
 
                         // Check if the total new units will exceed the limit
                         if (newTotalUnits > status.Max_units) {
@@ -282,15 +304,13 @@ const addAssignation = async (req, res, next) => {
                             warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
                         }
 
-                        // Update professor's units with the new calculated value
-                        await professor.update({ FirstSemUnits: newTotalUnits }, {
+                        // Update professor's load with the new calculated value
+                        await professorLoad.update({ First_Sem_Units: newTotalUnits }, {
                             transaction: t
                         });
-                    }
-                    if (Semester === 2) {
-                        // Calculate new total units
-                        const unitsToAdd = course.Units;
-                        const newTotalUnits = professor.SecondSemUnits + unitsToAdd;
+                    } else if (Semester === 2) {
+                        // Calculate new total units for second semester
+                        const newTotalUnits = professorLoad.Second_Sem_Units + unitsToAdd;
 
                         // Check if the total new units will exceed the limit
                         if (newTotalUnits > status.Max_units) {
@@ -298,8 +318,8 @@ const addAssignation = async (req, res, next) => {
                             warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
                         }
 
-                        // Update professor's units with the new calculated value
-                        await professor.update({ SecondSemUnits: newTotalUnits }, {
+                        // Update professor's load with the new calculated value
+                        await professorLoad.update({ Second_Sem_Units: newTotalUnits }, {
                             transaction: t
                         });
                     }
@@ -307,7 +327,7 @@ const addAssignation = async (req, res, next) => {
 
                 // Create Assignation
                 const assignationData = {
-                    School_year,
+                    SchoolYearId, // Changed from School_year to SchoolYearId
                     CourseId,
                     DepartmentId
                 };
@@ -377,6 +397,7 @@ const addAssignation = async (req, res, next) => {
         });
 
     } catch (err) {
+        console.error("Error in addAssignation:", err);
         return res.status(500).json({
             successful: false,
             message: "An unexpected error occurred while creating assignations.",
@@ -763,6 +784,9 @@ const deleteAssignation = async (req, res, next) => {
                     {
                         model: ProgYrSec,
                         include: [{ model: Program }]
+                    },
+                    {
+                        model: SchoolYear
                     }
                 ],
                 transaction: t
@@ -777,13 +801,13 @@ const deleteAssignation = async (req, res, next) => {
             }
 
             // If the assignation has a professor and the course is not a tutorial,
-            // decrease the professor's units
+            // decrease the professor's units in the ProfessorLoad model
             if (assignation.Professor && assignation.Course && !assignation.Course.isTutorial) {
                 const unitsToDecrease = assignation.Course.Units;
-                let semester = null;
+                let semester
                 
-                // Try to determine semester from the assigned sections
-                if (assignation.ProgYrSecs && assignation.ProgYrSecs.length > 0) {
+                // If no semester field directly on assignation, try to determine it from sections
+                if (!semester && assignation.ProgYrSecs && assignation.ProgYrSecs.length > 0) {
                     // Get the first section's program and year
                     const section = assignation.ProgYrSecs[0];
                     
@@ -804,24 +828,37 @@ const deleteAssignation = async (req, res, next) => {
                     }
                 }
                 
-                // If we found a semester, update the professor's units
-                if (semester) {
-                    if (semester === 1) {
-                        // Ensure we don't go below 0
-                        const newUnits = Math.max(0, assignation.Professor.FirstSemUnits - unitsToDecrease);
-                        await assignation.Professor.update({ 
-                            FirstSemUnits: newUnits 
-                        }, { transaction: t });
-                    } else if (semester === 2) {
-                        // Ensure we don't go below 0
-                        const newUnits = Math.max(0, assignation.Professor.SecondSemUnits - unitsToDecrease);
-                        await assignation.Professor.update({ 
-                            SecondSemUnits: newUnits 
-                        }, { transaction: t });
+                // If we found a semester, update the professor's units in ProfessorLoad
+                if (semester && assignation.SchoolYear) {
+                    // Find the professor's load record for this school year
+                    const professorLoad = await ProfessorLoad.findOne({
+                        where: {
+                            ProfId: assignation.Professor.id,
+                            SY_Id: assignation.SchoolYearId
+                        },
+                        transaction: t
+                    });
+                    
+                    if (professorLoad) {
+                        if (semester === 1) {
+                            // Ensure we don't go below 0
+                            const newUnits = Math.max(0, professorLoad.First_Sem_Units - unitsToDecrease);
+                            await professorLoad.update({ 
+                                First_Sem_Units: newUnits 
+                            }, { transaction: t });
+                        } else if (semester === 2) {
+                            // Ensure we don't go below 0
+                            const newUnits = Math.max(0, professorLoad.Second_Sem_Units - unitsToDecrease);
+                            await professorLoad.update({ 
+                                Second_Sem_Units: newUnits 
+                            }, { transaction: t });
+                        }
+                    } else {
+                        console.warn(`Professor load record not found for professor ${assignation.Professor.id} and school year ${assignation.SchoolYearId}`);
                     }
                 } else {
-                    // If we couldn't determine the semester, log a warning
-                    console.warn(`Could not determine semester for assignation ${id} - units not decreased for professor ${assignation.Professor.Name}`);
+                    // If we couldn't determine the semester or school year, log a warning
+                    console.warn(`Could not determine semester or school year for assignation ${id} - units not decreased for professor ${assignation.Professor.id}`);
                 }
             }
 
