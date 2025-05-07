@@ -19,7 +19,10 @@ import DeleteConfirmationModal from './callComponents/deleteConfirmationModal.js
 
 const AddConfigSchedule = () => {
   const { user } = useAuth();
-  const deptId = user.DepartmentId;
+  const deptId = user?.DepartmentId;
+  const [departments, setDepartments] = useState([]);
+  const [showDeptSelector, setShowDeptSelector] = useState(!deptId);
+
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -127,15 +130,35 @@ const AddConfigSchedule = () => {
     return typeRooms.map(item => item.Type).join(', ')
   };
 
-  // useEffect(() => {
-  //   if (notification) {
-  //     const timer = setTimeout(() => setNotification(null), 5000);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [notification]);
-
   const [semesterData, setSemesterData] = useState({});
   const [currentAssignations, setCurrentAssignations] = useState([]);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get('/department/getAllDepartments');
+        if (response.data.successful) {
+          setDepartments(response.data.data);
+        } else {
+          console.error("Failed to fetch departments:", response.data.message);
+          setNotification({
+            type: 'error',
+            message: `Department fetch failed: ${response.data.message}`
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+        setNotification({
+          type: 'error',
+          message: 'Failed to load departments. Please check your network connection.'
+        });
+      }
+    };
+
+    if (showDeptSelector) {
+      fetchDepartments();
+    }
+  }, [showDeptSelector]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -229,37 +252,41 @@ const AddConfigSchedule = () => {
         });
       }
     };
-
     fetchData();
+  }, [deptId, selectedSemester]);
 
-    const handleResize = () => setIsMobileView(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [deptId]);
+    useEffect(() => {
+      const handleResize = () => setIsMobileView(window.innerWidth < 768);
+      window.addEventListener('resize', handleResize);
+      // Only fetch data if user has a department ID or if an admin has selected a department
+      if (deptId) {
+        fetchDataForDepartment(deptId);
+      }
+      return () => window.removeEventListener('resize', handleResize);
+    }, [deptId]);
 
+    useEffect(() => {
+      if (!selectedSemester) {
+        setFilteredAssignations([]);
+        return;
+      }
+  
+      if (semesterData && semesterData[selectedSemester]) {
+        setFilteredAssignations(semesterData[selectedSemester]);
+      } else {
+        setFilteredAssignations([]);
+      }
+  
+      if (formData.room_id) {
+        fetchSchedulesForRoom(formData.room_id);
+      }
+    }, [selectedSemester, semesterData, formData.room_id]);
 
-  useEffect(() => {
-    if (!selectedSemester) {
-      setFilteredAssignations([]);
-      return;
-    }
-
-    if (semesterData && semesterData[selectedSemester]) {
-      setFilteredAssignations(semesterData[selectedSemester]);
-    } else {
-      setFilteredAssignations([]);
-    }
-
-    if (formData.room_id) {
-      fetchSchedulesForRoom(formData.room_id);
-    }
-  }, [selectedSemester, semesterData, formData.room_id]);
-
-  const fetchSchedulesForRoom = (roomId) => {
-    if (!roomId || !selectedSemester) {
-      setSchedules([]);
-      return;
-    }
+    const fetchSchedulesForRoom = (roomId) => {
+      if (!roomId || !selectedSemester || !deptId) {
+        setSchedules([]);
+        return;
+      }
 
     axios.post(`/schedule/getSchedsByRoom/${roomId}`, { Semester: selectedSemester })
       .then(({ data }) => {
@@ -298,6 +325,8 @@ const AddConfigSchedule = () => {
   }
 
   const fetchSectionsForCourse = (courseId) => {
+    if (!deptId) return;
+    
     axios.post('/progYrSec/getProgYrSecByCourse', { CourseId: courseId, DepartmentId: deptId })
       .then(({ data }) => {
         if (data.successful) {
@@ -314,10 +343,9 @@ const AddConfigSchedule = () => {
   };
 
   const deleteSchedule = async (scheduleId) => {
-    if (isDeleting) return;
+    if (isDeleting || !deptId) return;
     setIsDeleting(true);
     try {
-
       const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
@@ -333,6 +361,11 @@ const AddConfigSchedule = () => {
   };
 
   const handleAddSchedule = async () => {
+    if (!deptId) {
+      setNotification({ type: 'error', message: "Please select a department first." });
+      return;
+    }
+    
     if (!formData.assignation_id || !formData.room_id || !formData.day || !formData.start_time || !formData.end_time) {
       setNotification({ type: 'error', message: "Please fill in all mandatory fields." });
       return;
@@ -378,7 +411,130 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const fetchDataForDepartment = async (departmentId) => {
+    try {
+      if (!departmentId) {
+        console.error("Invalid department ID:", departmentId);
+        setNotification({
+          type: 'error',
+          message: 'Please select a valid department.'
+        });
+        return;
+      }
+
+      // Fetch rooms
+      try {
+        const roomsRes = await axios.get(`/room/getRoomsByDept/${departmentId}`);
+        if (roomsRes.data.successful) {
+          setRooms(roomsRes.data.data);
+        } else {
+          console.error("Failed to fetch rooms:", roomsRes.data.message);
+          setRooms([]);
+          setNotification({
+            type: 'error',
+            message: `Room fetch failed: ${roomsRes.data.message}`
+          });
+        }
+      } catch (roomError) {
+        console.error("Error fetching rooms:", roomError);
+        setRooms([]);
+      }
+
+      // Fetch assignations
+      try {
+        const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${departmentId}`);
+        if (assignationsRes.data.successful) {
+          const assignationsData = assignationsRes.data.data;
+          setAssignations(assignationsData);
+
+          const semesterMap = {};
+          assignationsData.forEach(a => {
+            if (!semesterMap[a.Semester]) {
+              semesterMap[a.Semester] = [];
+            }
+            semesterMap[a.Semester].push(a);
+          });
+
+          const semesters = [...new Set(assignationsData.map(a => a.Semester))].sort((a, b) => a - b);
+          setSemesterData(semesterMap);
+          setSemesters(semesters);
+        } else {
+          console.error("Failed to fetch assignations:", assignationsRes.data.message);
+          setAssignations([]);
+          setSemesterData({});
+        }
+      } catch (assignationError) {
+        console.error("Error fetching assignations:", assignationError);
+        setAssignations([]);
+        setSemesterData({});
+      }
+
+      // Fetch professors
+      try {
+        const professorsRes = await axios.get(`/prof/getProfByDept/${departmentId}`);
+        if (professorsRes.data.successful) {
+          setProfessors(professorsRes.data.data);
+        } else {
+          console.error("Failed to fetch professors:", professorsRes.data.message);
+          setProfessors([]);
+        }
+      } catch (profError) {
+        console.error("Error fetching professors:", profError);
+        setProfessors([]);
+      }
+
+    } catch (error) {
+      console.error("General error fetching data:", error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to load required data. Please try refreshing.'
+      });
+    }
+  };
+
+  const handleDepartmentChange = (e) => {
+    const newDeptId = e.target.value;
+    setDeptId(newDeptId);
+    resetForm();
+    setRooms([]);
+    setAssignations([]);
+    setSchedules([]);
+    setSemesters([]);
+    setProfessors([]);
+    // Fetch data for the selected department
+    if (newDeptId) {
+      fetchDataForDepartment(newDeptId);
+    }
+  };
+
+  const renderDepartmentSelector = () => {
+    if (!showDeptSelector) return null;
+    
+    return (
+      <div className="mb-4 border-b pb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select Department:</label>
+        <select
+          value={deptId || ''}
+          onChange={handleDepartmentChange}
+          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
+          <option value="">Select Department</option>
+          {departments.map(dept => (
+            <option key={dept.id} value={dept.id}>
+              {dept.Name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   const handleAutomateSchedule = async () => {
+    if (!deptId) {
+      setNotification({ type: 'error', message: "Please select a department first." });
+      return;
+    }
     setIsAutomating(true);
     try {
       if (automateType === 'room' && !formData.room_id) {
@@ -389,6 +545,7 @@ const AddConfigSchedule = () => {
         setIsAutomating(false);
         return;
       }
+
 
       const payload = {
         DepartmentId: deptId,
@@ -465,6 +622,8 @@ const AddConfigSchedule = () => {
   };
 
   const handleSelectVariant = async (variantIndex) => {
+    if (!deptId) return;
+    
     try {
       const selectedVariant = scheduleVariants[variantIndex];
 
@@ -588,6 +747,8 @@ const AddConfigSchedule = () => {
   };
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
+    if (!deptId) return;
+    
     try {
       const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
@@ -648,6 +809,11 @@ const AddConfigSchedule = () => {
   };
 
   const handleDeleteAllSchedules = async () => {
+    if (!deptId) {
+      setNotification({ type: 'error', message: "Please select a department first." });
+      return;
+    }
+    
     try {
       const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
       if (response.data.success) {
@@ -683,6 +849,7 @@ const AddConfigSchedule = () => {
     setAvailableSections([]);
     setSelectedSections([]);
   };
+
   const ScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
@@ -694,55 +861,55 @@ const AddConfigSchedule = () => {
         .join(', ')
       : 'No sections';
 
-    return (
-      <div
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
-        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
-      >
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
-          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-        </div>
-        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
-        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
-        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
-        {hovered && (
-          <div className="mt-2 text-xs">
-            <div className="flex justify-between items-center">
-              <div>
-                <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
-              </div>
-              <div className="flex">
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  toggleLockStatus(schedule.id, schedule.isLocked);
-                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors" title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
-                >
-                  <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
-                </button>
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedSchedule(schedule);
-                  setIsEditModalOpen(true);
-                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
-                  <img src={editBtn} alt="Edit" className="w-10 h-10" />
-                </button>
-                <button onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedScheduleId(schedule.id);
-                  setIsDeleteWarningOpen(true);
-                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
-                  <img src={delBtn} alt="Delete" className="w-10 h-10" />
-                </button>
+      return (
+        <div
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+          style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+            <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+          </div>
+          <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
+          <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+          <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
+          {hovered && (
+            <div className="mt-2 text-xs">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
+                </div>
+                <div className="flex">
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    toggleLockStatus(schedule.id, schedule.isLocked);
+                  }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors" title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+                  >
+                    <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+                  </button>
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedSchedule(schedule);
+                    setIsEditModalOpen(true);
+                  }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
+                    <img src={editBtn} alt="Edit" className="w-10 h-10" />
+                  </button>
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedScheduleId(schedule.id);
+                    setIsDeleteWarningOpen(true);
+                  }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
+                    <img src={delBtn} alt="Delete" className="w-10 h-10" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+          )}
+        </div>
+      );
+    };
 
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedRoom) return null;
@@ -1201,5 +1368,6 @@ const AddConfigSchedule = () => {
       />
     </div>
   );
-};
+}
+
 export default AddConfigSchedule;

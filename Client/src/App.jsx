@@ -34,6 +34,7 @@ const App = () => {
           <Route path="/loginPage" element={<LoginPage />} />
           <Route path="/forgotPassPage" element={<ForgotPass />} />
           <Route path="/otpVerification" element={<OTPVerification />} />
+          
 
           {/* Protected routes */}
           <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
