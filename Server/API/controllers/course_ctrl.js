@@ -16,20 +16,62 @@ const addCourse = async (req, res) => {
 
     const addedCourses = [];
 
+    // Check if this is a pair of courses (exactly 2 courses)
+    const isPair = courses.length === 2;
+
+    // If it's a pair, validate that we have a lecture and lab course
+    let pairId = null;
+    if (isPair) {
+      // Check if one code ends with L (lab) and the other doesn't
+      const hasLabCourse = courses.some(course => course.Code.endsWith('L'));
+      const hasLectureCourse = courses.some(course => !course.Code.endsWith('L'));
+
+      if (!hasLabCourse || !hasLectureCourse) {
+        return res.status(400).json({
+          successful: false,
+          message: "For course pairs, one course should be a lab course (ending with 'L').",
+        });
+      }
+
+      // Create a pair record
+      const newPair = await sequelize.models.Pair.create({});
+      pairId = newPair.id;
+    }
+
     for (const course of courses) {
-      const { Code, Description, Duration, Units, Type, DepartmentId, ProgYears, RoomTypeId } = course;
+      const { Code, Description, Duration, Units, Type, DepartmentId, ProgYears, RoomTypeId, isTutorial = false } = course;
+
+      // If tutorial, set Units to 0
+      const finalUnits = isTutorial ? 0 : Units;
 
       // Validate mandatory fields
-      if (!util.checkMandatoryFields([Code, Description, Duration, Units, Type, DepartmentId, ProgYears, RoomTypeId])) {
+      if (!util.checkMandatoryFields([Code, Description, Duration, Type, DepartmentId, RoomTypeId])) {
         return res.status(400).json({
           successful: false,
           message: "A mandatory field is missing.",
         });
       }
-      if (Duration <= 0 || Units <= 0) {
+
+      // For non-tutorial courses, require Units and ProgYears
+      if (!isTutorial && (!Units || !ProgYears)) {
+        return res.status(400).json({
+          successful: false,
+          message: "Units and ProgYears are required for non-tutorial courses.",
+        });
+      }
+
+      if (Duration <= 0) {
         return res.status(406).json({
           successful: false,
-          message: "Duration or Units must be greater than 0.",
+          message: "Duration must be greater than 0.",
+        });
+      }
+
+      // Only check Units for non-tutorial courses
+      if (!isTutorial && (Units <= 0)) {
+        return res.status(406).json({
+          successful: false,
+          message: "Units must be greater than 0 for non-tutorial courses.",
         });
       }
 
@@ -41,16 +83,16 @@ const addCourse = async (req, res) => {
         });
       }
 
-      // Get global settings
-      const settings = await Settings.findOne();
+      const settings = await Settings.findOne({ where: { DepartmentId } });
       if (!settings) {
         return res.status(406).json({
           successful: false,
-          message: "Global settings not found.",
+          message: "Settings not found.",
         });
       }
 
-      if (Units < 1 || Units > 30) {
+      // Units validation for non-tutorial courses
+      if (!isTutorial && (Units < 1 || Units > 30)) {
         return res.status(406).json({
           successful: false,
           message: "Units should be between 1 and 30",
@@ -86,7 +128,7 @@ const addCourse = async (req, res) => {
       if (existingCourse) {
         return res.status(400).json({
           successful: false,
-          message: `Course with code  already exists.`,
+          message: `Course with code ${Code} already exists.`,
         });
       }
 
@@ -97,41 +139,60 @@ const addCourse = async (req, res) => {
         });
       }
 
-      // Create the new course
+      // Create the new course with PairId if this is a pair, setting Units to 0 for tutorials
       const newCourse = await Course.create({
         Code,
         Description,
         Duration,
-        Units,
+        Units: finalUnits,  // Use 0 for tutorials
         Type,
-        RoomTypeId
-      })
-      await newCourse.addCourseDepts(DepartmentId)
+        RoomTypeId,
+        isTutorial,
+        PairId: pairId // Will be null if not a pair
+      });
 
-      for (const prog of ProgYears) {
-        const existingProg = await Program.findOne({
-          where: {
-            id: prog.ProgramId
+      await newCourse.addCourseDepts(DepartmentId);
+
+      // Only create CourseProg entries for non-tutorial courses
+      if (!isTutorial && ProgYears) {
+        for (const prog of ProgYears) {
+          const existingProg = await Program.findOne({
+            where: {
+              id: prog.ProgramId
+            }
+          });
+
+          if (!existingProg) {
+            return res.status(404).json({
+              successful: false,
+              message: `Program with ID ${prog.ProgramId} does not exist.`,
+            });
           }
-        })
-        if (!existingProg) {
-          return res.status(404).json({
-            successful: false,
-            message: `Program with ID ${prog.ProgramId} does not exist.`,
+
+          if (prog.Year < 1 || prog.Year > 6) {
+            return res.status(406).json({
+              successful: false,
+              message: "Year must be greater than 0 and less than 6.",
+            });
+          }
+
+          // Validate Semester value
+          if (prog.Semester !== 1 && prog.Semester !== 2) {
+            return res.status(406).json({
+              successful: false,
+              message: "Semester must be either 1 or 2.",
+            });
+          }
+
+          await CourseProg.create({
+            CourseId: newCourse.id,
+            ProgramId: prog.ProgramId,
+            Year: prog.Year,
+            Semester: prog.Semester
           });
         }
-        if (prog.Year < 1 || prog.Year > 6) {
-          return res.status(406).json({
-            successful: false,
-            message: "Year must be greater than 0 and less than 6.",
-          });
-        }
-        await CourseProg.create({
-          CourseId: newCourse.id,
-          ProgramId: prog.ProgramId,
-          Year: prog.Year
-        })
       }
+
       addedCourses.push(Code);
     }
 
@@ -143,6 +204,7 @@ const addCourse = async (req, res) => {
         message: "Unauthorized: refreshToken not found."
       });
     }
+
     let decoded;
     try {
       decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
@@ -152,16 +214,16 @@ const addCourse = async (req, res) => {
         message: "Invalid refreshToken."
       });
     }
+
     const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
     const page = "Course";
-    const details = `Added Course${addedCourses.length > 1 ? "s" : ""
-      }: ${addedCourses.join(", ")}`;
+    const details = `Added Course${addedCourses.length > 1 ? "s" : ""}: ${addedCourses.join(", ")}${isPair ? " as a pair" : ""}`;
 
     await addHistoryLog(accountId, page, details);
 
     return res.status(201).json({
       successful: true,
-      message: "Successfully added new course(s).",
+      message: `Successfully added new course${courses.length > 1 ? "s" : ""}${isPair ? " as a pair" : ""}.`,
     });
   } catch (err) {
     return res.status(500).json({
