@@ -41,53 +41,79 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                 const allRoomTypes = response.data.data;
                 setRoomTypes(allRoomTypes);
 
-                // Initialize selectedRoomTypes and PrimaryTypeId if the room has associated room types
+                // Initialize selectedRoomTypes and PrimaryTypeId
+                let primaryTypeId = "";
+                let initialRoomTypes = [];
+
+                // First, check for PrimaryTypeId in the room data
+                if (room.PrimaryTypeId) {
+                    primaryTypeId = room.PrimaryTypeId;
+                    
+                    // Find the primary type in all room types
+                    const primaryType = allRoomTypes.find(type => type.id === primaryTypeId);
+                    
+                    // Add to initialRoomTypes if not already there
+                    if (primaryType && !initialRoomTypes.some(t => t.id === primaryTypeId)) {
+                        initialRoomTypes.push({
+                            id: primaryTypeId,
+                            Type: primaryType.Type
+                        });
+                    }
+                }
+
+                // Then check for TypeRooms (associated room types)
                 if (room.TypeRooms && room.TypeRooms.length > 0) {
                     // Map room's associated types to our format
-                    const initialRoomTypes = room.TypeRooms.map(type => ({
-                        id: type.id,
-                        Type: type.Type
-                    }));
+                    room.TypeRooms.forEach(type => {
+                        // Only add if not already added as primary
+                        if (type.id !== primaryTypeId) {
+                            initialRoomTypes.push({
+                                id: type.id,
+                                Type: type.Type
+                            });
+                        }
+                    });
                     
-                    // Find primary room type (if available)
-                    let primaryTypeId = room.PrimaryTypeId || (initialRoomTypes.length > 0 ? initialRoomTypes[0].id : "");
-                    
-                    setFormData(prev => ({
-                        ...prev,
-                        selectedRoomTypes: initialRoomTypes,
-                        PrimaryTypeId: primaryTypeId
-                    }));
-                } else if (room.RoomTypeId) {
-                    // For backward compatibility with older data structure
+                    // If no primary type found yet, use the first room type as primary
+                    if (!primaryTypeId && initialRoomTypes.length > 0) {
+                        primaryTypeId = initialRoomTypes[0].id;
+                    }
+                } 
+                
+                // For backward compatibility with older data structure
+                if (initialRoomTypes.length === 0 && room.RoomTypeId) {
                     const matchingType = allRoomTypes.find(
                         type => type.id === room.RoomTypeId
                     );
                     if (matchingType) {
-                        setFormData(prev => ({
-                            ...prev,
-                            selectedRoomTypes: [{
-                                id: matchingType.id,
-                                Type: matchingType.Type
-                            }],
-                            PrimaryTypeId: matchingType.id
-                        }));
+                        initialRoomTypes.push({
+                            id: matchingType.id,
+                            Type: matchingType.Type
+                        });
+                        primaryTypeId = matchingType.id;
                     }
-                } else if (room.Type) {
-                    // For older data structure where only Type name is available
+                } 
+                
+                // For even older data structure where only Type name is available
+                if (initialRoomTypes.length === 0 && room.Type) {
                     const matchingType = allRoomTypes.find(
                         type => type.Type === room.Type
                     );
                     if (matchingType) {
-                        setFormData(prev => ({
-                            ...prev,
-                            selectedRoomTypes: [{
-                                id: matchingType.id,
-                                Type: matchingType.Type
-                            }],
-                            PrimaryTypeId: matchingType.id
-                        }));
+                        initialRoomTypes.push({
+                            id: matchingType.id,
+                            Type: matchingType.Type
+                        });
+                        primaryTypeId = matchingType.id;
                     }
                 }
+
+                // Update form data with the collected information
+                setFormData(prev => ({
+                    ...prev,
+                    selectedRoomTypes: initialRoomTypes.filter(type => type.id !== primaryTypeId),
+                    PrimaryTypeId: primaryTypeId
+                }));
             } else {
                 setErrorMessage("Failed to load room types.");
             }
@@ -115,10 +141,20 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
     const handlePrimaryRoomTypeChange = (e) => {
         const newPrimaryTypeId = e.target.value;
         
-        // Filter out the new primary type from selected room types to avoid duplication
-        const updatedRoomTypes = formData.selectedRoomTypes.filter(
-            type => type.id.toString() !== newPrimaryTypeId.toString()
+        // Find the room type object for the new primary
+        const primaryType = roomTypes.find(type => type.id.toString() === newPrimaryTypeId.toString());
+        if (!primaryType) return;
+        
+        // Check if this type is already in selectedRoomTypes
+        const existingIndex = formData.selectedRoomTypes.findIndex(
+            type => type.id.toString() === newPrimaryTypeId.toString()
         );
+        
+        // Create a new array without the new primary type (if it exists)
+        let updatedRoomTypes = [...formData.selectedRoomTypes];
+        if (existingIndex >= 0) {
+            updatedRoomTypes.splice(existingIndex, 1);
+        }
         
         setFormData({ 
             ...formData, 
