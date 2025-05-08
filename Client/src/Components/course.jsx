@@ -127,12 +127,14 @@ const CourseManagement = () => {
 
   const handleViewPrograms = (courseId) => {
     const course = courses.find(c => c.id === courseId);
-    if (course) {
+    if (course && !course.rawData.isTutorial) {
       setSelectedCourseForPrograms({
         id: courseId,
         name: course.code
       });
       setIsProgramsModalOpen(true);
+    } else if (course && course.rawData.isTutorial) {
+      showNotification("Tutorial courses do not have associated programs", "info");
     }
   };
 
@@ -361,15 +363,17 @@ const CourseManagement = () => {
 
                   <div className={`transition-all duration-300 ${course.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
                     <div className="p-8 overflow-y-auto max-h-200">
-                      <div className="">
-                        <button
-                          onClick={() => handleViewPrograms(course.id)}
-                          className="w-full gap-8 py-1.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center  hover:bg-blue-200 transition-colors "
-                        >
-                          <BookOpen size={16} />
-                          View Associated Programs
-                        </button>
-                      </div>
+                      {!course.rawData.isTutorial && (
+                        <div className="">
+                          <button
+                            onClick={() => handleViewPrograms(course.id)}
+                            className="w-full gap-8 py-1.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center hover:bg-blue-200 transition-colors"
+                          >
+                            <BookOpen size={16} />
+                            View Associated Programs
+                          </button>
+                        </div>
+                      )}
                       <h3 className="font-medium text-gray-800 mb-2">Assigned Professors</h3>
                       {getProfessorsByCourse(course.id).length > 0 ? (
                         <div className="space-y-3">

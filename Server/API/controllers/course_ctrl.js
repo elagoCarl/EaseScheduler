@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { REFRESH_TOKEN_SECRET } = process.env;
-const { Course, Professor, Department, Settings, CourseProg, RoomType, Program } = require("../models");
+const { Course, Professor, Department, Settings, CourseProg, RoomType, Program, Pair } = require("../models");
 const util = require("../../utils");
 const { Op } = require("sequelize");
 const { addHistoryLog } = require("../controllers/historyLogs_ctrl");
@@ -34,7 +34,7 @@ const addCourse = async (req, res) => {
       }
 
       // Create a pair record
-      const newPair = await sequelize.models.Pair.create({});
+      const newPair = await Pair.create({});
       pairId = newPair.id;
     }
 
@@ -83,7 +83,7 @@ const addCourse = async (req, res) => {
         });
       }
 
-      const settings = await Settings.findOne({ where: { DepartmentId } });
+      const settings = await Settings.findOne();
       if (!settings) {
         return res.status(406).json({
           successful: false,
@@ -226,6 +226,7 @@ const addCourse = async (req, res) => {
       message: `Successfully added new course${courses.length > 1 ? "s" : ""}${isPair ? " as a pair" : ""}.`,
     });
   } catch (err) {
+    console.error(err);
     return res.status(500).json({
       successful: false,
       message: err.message || "An unexpected error occurred.",
