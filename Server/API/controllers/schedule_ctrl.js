@@ -1,5 +1,5 @@
 // Import required models and dependencies
-const { Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course, ProfAvail, RoomType, CourseProg } = require('../models');
+const { Settings, Schedule, Room, Assignation, Program, Professor, ProgYrSec, Department, Course, ProfAvail, RoomType, CourseProg, SchoolYear } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
 const { json } = require('body-parser');
@@ -898,15 +898,15 @@ const generateScheduleVariants = async (req, res, next) => {
             delete priorities.room;
         }
 
-        console.log(`→ Fetching global settings`)
+        console.log(`→ Fetching settings for DepartmentId=${DepartmentId}`)
         // 2) Load settings
-        const settings = await Settings.findOne();
+        const settings = await Settings.findOne({ where: { DepartmentId: DepartmentId } });
         if (!settings) {
-            console.log(`⚠️  No global settings found`);
+            console.log(`⚠️  No settings found for DepartmentId=${DepartmentId}`);
         } else {
             console.log('✅  Loaded settings:', settings.get({ plain: true }));
             console.log(
-                `Using global settings:`,
+                `Using settings for Dept ${settings.DepartmentId}:`,
                 `StartHour=${settings.StartHour},`,
                 `EndHour=${settings.EndHour},`,
                 `StudentMaxHours=${settings.StudentMaxHours}`
@@ -1637,18 +1637,13 @@ const toggleLockAllSchedules = async (req, res) => {
 // Add Schedule (Manual Version of automateSchedule)
 const addSchedule = async (req, res, next) => {
     try {
-        let schedule = req.body;
-
-        if (!Array.isArray(schedule)) {
-            schedule = [schedule];
-        }
+        let schedules = Array.isArray(req.body) ? req.body : [req.body];
         const createdSchedules = [];
 
-        for (const sched of schedule) {
-            const { Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester } = sched;
+        for (const sched of schedules) {
+            const { Day, Start_time, End_time, RoomId, AssignationId } = sched;
 
-            // Check required fields - now including Semester
-            if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester])) {
+            if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
@@ -1656,130 +1651,121 @@ const addSchedule = async (req, res, next) => {
             }
 
             const assignation = await Assignation.findByPk(AssignationId, {
-                include: [{ model: Course }, { model: Professor }]
+                include: [
+                    { model: Course },
+                    { model: Professor },
+                    { model: SchoolYear },
+                    { model: ProgYrSec, through: 'AssignationSection' }
+                ]
             });
-            if (!assignation || !assignation.Course || !assignation.Professor) {
+
+            if (!assignation || !assignation.Course || !assignation.SchoolYear) {
                 return res.status(404).json({
                     successful: false,
-                    message: `Assignation with ID ${AssignationId} not found or missing course/professor details.`
+                    message: `Assignation with ID ${AssignationId} not found or missing course/school year details.`
                 });
             }
 
-            // Get global settings
-            const settings = await Settings.findOne();
+            const { Semester } = assignation;
+            const SchoolYearId = assignation.SchoolYear.id;
+            const SchoolYearName = assignation.SchoolYear.SY_Name;
+            const sections = assignation.ProgYrSecs || [];
+
+            if (!assignation.Course.isTutorial && (!sections || sections.length === 0)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "This non-tutorial assignation has no sections associated with it."
+                });
+            }
+
+            const settings = await Settings.findOne({ where: { DepartmentId: assignation.DepartmentId } });
             if (!settings) {
-                return res.status(400).json({
+                return res.status(500).json({
                     successful: false,
-                    message: "Global settings could not be retrieved. Please try again later."
+                    message: "Settings could not be retrieved. Please try again later."
                 });
             }
 
-            if (!Array.isArray(Sections) || Sections.length === 0) {
-                return res.status(400).json({
-                    successful: false,
-                    message: "Sections must be a non-empty array of section IDs."
-                });
-            }
-
-            // Validate time format and order
             if (isValidTime(Start_time, End_time, res) !== true) return;
 
-            // Calculate duration of the proposed schedule in hours
             const newStartSec = timeToSeconds(Start_time);
             const newEndSec = timeToSeconds(End_time);
-            const currentScheduleDuration = (newEndSec - newStartSec) / 3600; // seconds to hours
+            const currentScheduleDuration = (newEndSec - newStartSec) / 3600;
 
-            // Fetch and validate the room
             const room = await Room.findByPk(RoomId, {
-                include: [
-                    {
-                        model: RoomType,
-                        as: 'TypeRooms',
-                        attributes: ['id', 'Type'],
-                        through: {
-                            attributes: []
-                        }
-                    }
-                ]
-            })
+                include: [{
+                    model: RoomType,
+                    as: 'TypeRooms',
+                    attributes: ['id', 'Type'],
+                    through: { attributes: [] }
+                }, {
+                    model: RoomType,
+                    attributes: ['id', 'Type']
+                }]
+            });
+
             if (!room) {
                 return res.status(404).json({
                     successful: false,
                     message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
                 });
             }
+
             const courseRoomTypeId = assignation.Course.RoomTypeId;
+
+            // Check if the room's primary type matches the course's required type
+            const primaryTypeMatches = room.PrimaryTypeId === courseRoomTypeId;
+
+            // Check if any of the room's associated types match the course's required type
             const roomHasRequiredType = room.TypeRooms.some(type => type.id === courseRoomTypeId);
 
-            if (!roomHasRequiredType) {
-                // Get the required room type name for better error message
+            if (!primaryTypeMatches && !roomHasRequiredType) {
                 const requiredRoomType = await RoomType.findByPk(courseRoomTypeId);
                 const requiredTypeName = requiredRoomType ? requiredRoomType.Type : "required type";
-
-                // Get the room's available types for better error messaging
+                const primaryTypeName = room.RoomType ? room.RoomType.Type : "None";
                 const availableTypes = room.TypeRooms.map(type => type.Type).join(", ");
 
                 return res.status(400).json({
                     successful: false,
-                    message: `Room type mismatch: Course requires room type ${requiredTypeName} but Room ${room.Code} has types: [${availableTypes}].`
+                    message: `Room type mismatch: Course requires room type ${requiredTypeName} but Room ${room.Code} has primary type ${primaryTypeName} and additional types: [${availableTypes}].`
                 });
-            }
-            // Validate the semester matches the assignation's semester
-            if (assignation.Semester != Semester) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Semester mismatch: Schedule is for ${Semester} but Assignation is for ${assignation.Semester}.`
-                });
-            }
-
-            // Validate course duration balance for each section
-            const courseTotalDuration = assignation.Course.Duration;
-
-            // Get all section details including Program info
-            const sectionsData = await ProgYrSec.findAll({
-                where: { id: { [Op.in]: Sections } },
-                include: [{ model: Program }]
-            });
-
-            if (sectionsData.length !== Sections.length) {
-                return res.status(404).json({
-                    successful: false,
-                    message: "One or more sections not found. Please provide valid section IDs."
-                });
-            }
-
-            // Create a map of section identifiers for easier reference
-            const sectionIdentifiers = {};
-            for (const section of sectionsData) {
-                const sectionIdentifier = `${section.Program.Code}-${section.Year}${section.Section}`;
-                sectionIdentifiers[section.id] = sectionIdentifier;
             }
 
             let totalStudents = 0;
-            for (const section of sectionsData) {
-                totalStudents += section.NumberOfStudents;
-            }
+            let sectionsData = [];
+            let sectionIdentifiers = {};
 
-            if (totalStudents > room.NumberOfSeats) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
+            if (!assignation.Course.isTutorial && sections.length > 0) {
+                const sectionIds = sections.map(section => section.id);
+                sectionsData = await ProgYrSec.findAll({
+                    where: { id: { [Op.in]: sectionIds } },
+                    include: [{ model: Program }]
                 });
+
+                for (const section of sectionsData) {
+                    sectionIdentifiers[section.id] = `${section.Program.Code}-${section.Year}${section.Section}`;
+                    totalStudents += section.NumberOfStudents;
+                }
+
+                if (totalStudents > room.NumberOfSeats) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
+                    });
+                }
             }
 
-            // Check for conflicting schedules in the same room on the same day - now filtered by semester
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const currentDay = days[Day - 1];
+
             const existingRoomSchedules = await Schedule.findAll({
                 include: [{
                     model: Assignation,
-                    where: { Semester }
+                    where: { Semester, SchoolYearId }
                 }],
                 where: { Day, RoomId }
             });
 
-            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-            const currentDay = days[Day - 1]
-
-            // Allow back-to-back schedules but check for any overlaps
             const isRoomConflict = existingRoomSchedules.some(existing => {
                 const existingStartSec = timeToSeconds(existing.Start_time);
                 const existingEndSec = timeToSeconds(existing.End_time);
@@ -1789,267 +1775,200 @@ const addSchedule = async (req, res, next) => {
             if (isRoomConflict) {
                 return res.status(400).json({
                     successful: false,
-                    message: `Schedule conflict detected: Room ${room.Code} is already booked on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester.`
+                    message: `Schedule conflict detected: Room ${room.Code} is already booked on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester, ${SchoolYearName}.`
                 });
             }
 
-            // ****************** Additional Professor Validations ******************
-
-            // Check if the professor is available during the scheduled time
-            const professorId = assignation.Professor.id;
-            const professorAvailabilities = await ProfAvail.findAll({
-                where: {
-                    ProfessorId: professorId,
-                    Day: currentDay // Ensure Day formats match between Schedule and ProfAvail
-                }
-            });
-
-            // If professor has no availabilities set for this day, they're not available
-            if (professorAvailabilities.length === 0) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${assignation.Professor.Name} has no availability set for ${currentDay}.`
-                });
-            }
-
-            // Check if the proposed schedule falls within any of the professor's available time slots
-            const isProfessorAvailable = professorAvailabilities.some(availability => {
-                const availStartSec = timeToSeconds(availability.Start_time);
-                const availEndSec = timeToSeconds(availability.End_time);
-
-                // The proposed schedule must be fully contained within an availability slot
-                return (newStartSec >= availStartSec && newEndSec <= availEndSec);
-            });
-
-            if (!isProfessorAvailable) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on ${currentDay}.`
-                });
-            }
-
-            // Build the professor's schedule for the given day by fetching all schedules where the 
-            // assignation's professor is teaching on that day - now filtered by semester
-            const professorSchedules = await Schedule.findAll({
-                include: [{
-                    model: Assignation,
+            if (assignation.Professor) {
+                const professorId = assignation.Professor.id;
+                const professorAvailabilities = await ProfAvail.findAll({
                     where: {
-                        ProfessorId: assignation.Professor.id,
-                        Semester
+                        ProfessorId: professorId,
+                        Day: currentDay
                     }
-                }],
-                where: { Day }
-            });
-
-            let profScheduleForDay = { hours: 0, dailyTimes: [] };
-            professorSchedules.forEach(s => {
-                const profSchedStart = parseInt(s.Start_time.split(":")[0]); // simple extraction; can be enhanced
-                const profSchedEnd = parseInt(s.End_time.split(":")[0]);
-                profScheduleForDay.hours += (profSchedEnd - profSchedStart);
-                profScheduleForDay.dailyTimes.push({ start: profSchedStart, end: profSchedEnd });
-            });
-            const newStartHour = parseInt(Start_time.split(":")[0]);
-
-            // Check for schedule conflicts with professor's existing schedules
-            const isProfessorScheduleConflict = professorSchedules.some(existing => {
-                const existingStartSec = timeToSeconds(existing.Start_time);
-                const existingEndSec = timeToSeconds(existing.End_time);
-                return (newStartSec < existingEndSec && newEndSec > existingStartSec);
-            });
-
-            if (isProfessorScheduleConflict) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${currentDay} for ${Semester} semester.`
                 });
-            }
 
-            const allProfAvailability = await ProfAvail.findAll({
-                where: {
-                    ProfessorId: { [Op.in]: professorId },
+                if (professorAvailabilities.length === 0) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Professor ${assignation.Professor.Name} has no availability set for ${currentDay}.`
+                    });
                 }
-            });
-            const professorAvailabilityCache = {};
-            // Organize by professor ID for quick access
-            allProfAvailability.forEach(avail => {
-                const cacheKey = `prof-${avail.ProfessorId}`;
-                if (!professorAvailabilityCache[cacheKey]) {
-                    professorAvailabilityCache[cacheKey] = [];
-                }
-                professorAvailabilityCache[cacheKey].push(avail);
-            });
 
-            // Also cache availability counts per professor
-            const availData = professorAvailabilityCache[`prof-${professorId}`] || [];
-            professorAvailabilityCache[`prof-count-${professorId}`] = availData.length;
-
-            // Validate professor workload using your helper
-            if (!(canScheduleProfessor(profScheduleForDay, newStartHour, currentScheduleDuration, settings, assignation.Professor.id, Day, professorAvailabilityCache))) {
-                return res.status(400).json({
-                    successful: false,
-                    message: `The professor ${assignation.Professor.Name} would exceed the allowed teaching hours for ${Semester} semester.`
+                const isProfessorAvailable = professorAvailabilities.some(availability => {
+                    const availStartSec = timeToSeconds(availability.Start_time);
+                    const availEndSec = timeToSeconds(availability.End_time);
+                    return (newStartSec >= availStartSec && newEndSec <= availEndSec);
                 });
-            }
 
-            // ****************** Additional Student (Section) Validations ******************
+                if (!isProfessorAvailable) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on ${currentDay}.`
+                    });
+                }
 
-            // For each section, build the day's schedule and check for both time conflicts and break requirements.
-            for (const sectionId of Sections) {
-                const sectionIdentifier = sectionIdentifiers[sectionId];
-
-                // Fetch all schedules associated with the section for the given day - now filtered by semester
-                const sectionSchedules = await Schedule.findAll({
-                    include: [
-                        {
-                            model: ProgYrSec,
-                            where: { id: sectionId }
-                        },
-                        {
-                            model: Assignation,
-                            where: { Semester }
-                        }
-                    ],
+                const professorSchedules = await Schedule.findAll({
+                    include: [{
+                        model: Assignation,
+                        where: { ProfessorId: professorId, Semester, SchoolYearId }
+                    }],
                     where: { Day }
                 });
 
-                let sectionScheduleForDay = { hours: 0, dailyTimes: [] };
-                sectionSchedules.forEach(s => {
-                    const sectionSchedStart = parseInt(s.Start_time.split(":")[0]);
-                    const sectionSchedEnd = parseInt(s.End_time.split(":")[0]);
-                    sectionScheduleForDay.hours += (sectionSchedEnd - sectionSchedStart);
-                    sectionScheduleForDay.dailyTimes.push({ start: sectionSchedStart, end: sectionSchedEnd });
+                let profScheduleForDay = { hours: 0, dailyTimes: [] };
+                professorSchedules.forEach(s => {
+                    const startSec = timeToSeconds(s.Start_time);
+                    const endSec = timeToSeconds(s.End_time);
+                    const durationHours = (endSec - startSec) / 3600; // Convert seconds to hours with decimal precision
+                    profScheduleForDay.hours += durationHours;
+
+                    // Parse hours and minutes for more detailed time management
+                    const [startHour, startMin] = s.Start_time.split(':').map(Number);
+                    const [endHour, endMin] = s.End_time.split(':').map(Number);
+
+                    profScheduleForDay.dailyTimes.push({
+                        start: startHour + (startMin / 60), // Convert to decimal hours
+                        end: endHour + (endMin / 60),
+                        startTime: s.Start_time,
+                        endTime: s.End_time
+                    });
                 });
-                if (!canScheduleStudents(sectionScheduleForDay, newStartHour, currentScheduleDuration, settings)) {
+
+                // Parse start time with minute precision
+                const [startHour, startMin] = Start_time.split(':').map(Number);
+                const newStartHourDecimal = startHour + (startMin / 60); // Decimal hours for more precise calculation
+
+                const isProfessorScheduleConflict = professorSchedules.some(existing => {
+                    const existingStartSec = timeToSeconds(existing.Start_time);
+                    const existingEndSec = timeToSeconds(existing.End_time);
+                    return (newStartSec < existingEndSec && newEndSec > existingStartSec);
+                });
+
+                if (isProfessorScheduleConflict) {
                     return res.status(400).json({
                         successful: false,
-                        message: `Section ${sectionIdentifier} cannot be scheduled at the specified time in ${Semester} semester, as it violates scheduling constraints (overlap or insufficient break between sessions).`
+                        message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${currentDay} for ${Semester} semester, ${SchoolYearName}.`
                     });
                 }
 
-                // Also, check that the additional schedule does not cause the total scheduled hours for the course
-                // to exceed the total course duration.
-                const existingSchedulesForSection = await Schedule.findAll({
-                    include: [
-                        {
-                            model: ProgYrSec,
-                            where: { id: sectionId }
-                        },
-                        {
+                const allProfAvailability = await ProfAvail.findAll({
+                    where: { ProfessorId: professorId }
+                });
+
+                const professorAvailabilityCache = {};
+                allProfAvailability.forEach(avail => {
+                    const cacheKey = `prof-${avail.ProfessorId}`;
+                    if (!professorAvailabilityCache[cacheKey]) {
+                        professorAvailabilityCache[cacheKey] = [];
+                    }
+                    professorAvailabilityCache[cacheKey].push(avail);
+                });
+
+                const availData = professorAvailabilityCache[`prof-${professorId}`] || [];
+                professorAvailabilityCache[`prof-count-${professorId}`] = availData.length;
+
+                if (!(canScheduleProfessor(profScheduleForDay, newStartHourDecimal, currentScheduleDuration, settings, professorId, Day, professorAvailabilityCache))) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `The professor ${assignation.Professor.Name} would exceed the allowed teaching hours for ${Semester} semester, ${SchoolYearName}.`
+                    });
+                }
+            }
+
+            if (!assignation.Course.isTutorial && sections.length > 0) {
+                for (const section of sectionsData) {
+                    const sectionId = section.id;
+                    const sectionIdentifier = sectionIdentifiers[sectionId];
+
+                    const sectionSchedules = await Schedule.findAll({
+                        include: [{
                             model: Assignation,
-                            where: {
-                                CourseId: assignation.Course.id,
-                                Semester
-                            }
-                        }
-                    ]
-                });
-
-                let scheduledHours = 0;
-                existingSchedulesForSection.forEach(sched => {
-                    const schedStart = timeToSeconds(sched.Start_time);
-                    const schedEnd = timeToSeconds(sched.End_time);
-                    scheduledHours += (schedEnd - schedStart) / 3600;
-                });
-                if (scheduledHours + currentScheduleDuration > courseTotalDuration) {
-                    const remainingHours = courseTotalDuration - scheduledHours;
-                    return res.status(400).json({
-                        successful: false,
-                        message: `For section ${sectionIdentifier} in ${Semester} semester, adding ${currentScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
+                            where: { Semester, SchoolYearId },
+                            include: [{
+                                model: ProgYrSec,
+                                where: { id: sectionId }
+                            }]
+                        }],
+                        where: { Day }
                     });
-                }
 
-                // NEW VALIDATION: Check if the section is already scheduled for this course with a different professor
-                const existingCourseSchedules = await Schedule.findAll({
-                    include: [
-                        {
-                            model: ProgYrSec,
-                            where: { id: sectionId }
-                        },
-                        {
+                    let sectionScheduleForDay = { hours: 0, dailyTimes: [] };
+                    sectionSchedules.forEach(s => {
+                        const startSec = timeToSeconds(s.Start_time);
+                        const endSec = timeToSeconds(s.End_time);
+                        const durationHours = (endSec - startSec) / 3600; // Convert seconds to hours with decimal precision
+                        sectionScheduleForDay.hours += durationHours;
+
+                        // Parse hours and minutes for more detailed time management
+                        const [startHour, startMin] = s.Start_time.split(':').map(Number);
+                        const [endHour, endMin] = s.End_time.split(':').map(Number);
+
+                        sectionScheduleForDay.dailyTimes.push({
+                            start: startHour + (startMin / 60), // Convert to decimal hours
+                            end: endHour + (endMin / 60),
+                            startTime: s.Start_time,
+                            endTime: s.End_time
+                        });
+                    });
+
+                    if (!canScheduleStudents(sectionScheduleForDay, newStartHourDecimal, currentScheduleDuration, settings)) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Section ${sectionIdentifier} cannot be scheduled at the specified time in ${Semester} semester, ${SchoolYearName}, as it violates scheduling constraints.`
+                        });
+                    }
+
+                    const existingSchedulesForSection = await Schedule.findAll({
+                        include: [{
                             model: Assignation,
                             where: {
                                 CourseId: assignation.Course.id,
                                 Semester,
-                                // Exclude current assignation to check others only
-                                id: { [Op.ne]: AssignationId }
+                                SchoolYearId
                             },
-                            include: [{ model: Professor }]
-                        }
-                    ]
-                });
-
-                if (existingCourseSchedules.length > 0) {
-                    // Found schedules where this section is taking this course with a different professor
-                    const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
-                    return res.status(400).json({
-                        successful: false,
-                        message: `Section ${sectionIdentifier} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
-                    });
-                }
-
-                // NEW VALIDATION: Check if lecture and lab components are taught by the same professor
-                // Get the current course code
-                const currentCourseCode = assignation.Course.Code;
-
-                // Determine if this is a lecture or lab course
-                const isLabCourse = currentCourseCode.endsWith('L');
-                let relatedCourseCode;
-
-                // If current course is a lab, find its lecture; if it's a lecture, find its lab
-                if (isLabCourse) {
-                    // For lab course "XXXL", find lecture course "XXX"
-                    relatedCourseCode = currentCourseCode.slice(0, -1);
-                } else {
-                    // For lecture course "XXX", find lab course "XXXL"
-                    relatedCourseCode = currentCourseCode + 'L';
-                }
-
-                // Look for related course in the database
-                const relatedCourse = await Course.findOne({
-                    where: { Code: relatedCourseCode }
-                });
-
-                // If related course exists, check for professor consistency
-                if (relatedCourse) {
-                    // Find assignations for the related course for the same section and semester
-                    const relatedAssignations = await Schedule.findAll({
-                        include: [
-                            {
+                            include: [{
                                 model: ProgYrSec,
                                 where: { id: sectionId }
-                            },
-                            {
-                                model: Assignation,
-                                where: {
-                                    CourseId: relatedCourse.id,
-                                    Semester
-                                },
-                                include: [{ model: Professor }]
-                            }
-                        ]
+                            }]
+                        }]
                     });
 
-                    // If the related course is already scheduled for this section with a different professor
-                    if (relatedAssignations.length > 0) {
-                        const relatedProfessorId = relatedAssignations[0].Assignation.Professor.id;
-                        const relatedProfessorName = relatedAssignations[0].Assignation.Professor.Name;
+                    let scheduledHours = 0;
+                    existingSchedulesForSection.forEach(sched => {
+                        const schedStart = timeToSeconds(sched.Start_time);
+                        const schedEnd = timeToSeconds(sched.End_time);
+                        scheduledHours += (schedEnd - schedStart) / 3600;
+                    });
 
-                        // If professors don't match, reject the schedule
-                        if (relatedProfessorId !== assignation.Professor.id) {
-                            const currentComponent = isLabCourse ? "lab" : "lecture";
-                            const relatedComponent = isLabCourse ? "lecture" : "lab";
-
-                            return res.status(400).json({
-                                successful: false,
-                                message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionIdentifier}. Both components must be taught by the same professor.`
-                            });
-                        }
+                    if (scheduledHours + currentScheduleDuration > assignation.Course.Duration) {
+                        const remainingHours = assignation.Course.Duration - scheduledHours;
+                        return res.status(400).json({
+                            successful: false,
+                            message: `For section ${sectionIdentifier} in ${Semester} semester, ${SchoolYearName}, adding ${currentScheduleDuration} hours would exceed the course duration of ${assignation.Course.Duration} hours. Remaining balance: ${remainingHours} hours.`
+                        });
                     }
                 }
+            } else if (assignation.Course.isTutorial) {
+                const existingSchedules = await Schedule.findAll({
+                    where: { AssignationId }
+                });
+
+                let scheduledHours = 0;
+                existingSchedules.forEach(sched => {
+                    const schedStart = timeToSeconds(sched.Start_time);
+                    const schedEnd = timeToSeconds(sched.End_time);
+                    scheduledHours += (schedEnd - schedStart) / 3600;
+                });
+
+                if (scheduledHours + currentScheduleDuration > assignation.Course.Duration) {
+                    const remainingHours = assignation.Course.Duration - scheduledHours;
+                    return res.status(400).json({
+                        successful: false,
+                        message: `For tutorial course ${assignation.Course.Code} in ${Semester} semester, ${SchoolYearName}, adding ${currentScheduleDuration} hours would exceed the course duration of ${assignation.Course.Duration} hours. Remaining balance: ${remainingHours} hours.`
+                    });
+                }
             }
-
-
-            // ****************** All Validations Passed - Create Schedule ******************
 
             const newSchedule = await Schedule.create({
                 Day,
@@ -2057,18 +1976,9 @@ const addSchedule = async (req, res, next) => {
                 End_time,
                 RoomId,
                 AssignationId
-                // Note: Semester is part of the Assignation model, not directly in Schedule
             });
 
-            // Associate sections with the schedule
-            await newSchedule.addProgYrSecs(Sections);
-
-            // Optionally, re-fetch the newly created schedule with its associated sections
-            const createdScheduleWithSections = await Schedule.findByPk(newSchedule.id, {
-                include: [ProgYrSec]
-            });
-
-            createdSchedules.push(createdScheduleWithSections);
+            createdSchedules.push(newSchedule);
         }
 
         return res.status(201).json({
@@ -2089,48 +1999,15 @@ const addSchedule = async (req, res, next) => {
 const updateSchedule = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester } = req.body;
-        // Validate mandatory fields - now including Semester
-        if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId, Sections, Semester])) {
+        const { Day, Start_time, End_time, RoomId, AssignationId } = req.body;
+
+        // Check required fields
+        if (!util.checkMandatoryFields([Day, Start_time, End_time, RoomId, AssignationId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
             });
         }
-
-        const assignation = await Assignation.findByPk(AssignationId, {
-            include: [{ model: Course }, { model: Professor }]
-        });
-        if (!assignation || !assignation.Course || !assignation.Professor) {
-            return res.status(404).json({
-                successful: false,
-                message: `Assignation with ID ${AssignationId} not found or missing course/professor details.`
-            });
-        }
-        // Get global settings
-        const settings = await Settings.findOne();
-        if (!settings) {
-            return res.status(500).json({
-                successful: false,
-                message: "Global settings could not be retrieved. Please try again later."
-            });
-        }
-
-        // Validate Sections is a non-empty array
-        if (!Array.isArray(Sections) || Sections.length === 0) {
-            return res.status(400).json({
-                successful: false,
-                message: "Sections must be a non-empty array of section IDs."
-            });
-        }
-
-        // Validate time format and sequence
-        if (isValidTime(Start_time, End_time, res) !== true) return;
-
-        // Calculate duration of updated schedule in hours
-        const newStartSec = timeToSeconds(Start_time);
-        const newEndSec = timeToSeconds(End_time);
-        const updatedScheduleDuration = (newEndSec - newStartSec) / 3600; // Convert seconds to hours
 
         // Validate if the schedule exists
         const schedule = await Schedule.findByPk(id);
@@ -2141,98 +2018,139 @@ const updateSchedule = async (req, res, next) => {
             });
         }
 
-        // Validate Room existence
+        const assignation = await Assignation.findByPk(AssignationId, {
+            include: [
+                { model: Course },
+                { model: Professor },
+                { model: SchoolYear },
+                { model: ProgYrSec, through: 'AssignationSection' }
+            ]
+        });
+
+        if (!assignation || !assignation.Course || !assignation.SchoolYear) {
+            return res.status(404).json({
+                successful: false,
+                message: `Assignation with ID ${AssignationId} not found or missing course/school year details.`
+            });
+        }
+
+        const Semester = assignation.Semester;
+        const SchoolYearId = assignation.SchoolYear.id;
+        const SchoolYearName = assignation.SchoolYear.SY_Name;
+        const sections = assignation.ProgYrSecs || [];
+
+        // Only check for sections if the course is not a tutorial course
+        if (!assignation.Course.isTutorial && (!sections || sections.length === 0)) {
+            return res.status(400).json({
+                successful: false,
+                message: "This non-tutorial assignation has no sections associated with it."
+            });
+        }
+
+        const settings = await Settings.findOne({ where: { DepartmentId: assignation.DepartmentId } });
+        if (!settings) {
+            return res.status(500).json({
+                successful: false,
+                message: "Settings could not be retrieved. Please try again later."
+            });
+        }
+
+        // Validate time format and order
+        if (isValidTime(Start_time, End_time, res) !== true) return;
+
+        // Calculate duration of the proposed schedule in hours with minute precision
+        const newStartSec = timeToSeconds(Start_time);
+        const newEndSec = timeToSeconds(End_time);
+        const currentScheduleDuration = (newEndSec - newStartSec) / 3600; // seconds to hours
+
+        // Fetch and validate the room
         const room = await Room.findByPk(RoomId, {
             include: [
                 {
                     model: RoomType,
                     as: 'TypeRooms',
                     attributes: ['id', 'Type'],
-                    through: {
-                        attributes: []
-                    }
+                    through: { attributes: [] }
+                },
+                {
+                    model: RoomType,
+                    attributes: ['id', 'Type']
                 }
             ]
-        })
+        });
+
         if (!room) {
             return res.status(404).json({
                 successful: false,
                 message: `Room with ID ${RoomId} not found. Please provide a valid RoomId.`
             });
         }
+
         const courseRoomTypeId = assignation.Course.RoomTypeId;
+
+        // Check if the room's primary type matches the course's required type
+        const primaryTypeMatches = room.PrimaryTypeId === courseRoomTypeId;
+
+        // Check if any of the room's associated types match the course's required type
         const roomHasRequiredType = room.TypeRooms.some(type => type.id === courseRoomTypeId);
 
-        if (!roomHasRequiredType) {
-            // Get the required room type name for better error message
+        if (!primaryTypeMatches && !roomHasRequiredType) {
             const requiredRoomType = await RoomType.findByPk(courseRoomTypeId);
             const requiredTypeName = requiredRoomType ? requiredRoomType.Type : "required type";
-
-            // Get the room's available types for better error messaging
+            const primaryTypeName = room.RoomType ? room.RoomType.Type : "None";
             const availableTypes = room.TypeRooms.map(type => type.Type).join(", ");
 
             return res.status(400).json({
                 successful: false,
-                message: `Room type mismatch: Course requires room type ${requiredTypeName} but Room ${room.Code} has types: [${availableTypes}].`
+                message: `Room type mismatch: Course requires room type ${requiredTypeName} but Room ${room.Code} has primary type ${primaryTypeName} and additional types: [${availableTypes}].`
             });
         }
 
-        // Validate the semester matches the assignation's semester
-        if (assignation.Semester != Semester) {
-            return res.status(400).json({
-                successful: false,
-                message: `Semester mismatch: Schedule is for ${Semester} but Assignation is for ${assignation.Semester}.`
+        // Calculate student capacity only for non-tutorial courses
+        let sectionsData = [];
+        let sectionIdentifiers = {};
+
+        if (!assignation.Course.isTutorial && sections.length > 0) {
+            const sectionIds = sections.map(section => section.id);
+            sectionsData = await ProgYrSec.findAll({
+                where: { id: { [Op.in]: sectionIds } },
+                include: [{ model: Program }]
             });
+
+            for (const section of sectionsData) {
+                sectionIdentifiers[section.id] = `${section.Program.Code}-${section.Year}${section.Section}`;
+            }
+
+            let totalStudents = 0;
+            for (const section of sectionsData) {
+                totalStudents += section.NumberOfStudents;
+            }
+
+            if (totalStudents > room.NumberOfSeats) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
+                });
+            }
+        } else if (assignation.Course.isTutorial) {
+            // For tutorial courses, we don't need to check student count since they don't have sections
+            const defaultTutorialCapacity = 1; // Typically just 1 person for a tutorial session
+            if (defaultTutorialCapacity > room.NumberOfSeats) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Room capacity insufficient for tutorial: ${room.Code} has ${room.NumberOfSeats} seats.`
+                });
+            }
         }
 
-        // Get course total duration from the assignation's course
-        const courseTotalDuration = assignation.Course.Duration;
-
-        // Validate all sections exist and fetch with full details
-        const sectionsData = await ProgYrSec.findAll({
-            where: {
-                id: { [Op.in]: Sections }
-            },
-            include: [{ model: Program }] // Include the Program information
-        });
-
-        if (sectionsData.length !== Sections.length) {
-            return res.status(404).json({
-                successful: false,
-                message: "One or more sections not found. Please provide valid section IDs."
-            });
-        }
-
-        // Function to get formatted section names
-        const getSectionName = (section) => {
-            return section.Program ?
-                `${section.Program.Code} - ${section.Year}${section.Section}` :
-                `Section ID ${section.id}`;
-        };
-
-        // Create a map of section IDs to section names for easy access
-        const sectionNamesMap = {};
-        sectionsData.forEach(section => {
-            sectionNamesMap[section.id] = getSectionName(section);
-        });
-
-        let totalStudents = 0;
-        for (const section of sectionsData) {
-            totalStudents += section.NumberOfStudents;
-        }
-        if (totalStudents > room.NumberOfSeats) {
-            return res.status(400).json({
-                successful: false,
-                message: `Room capacity exceeded: ${room.Code} has ${room.NumberOfSeats} seats but the scheduled sections have ${totalStudents} students in total.`
-            });
-        }
-
-        // Check for conflicting schedules in the same room on the same day (excluding current schedule)
-        // Now filtered by semester
+        // Check for conflicting schedules in the same room on the same day - filtered by semester and school year
         const existingRoomSchedules = await Schedule.findAll({
             include: [{
                 model: Assignation,
-                where: { Semester }
+                where: {
+                    Semester,
+                    SchoolYearId
+                }
             }],
             where: {
                 Day,
@@ -2241,336 +2159,359 @@ const updateSchedule = async (req, res, next) => {
             }
         });
 
-        // Conflict logic: allow back-to-back scheduling but no overlaps
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[Day - 1];
+
+        // Allow back-to-back schedules but check for any overlaps
         const isRoomConflict = existingRoomSchedules.some(existing => {
-            const existingStart = timeToSeconds(existing.Start_time);
-            const existingEnd = timeToSeconds(existing.End_time);
-            return (newStartSec < existingEnd && newEndSec > existingStart);
-        })
-
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-        const currentDay = days[Day - 1]
-
-        if (isRoomConflict) {
-            return res.status(400).json({
-                successful: false,
-                message: `Schedule conflict detected: Room ${room.Code} is already booked on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester.`
-            });
-        }
-
-        // ******************** Additional Professor Availability Validations ********************
-
-        // Build the professor's current schedule for the given day (excluding the current schedule being updated)
-        // Now filtered by semester
-        const professorSchedules = await Schedule.findAll({
-            include: [{
-                model: Assignation,
-                where: {
-                    ProfessorId: assignation.Professor.id,
-                    Semester
-                }
-            }],
-            where: { Day, id: { [Op.ne]: id } }
-        });
-        let profScheduleForDay = { hours: 0, dailyTimes: [] };
-        professorSchedules.forEach(s => {
-            const startHour = parseInt(s.Start_time.split(":")[0]);
-            const endHour = parseInt(s.End_time.split(":")[0]);
-            profScheduleForDay.hours += (endHour - startHour);
-            profScheduleForDay.dailyTimes.push({ start: startHour, end: endHour });
-        });
-        const newStartHour = parseInt(Start_time.split(":")[0]);
-        // Check if the professor is available during the scheduled time
-        const professorId = assignation.Professor.id;
-
-        const professorAvailabilities = await ProfAvail.findAll({
-            where: {
-                ProfessorId: professorId,
-                Day: currentDay
-            }
-        });
-
-        // If professor has no availabilities set for this day, they're not available
-        if (professorAvailabilities.length === 0) {
-            return res.status(400).json({
-                successful: false,
-                message: `Professor ${assignation.Professor.Name} has no availability set for day ${currentDay}.`
-            });
-        }
-
-        // Check if the proposed schedule falls within any of the professor's available time slots
-        const isProfessorAvailable = professorAvailabilities.some(availability => {
-            const availStartSec = timeToSeconds(availability.Start_time);
-            const availEndSec = timeToSeconds(availability.End_time);
-
-            // The proposed schedule must be fully contained within an availability slot
-            return (newStartSec >= availStartSec && newEndSec <= availEndSec);
-        });
-
-        if (!isProfessorAvailable) {
-            return res.status(400).json({
-                successful: false,
-                message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on day ${currentDay}.`
-            });
-        }
-
-        // Check for schedule conflicts with professor's existing schedules
-        const isProfessorScheduleConflict = professorSchedules.some(existing => {
             const existingStartSec = timeToSeconds(existing.Start_time);
             const existingEndSec = timeToSeconds(existing.End_time);
             return (newStartSec < existingEndSec && newEndSec > existingStartSec);
         });
 
-        if (isProfessorScheduleConflict) {
+        if (isRoomConflict) {
             return res.status(400).json({
                 successful: false,
-                message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${currentDay} for ${Semester} semester.`
+                message: `Schedule conflict detected: Room ${room.Code} is already booked on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester, ${SchoolYearName}.`
             });
         }
 
-        const allProfAvailability = await ProfAvail.findAll({
-            where: {
-                ProfessorId: { [Op.in]: professorId },
-            }
-        });
-        const professorAvailabilityCache = {};
-        // Organize by professor ID for quick access
-        allProfAvailability.forEach(avail => {
-            const cacheKey = `prof-${avail.ProfessorId}`;
-            if (!professorAvailabilityCache[cacheKey]) {
-                professorAvailabilityCache[cacheKey] = [];
-            }
-            professorAvailabilityCache[cacheKey].push(avail);
-        });
-
-        // Also cache availability counts per professor
-        const availData = professorAvailabilityCache[`prof-${professorId}`] || [];
-        professorAvailabilityCache[`prof-count-${professorId}`] = availData.length;
-        // Validate professor availability and workload using helper function
-        if (!canScheduleProfessor(profScheduleForDay, newStartHour, updatedScheduleDuration, settings, assignation.Professor.id, Day, professorAvailabilityCache)) {
-            return res.status(400).json({
-                successful: false,
-                message: `The professor ${assignation.Professor.Name} is not available at the specified time or would exceed the allowed teaching hours for ${Semester} semester.`
+        // Only perform professor validations if an assignation has a professor
+        if (assignation.Professor) {
+            const professorId = assignation.Professor.id;
+            const professorAvailabilities = await ProfAvail.findAll({
+                where: {
+                    ProfessorId: professorId,
+                    Day: currentDay
+                }
             });
-        }
 
-        // ******************** Additional Student (Section) Availability Validations ********************
-
-        // For each section, check their current schedule for the day (excluding current schedule)
-        // Now filtered by semester
-        for (const sectionId of Sections) {
-            const sectionSchedules = await Schedule.findAll({
-                include: [
-                    {
-                        model: ProgYrSec,
-                        where: { id: sectionId }
-                    },
-                    {
-                        model: Assignation,
-                        where: { Semester }
-                    }
-                ],
-                where: { Day, id: { [Op.ne]: id } }
-            });
-            let sectionScheduleForDay = { hours: 0, dailyTimes: [] };
-            sectionSchedules.forEach(s => {
-                const sectionStart = parseInt(s.Start_time.split(":")[0]);
-                const sectionEnd = parseInt(s.End_time.split(":")[0]);
-                sectionScheduleForDay.hours += (sectionEnd - sectionStart);
-                sectionScheduleForDay.dailyTimes.push({ start: sectionStart, end: sectionEnd });
-            });
-            if (!canScheduleStudents(sectionScheduleForDay, newStartHour, updatedScheduleDuration, settings)) {
-                const sectionName = sectionNamesMap[sectionId];
+            // If professor has no availabilities set for this day, they're not available
+            if (professorAvailabilities.length === 0) {
                 return res.status(400).json({
                     successful: false,
-                    message: `Section ${sectionName} cannot be updated at the specified time in ${Semester} semester, as it violates scheduling constraints (overlap or insufficient break between sessions).`
+                    message: `Professor ${assignation.Professor.Name} has no availability set for ${currentDay}.`
                 });
             }
 
-            // Check duration balance for each section with this course
-            // Now filtered by semester
-            const existingSectionSchedules = await Schedule.findAll({
-                include: [
-                    {
-                        model: ProgYrSec,
-                        where: { id: sectionId },
-                        through: { attributes: [] } // Excludes join table attributes from results
-                    },
-                    {
-                        model: Assignation,
-                        where: {
-                            CourseId: assignation.Course.id,
-                            Semester
-                        }
+            // Check if the proposed schedule falls within any of the professor's available time slots
+            const isProfessorAvailable = professorAvailabilities.some(availability => {
+                const availStartSec = timeToSeconds(availability.Start_time);
+                const availEndSec = timeToSeconds(availability.End_time);
+                return (newStartSec >= availStartSec && newEndSec <= availEndSec);
+            });
+
+            if (!isProfessorAvailable) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Professor ${assignation.Professor.Name} is not available during ${Start_time} - ${End_time} on ${currentDay}.`
+                });
+            }
+
+            // Build the professor's schedule for the given day - filtered by semester and school year
+            const professorSchedules = await Schedule.findAll({
+                include: [{
+                    model: Assignation,
+                    where: {
+                        ProfessorId: professorId,
+                        Semester,
+                        SchoolYearId
                     }
-                ],
+                }],
                 where: {
+                    Day,
                     id: { [Op.ne]: id } // Exclude current schedule
                 }
-            })
-
-            let scheduledHours = 0;
-            existingSectionSchedules.forEach(sched => {
-                const schedStart = timeToSeconds(sched.Start_time);
-                const schedEnd = timeToSeconds(sched.End_time);
-                scheduledHours += (schedEnd - schedStart) / 3600;
-
             });
-            if (scheduledHours + updatedScheduleDuration > courseTotalDuration) {
-                const remainingHours = courseTotalDuration - scheduledHours
-                const sectionName = sectionNamesMap[sectionId];
 
-                return res.status(400).json({
-                    successful: false,
-                    message: `For section ${sectionName} in ${Semester} semester, adding ${updatedScheduleDuration} hours would exceed the course duration of ${courseTotalDuration} hours. Remaining balance: ${remainingHours} hours.`
+            let profScheduleForDay = { hours: 0, dailyTimes: [] };
+            professorSchedules.forEach(s => {
+                const startSec = timeToSeconds(s.Start_time);
+                const endSec = timeToSeconds(s.End_time);
+                const durationHours = (endSec - startSec) / 3600; // Convert seconds to hours with decimal precision
+                profScheduleForDay.hours += durationHours;
+
+                // Parse hours and minutes for more detailed time management
+                const [startHour, startMin] = s.Start_time.split(':').map(Number);
+                const [endHour, endMin] = s.End_time.split(':').map(Number);
+
+                profScheduleForDay.dailyTimes.push({
+                    start: startHour + (startMin / 60), // Convert to decimal hours
+                    end: endHour + (endMin / 60),
+                    startTime: s.Start_time,
+                    endTime: s.End_time
                 });
-            }
-            // NEW VALIDATION: Check if the section is already scheduled for this course with a different professor
-            const existingCourseSchedules = await Schedule.findAll({
-                include: [
-                    {
-                        model: ProgYrSec,
-                        where: { id: sectionId }
-                    },
-                    {
-                        model: Assignation,
-                        where: {
-                            CourseId: assignation.Course.id,
-                            Semester,
-                            // Exclude current assignation to check others only
-                            id: { [Op.ne]: AssignationId }
-                        },
-                        include: [{ model: Professor }]
-                    }
-                ]
             });
 
-            if (existingCourseSchedules.length > 0) {
-                // Found schedules where this section is taking this course with a different professor
-                const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
-                const sectionName = sectionNamesMap[sectionId];
+            // Parse start time with minute precision
+            const [startHour, startMin] = Start_time.split(':').map(Number);
+            const newStartHourDecimal = startHour + (startMin / 60); // Decimal hours for more precise calculation
+
+            // Check for schedule conflicts with professor's existing schedules
+            const isProfessorScheduleConflict = professorSchedules.some(existing => {
+                const existingStartSec = timeToSeconds(existing.Start_time);
+                const existingEndSec = timeToSeconds(existing.End_time);
+                return (newStartSec < existingEndSec && newEndSec > existingStartSec);
+            });
+
+            if (isProfessorScheduleConflict) {
                 return res.status(400).json({
                     successful: false,
-                    message: `Section ${sectionName} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
+                    message: `Professor ${assignation.Professor.Name} has a scheduling conflict during ${Start_time} - ${End_time} on day ${currentDay} for ${Semester} semester, ${SchoolYearName}.`
                 });
             }
 
-            // NEW VALIDATION: Check if lecture and lab components are taught by the same professor
-            // Get the current course code
-            const currentCourseCode = assignation.Course.Code;
-
-            // Determine if this is a lecture or lab course
-            const isLabCourse = currentCourseCode.endsWith('L');
-            let relatedCourseCode;
-
-            // If current course is a lab, find its lecture; if it's a lecture, find its lab
-            if (isLabCourse) {
-                // For lab course "XXXL", find lecture course "XXX"
-                relatedCourseCode = currentCourseCode.slice(0, -1);
-            } else {
-                // For lecture course "XXX", find lab course "XXXL"
-                relatedCourseCode = currentCourseCode + 'L';
-            }
-
-            // Look for related course in the database
-            const relatedCourse = await Course.findOne({
-                where: { Code: relatedCourseCode }
+            const allProfAvailability = await ProfAvail.findAll({
+                where: { ProfessorId: professorId }
             });
 
-            // If related course exists, check for professor consistency
-            if (relatedCourse) {
-                // Find assignations for the related course for the same section and semester
-                const relatedAssignations = await Schedule.findAll({
+            const professorAvailabilityCache = {};
+            allProfAvailability.forEach(avail => {
+                const cacheKey = `prof-${avail.ProfessorId}`;
+                if (!professorAvailabilityCache[cacheKey]) {
+                    professorAvailabilityCache[cacheKey] = [];
+                }
+                professorAvailabilityCache[cacheKey].push(avail);
+            });
+
+            const availData = professorAvailabilityCache[`prof-${professorId}`] || [];
+            professorAvailabilityCache[`prof-count-${professorId}`] = availData.length;
+
+            if (!(canScheduleProfessor(profScheduleForDay, newStartHourDecimal, currentScheduleDuration, settings, professorId, Day, professorAvailabilityCache))) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `The professor ${assignation.Professor.Name} would exceed the allowed teaching hours for ${Semester} semester, ${SchoolYearName}.`
+                });
+            }
+        }
+
+        // Only perform section validations if the course is not a tutorial course
+        if (!assignation.Course.isTutorial && sections.length > 0) {
+            // For each section, build the day's schedule and check for both time conflicts and break requirements.
+            for (const section of sectionsData) {
+                const sectionId = section.id;
+                const sectionIdentifier = sectionIdentifiers[sectionId];
+
+                // Fetch all schedules associated with the section for the given day - filtered by semester and school year
+                const sectionSchedules = await Schedule.findAll({
                     include: [
-                        {
-                            model: ProgYrSec,
-                            where: { id: sectionId }
-                        },
                         {
                             model: Assignation,
                             where: {
-                                CourseId: relatedCourse.id,
-                                Semester
+                                Semester,
+                                SchoolYearId
                             },
-                            include: [{ model: Professor }]
+                            include: [
+                                {
+                                    model: ProgYrSec,
+                                    where: { id: sectionId }
+                                }
+                            ]
                         }
-                    ]
+                    ],
+                    where: {
+                        Day,
+                        id: { [Op.ne]: id } // Exclude current schedule
+                    }
                 });
 
-                // If the related course is already scheduled for this section with a different professor
-                if (relatedAssignations.length > 0) {
-                    const relatedProfessorId = relatedAssignations[0].Assignation.Professor.id;
-                    const relatedProfessorName = relatedAssignations[0].Assignation.Professor.Name;
+                let sectionScheduleForDay = { hours: 0, dailyTimes: [] };
+                sectionSchedules.forEach(s => {
+                    const startSec = timeToSeconds(s.Start_time);
+                    const endSec = timeToSeconds(s.End_time);
+                    const durationHours = (endSec - startSec) / 3600; // Convert seconds to hours with decimal precision
+                    sectionScheduleForDay.hours += durationHours;
 
-                    // If professors don't match, reject the schedule
-                    if (relatedProfessorId !== assignation.Professor.id) {
-                        const currentComponent = isLabCourse ? "lab" : "lecture";
-                        const relatedComponent = isLabCourse ? "lecture" : "lab";
-                        const sectionName = sectionNamesMap[sectionId];
+                    // Parse hours and minutes for more detailed time management
+                    const [startHour, startMin] = s.Start_time.split(':').map(Number);
+                    const [endHour, endMin] = s.End_time.split(':').map(Number);
 
+                    sectionScheduleForDay.dailyTimes.push({
+                        start: startHour + (startMin / 60), // Convert to decimal hours
+                        end: endHour + (endMin / 60),
+                        startTime: s.Start_time,
+                        endTime: s.End_time
+                    });
+                });
+
+                if (!canScheduleStudents(sectionScheduleForDay, newStartHourDecimal, currentScheduleDuration, settings)) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Section ${sectionIdentifier} cannot be scheduled at the specified time in ${Semester} semester, ${SchoolYearName}, as it violates scheduling constraints.`
+                    });
+                }
+
+                // Check that the additional schedule does not cause the total scheduled hours for the course
+                // to exceed the total course duration.
+                const existingSchedulesForSection = await Schedule.findAll({
+                    include: [
+                        {
+                            model: Assignation,
+                            where: {
+                                CourseId: assignation.Course.id,
+                                Semester,
+                                SchoolYearId
+                            },
+                            include: [
+                                {
+                                    model: ProgYrSec,
+                                    where: { id: sectionId }
+                                }
+                            ]
+                        }
+                    ],
+                    where: {
+                        id: { [Op.ne]: id } // Exclude current schedule
+                    }
+                });
+
+                let scheduledHours = 0;
+                existingSchedulesForSection.forEach(sched => {
+                    const schedStart = timeToSeconds(sched.Start_time);
+                    const schedEnd = timeToSeconds(sched.End_time);
+                    scheduledHours += (schedEnd - schedStart) / 3600;
+                });
+
+                if (scheduledHours + currentScheduleDuration > assignation.Course.Duration) {
+                    const remainingHours = assignation.Course.Duration - scheduledHours;
+                    return res.status(400).json({
+                        successful: false,
+                        message: `For section ${sectionIdentifier} in ${Semester} semester, ${SchoolYearName}, adding ${currentScheduleDuration} hours would exceed the course duration of ${assignation.Course.Duration} hours. Remaining balance: ${remainingHours} hours.`
+                    });
+                }
+
+                // Check if the section is already scheduled for this course with a different professor
+                if (assignation.Professor) {
+                    const existingCourseSchedules = await Schedule.findAll({
+                        include: [
+                            {
+                                model: ProgYrSec,
+                                where: { id: sectionId }
+                            },
+                            {
+                                model: Assignation,
+                                where: {
+                                    CourseId: assignation.Course.id,
+                                    Semester,
+                                    SchoolYearId,
+                                    // Exclude current assignation to check others only
+                                    id: { [Op.ne]: AssignationId }
+                                },
+                                include: [{ model: Professor }]
+                            }
+                        ]
+                    });
+
+                    if (existingCourseSchedules.length > 0 && existingCourseSchedules[0].Assignation.Professor) {
+                        // Found schedules where this section is taking this course with a different professor
+                        const conflictingProfessor = existingCourseSchedules[0].Assignation.Professor.Name;
                         return res.status(400).json({
                             successful: false,
-                            message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionName}. Both components must be taught by the same professor.`
+                            message: `Section ${sectionIdentifier} is already scheduled for ${assignation.Course.Name} with Professor ${conflictingProfessor}. A section cannot be assigned to different professors for the same course.`
                         });
+                    }
+
+                    // Check if lecture and lab components are taught by the same professor
+                    const currentCourseCode = assignation.Course.Code;
+
+                    // Determine if this is a lecture or lab course
+                    const isLabCourse = currentCourseCode.endsWith('L');
+                    let relatedCourseCode;
+
+                    // If current course is a lab, find its lecture; if it's a lecture, find its lab
+                    if (isLabCourse) {
+                        relatedCourseCode = currentCourseCode.slice(0, -1);
+                    } else {
+                        relatedCourseCode = currentCourseCode + 'L';
+                    }
+
+                    // Look for related course in the database
+                    const relatedCourse = await Course.findOne({
+                        where: { Code: relatedCourseCode }
+                    });
+
+                    // If related course exists, check for professor consistency
+                    if (relatedCourse) {
+                        // Find assignations for the related course for the same section and semester
+                        const relatedAssignations = await Schedule.findAll({
+                            include: [
+                                {
+                                    model: ProgYrSec,
+                                    where: { id: sectionId }
+                                },
+                                {
+                                    model: Assignation,
+                                    where: {
+                                        CourseId: relatedCourse.id,
+                                        Semester,
+                                        SchoolYearId
+                                    },
+                                    include: [{ model: Professor }]
+                                }
+                            ]
+                        });
+
+                        // If the related course is already scheduled for this section with a different professor
+                        if (relatedAssignations.length > 0 && relatedAssignations[0].Assignation.Professor) {
+                            const relatedProfessorId = relatedAssignations[0].Assignation.Professor.id;
+                            const relatedProfessorName = relatedAssignations[0].Assignation.Professor.Name;
+
+                            // If professors don't match, reject the schedule
+                            if (relatedProfessorId !== assignation.Professor.id) {
+                                const currentComponent = isLabCourse ? "lab" : "lecture";
+                                const relatedComponent = isLabCourse ? "lecture" : "lab";
+
+                                return res.status(400).json({
+                                    successful: false,
+                                    message: `Professor mismatch: The ${currentComponent} component (${currentCourseCode}) of this course is being assigned to Professor ${assignation.Professor.Name}, but the ${relatedComponent} component (${relatedCourseCode}) is already assigned to Professor ${relatedProfessorName} for section ${sectionIdentifier}. Both components must be taught by the same professor.`
+                                });
+                            }
+                        }
                     }
                 }
             }
-        }
-
-        // ******************** Check for Time Conflicts Among Section Schedules ********************
-
-        // Get all schedules for the sections, excluding the schedule we are updating
-        // Now filtered by semester
-        const sectionSchedules = await Schedule.findAll({
-            include: [
-                {
-                    model: ProgYrSec,
-                    where: {
-                        id: { [Op.in]: Sections }
-                    }
-                },
-                {
-                    model: Assignation,
-                    where: { Semester }
+        } else if (assignation.Course.isTutorial) {
+            // For tutorial courses, we simply check that the scheduled hours don't exceed the course duration
+            const existingSchedules = await Schedule.findAll({
+                where: {
+                    AssignationId,
+                    id: { [Op.ne]: id } // Exclude current schedule
                 }
-            ],
-            where: { Day, id: { [Op.ne]: id } }
-        });
-
-        for (const section of Sections) {
-            const conflictingSchedules = sectionSchedules.filter(sch => {
-                const hasSection = sch.ProgYrSecs.some(s => s.id === section);
-                if (!hasSection) return false;
-                const existingStart = timeToSeconds(sch.Start_time);
-                const existingEnd = timeToSeconds(sch.End_time);
-                return (newStartSec < existingEnd && newEndSec > existingStart);
             });
-            if (conflictingSchedules.length > 0) {
-                const sectionName = sectionNamesMap[section];
+
+            let scheduledHours = 0;
+            existingSchedules.forEach(sched => {
+                const schedStart = timeToSeconds(sched.Start_time);
+                const schedEnd = timeToSeconds(sched.End_time);
+                scheduledHours += (schedEnd - schedStart) / 3600;
+            });
+
+            if (scheduledHours + currentScheduleDuration > assignation.Course.Duration) {
+                const remainingHours = assignation.Course.Duration - scheduledHours;
                 return res.status(400).json({
                     successful: false,
-                    message: `Schedule conflict detected: Section ${sectionName} already has a schedule on ${currentDay} within ${Start_time} - ${End_time} for ${Semester} semester.`
+                    message: `For tutorial course ${assignation.Course.Code} in ${Semester} semester, ${SchoolYearName}, adding ${currentScheduleDuration} hours would exceed the course duration of ${assignation.Course.Duration} hours. Remaining balance: ${remainingHours} hours.`
                 });
             }
         }
-
-        // ******************** Update the Schedule and Associations ********************
 
         // Update schedule details
         await schedule.update({ Day, Start_time, End_time, RoomId, AssignationId });
-        // Update section associations
-        await schedule.setProgYrSecs(Sections);
 
-        // Retrieve the updated schedule with associated sections
-        const updatedScheduleWithSections = await Schedule.findByPk(id, {
-            include: [ProgYrSec]
+        // Retrieve the updated schedule with associated data
+        const updatedSchedule = await Schedule.findByPk(id, {
+            include: [
+                { model: Assignation, include: [{ model: Course }, { model: Professor }] },
+                { model: Room }
+            ]
         });
 
         return res.status(200).json({
             successful: true,
             message: "Schedule updated successfully.",
-            schedule: updatedScheduleWithSections
+            schedule: updatedSchedule
         });
+
     } catch (error) {
         return res.status(500).json({
             successful: false,
@@ -2847,7 +2788,7 @@ const deleteSchedule = async (req, res, next) => {
 
         return res.status(200).json({ successful: true, message: "Schedule deleted successfully." });
     } catch (error) {
-        next(error);
+        return res.status(500).json({ successful: false, message: error.message || "An unexpected error occurred." });
     }
 };
 

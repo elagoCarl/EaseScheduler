@@ -50,6 +50,14 @@ const addProfessorAvail = async (req, res, next) => {
                 });
             }
 
+            if (!util.isTimeInRange(Start_time, '07:00:00', '21:00:00') ||
+                !util.isTimeInRange(End_time, '07:00:00', '21:00:00')) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Start time and End time must be between 07:00:00 and 21:00:00."
+                });
+            }
+
             // Check for overlapping times in the database
             const overlapping = await ProfAvail.findOne({
                 where: {

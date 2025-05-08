@@ -486,17 +486,19 @@ const updateProfessorLoad = async (req, res, next) => {
 
 const getProfLoadByProfAndSY = async (req, res) => {
     try {
-        const { profId, syId } = req.body;
+        // Accept parameters from either query or body
+        const profId = req.query.profId || req.body.profId;
+        const syId = req.query.syId || req.body.syId;
 
         // Validate parameters
         if (!profId || !syId) {
             return res.status(400).json({
                 successful: false,
-                message: "Both Professor ID and School Year ID are required in the request body."
+                message: "Both Professor ID and School Year ID are required."
             });
         }
 
-        // Find the professor to include their name in response
+        // Rest of the function remains the same...
         const professor = await Professor.findByPk(profId);
         if (!professor) {
             return res.status(404).json({
@@ -505,7 +507,6 @@ const getProfLoadByProfAndSY = async (req, res) => {
             });
         }
 
-        // Find the school year to include its name in response
         const schoolYear = await SchoolYear.findByPk(syId);
         if (!schoolYear) {
             return res.status(404).json({
@@ -514,7 +515,6 @@ const getProfLoadByProfAndSY = async (req, res) => {
             });
         }
 
-        // Find the load record
         const load = await ProfessorLoad.findOne({
             where: {
                 ProfId: profId,
@@ -523,14 +523,13 @@ const getProfLoadByProfAndSY = async (req, res) => {
         });
 
         if (!load) {
-            return res.status(404).json({
-                successful: true, // Still successful request, just no data found
+            return res.status(200).json({
+                successful: true,
                 message: `No workload found for Professor ${professor.Name} in School Year ${schoolYear.SY_Name}`,
                 data: null
             });
         }
 
-        // Format the response
         const formattedLoad = {
             id: load.id,
             ProfessorName: professor.Name,
@@ -555,6 +554,8 @@ const getProfLoadByProfAndSY = async (req, res) => {
         });
     }
 };
+
+
 module.exports = {
     addProfessorLoad,
     getAllProfessorLoads,

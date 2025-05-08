@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { X, Save } from 'lucide-react';
-import axios from '../../axiosConfig';
+import axios from '../../../axiosConfig';
 
 const EditProfModal = ({ professor, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({

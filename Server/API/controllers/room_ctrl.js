@@ -258,11 +258,12 @@ const updateRoom = async (req, res, next) => {
             }
         }
 
-        if(RoomTypeIds.includes(room.PrimaryTypeId)) {
+        // Validate that PrimaryTypeId is not included in RoomTypeIds
+        if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.includes(PrimaryTypeId)) {
             return res.status(406).json({
                 successful: false,
-                message: "Room type cannot be the same as the primary type."
-            })
+                message: `PrimaryTypeId (${PrimaryTypeId}) cannot be included in RoomTypeIds for room ${Code}.`
+            });
         }
 
         // Ensure all room types exist
@@ -717,32 +718,75 @@ const addRoomWithTypes = async (req, res, next) => {
             rooms = [rooms];
         }
 
+        // Pre-validate all rooms before starting transaction
+        for (const room of rooms) {
+            const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = room;
+
+            // Validate room data
+            if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `A mandatory room field is missing for room ${Code}.`
+                });
+            }
+
+            // Check if room code already exists
+            const existingRoom = await Room.findOne({ where: { Code, Building } });
+            if (existingRoom) {
+                return res.status(409).json({
+                    successful: false,
+                    message: `Room code ${Code} already exists for the same building.`
+                });
+            }
+
+            // Validate building
+            if (!['LV', 'GP'].includes(Building)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Invalid Building for room ${Code}. Must be either 'LV' or 'GP'.`
+                });
+            }
+            
+            // Validate that PrimaryTypeId is not included in RoomTypeIds
+            if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.includes(PrimaryTypeId)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `PrimaryTypeId (${PrimaryTypeId}) cannot be included in RoomTypeIds for room ${Code}.`
+                });
+            }
+
+            // Validate room types exist if provided
+            if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.length > 0) {
+                for (const typeId of RoomTypeIds) {
+                    const roomType = await RoomType.findByPk(typeId);
+                    if (!roomType) {
+                        return res.status(404).json({
+                            successful: false,
+                            message: `Room Type with ID ${typeId} not found.`
+                        });
+                    }
+                }
+            }
+        }
+
+        // Validate room types to be created
+        if (roomTypes.length > 0) {
+            for (const roomType of roomTypes) {
+                if (!roomType.Type) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: "Room Type is required."
+                    });
+                }
+            }
+        }
+
         // Start a transaction to ensure data consistency
         const result = await sequelize.transaction(async (t) => {
             const createdRooms = [];
 
             for (const room of rooms) {
                 const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = room;
-
-                // Validate room data
-                if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
-                    throw new Error("A mandatory room field is missing.");
-                }
-
-                // Check if room code already exists
-                const existingRoom = await Room.findOne({
-                    where: { Code, Building },
-                    transaction: t
-                });
-
-                if (existingRoom) {
-                    throw new Error(`Room code ${Code} already exists for the same building.`);
-                }
-
-                // Validate building
-                if (!['LV', 'GP'].includes(Building)) {
-                    throw new Error(`Invalid Building for room ${Code}.`);
-                }
 
                 // Create new room
                 const newRoom = await Room.create({
@@ -754,39 +798,12 @@ const addRoomWithTypes = async (req, res, next) => {
 
                 // Associate room types if provided
                 if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.length > 0) {
-                    // Validate room types exist
-                    for (const typeId of RoomTypeIds) {
-                        const roomType = await RoomType.findByPk(typeId, { transaction: t });
-                        if (!roomType) {
-                            throw new Error(`Room Type with ID ${typeId} not found.`);
-                        }
-                    }
-
                     // Add room types to the room
-                    await newRoom.addTypeRooms(RoomTypeIds, { transaction: t });
+                    await newRoom.setTypeRooms(RoomTypeIds, { transaction: t });
                 }
 
                 createdRooms.push(newRoom);
             }
-
-            // Create global room types if provided
-            if (roomTypes.length > 0) {
-                for (const roomType of roomTypes) {
-                    if (!roomType.Type) {
-                        throw new Error("Room Type is required.");
-                    }
-
-                    const [type, created] = await RoomType.findOrCreate({
-                        where: { Type: roomType.Type },
-                        transaction: t
-                    });
-
-                    if (!created) {
-                        console.log(`Room Type ${roomType.Type} already exists.`);
-                    }
-                }
-            }
-
             return createdRooms;
         });
 

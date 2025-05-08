@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { X, Check, AlertCircle, Calendar } from "lucide-react";
-import axios from "../../axiosConfig";
+import axios from "../../../axiosConfig";
 
 const AddProfModal = ({ isOpen, onClose, onProfessorAdded }) => {
   const [formData, setFormData] = useState({

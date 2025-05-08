@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, ChevronUp, ChevronDown, Clock, AlertCircle, Calendar, ArrowLeftRight, Trash2, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
-import axios from '../../axiosConfig';
+import axios from '../../../axiosConfig';
 
 const ProfAvailabilityModal = ({ isOpen, onClose, professorId, professorName }) => {
     // States
