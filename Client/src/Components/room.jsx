@@ -59,33 +59,42 @@ const Room = () => {
     }
   };
 
+  // FIXED: Enhanced fetchRoomTypes function with better error handling and data independence
   const fetchRoomTypes = async (roomId) => {
+    // Initialize with default values to prevent undefined errors
+    let typeRooms = [];
+    let primaryTypeId = null;
+    let primaryType = null;
+
     try {
-      // Get the room types
-      const typesResponse = await axios.get(`/room/getRoomTypeByRoom/${roomId}`);
-      const typeRooms = typesResponse.data.successful ? typesResponse.data.data : [];
-      
-      // Get the primary room type
-      const primaryResponse = await axios.get(`/room/getPrimaryRoomType/${roomId}`);
-      
-      if (primaryResponse.data.successful) {
-        const primaryTypeId = primaryResponse.data.data.primaryTypeId;
-        const primaryType = primaryResponse.data.data.primaryType;
-        
-        return { typeRooms, primaryTypeId, primaryType };
+      // Get the room types - in a separate try/catch to ensure we handle this independently
+      try {
+        const typesResponse = await axios.get(`/room/getRoomTypeByRoom/${roomId}`);
+        if (typesResponse.data.successful) {
+          typeRooms = typesResponse.data.data || [];
+        }
+      } catch (typeError) {
+        console.error("Error fetching room types:", typeError);
+        // Keep typeRooms as empty array if there's an error
       }
       
-      return { typeRooms, primaryTypeId: null, primaryType: null };
+      // Get the primary room type in a separate try/catch
+      try {
+        const primaryResponse = await axios.get(`/room/getPrimaryRoomType/${roomId}`);
+        if (primaryResponse.data.successful && primaryResponse.data.data) {
+          primaryTypeId = primaryResponse.data.data.primaryTypeId;
+          primaryType = primaryResponse.data.data.primaryType;
+        }
+      } catch (primaryError) {
+        console.error("Error fetching primary room type:", primaryError);
+        // primaryTypeId and primaryType remain null
+      }
+      
+      // Always return what we have, even if one part failed
+      return { typeRooms, primaryTypeId, primaryType };
     } catch (error) {
-      // Special case handling for "No primary room type" error
-      if (error.response && error.response.status === 404 && 
-          error.response.data.message === "No primary room type assigned to this room.") {
-        // Return room types but no primary type
-        return { typeRooms: typeRooms || [], primaryTypeId: null, primaryType: null };
-      }
-      
-      console.error("Error fetching room data:", error);
-      return { typeRooms: [], primaryTypeId: null, primaryType: null };
+      console.error("Unexpected error in fetchRoomTypes:", error);
+      return { typeRooms, primaryTypeId, primaryType };
     }
   };
 
@@ -112,8 +121,12 @@ const Room = () => {
         const roomData = response.data.data || [];
 
         // Create an array of promises to fetch room types for each room
+        // FIXED: Enhanced room data construction to handle potential null/undefined values
         const roomsWithTypesPromises = roomData.map(async room => {
           const { typeRooms, primaryTypeId, primaryType } = await fetchRoomTypes(room.id);
+          
+          // Always set a definitive value for primaryType
+          const displayPrimaryType = primaryType || "None";
           
           return {
             ...room,
@@ -122,10 +135,9 @@ const Room = () => {
             building: room.Building,
             floor: room.Floor,
             seats: room.NumberOfSeats,
-            roomTypes: typeRooms,
+            roomTypes: typeRooms || [],  // Ensure this is always an array
             primaryTypeId: primaryTypeId,
-            // Use the primaryType directly from the API
-            primaryType: primaryType || "None",
+            primaryType: displayPrimaryType,
             minimized: false
           };
         });
@@ -211,6 +223,7 @@ const Room = () => {
     }
   };
 
+  // FIXED: Enhanced confirmDeleteRoomType to ensure complete data refresh
   const confirmDeleteRoomType = async () => {
     if (!selectedTypeForDeletion) return;
 
@@ -221,7 +234,8 @@ const Room = () => {
 
       if (response.data.successful) {
         showNotification("Room type removed successfully", "success");
-        fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+        // Force a complete refresh of the rooms data to ensure everything is updated
+        await fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
       } else {
         showNotification(response.data.message || "Failed to remove room type", "error");
       }
@@ -467,7 +481,7 @@ const Room = () => {
                           </div>
                         </div>
                         <div className="p-5 bg-gray-50 rounded border border-gray-100">
-                          {/* Primary Room Type */}
+                          {/* Primary Room Type - FIXED: Improved display logic */}
                           <h4 className="text-sm font-medium text-gray-800 mb-2">Primary Room Type</h4>
                           <div className="mb-4">
                             {room.primaryType && room.primaryType !== "None" ? (
@@ -607,16 +621,25 @@ const Room = () => {
         />
       )}
 
-      {isAddTypeRoomModalOpen && selectedRoomForType && (
-        <AddTypeRoomModal isOpen={isAddTypeRoomModalOpen} onClose={() => setIsAddTypeRoomModalOpen(false)} roomId={selectedRoomForType.id} currentRoomTypes={selectedRoomForType.roomTypes || []} onAdd={() => {
-          fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
-          setIsAddTypeRoomModalOpen(false);
-        }}
+{isAddTypeRoomModalOpen && selectedRoomForType && (
+        <AddTypeRoomModal 
+          isOpen={isAddTypeRoomModalOpen} 
+          onClose={() => setIsAddTypeRoomModalOpen(false)} 
+          roomId={selectedRoomForType.id} 
+          currentRoomTypes={selectedRoomForType.roomTypes || []} 
+          onAdd={() => {
+            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+            setIsAddTypeRoomModalOpen(false);
+          }}
         />
       )}
 
       {isDeleteTypeRoomWarningOpen && selectedTypeForDeletion && (
-        <DeleteTypeRoomWarning isOpen={isDeleteTypeRoomWarningOpen} onClose={() => setIsDeleteTypeRoomWarningOpen(false)} onConfirm={confirmDeleteRoomType} roomTypeName={selectedTypeForDeletion.name}
+        <DeleteTypeRoomWarning 
+          isOpen={isDeleteTypeRoomWarningOpen} 
+          onClose={() => setIsDeleteTypeRoomWarningOpen(false)} 
+          onConfirm={confirmDeleteRoomType} 
+          roomTypeName={selectedTypeForDeletion.name}
         />
       )}
     </div>

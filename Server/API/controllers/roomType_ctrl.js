@@ -1,4 +1,4 @@
-const { RoomType, Room, Assignation } = require('../models')
+const { RoomType, Room, Assignation, sequelize } = require('../models')
 const jwt = require('jsonwebtoken')
 const { Op } = require('sequelize');
 const { REFRESH_TOKEN_SECRET } = process.env
@@ -214,7 +214,7 @@ const deleteRoomType = async (req, res, next) => {
         // Find the room type before deletion (to log the type name)
         const roomType = await RoomType.findOne({
             where: {
-                id: req.params.id, // The ID of the record to delete
+                id: req.params.id,
             },
         });
 
@@ -225,26 +225,36 @@ const deleteRoomType = async (req, res, next) => {
             });
         }
 
-        // Check if there are rooms using this room type
-        const roomsUsingType = await Room.count({
+        // Check if there are rooms using this room type in the junction table
+        const typeRoomsCount = await sequelize.models.TypeRoom.count({
             where: {
                 RoomTypeId: req.params.id
             }
         });
-        const assignationUsingType = await Assignation.count({
+        
+        // Check if any rooms are using this as their primary type
+        const roomsWithPrimaryType = await Room.count({
+            where: {
+                PrimaryTypeId: req.params.id
+            }
+        });
+        
+        // NEW: Check if any courses are using this room type
+        const coursesWithRoomType = await sequelize.models.Course.count({
             where: {
                 RoomTypeId: req.params.id
             }
         });
-
-        if (roomsUsingType > 0 || assignationUsingType > 0) {
+        
+        // Update the condition to include courses check
+        if (typeRoomsCount > 0 || roomsWithPrimaryType > 0 || coursesWithRoomType > 0) {
             return res.status(409).send({
                 successful: false,
-                message: "Cannot delete room type as it is being used by existing rooms or assignations."
+                message: "Cannot delete room type as it is being used by existing rooms or courses."
             });
         }
 
-        // Log the delete action
+        // Rest of your code remains the same...
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({

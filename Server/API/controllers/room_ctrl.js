@@ -172,10 +172,10 @@ const getRoom = async (req, res, next) => {
 
 const deleteRoom = async (req, res, next) => {
     try {
-        // Find the professor before deletion (to log the professor's name)
+        // Find the room before deletion (to log the room details)
         const room = await Room.findOne({
             where: {
-                id: req.params.id, // Replace with the ID of the record you want to delete
+                id: req.params.id,
             },
         });
 
@@ -186,7 +186,21 @@ const deleteRoom = async (req, res, next) => {
             });
         }
 
-        // Log the archive action
+        // Check if room has associated room types
+        const typeRoomCount = await sequelize.models.TypeRoom.count({
+            where: {
+                RoomId: req.params.id
+            }
+        });
+        
+        if (typeRoomCount > 0) {
+            return res.status(409).send({
+                successful: false,
+                message: "Cannot delete this room as it has associated room types. Please remove all room types from this room first."
+            });
+        }
+
+        // Log the delete action
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({
@@ -194,41 +208,52 @@ const deleteRoom = async (req, res, next) => {
                 message: "Unauthorized: refreshToken not found."
             });
         }
+        
         let decoded;
         try {
-            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
         } catch (err) {
             return res.status(403).json({
                 successful: false,
                 message: "Invalid refreshToken."
             });
         }
-        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        
+        const accountId = decoded.id || decoded.accountId;
         const page = 'Room';
-        const details = `Deleted Room for: ${room.Building} ${room.Code}`; // Include professor's name or other info
+        const details = `Deleted Room: ${room.Building} ${room.Code}`;
 
         await addHistoryLog(accountId, page, details);
 
-        const deleteRoom = await room.destroy();
+        const deleteResult = await room.destroy();
 
-        if (deleteRoom) {
+        if (deleteResult) {
             res.status(200).send({
                 successful: true,
                 message: "Successfully deleted room."
-            })
+            });
         } else {
             res.status(400).send({
                 successful: false,
                 message: "Room not found."
-            })
+            });
         }
     } catch (err) {
+        // Check for specific database constraint error
+        if (err.name === 'SequelizeForeignKeyConstraintError' || 
+            (err.message && err.message.includes('foreign key constraint fails'))) {
+            return res.status(409).send({
+                successful: false,
+                message: "Cannot delete this room as it is being used by other records in the system. Please remove all associated data first."
+            });
+        }
+        
         res.status(500).send({
             successful: false,
-            message: err.message
+            message: err.message || "An unexpected error occurred while deleting the room."
         });
     }
-}
+};
 
 const updateRoom = async (req, res, next) => {
     try {
