@@ -35,16 +35,29 @@ const addAssignation = async (req, res, next) => {
                 return res.status(404).json({ successful: false, message: "School Year not found." });
             }
 
-            // Validate Course
-            const course = await Course.findByPk(CourseId,
-                {
+            // Validate Course and check for paired courses
+            const course = await Course.findByPk(CourseId, {
+                include: [
+                    { model: CourseProg }
+                ]
+            });
+            
+            if (!course) {
+                return res.status(404).json({ successful: false, message: "Course not found." });
+            }
+            
+            // Find all paired courses if this course has a PairId
+            let pairedCourses = [];
+            if (course.PairId) {
+                pairedCourses = await Course.findAll({
+                    where: {
+                        PairId: course.PairId,
+                        id: { [sequelize.Op.ne]: course.id } // Exclude the current course
+                    },
                     include: [
                         { model: CourseProg }
                     ]
-                }
-            );
-            if (!course) {
-                return res.status(404).json({ successful: false, message: "Course not found." });
+                });
             }
 
             // Check if tutorial course has sections
@@ -69,8 +82,17 @@ const addAssignation = async (req, res, next) => {
                         { model: ProfAvail }  // Include professor's availability
                     ]
                 });
+                
                 if (!professor) {
                     return res.status(404).json({ successful: false, message: "Professor not found." });
+                }
+
+                // Calculate total duration needed including all paired courses
+                let totalCourseHours = course.Duration + 0.5; // Main course + buffer
+                
+                // Add duration of paired courses
+                for (const pairedCourse of pairedCourses) {
+                    totalCourseHours += pairedCourse.Duration + 0.5; // Each paired course + buffer
                 }
 
                 // Check professor's total availability against current and new assignations
@@ -94,7 +116,7 @@ const addAssignation = async (req, res, next) => {
                     const existingAssignations = await Assignation.findAll({
                         where: {
                             ProfessorId,
-                            SchoolYearId  // Changed from School_year to SchoolYearId
+                            SchoolYearId
                         },
                         include: [
                             {
@@ -105,15 +127,14 @@ const addAssignation = async (req, res, next) => {
                     });
 
                     // Calculate total duration of current assignations WITH 0.5 hours added to each
-                    // Since Duration is in hours, we add 0.5 (30 minutes in hours)
                     let currentTotalHours = 0;
                     for (const existingAssign of existingAssignations) {
                         // Add course duration plus 0.5 hours for each existing assignation
                         currentTotalHours += (existingAssign.Course.Duration + 0.5);
                     }
 
-                    // Add the duration of the new course WITH 0.5 hours added
-                    const newTotalHours = currentTotalHours + (course.Duration + 0.5);
+                    // Add the duration of all new courses (main + paired) WITH 0.5 hours added
+                    const newTotalHours = currentTotalHours + totalCourseHours;
 
                     // Check if new total duration exceeds available time
                     if (newTotalHours > totalAvailableHours) {
@@ -224,12 +245,15 @@ const addAssignation = async (req, res, next) => {
             const t = await sequelize.transaction();
 
             try {
+                // Check for existing assignations to these sections
                 if (SectionIds && SectionIds.length > 0) {
-                    // Check if any of these sections already have this course assigned
-                    const sectionsWithSameCourse = await Assignation.findAll({
+                    // Check if these sections already have this course or any paired courses assigned
+                    const allCourseIds = [CourseId, ...pairedCourses.map(pc => pc.id)];
+                    
+                    const sectionsWithSameCourses = await Assignation.findAll({
                         where: {
-                            SchoolYearId, // Changed from School_year to SchoolYearId
-                            CourseId
+                            SchoolYearId,
+                            CourseId: allCourseIds
                         },
                         include: [
                             {
@@ -243,11 +267,11 @@ const addAssignation = async (req, res, next) => {
                         transaction: t
                     });
 
-                    if (sectionsWithSameCourse.length > 0) {
-                        // Get the section details for the error message
+                    if (sectionsWithSameCourses.length > 0) {
+                        // Get section details for the error message
                         const affectedSections = await ProgYrSec.findAll({
                             where: {
-                                id: sectionsWithSameCourse.map(assign =>
+                                id: sectionsWithSameCourses.map(assign =>
                                     assign.ProgYrSecs.map(sec => sec.id)
                                 ).flat()
                             },
@@ -262,12 +286,12 @@ const addAssignation = async (req, res, next) => {
                         await t.rollback();
                         return res.status(400).json({
                             successful: false,
-                            message: `This course is already assigned to the following section(s): ${sectionDetails}`
+                            message: `This course or one of its paired courses is already assigned to the following section(s): ${sectionDetails}`
                         });
                     }
                 }
 
-                // Update professor units through ProfessorLoad model
+                // Update professor units for all courses (main + paired)
                 if (professor && Semester) {
                     // Get professor's status to check unit limits
                     const status = await ProfStatus.findByPk(professor.ProfStatusId, {
@@ -277,6 +301,12 @@ const addAssignation = async (req, res, next) => {
                     if (!status) {
                         await t.rollback();
                         return res.status(404).json({ successful: false, message: "Professor status not found." });
+                    }
+
+                    // Calculate total units including all paired courses
+                    let totalUnits = course.Units;
+                    for (const pairedCourse of pairedCourses) {
+                        totalUnits += pairedCourse.Units;
                     }
 
                     // Find or create the professor load record for this school year
@@ -291,12 +321,10 @@ const addAssignation = async (req, res, next) => {
                         },
                         transaction: t
                     });
-
-                    const unitsToAdd = course.Units;
                     
                     if (Semester === 1) {
                         // Calculate new total units for first semester
-                        const newTotalUnits = professorLoad.First_Sem_Units + unitsToAdd;
+                        const newTotalUnits = professorLoad.First_Sem_Units + totalUnits;
 
                         // Check if the total new units will exceed the limit
                         if (newTotalUnits > status.Max_units) {
@@ -310,7 +338,7 @@ const addAssignation = async (req, res, next) => {
                         });
                     } else if (Semester === 2) {
                         // Calculate new total units for second semester
-                        const newTotalUnits = professorLoad.Second_Sem_Units + unitsToAdd;
+                        const newTotalUnits = professorLoad.Second_Sem_Units + totalUnits;
 
                         // Check if the total new units will exceed the limit
                         if (newTotalUnits > status.Max_units) {
@@ -325,9 +353,9 @@ const addAssignation = async (req, res, next) => {
                     }
                 }
 
-                // Create Assignation
+                // Create Assignation for the main course
                 const assignationData = {
-                    SchoolYearId, // Changed from School_year to SchoolYearId
+                    SchoolYearId,
                     CourseId,
                     DepartmentId
                 };
@@ -346,11 +374,38 @@ const addAssignation = async (req, res, next) => {
                         transaction: t
                     });
                 }
+                
+                createdAssignations.push(newAssignation);
+                
+                // Create assignations for paired courses if they exist
+                for (const pairedCourse of pairedCourses) {
+                    const pairedAssignationData = {
+                        SchoolYearId,
+                        CourseId: pairedCourse.id,
+                        DepartmentId
+                    };
+                    
+                    // Always use the same professor for paired courses
+                    if (ProfessorId) {
+                        pairedAssignationData.ProfessorId = ProfessorId;
+                    }
+                    
+                    const pairedAssignation = await Assignation.create(pairedAssignationData, {
+                        transaction: t
+                    });
+                    
+                    // Only assign sections if the paired course is not a tutorial
+                    if (SectionIds && SectionIds.length > 0 && !pairedCourse.isTutorial) {
+                        await pairedAssignation.setProgYrSecs(SectionIds, {
+                            transaction: t
+                        });
+                    }
+                    
+                    createdAssignations.push(pairedAssignation);
+                }
 
                 // Commit the transaction
                 await t.commit();
-
-                createdAssignations.push(newAssignation);
             } catch (error) {
                 // Roll back transaction on error
                 await t.rollback();
@@ -404,8 +459,7 @@ const addAssignation = async (req, res, next) => {
             error: err.message,
         });
     }
-};
-
+}
 // Update Assignation by ID
 const updateAssignation = async (req, res, next) => {
     try {
