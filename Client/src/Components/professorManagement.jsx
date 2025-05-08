@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown, Plus, X, Calendar, Edit, Trash2, Filter, ChevronRight, BookOpen, ChevronLeft, Search } from 'lucide-react';
 import axios from "../axiosConfig";
@@ -12,6 +11,7 @@ import DeleteWarning from "./callComponents/deleteWarning";
 import ProfAvailabilityModal from "./callComponents/profAvailabilityModal.jsx";
 import ProfStatusModal from "./callComponents/profStatusModal";
 import AddAssignationModal from "./callComponents/addAssignationModal";
+import CourseAssignments from "./callComponents/profManagement/courseAssignments.jsx";
 import { useAuth } from '../Components/authContext.jsx';
 
 const ProfessorManagement = () => {
@@ -282,32 +282,6 @@ const ProfessorManagement = () => {
         }
     };
 
-    const getFilteredAssignments = (profId, searchTerm, semesterFilter = 'all') => {
-        let profAssignments = departmentAssignations.filter(
-            assignment => assignment.ProfessorId === profId
-        );
-
-        // Apply semester filter if not 'all'
-        if (semesterFilter !== 'all') {
-            // Convert the semesterFilter to match the format in the data
-            profAssignments = profAssignments.filter(
-                assignment => assignment.Semester.toString() === semesterFilter.toString()
-            );
-        }
-
-        // Apply search term filter if provided
-        if (searchTerm) {
-            profAssignments = profAssignments.filter(assignment =>
-                assignment.Course?.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                assignment.Course?.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (assignment.Course?.RoomType?.Type &&
-                    assignment.Course.RoomType.Type.toLowerCase().includes(searchTerm.toLowerCase()))
-            );
-        }
-
-        return profAssignments;
-    };
-
     const getStatusColor = (status) => {
         switch (status) {
             case "Full-time": return "bg-emerald-100 text-emerald-800 border-emerald-200";
@@ -369,111 +343,23 @@ const ProfessorManagement = () => {
         setProfessors(updatedProfessors);
     }, [professorLoads, selectedSchoolYears]);
 
+    // Handler functions for CourseAssignments component
+    const handleAssignCourse = (professor) => {
+        setSelectedProfForCourse(professor);
+        setIsAssignCourseModalOpen(true);
+    };
+
+    const handleDeleteCourseAssignment = (assignmentId) => {
+        setSelectedAssignmentId(assignmentId);
+        setIsDeleteAssignmentWarningOpen(true);
+    };
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>{error}</div>;
 
     const indexOfLastProfessor = currentPage * professorsPerPage;
     const indexOfFirstProfessor = indexOfLastProfessor - professorsPerPage;
     const currentProfessors = filteredProfessors.slice(indexOfFirstProfessor, indexOfLastProfessor);
-
-    const CourseAssignments = ({ professor }) => {
-        const [assignmentSearch, setAssignmentSearch] = useState('');
-        const [activeSemester, setActiveSemester] = useState('all');
-        const filteredAssignments = getFilteredAssignments(professor.id, assignmentSearch, activeSemester);
-
-        return (
-            <div className="p-8">
-                <div className="mb-3 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-gray-800">Course Assignments</h3>
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
-                            {filteredAssignments.length}
-                        </span>
-                    </div>
-                    <button className="text-blue-600 text-sm hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded transition duration-150" onClick={() => {
-                        setSelectedProfForCourse(professor);
-                        setIsAssignCourseModalOpen(true);
-                    }}
-                    >
-                        <Plus size={14} />
-                        Assign Course
-                    </button>
-                </div>
-
-                <div className="mb-3 flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-grow">
-                        <input type="text" placeholder="Search courses..." value={assignmentSearch} onChange={(e) => setAssignmentSearch(e.target.value)}
-                            className="w-full p-2 pr-8 border rounded text-sm"
-                        />
-                        <Search size={16} className="absolute right-2 top-2.5 text-gray-400" />
-                    </div>
-
-                    {/* Semester filter */}
-                    <div className="flex gap-4 ml-3">
-                        <button onClick={() => setActiveSemester('all')}
-                            className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                            All
-                        </button>
-                        <button onClick={() => setActiveSemester('1')}
-                            className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === '1' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                            Sem 1
-                        </button>
-                        <button onClick={() => setActiveSemester('2')}
-                            className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === '2' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                            Sem 2
-                        </button>
-                    </div>
-                </div>
-
-                {filteredAssignments.length > 0 ? (
-                    <div className="max-h-150 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                        <div className="space-y-2">
-                            {filteredAssignments.map((assignment) => (
-                                <div key={assignment.id} className="flex justify-between items-center p-2.5 bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
-                                    <div className="flex items-start gap-2">
-                                        <div className="text-blue-500 mt-0.5">
-                                            <ChevronRight size={14} />
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-800 text-sm font-medium">{assignment.Course?.Code}</span>
-                                            <p className="text-gray-600 text-xs">{assignment.Course?.Description}</p>
-                                            <p className="text-gray-600 text-xs">Semester: {assignment.Semester}</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-xs text-gray-500">{assignment.Course?.Units} Units</span>
-                                                {assignment.Course?.RoomType && (
-                                                    <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">
-                                                        {assignment.Course.RoomType.Type}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1" onClick={() => {
-                                            setSelectedAssignmentId(assignment.id);
-                                            setIsDeleteAssignmentWarningOpen(true);
-                                        }}
-                                    >
-                                        <X size={12} />
-                                        Remove Assignment
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
-                        <p className="text-gray-500 text-sm">
-                            {assignmentSearch || activeSemester !== 'all' ? "No matching courses found" : "No courses assigned"}
-                        </p>
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     return (
         <div className="bg-gray-800 min-h-screen flex flex-col">
@@ -676,7 +562,12 @@ const ProfessorManagement = () => {
                                     </div>
 
                                     <div className={`transition-all duration-300 ${professor.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                                        <CourseAssignments professor={professor} />
+                                        <CourseAssignments
+                                            professor={professor}
+                                            departmentAssignations={departmentAssignations}
+                                            onAssignCourse={handleAssignCourse}
+                                            onDeleteAssignment={handleDeleteCourseAssignment}
+                                        />
                                     </div>
 
                                     <div className="px-4 py-3 m-2 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
@@ -820,4 +711,5 @@ const ProfessorManagement = () => {
         </div>
     );
 }
+
 export default ProfessorManagement;
