@@ -834,7 +834,6 @@ const AddConfigSchedule = () => {
       if (response.data.success) {
         setIsDeleteModalOpen(false);
         setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
-        // REFETCH schedules after delete all
         if (formData.room_id) await fetchSchedulesForRoom(formData.room_id);
         setSelectedSchedule(null);
         setSelectedScheduleId(null);
