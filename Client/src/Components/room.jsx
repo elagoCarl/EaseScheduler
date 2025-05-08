@@ -206,20 +206,34 @@ const Room = () => {
   const handleConfirmDelete = async () => {
     if (!selectedRoom) return;
     try {
+      let response;
       if (isAdmin) {
-        await axios.delete(`/room/deleteRoom/${selectedRoom.id}`);
+        response = await axios.delete(`/room/deleteRoom/${selectedRoom.id}`);
       } else {
-        await axios.delete('/room/deleteDeptRoom', {
+        response = await axios.delete('/room/deleteDeptRoom', {
           data: { roomId: selectedRoom.id, deptId: user.DepartmentId }
         });
       }
-      fetchRooms();
-      setSelectedRoom(null);
+      
+      // Check response in case backend returns successful: false
+      if (response.data && response.data.successful) {
+        fetchRooms();
+        setSelectedRoom(null);
+        setIsDeleteWarningOpen(false);
+        setIsDeleteDeptRoomWarningOpen(false);
+        showNotification("Room deleted successfully", "success");
+      } else {
+        showNotification(response.data.message || "Error deleting room", "error");
+      }
+    } catch (error) {
+      // Handle specific error case for rooms with associated types
+      if (error.response && error.response.status === 409) {
+        showNotification("Cannot delete this room as it has associated room types. Please remove all room types from this room first.", "error");
+      } else {
+        showNotification(error.response?.data?.message || "Error deleting room", "error");
+      }
       setIsDeleteWarningOpen(false);
       setIsDeleteDeptRoomWarningOpen(false);
-      showNotification("Room deleted successfully", "success");
-    } catch (error) {
-      showNotification("Error deleting room", "error");
     }
   };
 
@@ -587,41 +601,59 @@ const Room = () => {
 
       {/* Modals */}
       {isAdmin ? (
-        <AddRoomModal isOpen={isAddRoomModalOpen} onClose={() => setIsAddRoomModalOpen(false)} onAdd={() => {
-          fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
-          setIsAddRoomModalOpen(false);
-        }}
+        <AddRoomModal 
+          isOpen={isAddRoomModalOpen} 
+          onClose={() => setIsAddRoomModalOpen(false)} 
+          onAdd={() => {
+            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+            setIsAddRoomModalOpen(false);
+          }}
         />
       ) : (
-        <AddDeptRoomModal isOpen={isAddRoomModalOpen} onClose={() => setIsAddRoomModalOpen(false)} onSelect={() => {
-          fetchRooms();
-          setIsAddRoomModalOpen(false);
-        }}
+        <AddDeptRoomModal 
+          isOpen={isAddRoomModalOpen} 
+          onClose={() => setIsAddRoomModalOpen(false)} 
+          onSelect={() => {
+            fetchRooms();
+            setIsAddRoomModalOpen(false);
+          }}
         />
       )}
 
       {isEditModalOpen && selectedRoom && (
-        <EditRoomModal room={selectedRoom} onClose={() => setIsEditModalOpen(false)} onUpdate={() => {
-          fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
-          setIsEditModalOpen(false);
-        }}
+        <EditRoomModal 
+          isOpen={isEditModalOpen}
+          room={selectedRoom} 
+          onClose={() => setIsEditModalOpen(false)} 
+          onUpdate={() => {
+            fetchRooms(selectedDepartment !== "Select Department" ? selectedDepartment : null);
+            setIsEditModalOpen(false);
+          }}
         />
       )}
 
       {isAdmin ? (
-        <DeleteWarning isOpen={isDeleteWarningOpen} onClose={() => setIsDeleteWarningOpen(false)} onConfirm={handleConfirmDelete}
+        <DeleteWarning 
+          isOpen={isDeleteWarningOpen} 
+          onClose={() => setIsDeleteWarningOpen(false)} 
+          onConfirm={handleConfirmDelete}
         />
       ) : (
-        <DeleteDeptRoomWarning isOpen={isDeleteDeptRoomWarningOpen} onClose={() => setIsDeleteDeptRoomWarningOpen(false)} onConfirm={handleConfirmDelete}
+        <DeleteDeptRoomWarning 
+          isOpen={isDeleteDeptRoomWarningOpen} 
+          onClose={() => setIsDeleteDeptRoomWarningOpen(false)} 
+          onConfirm={handleConfirmDelete}
         />
       )}
 
       {isAdmin && (
-        <RoomTypesModal isOpen={isRoomTypesModalOpen} onClose={() => setIsRoomTypesModalOpen(false)}
+        <RoomTypesModal 
+          isOpen={isRoomTypesModalOpen} 
+          onClose={() => setIsRoomTypesModalOpen(false)}
         />
       )}
 
-{isAddTypeRoomModalOpen && selectedRoomForType && (
+      {isAddTypeRoomModalOpen && selectedRoomForType && (
         <AddTypeRoomModal 
           isOpen={isAddTypeRoomModalOpen} 
           onClose={() => setIsAddTypeRoomModalOpen(false)} 
