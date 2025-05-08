@@ -6,6 +6,10 @@ module.exports = (sequelize, DataTypes) => {
             autoIncrement: true,
             allowNull: false,
         },
+        Semester: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+        },
     }, {
         timestamps: true,
     });
