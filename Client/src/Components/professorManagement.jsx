@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown, Plus, X, Calendar, Edit, Trash2, Filter, ChevronRight, BookOpen, ChevronLeft, Search } from 'lucide-react';
 import axios from "../axiosConfig";
@@ -40,6 +41,8 @@ const ProfessorManagement = () => {
     const [selectedProfForCourse, setSelectedProfForCourse] = useState(null);
     const [isDeleteAssignmentWarningOpen, setIsDeleteAssignmentWarningOpen] = useState(false);
     const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+    const [schoolYears, setSchoolYears] = useState([]);
+    const [selectedSchoolYears, setSelectedSchoolYears] = useState({});
     const professorsPerPage = 8;
     const showNotification = (message, type = "info") => toast[type](message);
 
@@ -48,13 +51,91 @@ const ProfessorManagement = () => {
             await Promise.all([
                 fetchProfStatuses(),
                 fetchProfessors(),
-                fetchDepartmentAssignations()
+                fetchDepartmentAssignations(),
+                fetchSchoolYears()
             ]);
         } catch (error) {
             setError("Error fetching data: " + error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchSchoolYears = async () => {
+        try {
+            const response = await axios.get("/schoolYear/getAllSchoolYears");
+            if (response.data.successful) {
+                setSchoolYears(response.data.data);
+
+                // Initialize selected school years with the first in the list for each professor
+                if (response.data.data.length > 0) {
+                    const defaultSchoolYear = response.data.data[0];
+                    const initialSelectedYears = {};
+                    professors.forEach(prof => {
+                        initialSelectedYears[prof.id] = defaultSchoolYear.id;
+                    });
+                    setSelectedSchoolYears(initialSelectedYears);
+                }
+            }
+        } catch (error) {
+            showNotification("Failed to fetch school years", "error");
+        }
+    };
+
+    const [professorLoads, setProfessorLoads] = useState({});
+    const [loadingProfessorLoads, setLoadingProfessorLoads] = useState({});
+
+    const fetchProfessorLoad = async (profId, syId) => {
+        if (!profId || !syId) return;
+
+        try {
+            setLoadingProfessorLoads(prev => ({
+                ...prev,
+                [profId]: true
+            }));
+
+            const response = await axios.get("/profLoad/getProfLoadByProfAndSY", {
+                params: {
+                    profId: profId,
+                    syId: syId
+                }
+            });
+
+            if (response.data.successful) {
+                setProfessorLoads(prev => ({
+                    ...prev,
+                    [`${profId}-${syId}`]: response.data.data
+                }));
+            } else {
+                // If no load found or error, set to null to indicate we checked but nothing found
+                setProfessorLoads(prev => ({
+                    ...prev,
+                    [`${profId}-${syId}`]: null
+                }));
+            }
+        } catch (error) {
+            console.error("Error fetching professor load:", error);
+            showNotification(`Failed to load professor workload: ${error.message}`, "error");
+            setProfessorLoads(prev => ({
+                ...prev,
+                [`${profId}-${syId}`]: null
+            }));
+        } finally {
+            setLoadingProfessorLoads(prev => ({
+                ...prev,
+                [profId]: false
+            }));
+        }
+    };
+
+    const handleSchoolYearChange = (profId, schoolYearId) => {
+        setSelectedSchoolYears(prev => ({
+            ...prev,
+            [profId]: schoolYearId
+        }));
+
+        // When school year changes, fetch the load for this professor and school year
+        fetchProfessorLoad(profId, schoolYearId);
     };
 
     const fetchDepartmentAssignations = async () => {
@@ -89,26 +170,31 @@ const ProfessorManagement = () => {
         }
     };
 
-    const getLoadingStatus = (professor, semester) => {
-        if (!professor?.status || Object.keys(profStatusMap).length === 0) return "Normal Load";
+    const getLoadingStatus = (professor, semester, schoolYearId) => {
+        if (!professor || Object.keys(profStatusMap).length === 0) return "Normal Load";
+
         const statusName = professor.status;
         const statusId = Object.entries(profStatusMap).find(
             ([, info]) => info.status === statusName
         )?.[0];
+
         if (!statusId) return "Normal Load";
 
         const maxUnits = profStatusMap[statusId].maxUnits;
-        const semesterUnits =
-            semester === 1
-                ? professor.details.firstSemUnits
-                : professor.details.secondSemUnits;
+
+        // Get semester units from professor loads if available
+        const loadKey = `${professor.id}-${schoolYearId}`;
+        const profLoad = professorLoads[loadKey];
+
+        // Use the load data if available, otherwise fall back to professor details
+        const semesterUnits = profLoad
+            ? (semester === 1 ? profLoad.First_Sem_Units : profLoad.Second_Sem_Units)
+            : (semester === 1 ? professor.details.firstSemUnits : professor.details.secondSemUnits);
 
         if (semesterUnits < maxUnits) return "Underload";
         if (semesterUnits > maxUnits) return "Overload";
         return "Normal Load";
     };
-
-
 
     const fetchProfessors = async () => {
         try {
@@ -267,6 +353,21 @@ const ProfessorManagement = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Effect to load professor loads when professors or selected school years change
+    useEffect(() => {
+        // Update professor loadStatus1 and loadStatus2 whenever load data changes
+        const updatedProfessors = professors.map(prof => {
+            const schoolYearId = selectedSchoolYears[prof.id];
+            return {
+                ...prof,
+                loadStatus1: getLoadingStatus(prof, 1, schoolYearId),
+                loadStatus2: getLoadingStatus(prof, 2, schoolYearId)
+            };
+        });
+
+        setProfessors(updatedProfessors);
+    }, [professorLoads, selectedSchoolYears]);
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>{error}</div>;
@@ -484,14 +585,14 @@ const ProfessorManagement = () => {
 
                                                     {/* New load‐status badges */}
                                                     <span
-                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 1))}`}
+                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 1, selectedSchoolYears[professor.id]))}`}
                                                     >
-                                                        Sem 1: {getLoadingStatus(professor, 1)}
+                                                        Sem 1: {getLoadingStatus(professor, 1, selectedSchoolYears[professor.id])}
                                                     </span>
                                                     <span
-                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 2))}`}
+                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 2, selectedSchoolYears[professor.id]))}`}
                                                     >
-                                                        Sem 2: {getLoadingStatus(professor, 2)}
+                                                        Sem 2: {getLoadingStatus(professor, 2, selectedSchoolYears[professor.id])}
                                                     </span>
                                                 </div>
 
@@ -508,6 +609,31 @@ const ProfessorManagement = () => {
                                                 <span>{professor.details.email}</span>
                                             </div>
 
+                                            {/* School Year Dropdown */}
+                                            <div className="mb-3">
+                                                <label htmlFor={`schoolYear-${professor.id}`} className="block text-xs font-medium text-blue-100 mb-1">
+                                                    School Year
+                                                </label>
+                                                <select
+                                                    id={`schoolYear-${professor.id}`}
+                                                    value={selectedSchoolYears[professor.id] || ''}
+                                                    onChange={(e) => handleSchoolYearChange(professor.id, e.target.value)}
+                                                    className="w-full bg-white bg-opacity-10 border border-blue-400 border-opacity-30 rounded py-1 px-2 text-white text-sm"
+                                                >
+                                                    {schoolYears.length > 0 ? (
+                                                        schoolYears.map((year) => (
+                                                            <option key={year.id} value={year.id} className="bg-blue-700 text-white">
+                                                                {year.SY_Name}
+                                                            </option>
+                                                        ))
+                                                    ) : (
+                                                        <option value="" disabled className="bg-blue-700 text-white">
+                                                            No school years available
+                                                        </option>
+                                                    )}
+                                                </select>
+                                            </div>
+
                                             {/* Semester load info */}
                                             <div className="grid grid-cols-2 gap-3 mt-2">
                                                 {/* First Semester */}
@@ -516,7 +642,14 @@ const ProfessorManagement = () => {
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-1">
                                                             <BookOpen size={14} className="text-blue-200" />
-                                                            <span>{professor.details.firstSemUnits} Units</span>
+                                                            {loadingProfessorLoads[professor.id] ? (
+                                                                <span>Loading...</span>
+                                                            ) : (
+                                                                <span>
+                                                                    {professorLoads[`${professor.id}-${selectedSchoolYears[professor.id]}`]?.First_Sem_Units ??
+                                                                        professor.details.firstSemUnits ?? 0} Units
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -527,7 +660,14 @@ const ProfessorManagement = () => {
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-1">
                                                             <BookOpen size={14} className="text-blue-200" />
-                                                            <span>{professor.details.secondSemUnits} Units</span>
+                                                            {loadingProfessorLoads[professor.id] ? (
+                                                                <span>Loading...</span>
+                                                            ) : (
+                                                                <span>
+                                                                    {professorLoads[`${professor.id}-${selectedSchoolYears[professor.id]}`]?.Second_Sem_Units ??
+                                                                        professor.details.secondSemUnits ?? 0} Units
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -670,7 +810,7 @@ const ProfessorManagement = () => {
                     fetchDepartmentAssignations();
                     fetchProfessors();
                     showNotification("Course assigned successfully", "success");
-                }} professorId={selectedProfForCourse.id}
+                }} professorId={selectedProfForCourse.id} schoolYearId={selectedSchoolYears[selectedProfForCourse.id]}
                 />
             )}
             {isDeleteAssignmentWarningOpen && (
