@@ -8,7 +8,6 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
         Code: "",
         Floor: "1st",
         Building: "LV",
-        NumberOfSeats: "",
         selectedRoomTypes: [], // Array to store multiple room types
         PrimaryTypeId: "" // New field for primary room type
     });
@@ -40,7 +39,6 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
             Code: "",
             Floor: "1st",
             Building: "LV",
-            NumberOfSeats: "",
             selectedRoomTypes: [],
             PrimaryTypeId: "" // Reset primary room type
         });
@@ -83,22 +81,33 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
 
     // Handle primary room type change
     const handlePrimaryRoomTypeChange = (e) => {
-        setFormData({ ...formData, PrimaryTypeId: e.target.value });
+        const newPrimaryTypeId = e.target.value;
+        
+        // Filter out the new primary type from selected room types to avoid duplication
+        const updatedRoomTypes = formData.selectedRoomTypes.filter(
+            type => type.id.toString() !== newPrimaryTypeId.toString()
+        );
+        
+        setFormData({ 
+            ...formData, 
+            PrimaryTypeId: newPrimaryTypeId,
+            selectedRoomTypes: updatedRoomTypes
+        });
     };
 
     // Add a room type to the list
     const addRoomType = () => {
         // Check if there are available room types to add
         if (roomTypes.length === 0 ||
-            formData.selectedRoomTypes.length === roomTypes.length) {
+            formData.selectedRoomTypes.length === roomTypes.length - 1) { // -1 because primary type is excluded
             return;
         }
 
-        // Find first room type that hasn't been selected yet
+        // Find first room type that hasn't been selected yet and isn't the primary type
         const availableRoomTypes = roomTypes.filter(
             type => !formData.selectedRoomTypes.some(
                 selectedType => selectedType.id === type.id
-            )
+            ) && type.id.toString() !== formData.PrimaryTypeId.toString()
         );
 
         if (availableRoomTypes.length > 0) {
@@ -109,13 +118,12 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
             
             const updatedRoomTypes = [...formData.selectedRoomTypes, newRoomType];
             
-            // If this is the first room type, automatically set it as primary
-            const PrimaryTypeId = formData.PrimaryTypeId || newRoomType.id;
+            // We no longer automatically set primary type from added room types
+            // as primary type is now kept separate
             
             setFormData({
                 ...formData,
-                selectedRoomTypes: updatedRoomTypes,
-                PrimaryTypeId: PrimaryTypeId
+                selectedRoomTypes: updatedRoomTypes
             });
         }
     };
@@ -123,21 +131,12 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
     // Remove a room type from the list
     const removeRoomType = (index) => {
         const updatedRoomTypes = [...formData.selectedRoomTypes];
-        const removedType = updatedRoomTypes[index];
         updatedRoomTypes.splice(index, 1);
         
-        // Update form data
-        let updatedFormData = { 
+        setFormData({
             ...formData, 
             selectedRoomTypes: updatedRoomTypes 
-        };
-        
-        // If we're removing the primary room type, reset the primary or set to first available
-        if (formData.PrimaryTypeId === removedType.id) {
-            updatedFormData.PrimaryTypeId = updatedRoomTypes.length > 0 ? updatedRoomTypes[0].id : "";
-        }
-        
-        setFormData(updatedFormData);
+        });
     };
 
     // Handle room type selection change
@@ -146,39 +145,37 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
 
         if (!selectedType) return;
 
-        // Check if this type is already selected in another slot
+        // Check if this type is already selected in another slot or is the primary type
         const isDuplicate = formData.selectedRoomTypes.some(
             (type, idx) => idx !== index && type.id.toString() === value.toString()
         );
+        
+        const isPrimaryType = value.toString() === formData.PrimaryTypeId.toString();
 
         if (isDuplicate) {
             setErrorMessage("This room type is already selected. Please choose another one.");
             return;
         }
+        
+        if (isPrimaryType) {
+            setErrorMessage("This room type is already set as the primary type. Please choose another one.");
+            return;
+        }
 
         const updatedRoomTypes = [...formData.selectedRoomTypes];
-        const oldTypeId = updatedRoomTypes[index].id;
         updatedRoomTypes[index] = {
             id: selectedType.id,
             Type: selectedType.Type
         };
-
-        // Update form data
-        let updatedFormData = { 
+        
+        setFormData({
             ...formData, 
             selectedRoomTypes: updatedRoomTypes 
-        };
-        
-        // If we're changing the primary room type, update the primary
-        if (formData.PrimaryTypeId === oldTypeId) {
-            updatedFormData.PrimaryTypeId = selectedType.id;
-        }
-        
-        setFormData(updatedFormData);
+        });
         setErrorMessage("");
     };
 
-            // Form submission handler
+    // Form submission handler
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMessage("");
@@ -186,14 +183,6 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
         setIsSubmitting(true);
 
         // Validate inputs
-        const seats = parseInt(formData.NumberOfSeats);
-        if (isNaN(seats) || seats < 1) {
-            setErrorMessage("Number of seats must be a positive number.");
-            shakeForm();
-            setIsSubmitting(false);
-            return;
-        }
-
         if (!formData.PrimaryTypeId) {
             setErrorMessage("Please select a primary room type.");
             shakeForm();
@@ -207,10 +196,14 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                 Code: formData.Code,
                 Floor: formData.Floor,
                 Building: formData.Building,
-                NumberOfSeats: seats,
                 RoomTypeIds: formData.selectedRoomTypes.map(type => type.id),
                 PrimaryTypeId: formData.PrimaryTypeId // Include primary room type
             };
+            
+            // Ensure primary type is not included in RoomTypeIds
+            roomData.RoomTypeIds = roomData.RoomTypeIds.filter(
+                id => id.toString() !== formData.PrimaryTypeId.toString()
+            );
 
             // Call the new combined API endpoint
             const response = await axios.post("/room/addRoomWithTypes", {
@@ -306,21 +299,6 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                         </select>
                     </div>
 
-                    {/* NumberOfSeats Field */}
-                    <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-gray-700">Number of Seats</label>
-                        <input
-                            type="number"
-                            name="NumberOfSeats"
-                            placeholder="Number of Seats"
-                            className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            value={formData.NumberOfSeats}
-                            onChange={handleChange}
-                            min="1"
-                            required
-                        />
-                    </div>
-
                     {/* Primary Room Type Section */}
                     <div className="space-y-1.5">
                         <label className="block text-sm font-medium text-gray-700">Primary Room Type</label>
@@ -345,10 +323,10 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                             <button
                                 type="button"
                                 disabled={loading || roomTypes.length === 0 ||
-                                    formData.selectedRoomTypes.length === roomTypes.length}
+                                    formData.selectedRoomTypes.length === roomTypes.length - 1 || !formData.PrimaryTypeId}
                                 className={`flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors
                                           ${(loading || roomTypes.length === 0 ||
-                                        formData.selectedRoomTypes.length === roomTypes.length) ?
+                                        formData.selectedRoomTypes.length === roomTypes.length - 1 || !formData.PrimaryTypeId) ?
                                         'opacity-50 cursor-not-allowed' : ''}`}
                                 onClick={addRoomType}
                             >
@@ -367,17 +345,13 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                                             required
                                         >
                                             <option value="">Select Room Type</option>
-                                            {roomTypes.map((type) => (
-                                                <option key={type.id} value={type.id}>{type.Type}</option>
-                                            ))}
+                                            {roomTypes
+                                                .filter(type => type.id.toString() !== formData.PrimaryTypeId.toString())
+                                                .map((type) => (
+                                                    <option key={type.id} value={type.id}>{type.Type}</option>
+                                                ))}
                                         </select>
                                     </div>
-                                    {/* Add a badge for the primary room type */}
-                                    {formData.PrimaryTypeId === roomType.id && (
-                                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-md">
-                                            Primary
-                                        </span>
-                                    )}
                                     <button
                                         type="button"
                                         className="text-red-500 hover:text-red-700 p-1"
@@ -391,7 +365,8 @@ const AddRoomModal = ({ isOpen, onClose, onAdd }) => {
                             <div className="text-sm text-gray-500 italic">
                                 {loading ? "Loading room types..." :
                                     roomTypes.length === 0 ? "No room types available" :
-                                        "Please add at least one room type"}
+                                        !formData.PrimaryTypeId ? "Please select a primary room type first" :
+                                            "You can add additional room types (optional)"}
                             </div>
                         )}
                     </div>
@@ -441,4 +416,4 @@ AddRoomModal.propTypes = {
     onAdd: PropTypes.func,
 };
 
-export default AddRoomModal;    
+export default AddRoomModal;
