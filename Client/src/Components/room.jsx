@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "../axiosConfig.js";
-import { ChevronUp, ChevronDown, Plus, X, Filter, ChevronRight, ChevronLeft, Trash2, Edit, Home, Building } from 'lucide-react';
+import { ChevronUp, ChevronDown, Plus, X, Filter, ChevronRight, ChevronLeft, Trash2, Edit, Home, Building} from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from "./callComponents/sideBar.jsx";
@@ -61,11 +61,31 @@ const Room = () => {
 
   const fetchRoomTypes = async (roomId) => {
     try {
-      const response = await axios.get(`/room/getRoomTypeByRoom/${roomId}`);
-      return response.data.successful ? response.data.data : [];
+      // Get the room types
+      const typesResponse = await axios.get(`/room/getRoomTypeByRoom/${roomId}`);
+      const typeRooms = typesResponse.data.successful ? typesResponse.data.data : [];
+      
+      // Get the primary room type
+      const primaryResponse = await axios.get(`/room/getPrimaryRoomType/${roomId}`);
+      
+      if (primaryResponse.data.successful) {
+        const primaryTypeId = primaryResponse.data.data.primaryTypeId;
+        const primaryType = primaryResponse.data.data.primaryType;
+        
+        return { typeRooms, primaryTypeId, primaryType };
+      }
+      
+      return { typeRooms, primaryTypeId: null, primaryType: null };
     } catch (error) {
-      console.error("Error fetching room types:", error);
-      return [];
+      // Special case handling for "No primary room type" error
+      if (error.response && error.response.status === 404 && 
+          error.response.data.message === "No primary room type assigned to this room.") {
+        // Return room types but no primary type
+        return { typeRooms: typeRooms || [], primaryTypeId: null, primaryType: null };
+      }
+      
+      console.error("Error fetching room data:", error);
+      return { typeRooms: [], primaryTypeId: null, primaryType: null };
     }
   };
 
@@ -93,7 +113,8 @@ const Room = () => {
 
         // Create an array of promises to fetch room types for each room
         const roomsWithTypesPromises = roomData.map(async room => {
-          const roomTypes = await fetchRoomTypes(room.id);
+          const { typeRooms, primaryTypeId, primaryType } = await fetchRoomTypes(room.id);
+          
           return {
             ...room,
             id: room.id,
@@ -101,7 +122,10 @@ const Room = () => {
             building: room.Building,
             floor: room.Floor,
             seats: room.NumberOfSeats,
-            roomTypes: roomTypes, // Store all room types
+            roomTypes: typeRooms,
+            primaryTypeId: primaryTypeId,
+            // Use the primaryType directly from the API
+            primaryType: primaryType || "None",
             minimized: false
           };
         });
@@ -135,15 +159,16 @@ const Room = () => {
   const applyFilters = (roomsData = rooms) => {
     let filtered = roomsData;
     if (selectedCampus !== "Select Campus") {
-      filtered = filtered.filter(room => room.Building === selectedCampus);
+      filtered = filtered.filter(room => room.building === selectedCampus);
     }
     if (selectedFloor !== "Select Floor") {
-      filtered = filtered.filter(room => room.Floor === selectedFloor);
+      filtered = filtered.filter(room => room.floor === selectedFloor);
     }
     if (searchTerm) {
       filtered = filtered.filter(room =>
-        room.Code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        room.roomTypes.some(type => type.Type.toLowerCase().includes(searchTerm.toLowerCase()))
+        room.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        room.roomTypes.some(type => type.Type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (room.primaryType && room.primaryType.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     setFilteredRooms(filtered);
@@ -400,7 +425,7 @@ const Room = () => {
                   <div className="bg-blue-600 p-8">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h2 className="text-lg font-semibold text-white">{room.Code}</h2>
+                        <h2 className="text-lg font-semibold text-white">{room.code}</h2>
                       </div>
                       <button onClick={() => toggleMinimize(room.id)}
                         className="p-1.5 bg-white bg-opacity-20 text-white rounded-md hover:bg-opacity-30 transition-all"
@@ -412,11 +437,11 @@ const Room = () => {
                     <div className="mt-3 pt-2 gap-6 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap">
                       <div className="flex items-center gap-4">
                         <Building size={14} className="text-blue-200" />
-                        <span>Campus: {room.Building}</span>
+                        <span>Campus: {room.building}</span>
                       </div>
                       <div className="flex items-center gap-4 ml-4">
                         <Home size={14} className="text-blue-200" />
-                        <span>Floor: {room.Floor}</span>
+                        <span>Floor: {room.floor}</span>
                       </div>
                       {isAdmin && (
                         <button
@@ -435,13 +460,28 @@ const Room = () => {
                         <div className="p-5 bg-gray-50 rounded border border-gray-100">
                           <h4 className="text-sm font-medium text-gray-800 mb-2">Room Details</h4>
                           <div className="space-y-2 text-sm text-gray-600">
-                            <p>Code: {room.Code}</p>
-                            <p>Building: {room.Building}</p>
-                            <p>Floor: {room.Floor}</p>
-                            {isAdmin && <p>Capacity: {room.NumberOfSeats} seats</p>}
+                            <p>Code: {room.code}</p>
+                            <p>Building: {room.building}</p>
+                            <p>Floor: {room.floor}</p>
+                            {isAdmin && <p>Capacity: {room.seats} seats</p>}
                           </div>
                         </div>
                         <div className="p-5 bg-gray-50 rounded border border-gray-100">
+                          {/* Primary Room Type */}
+                          <h4 className="text-sm font-medium text-gray-800 mb-2">Primary Room Type</h4>
+                          <div className="mb-4">
+                            {room.primaryType && room.primaryType !== "None" ? (
+                              <div className="flex items-center">
+                                <span className={`px-3 py-1.5 text-sm font-medium rounded-md border flex items-center gap-2 ${getRoomTypeColor(room.primaryType)}`}>
+                                  {room.primaryType}
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500">No primary type assigned</p>
+                            )}
+                          </div>
+
+                          {/* Room Types */}
                           <h4 className="text-sm font-medium text-gray-800 mb-2">Room Types</h4>
                           <div className="flex flex-wrap gap-10">
                             {room.roomTypes && room.roomTypes.length > 0 ? (

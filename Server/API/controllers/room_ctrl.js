@@ -123,6 +123,19 @@ const getAllRoom = async (req, res, next) => {
     }
 }
 
+const getPrimaryRoom = async ( req, res, next) =>{
+    try {
+        
+        const room = await Room.findByPk(req.params.id)
+        
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred."
+        })
+    }
+}
+
 const getRoom = async (req, res, next) => {
     try {
         let room = await Room.findByPk(req.params.id, {
@@ -666,6 +679,52 @@ const deleteTypeRoom = async (req, res) => {
     }
 }
 
+const getPrimaryRoomType = async (req, res) => {
+    try {
+        // Find the room by ID
+        const room = await Room.findByPk(req.params.id, {
+            attributes: ['id', 'Code', 'PrimaryTypeId'],
+            include: [{
+                model: RoomType,
+                as: 'RoomType', // This uses the belongsTo relationship with foreignKey: 'PrimaryTypeId'
+                attributes: ['id', 'Type']
+            }]
+        });
+
+        if (!room) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found.",
+                data: null
+            });
+        }
+
+        if (!room.RoomType) {
+            return res.status(404).json({
+                successful: false,
+                message: "No primary room type assigned to this room.",
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully retrieved primary room type.",
+            data: {
+                roomId: room.id,
+                roomCode: room.Code,
+                primaryTypeId: room.PrimaryTypeId,
+                primaryType: room.RoomType.Type
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+};
+
 const getRoomTypeByRoom = async (req, res) => {
     try {
         const room = await Room.findByPk(req.params.id, {
@@ -835,5 +894,6 @@ module.exports = {
     addTypeRoom,
     deleteTypeRoom,
     getRoomTypeByRoom,
-    addRoomWithTypes
+    addRoomWithTypes,
+    getPrimaryRoomType
 };
