@@ -2,12 +2,11 @@ import React, { useState, useEffect } from "react";
 import Axios from "../../../axiosConfig";
 import { useAuth } from "../../authContext";
 import PropTypes from "prop-types";
-import { X, Check, AlertCircle } from "lucide-react";
+import { X, Check, AlertCircle, AlertTriangle } from "lucide-react";
 
 const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
   const { user } = useAuth();
-  console.log("user: ", user);
-  const isCore = user.Department.isCore;
+  const isCore = user?.Department?.isCore;
   const [formData, setFormData] = useState({
     Code: "",
     Description: "",
@@ -15,24 +14,22 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
     Duration: "",
     Units: "",
     RoomTypeId: "",
-    DepartmentId: "",
+    DepartmentId: ""
   });
   const [roomTypes, setRoomTypes] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
-
-  // Define prop types
-  EditCourseModal.propTypes = {
-    isOpen: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired,
-    course: PropTypes.object,
-    onUpdateSuccess: PropTypes.func,
-  };
+  const [isPair, setIsPair] = useState(false);
+  const [isTutorial, setIsTutorial] = useState(false);
 
   useEffect(() => {
     if (isOpen && course) {
+      // Check if this is a paired course
+      setIsPair(course.PairId !== null);
+      setIsTutorial(course.isTutorial || false);
+
       // Reset form with course data
       setFormData({
         Code: course.Code || "",
@@ -41,20 +38,46 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
         Duration: course.Duration || "",
         Units: course.Units || "",
         RoomTypeId: course.RoomTypeId || "",
-        DepartmentId: user?.DepartmentId || course.DepartmentId || "",
+        DepartmentId: user?.DepartmentId || ""
       });
       setErrorMessage("");
       setSuccessMessage("");
       fetchRoomTypes();
+
+      // If this is a paired course, fetch the paired course info
+      if (course.PairId) {
+        fetchPairedCourse(course.id, course.PairId);
+      }
     }
   }, [isOpen, course, user]);
+
+  // State to store the paired course information
+  const [pairedCourse, setPairedCourse] = useState(null);
+
+  // Fetch the paired course information
+  const fetchPairedCourse = async (currentCourseId, pairId) => {
+    try {
+      const response = await Axios.get(`/course/getAllCourses`);
+      if (response.data.successful) {
+        // Find the other course with the same PairId that isn't the current course
+        const paired = response.data.data.find(c =>
+          c.PairId === pairId && c.id !== currentCourseId
+        );
+        if (paired) {
+          setPairedCourse(paired);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch paired course:", error);
+    }
+  };
 
   useEffect(() => {
     // If user is not from a core department and tries to select Core type, reset to Professional
     if (!isCore && formData.Type === "Core") {
       setFormData({
         ...formData,
-        Type: "Professional",
+        Type: "Professional"
       });
     }
   }, [formData.Type, isCore]);
@@ -93,8 +116,10 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
       return;
     }
 
-    if (parseInt(formData.Duration) <= 0 || parseInt(formData.Units) <= 0) {
-      setErrorMessage("Duration and Units must be greater than 0");
+    // Basic client-side validation - just check if fields are filled
+    if (!formData.Code || !formData.Description || !formData.Duration ||
+      !formData.Units || !formData.Type || !formData.RoomTypeId) {
+      setErrorMessage("Please fill in all required fields.");
       shakeForm();
       setIsSubmitting(false);
       return;
@@ -110,10 +135,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           Units: parseInt(formData.Units),
           Type: formData.Type,
           RoomTypeId: formData.RoomTypeId,
-          DepartmentId: user.DepartmentId,
-        },
-        {
-          headers: { "Content-Type": "application/json" },
+          DepartmentId: user.DepartmentId
         }
       );
 
@@ -130,10 +152,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
         shakeForm();
       }
     } catch (error) {
-      const errorMsg =
-        error.response?.data?.message ||
-        error.message ||
-        "An unexpected error occurred";
+      const errorMsg = error.response?.data?.message || error.message || "An unexpected error occurred";
       setErrorMessage(errorMsg);
       shakeForm();
       console.error("Error updating course:", error);
@@ -156,10 +175,26 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           </button>
         </div>
 
+        {isPair && pairedCourse && (
+          <div className="bg-amber-50 border-t border-amber-200 p-3 flex items-start space-x-2">
+            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-700">
+              This course is paired with <strong>{pairedCourse.Code}</strong> ({pairedCourse.Description})
+            </p>
+          </div>
+        )}
+
+        {isTutorial && (
+          <div className="bg-blue-50 border-t border-blue-200 p-3 flex items-start space-x-2">
+            <AlertCircle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-700">
+              This is a tutorial course. Note that tutorial courses have Units automatically set to 0.
+            </p>
+          </div>
+        )}
+
         <form
-          className={`p-6 space-y-4 max-h-[80vh] overflow-y-auto ${
-            isShaking ? "animate-shake" : ""
-          }`}
+          className={`p-6 space-y-4 max-h-[80vh] overflow-y-auto ${isShaking ? "animate-shake" : ""}`}
           onSubmit={handleSubmit}
         >
           <div className="space-y-1.5">
@@ -218,9 +253,11 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
                 name="Units"
                 placeholder="Enter number of units"
                 min="1"
+                max="30"
                 className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
                 value={formData.Units}
                 onChange={handleInputChange}
+                disabled={isTutorial}
                 required
               />
             </div>
@@ -296,9 +333,8 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${
-                isSubmitting ? "opacity-75 cursor-not-allowed" : ""
-              }`}
+              className={`px-4 py-2.5 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200 flex items-center space-x-2 ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+                }`}
             >
               {isSubmitting ? "Updating..." : "Save Changes"}
             </button>
@@ -307,6 +343,13 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
       </div>
     </div>
   );
+};
+
+EditCourseModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  course: PropTypes.object,
+  onUpdateSuccess: PropTypes.func
 };
 
 export default EditCourseModal;
