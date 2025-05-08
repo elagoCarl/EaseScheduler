@@ -5,12 +5,12 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from "./callComponents/sideBar";
 import TopMenu from "./callComponents/topMenu";
-import AddProfModal from "./callComponents/addProfModal";
-import EditProfModal from "./callComponents/editProfModal";
+import AddProfModal from "./callComponents/profManagement/addProfModal.jsx";
+import EditProfModal from "./callComponents/profManagement/editProfModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning";
-import ProfAvailabilityModal from "./callComponents/profAvailabilityModal.jsx";
-import ProfStatusModal from "./callComponents/profStatusModal";
-import AddAssignationModal from "./callComponents/addAssignationModal";
+import ProfAvailabilityModal from "./callComponents/profManagement/profAvailabilityModal.jsx";
+import ProfStatusModal from "./callComponents/profManagement/profStatusModal.jsx";
+import AddAssignationModal from "./callComponents/profManagement/addAssignationModal.jsx";
 import CourseAssignments from "./callComponents/profManagement/courseAssignments.jsx";
 import { useAuth } from '../Components/authContext.jsx';
 

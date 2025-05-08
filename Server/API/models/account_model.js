@@ -60,6 +60,29 @@ module.exports = (sequelize, DataTypes) => {
                     const salt = await bcrypt.genSalt();
                     account.Password = await bcrypt.hash(account.Password, salt);
                 }
+            },
+            afterSync: async () => {
+                try {
+                    // Check if default account already exists
+                    const adminExists = await Account.findOne({
+                        where: { Email: 'admin@example.com' }
+                    });
+
+                    if (!adminExists) {
+                        // Create default admin account with null department
+                        await Account.create({
+                            Name: 'Default Admin',
+                            Email: 'admin@example.com',
+                            Password: 'Admin123', // Will be hashed by beforeCreate hook
+                            Roles: 'Admin',
+                            verified: true,
+                            DepartmentId: null
+                        });
+                        console.log('Default admin account created successfully');
+                    }
+                } catch (error) {
+                    console.error('Error creating default admin account:', error);
+                }
             }
         }
     });

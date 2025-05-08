@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, BookOpen, Trash2, Plus } from 'lucide-react';
-import Axios from '../../axiosConfig';
+import Axios from '../../../axiosConfig';
 import { toast } from 'react-toastify';
-import { useAuth } from '../../Components/authContext';
+import { useAuth } from '../../authContext';
 
 const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     const { user } = useAuth();
