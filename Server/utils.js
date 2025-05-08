@@ -40,10 +40,25 @@ const validatePassword = (password) => {
   return passwordRegex.test(password);
 };
 
+const isTimeInRange = (time, minTime, maxTime) => {
+  // Convert all times to comparable format (seconds since midnight)
+  const timeToSeconds = (timeStr) => {
+    const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+
+  const timeSeconds = timeToSeconds(time);
+  const minSeconds = timeToSeconds(minTime);
+  const maxSeconds = timeToSeconds(maxTime);
+
+  return timeSeconds >= minSeconds && timeSeconds <= maxSeconds;
+};
+
 module.exports = {
   checkIfNull,
   checkMandatoryFields,
   validateEmail,
   validatePassword,
-  checkValidDay
+  checkValidDay,
+  isTimeInRange
 }

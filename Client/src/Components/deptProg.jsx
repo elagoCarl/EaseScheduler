@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Background from "./Img/1.jpg";
 import Sidebar from "./callComponents/sideBar.jsx";
 import TopMenu from "./callComponents/topMenu.jsx";
+import SchoolYearModal from "./callComponents/deptProg/schoolYearModal.jsx";
 import { useAuth } from '../Components/authContext.jsx';
 
 const DeptProg = () => {
@@ -27,25 +28,30 @@ const DeptProg = () => {
     const [activeTab, setActiveTab] = useState("departments"); // For mobile tab switching
     const navigate = useNavigate();
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
+    const [showSchoolYearModal, setShowSchoolYearModal] = useState(false);
 
     useEffect(() => {
         fetchDepartments();
         fetchPrograms();
     }, []);
 
-        // Validation functions
+    // Validation functions
     const isValidName = (name) => {
         // Only allow letters, spaces and hyphens in names
         const nameRegex = /^[A-Za-z\s-]+$/;
         return nameRegex.test(name);
     };
 
+    const toggleSchoolYearModal = () => {
+        setShowSchoolYearModal(!showSchoolYearModal);
+    };
+
     const isValidCode = (code) => {
         // Allow only alphanumeric characters for codes (no periods or special characters)
         const codeRegex = /^[A-Za-z0-9]+$/;
         return codeRegex.test(code);
-      };
-  
+    };
+
 
     const fetchDepartments = async () => {
         try {
@@ -76,85 +82,85 @@ const DeptProg = () => {
     const handleDeptChange = (e) => {
         const { name, value, type, checked } = e.target;
         const newValue = type === 'checkbox' ? checked : value;
-        
+
         // Apply validation for the department name field
         if (name === 'Name' && value !== '' && !isValidName(value)) {
-          setMessage({
-            type: "error",
-            text: "Department name should only contain letters, spaces, and hyphens.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 3000);
-          return;
+            setMessage({
+                type: "error",
+                text: "Department name should only contain letters, spaces, and hyphens.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+            return;
         }
-        
-        setDeptFormData({ ...deptFormData, [name]: newValue });
-      };
-      
 
-      const handleDeptSubmit = async (e) => {
+        setDeptFormData({ ...deptFormData, [name]: newValue });
+    };
+
+
+    const handleDeptSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Final validation check before submission
         if (!isValidName(deptFormData.Name)) {
-          setMessage({
-            type: "error",
-            text: "Department name should only contain letters, spaces, and hyphens.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 3000);
-          return;
+            setMessage({
+                type: "error",
+                text: "Department name should only contain letters, spaces, and hyphens.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+            return;
         }
-        
+
         setLoading(true);
         setMessage(null);
         try {
-          let response;
-          if (isDeptEditing) {
-            response = await axios.put(
-              `/dept/updateDept/${deptEditingId}`,
-              deptFormData
-            );
-          } else {
-            response = await axios.post(
-              "/dept/addDept",
-              deptFormData
-            );
-            setSuccess(true);
+            let response;
+            if (isDeptEditing) {
+                response = await axios.put(
+                    `/dept/updateDept/${deptEditingId}`,
+                    deptFormData
+                );
+            } else {
+                response = await axios.post(
+                    "/dept/addDept",
+                    deptFormData
+                );
+                setSuccess(true);
+                setTimeout(() => {
+                    setSuccess(false);
+                }, 3000);
+            }
+
+            setMessage({
+                type: "success",
+                text: response.data.message || (isDeptEditing ? "Department updated successfully." : "Department created successfully."),
+            });
             setTimeout(() => {
-              setSuccess(false);
-            }, 3000);
-          }
-      
-          setMessage({
-            type: "success",
-            text: response.data.message || (isDeptEditing ? "Department updated successfully." : "Department created successfully."),
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 1000);
-      
-          setDeptFormData({ Name: "", isCore: false });
-          setIsDeptEditing(false);
-          setDeptEditingId(null);
-          fetchDepartments();
+                setMessage(null);
+            }, 1000);
+
+            setDeptFormData({ Name: "", isCore: false });
+            setIsDeptEditing(false);
+            setDeptEditingId(null);
+            fetchDepartments();
         } catch (error) {
-          setMessage({
-            type: "error",
-            text: error.response?.data?.message || "Failed to process department.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 1000);
+            setMessage({
+                type: "error",
+                text: error.response?.data?.message || "Failed to process department.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
-          setLoading(false);
+            setLoading(false);
         }
-      };
+    };
 
     const handleDeptEdit = (dept) => {
-        setDeptFormData({ 
+        setDeptFormData({
             Name: dept.Name,
             isCore: dept.isCore || false
         });
@@ -236,104 +242,104 @@ const DeptProg = () => {
 
     const handleProgChange = (e) => {
         const { name, value } = e.target;
-        
+
         // Apply validation for program name
         if (name === 'Name' && value !== '' && !isValidName(value)) {
-          setMessage({
-            type: "error",
-            text: "Program name should only contain letters, spaces, and hyphens.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 3000);
-          return;
+            setMessage({
+                type: "error",
+                text: "Program name should only contain letters, spaces, and hyphens.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+            return;
         }
-        
+
         // Apply validation for program code
         if (name === 'Code' && value !== '' && !isValidCode(value)) {
-          setMessage({
-            type: "error",
-            text: "Program code should only contain letters and numbers.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 3000);
-          return;
+            setMessage({
+                type: "error",
+                text: "Program code should only contain letters and numbers.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+            return;
         }
-        
-        setProgFormData({ ...progFormData, [name]: value });
-      };
 
-      const handleProgSubmit = async (e) => {
+        setProgFormData({ ...progFormData, [name]: value });
+    };
+
+    const handleProgSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Final validation check before submission
         if (!isValidName(progFormData.Name)) {
-          setMessage({
-            type: "error",
-            text: "Program name should only contain letters, spaces, and hyphens.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 3000);
-          return;
+            setMessage({
+                type: "error",
+                text: "Program name should only contain letters, spaces, and hyphens.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+            return;
         }
-        
+
         if (!isValidCode(progFormData.Code)) {
-          setMessage({
-            type: "error",
-            text: "Program code should only contain letters and numbers.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 3000);
-          return;
+            setMessage({
+                type: "error",
+                text: "Program code should only contain letters and numbers.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 3000);
+            return;
         }
-        
+
         setLoading(true);
         setMessage(null);
         try {
-          let response;
-          if (isProgEditing) {
-            response = await axios.put(
-              `/program/updateProgram/${progEditingId}`,
-              progFormData
-            );
-          } else {
-            response = await axios.post(
-              "/program/addProgram",
-              progFormData
-            );
-            setSuccess(true);
+            let response;
+            if (isProgEditing) {
+                response = await axios.put(
+                    `/program/updateProgram/${progEditingId}`,
+                    progFormData
+                );
+            } else {
+                response = await axios.post(
+                    "/program/addProgram",
+                    progFormData
+                );
+                setSuccess(true);
+                setTimeout(() => {
+                    setSuccess(false);
+                }, 3000);
+            }
+
+            setMessage({
+                type: "success",
+                text: response.data.message || (isProgEditing ? "Program updated successfully." : "Program created successfully."),
+            });
             setTimeout(() => {
-              setSuccess(false);
-            }, 3000);
-          }
-      
-          setMessage({
-            type: "success",
-            text: response.data.message || (isProgEditing ? "Program updated successfully." : "Program created successfully."),
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 1000);
-      
-          setProgFormData({ Code: "", Name: "", DepartmentId: "" });
-          setIsProgEditing(false);
-          setProgEditingId(null);
-          fetchPrograms();
+                setMessage(null);
+            }, 1000);
+
+            setProgFormData({ Code: "", Name: "", DepartmentId: "" });
+            setIsProgEditing(false);
+            setProgEditingId(null);
+            fetchPrograms();
         } catch (error) {
-          setMessage({
-            type: "error",
-            text: error.response?.data?.message || "Failed to process program.",
-          });
-          setTimeout(() => {
-            setMessage(null);
-          }, 1000);
+            setMessage({
+                type: "error",
+                text: error.response?.data?.message || "Failed to process program.",
+            });
+            setTimeout(() => {
+                setMessage(null);
+            }, 1000);
         } finally {
-          setLoading(false);
+            setLoading(false);
         }
-      };
+    };
 
     const handleProgEdit = (prog) => {
         setProgFormData({
@@ -363,7 +369,19 @@ const DeptProg = () => {
             <div className="w-full px-4 sm:px-6 lg:max-w-6xl lg:mx-auto my-8 md:my-20">
                 <div className="bg-white rounded-xl overflow-hidden shadow-2xl">
                     <div className="bg-gradient-to-r bg-blue-600 p-4 sm:p-6">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-white text-center p-6">Department & Program Management</h1>
+                        <div className="flex flex-col sm:flex-row justify-between items-center">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-white text-center sm:text-left p-2">Department & Program Management</h1>
+
+                            <button
+                                onClick={toggleSchoolYearModal}
+                                className="px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white rounded-lg transition duration-200 flex items-center shadow-md self-end sm:self-auto mt-2 sm:mt-0"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                School Year Management
+                            </button>
+                        </div>
                     </div>
                     <div className="p-4 sm:p-6">
                         {message && (
@@ -426,10 +444,10 @@ const DeptProg = () => {
                                         </div>
                                         <div className="mb-4">
                                             <div className="flex items-center">
-                                                <input 
-                                                    id="isCore" 
-                                                    name="isCore" 
-                                                    type="checkbox" 
+                                                <input
+                                                    id="isCore"
+                                                    name="isCore"
+                                                    type="checkbox"
                                                     className="h-12 w-12 text-blue-600 mt-1 mr-2 border-gray-300 rounded focus:ring-blue-500"
                                                     checked={deptFormData.isCore}
                                                     onChange={handleDeptChange}
@@ -584,45 +602,45 @@ const DeptProg = () => {
                                             <div className="overflow-x-auto">
                                                 <table className="w-full">
                                                     <thead>
-                                                    <tr className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg">
-                                                        <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider rounded-l-lg">ID</th>
-                                                        <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Code</th>
-                                                        <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Program Name</th>
-                                                        <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Department</th>
-                                                        <th className="px-3 sm:px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider rounded-r-lg">Actions</th>
-                                                    </tr>
+                                                        <tr className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg">
+                                                            <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider rounded-l-lg">ID</th>
+                                                            <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Code</th>
+                                                            <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Program Name</th>
+                                                            <th className="px-3 sm:px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Department</th>
+                                                            <th className="px-3 sm:px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider rounded-r-lg">Actions</th>
+                                                        </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100">
-                                                    {programs.map((prog) => {
-                                                        const dept = departments.find(d => d.id === prog.DepartmentId);
-                                                        return (
-                                                        <tr key={prog.id} className="hover:bg-purple-50 transition-all duration-200">
-                                                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-600">{prog.id}</td>
-                                                            <td className="px-3 sm:px-4 py-3 text-sm font-medium text-gray-900">{prog.Code}</td>
-                                                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-800">{prog.Name}</td>
-                                                            <td className="px-3 sm:px-4 py-3 text-sm text-gray-600">
-                                                            {dept ? dept.Name : <span className="text-red-500">Department not found</span>}
-                                                            </td>
-                                                            <td className="px-3 sm:px-4 py-3 text-sm text-center">
-                                                            <button
-                                                                className="inline-block px-3 sm:px-4 py-1.5 bg-purple-100 text-purple-700 rounded-lg mr-2 hover:bg-purple-200 transition-all duration-200"
-                                                                onClick={() => handleProgEdit(prog)}
-                                                            >
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                className="inline-block px-3 sm:px-4 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200"
-                                                                onClick={() => handleProgDelete(prog.id)}
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                            </td>
-                                                        </tr>
-                                                        );
-                                                    })}
+                                                        {programs.map((prog) => {
+                                                            const dept = departments.find(d => d.id === prog.DepartmentId);
+                                                            return (
+                                                                <tr key={prog.id} className="hover:bg-purple-50 transition-all duration-200">
+                                                                    <td className="px-3 sm:px-4 py-3 text-sm text-gray-600">{prog.id}</td>
+                                                                    <td className="px-3 sm:px-4 py-3 text-sm font-medium text-gray-900">{prog.Code}</td>
+                                                                    <td className="px-3 sm:px-4 py-3 text-sm text-gray-800">{prog.Name}</td>
+                                                                    <td className="px-3 sm:px-4 py-3 text-sm text-gray-600">
+                                                                        {dept ? dept.Name : <span className="text-red-500">Department not found</span>}
+                                                                    </td>
+                                                                    <td className="px-3 sm:px-4 py-3 text-sm text-center">
+                                                                        <button
+                                                                            className="inline-block px-3 sm:px-4 py-1.5 bg-purple-100 text-purple-700 rounded-lg mr-2 hover:bg-purple-200 transition-all duration-200"
+                                                                            onClick={() => handleProgEdit(prog)}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            className="inline-block px-3 sm:px-4 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all duration-200"
+                                                                            onClick={() => handleProgDelete(prog.id)}
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
-                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -667,6 +685,8 @@ const DeptProg = () => {
                     <p>Operation completed successfully!</p>
                 </div>
             )}
+
+            <SchoolYearModal isOpen={showSchoolYearModal} onClose={toggleSchoolYearModal} />
         </div>
     );
 };

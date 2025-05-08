@@ -5,10 +5,10 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from "./callComponents/sideBar";
 import TopMenu from "./callComponents/topMenu";
-import AddCourseModal from "./callComponents/addCourseModal";
-import EditCourseModal from "./callComponents/editCourseModal";
+import AddCourseModal from "./callComponents/courseManagement/addCourseModal";
+import EditCourseModal from "./callComponents/courseManagement/editCourseModal";
 import DeleteWarning from "./callComponents/deleteWarning";
-import ViewProgramsModal from "./callComponents/courseProgModal";
+import ViewProgramsModal from "./callComponents/courseManagement/courseProgModal";
 import { useAuth } from '../Components/authContext';
 
 const CourseManagement = () => {

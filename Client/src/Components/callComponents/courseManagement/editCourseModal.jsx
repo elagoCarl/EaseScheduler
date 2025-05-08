@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Axios from "../../axiosConfig";
-import { useAuth } from "../authContext";
+import Axios from "../../../axiosConfig";
+import { useAuth } from "../../authContext";
 import PropTypes from "prop-types";
 import { X, Check, AlertCircle } from "lucide-react";
 
