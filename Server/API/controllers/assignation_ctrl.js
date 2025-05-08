@@ -726,8 +726,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
             });
         }
         console.log(`Fetching assignations for department ID: ${departmentId}`);
-        
-        // First, check if department exists
+
         const department = await Department.findByPk(departmentId);
         if (!department) {
             return res.status(404).json({
@@ -740,8 +739,6 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
             order: [['createdAt', 'DESC']],
             where: { DepartmentId: departmentId }
         });
-        
-        // If no assignations found, return empty array
         if (!assignations || assignations.length === 0) {
             return res.status(200).json({
                 successful: true,
