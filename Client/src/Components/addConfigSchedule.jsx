@@ -21,7 +21,7 @@ const AddConfigSchedule = () => {
   const { user } = useAuth();
   const deptId = user?.DepartmentId;
   const [departments, setDepartments] = useState([]);
-  const [showDeptSelector, setShowDeptSelector] = useState(!deptId);
+  const [showDeptSelector, setShowDeptSelector] = useState(true);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
@@ -65,6 +65,8 @@ const AddConfigSchedule = () => {
   const openSettingsModal = () => setIsSettingsOpen(true);
   const closeSettingsModal = () => setIsSettingsOpen(false);
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
+  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const effectiveDeptId = user?.DepartmentId || selectedDeptId;
 
   const uniqueSemesters = useMemo(() => {
     if (!assignations.length) return [];
@@ -136,7 +138,7 @@ const AddConfigSchedule = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await axios.get('/department/getAllDepartments');
+        const response = await axios.get('/dept/getAllDept');
         if (response.data.successful) {
           setDepartments(response.data.data);
         } else {
@@ -164,11 +166,6 @@ const AddConfigSchedule = () => {
     const fetchData = async () => {
       try {
         if (!deptId) {
-          console.error("Invalid department ID:", deptId);
-          setNotification({
-            type: 'error',
-            message: 'Invalid department ID. Please check your settings.'
-          });
           return;
         }
 
@@ -465,6 +462,11 @@ const AddConfigSchedule = () => {
         }
       } catch (assignationError) {
         console.error("Error fetching assignations:", assignationError);
+        // Show user-friendly error:
+        setNotification({
+          type: 'error',
+          message: 'Unable to load course assignations. There might be a server issue.'
+        });
         setAssignations([]);
         setSemesterData({});
       }
@@ -493,8 +495,9 @@ const AddConfigSchedule = () => {
   };
 
   const handleDepartmentChange = (e) => {
-    const newDeptId = e.target.value;
-    setDeptId(newDeptId);
+    const deptId = e.target.value;
+    console.log("Selected department ID:", deptId);
+    setSelectedDeptId(deptId);
     resetForm();
     setRooms([]);
     setAssignations([]);
@@ -502,10 +505,22 @@ const AddConfigSchedule = () => {
     setSemesters([]);
     setProfessors([]);
     // Fetch data for the selected department
-    if (newDeptId) {
-      fetchDataForDepartment(newDeptId);
+    if (deptId) {
+      fetchDataForDepartment(deptId);
     }
   };
+
+  useEffect(() => {
+    // If user has a department ID, hide the selector
+    // Otherwise, show it
+    setShowDeptSelector(!user?.DepartmentId);
+    console.log("User department ID:", user?.DepartmentId);
+    console.log("Show department selector:", !user?.DepartmentId);
+  }, [user]);
+
+  useEffect(() => {
+    setShowDeptSelector(!deptId);
+  }, [deptId]);
 
   const renderDepartmentSelector = () => {
     if (!showDeptSelector) return null;
@@ -514,11 +529,11 @@ const AddConfigSchedule = () => {
       <div className="mb-4 border-b pb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">Select Department:</label>
         <select
-          value={deptId || ''}
-          onChange={handleDepartmentChange}
-          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        >
+            value={selectedDeptId || ''}
+            onChange={handleDepartmentChange}
+            className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          >
           <option value="">Select Department</option>
           {departments.map(dept => (
             <option key={dept.id} value={dept.id}>
@@ -1181,6 +1196,7 @@ const AddConfigSchedule = () => {
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
                 {renderModeToggle()}
+                {renderDepartmentSelector()} 
                 <div className="flex items-center mt-2">
                   {formData.professorId && formData.professorName && (
                     <button type="button" onClick={() => handleCheckAvailability(formData.professorId)} className="text-blue-600 hover:text-blue-800 text-xs flex items-center"

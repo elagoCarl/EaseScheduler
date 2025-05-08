@@ -36,6 +36,8 @@ const settings_rtr = require('./API/routers/settings_rtr')
 const authMiddleware_rtr = require('./API/routers/authMiddleware_rtr')
 const roomType_rtr = require('./API/routers/roomType_rtr')
 const courseProg_rtr = require('./API/routers/courseProg_rtr')
+const schoolYear_rtr = require('./API/routers/schoolYear_rtr')
+const profLoad_rtr = require('./API/routers/profLoad_rtr')
 
 // para lang makita kung anong request sa console
 app.use((req, res, next) => {
@@ -128,6 +130,8 @@ app.use('/settings', settings_rtr)
 app.use('/profStatus', profStatus_rtr)
 app.use('/auth', authMiddleware_rtr)
 app.use('/roomType', roomType_rtr)
+app.use('/schoolYear', schoolYear_rtr)
+app.use('/profLoad', profLoad_rtr)
 
 
 //ERROR MIDDLEWARES

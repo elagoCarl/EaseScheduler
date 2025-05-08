@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, BookOpen, Trash2, Plus } from 'lucide-react';
-import Axios from '../../axiosConfig';
+import Axios from '../../../axiosConfig';
 import { toast } from 'react-toastify';
-import { useAuth } from '../../Components/authContext';
+import { useAuth } from '../../authContext';
 
 const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     const { user } = useAuth();
@@ -14,6 +14,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     const [adding, setAdding] = useState(false);
     const [selectedProgram, setSelectedProgram] = useState('');
     const [selectedYear, setSelectedYear] = useState(1);
+    const [selectedSemester, setSelectedSemester] = useState(1);
     const [showAddForm, setShowAddForm] = useState(false);
 
     useEffect(() => {
@@ -35,7 +36,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                     courseProgramId: program.courseProgramId, // CourseProg ID
                     name: program.name || "Unnamed Program",
                     code: program.code || "",
-                    year: program.year || null
+                    year: program.year || null,
+                    semester: program.semester || null
                 }));
 
                 setPrograms(formattedPrograms);
@@ -98,8 +100,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
 
     const handleAddCourseProg = async (e) => {
         e.preventDefault();
-        if (!selectedProgram || !selectedYear) {
-            toast.error("Please select both a program and year");
+        if (!selectedProgram || !selectedYear || !selectedSemester) {
+            toast.error("Please select a program, year, and semester");
             return;
         }
 
@@ -108,7 +110,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
             const response = await Axios.post('/courseProg/addCourseProg', {
                 CourseId: courseId,
                 ProgramId: selectedProgram,
-                Year: selectedYear
+                Year: selectedYear,
+                Semester: selectedSemester
             });
 
             if (response.data.successful) {
@@ -116,6 +119,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                 fetchProgramsForCourse(courseId); // Refresh the list
                 setSelectedProgram(''); // Reset form
                 setSelectedYear(1);
+                setSelectedSemester(1);
                 setShowAddForm(false);
             } else {
                 toast.error(response.data.message || "Failed to associate program");
@@ -143,21 +147,33 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
 
     if (!isOpen) return null;
 
-    // Group programs by year
-    const programsByYear = {};
+    // Group programs by year and semester
+    const programsByYearAndSemester = {};
     programs.forEach(program => {
         const year = program.year || 'Unspecified';
-        if (!programsByYear[year]) {
-            programsByYear[year] = [];
+        const semester = program.semester || 'Unspecified';
+        const key = `${year}-${semester}`;
+
+        if (!programsByYearAndSemester[key]) {
+            programsByYearAndSemester[key] = {
+                year,
+                semester,
+                programs: []
+            };
         }
-        programsByYear[year].push(program);
+        programsByYearAndSemester[key].programs.push(program);
     });
 
-    // Sort years numerically with 'Unspecified' at the end
-    const sortedYears = Object.keys(programsByYear).sort((a, b) => {
-        if (a === 'Unspecified') return 1;
-        if (b === 'Unspecified') return -1;
-        return parseInt(a) - parseInt(b);
+    // Sort groups by year then semester
+    const sortedGroups = Object.values(programsByYearAndSemester).sort((a, b) => {
+        if (a.year === 'Unspecified') return 1;
+        if (b.year === 'Unspecified') return -1;
+        if (parseInt(a.year) !== parseInt(b.year)) {
+            return parseInt(a.year) - parseInt(b.year);
+        }
+        if (a.semester === 'Unspecified') return 1;
+        if (b.semester === 'Unspecified') return -1;
+        return parseInt(a.semester) - parseInt(b.semester);
     });
 
     return (
@@ -241,6 +257,20 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                                         ))}
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Semester
+                                    </label>
+                                    <select
+                                        value={selectedSemester}
+                                        onChange={(e) => setSelectedSemester(Number(e.target.value))}
+                                        className="w-full p-2 border border-gray-300 rounded text-sm"
+                                        required
+                                    >
+                                        <option value={1}>Semester 1</option>
+                                        <option value={2}>Semester 2</option>
+                                    </select>
+                                </div>
                                 <div className="flex justify-end">
                                     <button
                                         type="submit"
@@ -268,15 +298,17 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                         </div>
                     ) : programs.length > 0 ? (
                         <div className="space-y-4">
-                            {sortedYears.map(year => (
-                                <div key={`year-${year}`} className="mb-4">
+                            {sortedGroups.map(group => (
+                                <div key={`year-${group.year}-semester-${group.semester}`} className="mb-4">
                                     <h4 className="text-sm font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">
-                                        {year === 'Unspecified' ? 'Year: Unspecified' : `Year ${year}`}
+                                        {group.year === 'Unspecified' ? 'Year: Unspecified' : `Year ${group.year}`}
+                                        {' - '}
+                                        {group.semester === 'Unspecified' ? 'Semester: Unspecified' : `Semester ${group.semester}`}
                                     </h4>
                                     <div className="space-y-2">
-                                        {programsByYear[year].map(program => (
+                                        {group.programs.map(program => (
                                             <div
-                                                key={`program-${program.programId}`}
+                                                key={`program-${program.programId}-${program.courseProgramId}`}
                                                 className="bg-gray-50 p-3 rounded border border-gray-100 hover:border-blue-200 transition-colors"
                                             >
                                                 <div className="flex justify-between items-start">

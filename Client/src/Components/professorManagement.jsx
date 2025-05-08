@@ -5,12 +5,13 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from "./callComponents/sideBar";
 import TopMenu from "./callComponents/topMenu";
-import AddProfModal from "./callComponents/addProfModal";
-import EditProfModal from "./callComponents/editProfModal";
+import AddProfModal from "./callComponents/profManagement/addProfModal.jsx";
+import EditProfModal from "./callComponents/profManagement/editProfModal.jsx";
 import DeleteWarning from "./callComponents/deleteWarning";
-import ProfAvailabilityModal from "./callComponents/profAvailabilityModal.jsx";
-import ProfStatusModal from "./callComponents/profStatusModal";
-import AddAssignationModal from "./callComponents/addAssignationModal";
+import ProfAvailabilityModal from "./callComponents/profManagement/profAvailabilityModal.jsx";
+import ProfStatusModal from "./callComponents/profManagement/profStatusModal.jsx";
+import AddAssignationModal from "./callComponents/profManagement/addAssignationModal.jsx";
+import CourseAssignments from "./callComponents/profManagement/courseAssignments.jsx";
 import { useAuth } from '../Components/authContext.jsx';
 
 const ProfessorManagement = () => {
@@ -40,6 +41,8 @@ const ProfessorManagement = () => {
     const [selectedProfForCourse, setSelectedProfForCourse] = useState(null);
     const [isDeleteAssignmentWarningOpen, setIsDeleteAssignmentWarningOpen] = useState(false);
     const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+    const [schoolYears, setSchoolYears] = useState([]);
+    const [selectedSchoolYears, setSelectedSchoolYears] = useState({});
     const professorsPerPage = 8;
     const showNotification = (message, type = "info") => toast[type](message);
 
@@ -48,13 +51,91 @@ const ProfessorManagement = () => {
             await Promise.all([
                 fetchProfStatuses(),
                 fetchProfessors(),
-                fetchDepartmentAssignations()
+                fetchDepartmentAssignations(),
+                fetchSchoolYears()
             ]);
         } catch (error) {
             setError("Error fetching data: " + error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchSchoolYears = async () => {
+        try {
+            const response = await axios.get("/schoolYear/getAllSchoolYears");
+            if (response.data.successful) {
+                setSchoolYears(response.data.data);
+
+                // Initialize selected school years with the first in the list for each professor
+                if (response.data.data.length > 0) {
+                    const defaultSchoolYear = response.data.data[0];
+                    const initialSelectedYears = {};
+                    professors.forEach(prof => {
+                        initialSelectedYears[prof.id] = defaultSchoolYear.id;
+                    });
+                    setSelectedSchoolYears(initialSelectedYears);
+                }
+            }
+        } catch (error) {
+            showNotification("Failed to fetch school years", "error");
+        }
+    };
+
+    const [professorLoads, setProfessorLoads] = useState({});
+    const [loadingProfessorLoads, setLoadingProfessorLoads] = useState({});
+
+    const fetchProfessorLoad = async (profId, syId) => {
+        if (!profId || !syId) return;
+
+        try {
+            setLoadingProfessorLoads(prev => ({
+                ...prev,
+                [profId]: true
+            }));
+
+            const response = await axios.get("/profLoad/getProfLoadByProfAndSY", {
+                params: {
+                    profId: profId,
+                    syId: syId
+                }
+            });
+
+            if (response.data.successful) {
+                setProfessorLoads(prev => ({
+                    ...prev,
+                    [`${profId}-${syId}`]: response.data.data
+                }));
+            } else {
+                // If no load found or error, set to null to indicate we checked but nothing found
+                setProfessorLoads(prev => ({
+                    ...prev,
+                    [`${profId}-${syId}`]: null
+                }));
+            }
+        } catch (error) {
+            console.error("Error fetching professor load:", error);
+            showNotification(`Failed to load professor workload: ${error.message}`, "error");
+            setProfessorLoads(prev => ({
+                ...prev,
+                [`${profId}-${syId}`]: null
+            }));
+        } finally {
+            setLoadingProfessorLoads(prev => ({
+                ...prev,
+                [profId]: false
+            }));
+        }
+    };
+
+    const handleSchoolYearChange = (profId, schoolYearId) => {
+        setSelectedSchoolYears(prev => ({
+            ...prev,
+            [profId]: schoolYearId
+        }));
+
+        // When school year changes, fetch the load for this professor and school year
+        fetchProfessorLoad(profId, schoolYearId);
     };
 
     const fetchDepartmentAssignations = async () => {
@@ -89,26 +170,31 @@ const ProfessorManagement = () => {
         }
     };
 
-    const getLoadingStatus = (professor, semester) => {
-        if (!professor?.status || Object.keys(profStatusMap).length === 0) return "Normal Load";
+    const getLoadingStatus = (professor, semester, schoolYearId) => {
+        if (!professor || Object.keys(profStatusMap).length === 0) return "Normal Load";
+
         const statusName = professor.status;
         const statusId = Object.entries(profStatusMap).find(
             ([, info]) => info.status === statusName
         )?.[0];
+
         if (!statusId) return "Normal Load";
 
         const maxUnits = profStatusMap[statusId].maxUnits;
-        const semesterUnits =
-            semester === 1
-                ? professor.details.firstSemUnits
-                : professor.details.secondSemUnits;
+
+        // Get semester units from professor loads if available
+        const loadKey = `${professor.id}-${schoolYearId}`;
+        const profLoad = professorLoads[loadKey];
+
+        // Use the load data if available, otherwise fall back to professor details
+        const semesterUnits = profLoad
+            ? (semester === 1 ? profLoad.First_Sem_Units : profLoad.Second_Sem_Units)
+            : (semester === 1 ? professor.details.firstSemUnits : professor.details.secondSemUnits);
 
         if (semesterUnits < maxUnits) return "Underload";
         if (semesterUnits > maxUnits) return "Overload";
         return "Normal Load";
     };
-
-
 
     const fetchProfessors = async () => {
         try {
@@ -196,32 +282,6 @@ const ProfessorManagement = () => {
         }
     };
 
-    const getFilteredAssignments = (profId, searchTerm, semesterFilter = 'all') => {
-        let profAssignments = departmentAssignations.filter(
-            assignment => assignment.ProfessorId === profId
-        );
-
-        // Apply semester filter if not 'all'
-        if (semesterFilter !== 'all') {
-            // Convert the semesterFilter to match the format in the data
-            profAssignments = profAssignments.filter(
-                assignment => assignment.Semester.toString() === semesterFilter.toString()
-            );
-        }
-
-        // Apply search term filter if provided
-        if (searchTerm) {
-            profAssignments = profAssignments.filter(assignment =>
-                assignment.Course?.Code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                assignment.Course?.Description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (assignment.Course?.RoomType?.Type &&
-                    assignment.Course.RoomType.Type.toLowerCase().includes(searchTerm.toLowerCase()))
-            );
-        }
-
-        return profAssignments;
-    };
-
     const getStatusColor = (status) => {
         switch (status) {
             case "Full-time": return "bg-emerald-100 text-emerald-800 border-emerald-200";
@@ -268,111 +328,38 @@ const ProfessorManagement = () => {
         fetchData();
     }, []);
 
+    // Effect to load professor loads when professors or selected school years change
+    useEffect(() => {
+        // Update professor loadStatus1 and loadStatus2 whenever load data changes
+        const updatedProfessors = professors.map(prof => {
+            const schoolYearId = selectedSchoolYears[prof.id];
+            return {
+                ...prof,
+                loadStatus1: getLoadingStatus(prof, 1, schoolYearId),
+                loadStatus2: getLoadingStatus(prof, 2, schoolYearId)
+            };
+        });
+
+        setProfessors(updatedProfessors);
+    }, [professorLoads, selectedSchoolYears]);
+
+    // Handler functions for CourseAssignments component
+    const handleAssignCourse = (professor) => {
+        setSelectedProfForCourse(professor);
+        setIsAssignCourseModalOpen(true);
+    };
+
+    const handleDeleteCourseAssignment = (assignmentId) => {
+        setSelectedAssignmentId(assignmentId);
+        setIsDeleteAssignmentWarningOpen(true);
+    };
+
     if (loading) return <div>Loading...</div>;
     if (error) return <div>{error}</div>;
 
     const indexOfLastProfessor = currentPage * professorsPerPage;
     const indexOfFirstProfessor = indexOfLastProfessor - professorsPerPage;
     const currentProfessors = filteredProfessors.slice(indexOfFirstProfessor, indexOfLastProfessor);
-
-    const CourseAssignments = ({ professor }) => {
-        const [assignmentSearch, setAssignmentSearch] = useState('');
-        const [activeSemester, setActiveSemester] = useState('all');
-        const filteredAssignments = getFilteredAssignments(professor.id, assignmentSearch, activeSemester);
-
-        return (
-            <div className="p-8">
-                <div className="mb-3 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-gray-800">Course Assignments</h3>
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
-                            {filteredAssignments.length}
-                        </span>
-                    </div>
-                    <button className="text-blue-600 text-sm hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded transition duration-150" onClick={() => {
-                        setSelectedProfForCourse(professor);
-                        setIsAssignCourseModalOpen(true);
-                    }}
-                    >
-                        <Plus size={14} />
-                        Assign Course
-                    </button>
-                </div>
-
-                <div className="mb-3 flex flex-col sm:flex-row gap-2">
-                    <div className="relative flex-grow">
-                        <input type="text" placeholder="Search courses..." value={assignmentSearch} onChange={(e) => setAssignmentSearch(e.target.value)}
-                            className="w-full p-2 pr-8 border rounded text-sm"
-                        />
-                        <Search size={16} className="absolute right-2 top-2.5 text-gray-400" />
-                    </div>
-
-                    {/* Semester filter */}
-                    <div className="flex gap-4 ml-3">
-                        <button onClick={() => setActiveSemester('all')}
-                            className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                            All
-                        </button>
-                        <button onClick={() => setActiveSemester('1')}
-                            className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === '1' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                            Sem 1
-                        </button>
-                        <button onClick={() => setActiveSemester('2')}
-                            className={`px-3 py-1 text-xs font-medium rounded transition duration-150 ${activeSemester === '2' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                            Sem 2
-                        </button>
-                    </div>
-                </div>
-
-                {filteredAssignments.length > 0 ? (
-                    <div className="max-h-150 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-                        <div className="space-y-2">
-                            {filteredAssignments.map((assignment) => (
-                                <div key={assignment.id} className="flex justify-between items-center p-2.5 bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
-                                    <div className="flex items-start gap-2">
-                                        <div className="text-blue-500 mt-0.5">
-                                            <ChevronRight size={14} />
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-800 text-sm font-medium">{assignment.Course?.Code}</span>
-                                            <p className="text-gray-600 text-xs">{assignment.Course?.Description}</p>
-                                            <p className="text-gray-600 text-xs">Semester: {assignment.Semester}</p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-xs text-gray-500">{assignment.Course?.Units} Units</span>
-                                                {assignment.Course?.RoomType && (
-                                                    <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">
-                                                        {assignment.Course.RoomType.Type}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <button
-                                        className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1" onClick={() => {
-                                            setSelectedAssignmentId(assignment.id);
-                                            setIsDeleteAssignmentWarningOpen(true);
-                                        }}
-                                    >
-                                        <X size={12} />
-                                        Remove Assignment
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
-                        <p className="text-gray-500 text-sm">
-                            {assignmentSearch || activeSemester !== 'all' ? "No matching courses found" : "No courses assigned"}
-                        </p>
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     return (
         <div className="bg-gray-800 min-h-screen flex flex-col">
@@ -484,14 +471,14 @@ const ProfessorManagement = () => {
 
                                                     {/* New load‐status badges */}
                                                     <span
-                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 1))}`}
+                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 1, selectedSchoolYears[professor.id]))}`}
                                                     >
-                                                        Sem 1: {getLoadingStatus(professor, 1)}
+                                                        Sem 1: {getLoadingStatus(professor, 1, selectedSchoolYears[professor.id])}
                                                     </span>
                                                     <span
-                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 2))}`}
+                                                        className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 2, selectedSchoolYears[professor.id]))}`}
                                                     >
-                                                        Sem 2: {getLoadingStatus(professor, 2)}
+                                                        Sem 2: {getLoadingStatus(professor, 2, selectedSchoolYears[professor.id])}
                                                     </span>
                                                 </div>
 
@@ -508,6 +495,31 @@ const ProfessorManagement = () => {
                                                 <span>{professor.details.email}</span>
                                             </div>
 
+                                            {/* School Year Dropdown */}
+                                            <div className="mb-3">
+                                                <label htmlFor={`schoolYear-${professor.id}`} className="block text-xs font-medium text-blue-100 mb-1">
+                                                    School Year
+                                                </label>
+                                                <select
+                                                    id={`schoolYear-${professor.id}`}
+                                                    value={selectedSchoolYears[professor.id] || ''}
+                                                    onChange={(e) => handleSchoolYearChange(professor.id, e.target.value)}
+                                                    className="w-full bg-white bg-opacity-10 border border-blue-400 border-opacity-30 rounded py-1 px-2 text-white text-sm"
+                                                >
+                                                    {schoolYears.length > 0 ? (
+                                                        schoolYears.map((year) => (
+                                                            <option key={year.id} value={year.id} className="bg-blue-700 text-white">
+                                                                {year.SY_Name}
+                                                            </option>
+                                                        ))
+                                                    ) : (
+                                                        <option value="" disabled className="bg-blue-700 text-white">
+                                                            No school years available
+                                                        </option>
+                                                    )}
+                                                </select>
+                                            </div>
+
                                             {/* Semester load info */}
                                             <div className="grid grid-cols-2 gap-3 mt-2">
                                                 {/* First Semester */}
@@ -516,7 +528,14 @@ const ProfessorManagement = () => {
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-1">
                                                             <BookOpen size={14} className="text-blue-200" />
-                                                            <span>{professor.details.firstSemUnits} Units</span>
+                                                            {loadingProfessorLoads[professor.id] ? (
+                                                                <span>Loading...</span>
+                                                            ) : (
+                                                                <span>
+                                                                    {professorLoads[`${professor.id}-${selectedSchoolYears[professor.id]}`]?.First_Sem_Units ??
+                                                                        professor.details.firstSemUnits ?? 0} Units
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -527,7 +546,14 @@ const ProfessorManagement = () => {
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-1">
                                                             <BookOpen size={14} className="text-blue-200" />
-                                                            <span>{professor.details.secondSemUnits} Units</span>
+                                                            {loadingProfessorLoads[professor.id] ? (
+                                                                <span>Loading...</span>
+                                                            ) : (
+                                                                <span>
+                                                                    {professorLoads[`${professor.id}-${selectedSchoolYears[professor.id]}`]?.Second_Sem_Units ??
+                                                                        professor.details.secondSemUnits ?? 0} Units
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -536,7 +562,12 @@ const ProfessorManagement = () => {
                                     </div>
 
                                     <div className={`transition-all duration-300 ${professor.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
-                                        <CourseAssignments professor={professor} />
+                                        <CourseAssignments
+                                            professor={professor}
+                                            departmentAssignations={departmentAssignations}
+                                            onAssignCourse={handleAssignCourse}
+                                            onDeleteAssignment={handleDeleteCourseAssignment}
+                                        />
                                     </div>
 
                                     <div className="px-4 py-3 m-2 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
@@ -670,7 +701,7 @@ const ProfessorManagement = () => {
                     fetchDepartmentAssignations();
                     fetchProfessors();
                     showNotification("Course assigned successfully", "success");
-                }} professorId={selectedProfForCourse.id}
+                }} professorId={selectedProfForCourse.id} schoolYearId={selectedSchoolYears[selectedProfForCourse.id]}
                 />
             )}
             {isDeleteAssignmentWarningOpen && (
@@ -680,4 +711,5 @@ const ProfessorManagement = () => {
         </div>
     );
 }
+
 export default ProfessorManagement;
