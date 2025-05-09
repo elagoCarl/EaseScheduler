@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg,SchoolYear, ProfessorLoad } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg,SchoolYear, ProfessorLoad, Program, ProfAvail, sequelize } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -46,7 +46,7 @@ const addAssignation = async (req, res, next) => {
             // Validate Course and check for paired courses
             const course = await Course.findByPk(CourseId, {
                 include: [
-                    { model: CourseProg }
+                    { model: CourseProg, as: 'CourseProgs' },
                 ]
             });
             
@@ -60,20 +60,48 @@ const addAssignation = async (req, res, next) => {
                 pairedCourses = await Course.findAll({
                     where: {
                         PairId: course.PairId,
-                        id: { [sequelize.Op.ne]: course.id } // Exclude the current course
+                        id: { [Op.ne]: course.id } // Exclude the current course
                     },
                     include: [
-                        { model: CourseProg }
+                        { model: CourseProg, as: 'CourseProgs' }
                     ]
                 });
             }
 
-            // Check if tutorial course has sections
+            // Check tutorial course validation:
+            // 1. Tutorial courses cannot have sections
             if (course.isTutorial && SectionIds && SectionIds.length > 0) {
                 return res.status(400).json({
                     successful: false,
                     message: "Tutorial courses cannot be assigned to sections.",
                 });
+            }
+            
+            // 2. Non-tutorial courses MUST have sections
+            if (!course.isTutorial && (!SectionIds || SectionIds.length === 0)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Non-tutorial courses must be assigned to at least one section.",
+                });
+            }
+            
+            // 3. Check for duplicate tutorial course assignation (for same professor)
+            if (course.isTutorial && ProfessorId) {
+                const existingTutorialAssignation = await Assignation.findOne({
+                    where: {
+                        SchoolYearId,
+                        CourseId,
+                        Semester,
+                        ProfessorId
+                    }
+                });
+                
+                if (existingTutorialAssignation) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `This tutorial course (${course.Code}) is already assigned to the same professor for School Year ID ${SchoolYearId} and Semester ${Semester}.`
+                    });
+                }
             }
 
             // Validate Department
@@ -87,7 +115,7 @@ const addAssignation = async (req, res, next) => {
             if (ProfessorId) {
                 professor = await Professor.findByPk(ProfessorId, {
                     include: [
-                        { model: ProfAvail }  // Include professor's availability
+                        { model: ProfAvail },
                     ]
                 });
                 
@@ -104,11 +132,11 @@ const addAssignation = async (req, res, next) => {
                 }
 
                 // Check professor's total availability against current and new assignations
-                if (professor.ProfAvail && professor.ProfAvail.length > 0) {
+                if (professor.ProfAvails && professor.ProfAvails.length > 0) {
                     // Calculate professor's total available hours
                     let totalAvailableMinutes = 0;
 
-                    for (const avail of professor.ProfAvail) {
+                    for (const avail of professor.ProfAvails) {
                         const startTime = new Date(`1970-01-01T${avail.Start_time}`);
                         const endTime = new Date(`1970-01-01T${avail.End_time}`);
 
@@ -124,7 +152,8 @@ const addAssignation = async (req, res, next) => {
                     const existingAssignations = await Assignation.findAll({
                         where: {
                             ProfessorId,
-                            SchoolYearId
+                            SchoolYearId,
+                            Semester // Add Semester to check only relevant semester assignations
                         },
                         include: [
                             {
@@ -235,49 +264,58 @@ const addAssignation = async (req, res, next) => {
             const t = await sequelize.transaction();
 
             try {
-                // Check for existing assignations to these sections
+                // Check for duplicate assignations based on course type
                 if (SectionIds && SectionIds.length > 0) {
+                    // For non-tutorial courses, check for duplicate section assignments
                     // Check if these sections already have this course or any paired courses assigned
                     const allCourseIds = [CourseId, ...pairedCourses.map(pc => pc.id)];
                     
-                    const sectionsWithSameCourses = await Assignation.findAll({
+                    // Find existing assignations for the given course, semester, and school year where any of the 
+                    // requested sections are already assigned
+                    const existingAssignations = await Assignation.findAll({
                         where: {
                             SchoolYearId,
                             CourseId: allCourseIds,
-                            Semester  // Add semester to the check
+                            Semester
                         },
                         include: [
                             {
                                 model: ProgYrSec,
-                                where: {
-                                    id: SectionIds
-                                },
                                 required: true
                             }
                         ],
                         transaction: t
                     });
-
-                    if (sectionsWithSameCourses.length > 0) {
+                    
+                    // Extract all section IDs from existing assignations
+                    const existingSectionIds = new Set();
+                    for (const assign of existingAssignations) {
+                        for (const sec of assign.ProgYrSecs) {
+                            existingSectionIds.add(sec.id);
+                        }
+                    }
+                    
+                    // Check if any of the requested sections are already assigned
+                    const duplicateSectionIds = SectionIds.filter(id => existingSectionIds.has(id));
+                    
+                    if (duplicateSectionIds.length > 0) {
                         // Get section details for the error message
-                        const affectedSections = await ProgYrSec.findAll({
+                        const duplicateSections = await ProgYrSec.findAll({
                             where: {
-                                id: sectionsWithSameCourses.map(assign =>
-                                    assign.ProgYrSecs.map(sec => sec.id)
-                                ).flat()
+                                id: duplicateSectionIds
                             },
                             include: [{ model: Program }],
                             transaction: t
                         });
-
-                        const sectionDetails = affectedSections.map(section =>
+                        
+                        const sectionDetails = duplicateSections.map(section =>
                             `${section.Program.Code} ${section.Year}-${section.Section}`
                         ).join(', ');
-
+                        
                         await t.rollback();
                         return res.status(400).json({
                             successful: false,
-                            message: `This course or one of its paired courses is already assigned to the following section(s): ${sectionDetails}`
+                            message: `This course or one of its paired courses is already assigned to the following section(s): ${sectionDetails} for the same semester and school year.`
                         });
                     }
                 }
@@ -349,7 +387,7 @@ const addAssignation = async (req, res, next) => {
                     SchoolYearId,
                     CourseId,
                     DepartmentId,
-                    Semester  // Include Semester in the main assignation
+                    Semester
                 };
 
                 // Add ProfessorId if it was provided
@@ -371,11 +409,29 @@ const addAssignation = async (req, res, next) => {
                 
                 // Create assignations for paired courses if they exist
                 for (const pairedCourse of pairedCourses) {
+                    // Check if paired course is tutorial and already has an assignation for this semester/school year with the same professor
+                    if (pairedCourse.isTutorial && ProfessorId) {
+                        const existingTutorialAssignation = await Assignation.findOne({
+                            where: {
+                                SchoolYearId,
+                                CourseId: pairedCourse.id,
+                                Semester,
+                                ProfessorId
+                            },
+                            transaction: t
+                        });
+                        
+                        if (existingTutorialAssignation) {
+                            // Skip this paired course as it already has an assignation with this professor
+                            continue;
+                        }
+                    }
+                    
                     const pairedAssignationData = {
                         SchoolYearId,
                         CourseId: pairedCourse.id,
                         DepartmentId,
-                        Semester  // Include the same semester for paired courses
+                        Semester
                     };
                     
                     // Always use the same professor for paired courses
@@ -744,7 +800,7 @@ const getAllAssignationsByDept = async (req, res, next) => {
                     include: [
                         {
                             model: Program,
-                            attributes: ['Code', 'Description']
+                            attributes: ['Code', 'Name']
                         }
                     ]
                 }
@@ -938,7 +994,7 @@ const deleteAssignation = async (req, res, next) => {
                         SchoolYearId: assignation.SchoolYearId,
                         ProfessorId: assignation.ProfessorId,
                         Semester: assignation.Semester,
-                        id: { [sequelize.Op.ne]: assignation.id } // Exclude the current assignation
+                        id: { [Op.ne]: assignation.id } // Exclude the current assignation
                     },
                     include: [
                         {
