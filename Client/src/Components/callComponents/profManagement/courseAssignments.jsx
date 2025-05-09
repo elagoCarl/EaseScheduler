@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Plus, X, Search } from 'lucide-react';
+import { ChevronRight, Plus, X, Search, Users } from 'lucide-react';
 
 const CourseAssignments = ({
     professor,
@@ -9,6 +9,14 @@ const CourseAssignments = ({
 }) => {
     const [assignmentSearch, setAssignmentSearch] = useState('');
     const [activeSemester, setActiveSemester] = useState('all');
+    const [expandedAssignments, setExpandedAssignments] = useState({});
+
+    const toggleExpandAssignment = (assignmentId) => {
+        setExpandedAssignments(prev => ({
+            ...prev,
+            [assignmentId]: !prev[assignmentId]
+        }));
+    };
 
     const getFilteredAssignments = (profId, searchTerm, semesterFilter = 'all') => {
         let profAssignments = departmentAssignations.filter(
@@ -87,32 +95,67 @@ const CourseAssignments = ({
                 <div className="max-h-150 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                     <div className="space-y-2">
                         {filteredAssignments.map((assignment) => (
-                            <div key={assignment.id} className="flex justify-between items-center p-2.5 bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
-                                <div className="flex items-start gap-2">
-                                    <div className="text-blue-500 mt-0.5">
-                                        <ChevronRight size={14} />
-                                    </div>
-                                    <div>
-                                        <span className="text-gray-800 text-sm font-medium">{assignment.Course?.Code}</span>
-                                        <p className="text-gray-600 text-xs">{assignment.Course?.Description}</p>
-                                        <p className="text-gray-600 text-xs">Semester: {assignment.Semester}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-xs text-gray-500">{assignment.Course?.Units} Units</span>
-                                            {assignment.Course?.RoomType && (
-                                                <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">
-                                                    {assignment.Course.RoomType.Type}
-                                                </span>
-                                            )}
+                            <div key={assignment.id} className="bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
+                                <div className="flex justify-between items-center p-2.5">
+                                    <div className="flex items-start gap-2">
+                                        <button 
+                                            onClick={() => toggleExpandAssignment(assignment.id)}
+                                            className="text-blue-500 mt-0.5 transform transition-transform duration-150"
+                                            style={{ 
+                                                transform: expandedAssignments[assignment.id] ? 'rotate(90deg)' : 'rotate(0deg)'
+                                            }}
+                                        >
+                                            <ChevronRight size={14} />
+                                        </button>
+                                        <div>
+                                            <span className="text-gray-800 text-sm font-medium">{assignment.Course?.Code}</span>
+                                            <p className="text-gray-600 text-xs">{assignment.Course?.Description}</p>
+                                            <p className="text-gray-600 text-xs">Semester: {assignment.Semester}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-xs text-gray-500">{assignment.Course?.Units} Units</span>
+                                                {assignment.Course?.RoomType && (
+                                                    <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">
+                                                        {assignment.Course.RoomType.Type}
+                                                    </span>
+                                                )}
+                                                {assignment.ProgYrSecs && assignment.ProgYrSecs.length > 0 && (
+                                                    <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                        <Users size={10} />
+                                                        {assignment.ProgYrSecs.length} {assignment.ProgYrSecs.length === 1 ? 'Section' : 'Sections'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                    <button
+                                        className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                        onClick={() => onDeleteAssignment(assignment.id)}
+                                    >
+                                        <X size={12} />
+                                        Remove Assignment
+                                    </button>
                                 </div>
-                                <button
-                                    className="text-xs py-1 px-2 bg-white text-red-600 rounded hover:bg-red-50 transition duration-150 border border-gray-200 opacity-0 group-hover:opacity-100 flex items-center gap-1"
-                                    onClick={() => onDeleteAssignment(assignment.id)}
-                                >
-                                    <X size={12} />
-                                    Remove Assignment
-                                </button>
+                                
+                                {/* Sections Assigned (collapsible) */}
+                                {expandedAssignments[assignment.id] && assignment.ProgYrSecs && assignment.ProgYrSecs.length > 0 && (
+                                    <div className="pl-8 pr-2 pb-2.5 border-t border-gray-200">
+                                        <div className="pt-2 pb-1">
+                                            <span className="text-xs font-medium text-gray-700">Assigned Sections:</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded border border-gray-100">
+                                            {assignment.ProgYrSecs.map((progYrSec, index) => (
+                                                <React.Fragment key={progYrSec.id}>
+                                                    <span className="text-xs font-medium text-gray-800">
+                                                        {progYrSec.Program.Code}{progYrSec.Year}{progYrSec.Section}
+                                                    </span>
+                                                    {index < assignment.ProgYrSecs.length - 1 && (
+                                                        <span className="text-gray-400 text-xs">,</span>
+                                                    )}
+                                                </React.Fragment>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

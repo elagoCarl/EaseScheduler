@@ -43,6 +43,10 @@ const ProfessorManagement = () => {
     const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
     const [schoolYears, setSchoolYears] = useState([]);
     const [selectedSchoolYears, setSelectedSchoolYears] = useState({});
+    const [areAllExpanded, setAreAllExpanded] = useState(true);
+    const [professorLoads, setProfessorLoads] = useState({});
+    const [loadingProfessorLoads, setLoadingProfessorLoads] = useState({});
+    
     const professorsPerPage = 8;
     const showNotification = (message, type = "info") => toast[type](message);
 
@@ -50,9 +54,11 @@ const ProfessorManagement = () => {
         try {
             await Promise.all([
                 fetchProfStatuses(),
-                fetchProfessors(),
-                fetchDepartmentAssignations(),
                 fetchSchoolYears()
+            ]);
+            await Promise.all([
+                fetchProfessors(),
+                fetchDepartmentAssignations()
             ]);
         } catch (error) {
             setError("Error fetching data: " + error.message);
@@ -73,7 +79,6 @@ const ProfessorManagement = () => {
                     const initialSelectedYears = { ...selectedSchoolYears };
                     let shouldUpdateState = false;
 
-                    // Set default school year for each professor if not already set
                     professors.forEach(prof => {
                         if (!initialSelectedYears[prof.id]) {
                             initialSelectedYears[prof.id] = defaultSchoolYear.id;
@@ -81,7 +86,6 @@ const ProfessorManagement = () => {
                         }
                     });
 
-                    // Only update state if there were changes
                     if (shouldUpdateState) {
                         setSelectedSchoolYears(initialSelectedYears);
                     }
@@ -91,30 +95,21 @@ const ProfessorManagement = () => {
             console.error("Failed to fetch school years:", error);
             showNotification("Failed to fetch school years", "error");
         }
-    };
-
-    const [professorLoads, setProfessorLoads] = useState({});
-    const [loadingProfessorLoads, setLoadingProfessorLoads] = useState({});
+    }
 
     const fetchProfessorLoad = async (profId, syId) => {
         if (!profId || !syId) return;
 
         try {
-            // Check if we're already loading this professor's load
-            if (loadingProfessorLoads[profId]) {
-                return; // Already loading, exit early
-            }
+            if (loadingProfessorLoads[profId]) return;
 
-            // Mark this professor's load as loading
             setLoadingProfessorLoads(prev => ({
                 ...prev,
                 [profId]: true
             }));
 
-            // Check if we already have this load in the state
             const loadKey = `${profId}-${syId}`;
             if (professorLoads[loadKey] !== undefined) {
-                // Already loaded, just update loading state and exit
                 setLoadingProfessorLoads(prev => ({
                     ...prev,
                     [profId]: false
@@ -122,25 +117,16 @@ const ProfessorManagement = () => {
                 return;
             }
 
-            // Use query parameters explicitly to match backend expectations
             const response = await axios.get("/profLoad/getProfLoadByProfAndSY", {
-                params: {
-                    profId: profId,
-                    syId: syId
-                }
+                params: { profId, syId }
             });
 
-            console.log(`Load data for prof ${profId}, SY ${syId}:`, response.data);
-
             if (response.data.successful) {
-                // Store the load data with the correct key
                 setProfessorLoads(prev => ({
                     ...prev,
                     [loadKey]: response.data.data
                 }));
             } else {
-                console.log("API returned unsuccessful:", response.data.message);
-                // Set null for this professor-SY combination to indicate we checked
                 setProfessorLoads(prev => ({
                     ...prev,
                     [loadKey]: null
@@ -166,8 +152,6 @@ const ProfessorManagement = () => {
             ...prev,
             [profId]: schoolYearId
         }));
-
-        // When school year changes, fetch the load for this professor and school year
         fetchProfessorLoad(profId, schoolYearId);
     };
 
@@ -206,7 +190,6 @@ const ProfessorManagement = () => {
     const getLoadingStatus = (professor, semester, schoolYearId) => {
         if (!professor || Object.keys(profStatusMap).length === 0) return "Normal Load";
 
-        // Get the status name and find its ID in the status map
         const statusName = professor.status;
         const statusEntry = Object.entries(profStatusMap).find(
             ([, info]) => info.status === statusName
@@ -215,37 +198,29 @@ const ProfessorManagement = () => {
         if (!statusEntry) return "Normal Load";
 
         const maxUnits = statusEntry[1].maxUnits;
-
-        // Only if schoolYearId is provided, use it for load lookup
         let semesterUnits = 0;
 
         if (schoolYearId) {
-            // Get load key for correct lookup
             const loadKey = `${professor.id}-${schoolYearId}`;
             const profLoad = professorLoads[loadKey];
 
             if (profLoad) {
-                // If profLoad exists and is not null
                 semesterUnits = semester === 1 ?
                     profLoad.First_Sem_Units :
                     profLoad.Second_Sem_Units;
             } else {
-                // Fall back to professor details if load not found
                 semesterUnits = semester === 1 ?
                     professor.details.firstSemUnits :
                     professor.details.secondSemUnits;
             }
         } else {
-            // If no schoolYearId, just use professor details
             semesterUnits = semester === 1 ?
                 professor.details.firstSemUnits :
                 professor.details.secondSemUnits;
         }
 
-        // Default to 0 if semesterUnits is undefined or null
         semesterUnits = semesterUnits || 0;
 
-        // Compare with max units and return status
         if (semesterUnits < maxUnits) return "Underload";
         if (semesterUnits > maxUnits) return "Overload";
         return "Normal Load";
@@ -259,8 +234,8 @@ const ProfessorManagement = () => {
                     id: prof.id,
                     name: prof.Name,
                     status: prof.Status,
-                    loadStatus1: getLoadingStatus(prof, 1),  // First semester load status
-                    loadStatus2: getLoadingStatus(prof, 2),  // Second semester load status
+                    loadStatus1: getLoadingStatus(prof, 1),
+                    loadStatus2: getLoadingStatus(prof, 2),
                     details: {
                         email: prof.Email,
                         firstSemUnits: prof.FirstSemUnits || 0,
@@ -274,17 +249,25 @@ const ProfessorManagement = () => {
                 setProfessors(transformedData);
                 setFilteredProfessors(transformedData);
                 setCurrentPage(1);
+
+                if (schoolYears.length > 0) {
+                    const defaultSchoolYear = schoolYears[0];
+                    const initialSelectedYears = {};
+                    transformedData.forEach(prof => {
+                        initialSelectedYears[prof.id] = defaultSchoolYear.id;
+                    });
+                    setSelectedSchoolYears(initialSelectedYears);
+                }
             }
         } catch (error) {
             showNotification("Failed to fetch professors", "error");
         }
-    };
+    }
 
     const toggleMinimize = (id) => {
         setProfessors(prevProfessors => prevProfessors.map(prof =>
             prof.id === id ? { ...prof, minimized: !prof.minimized } : prof
         ));
-        // Also update the filtered professors to avoid page reset
         setFilteredProfessors(prevFiltered => prevFiltered.map(prof =>
             prof.id === id ? { ...prof, minimized: !prof.minimized } : prof
         ));
@@ -300,7 +283,7 @@ const ProfessorManagement = () => {
         } catch (error) {
             showNotification("Error fetching professor details", "error");
         }
-    };
+    }
 
     const handleConfirmDelete = async () => {
         if (selectedProfIds.length === 0) return;
@@ -354,6 +337,33 @@ const ProfessorManagement = () => {
         }
     };
 
+    const toggleAllExpansion = () => {
+        const newExpandedState = !areAllExpanded;
+        setAreAllExpanded(newExpandedState);
+        setProfessors(professors.map(prof => ({ ...prof, minimized: !newExpandedState })));
+        setFilteredProfessors(prevFiltered => prevFiltered.map(prof =>
+            ({ ...prof, minimized: !newExpandedState })
+        ));
+    };
+
+    const handleAssignCourse = (professor) => {
+        setSelectedProfForCourse(professor);
+
+        if (!selectedSchoolYears[professor.id] && schoolYears.length > 0) {
+            setSelectedSchoolYears(prev => ({
+                ...prev,
+                [professor.id]: schoolYears[0].id
+            }));
+        }
+
+        setIsAssignCourseModalOpen(true);
+    };
+
+    const handleDeleteCourseAssignment = (assignmentId) => {
+        setSelectedAssignmentId(assignmentId);
+        setIsDeleteAssignmentWarningOpen(true);
+    };
+
     useEffect(() => {
         const filtered = professors.filter(professor => {
             const searchMatch = searchTerm.toLowerCase() === '' ||
@@ -372,20 +382,16 @@ const ProfessorManagement = () => {
 
         setFilteredProfessors(filtered);
 
-        // Only reset page when search term or active tab changes, not when just minimizing
         if (searchTerm !== '' || activeTab !== 'all') {
             setCurrentPage(1);
         }
     }, [searchTerm, activeTab, professors]);
 
     useEffect(() => {
-        // Only run if we have professors and school years loaded
         if (professors.length > 0 && schoolYears.length > 0) {
-            // Initialize selected school years if not already set
             const updatedSelectedYears = { ...selectedSchoolYears };
             let shouldUpdateState = false;
 
-            // For each professor, set default school year if not already set
             professors.forEach(prof => {
                 if (!updatedSelectedYears[prof.id] && schoolYears.length > 0) {
                     updatedSelectedYears[prof.id] = schoolYears[0].id;
@@ -393,19 +399,15 @@ const ProfessorManagement = () => {
                 }
             });
 
-            // Update state if needed (but only once)
             if (shouldUpdateState) {
                 setSelectedSchoolYears(updatedSelectedYears);
             }
 
-            // Only fetch loads for professors with selected school years
-            // that haven't been loaded yet
             professors.forEach(prof => {
                 const schoolYearId = updatedSelectedYears[prof.id];
                 if (schoolYearId) {
                     const loadKey = `${prof.id}-${schoolYearId}`;
 
-                    // Only fetch if we don't already have this load or are not currently loading it
                     if (professorLoads[loadKey] === undefined && !loadingProfessorLoads[prof.id]) {
                         fetchProfessorLoad(prof.id, schoolYearId);
                     }
@@ -418,9 +420,7 @@ const ProfessorManagement = () => {
         fetchData();
     }, []);
 
-    // Effect to load professor loads when professors or selected school years change
     useEffect(() => {
-        // Update professor loadStatus1 and loadStatus2 whenever load data changes
         const updatedProfessors = professors.map(prof => {
             const schoolYearId = selectedSchoolYears[prof.id];
             return {
@@ -432,17 +432,6 @@ const ProfessorManagement = () => {
 
         setProfessors(updatedProfessors);
     }, [professorLoads, selectedSchoolYears]);
-
-    // Handler functions for CourseAssignments component
-    const handleAssignCourse = (professor) => {
-        setSelectedProfForCourse(professor);
-        setIsAssignCourseModalOpen(true);
-    };
-
-    const handleDeleteCourseAssignment = (assignmentId) => {
-        setSelectedAssignmentId(assignmentId);
-        setIsDeleteAssignmentWarningOpen(true);
-    };
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>{error}</div>;
@@ -527,15 +516,10 @@ const ProfessorManagement = () => {
                         </div>
 
                         <div className="flex flex-wrap gap-3 mt-4 border-t border-gray-100 pt-4">
-                            <button onClick={() => setProfessors(professors.map(prof => ({ ...prof, minimized: false })))}
+                            <button onClick={toggleAllExpansion}
                                 className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition duration-200 flex items-center gap-2 shadow-md">
-                                <ChevronDown size={16} />
-                                Expand All
-                            </button>
-                            <button onClick={() => setProfessors(professors.map(prof => ({ ...prof, minimized: true })))}
-                                className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition duration-200 flex items-center gap-2">
-                                <ChevronUp size={16} />
-                                Collapse All
+                                {areAllExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                {areAllExpanded ? 'Collapse All' : 'Expand All'}
                             </button>
                             <button onClick={() => setIsAddProfModalOpen(true)}
                                 className="ml-auto px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition duration-200 flex items-center gap-2 shadow-md">
@@ -545,7 +529,7 @@ const ProfessorManagement = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-2 lg:p-8 gap-12 lg:gap-16 mt-10">
+                    <div className="grid md:grid-cols-2 lg:p-8 gap-12 lg:gap-16 mt-10">
                         {currentProfessors.length > 0 ? (
                             currentProfessors.map(professor => (
                                 <div key={professor.id} className="bg-white rounded shadow-md overflow-hidden hover:shadow-lg transition duration-300">
@@ -554,12 +538,9 @@ const ProfessorManagement = () => {
                                             <div>
                                                 <h2 className="text-lg font-semibold text-white tracking-tight">{professor.name}</h2>
                                                 <div className="flex flex-wrap gap-1.5 mt-1">
-                                                    {/* Existing status badge */}
                                                     <span className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getStatusColor(professor.status)}`}>
                                                         {professor.status}
                                                     </span>
-
-                                                    {/* New load‐status badges */}
                                                     <span
                                                         className={`px-2 py-0.5 text-xs font-medium rounded-md border ${getLoadStatusColor(getLoadingStatus(professor, 1, selectedSchoolYears[professor.id]))}`}
                                                     >
@@ -571,7 +552,6 @@ const ProfessorManagement = () => {
                                                         Sem 2: {getLoadingStatus(professor, 2, selectedSchoolYears[professor.id])}
                                                     </span>
                                                 </div>
-
                                             </div>
                                             <button onClick={() => toggleMinimize(professor.id)}
                                                 className="p-1.5 bg-white bg-opacity-20 text-white rounded-md hover:bg-opacity-30 transition-all"
@@ -585,7 +565,6 @@ const ProfessorManagement = () => {
                                                 <span>{professor.details.email}</span>
                                             </div>
 
-                                            {/* School Year Dropdown */}
                                             <div className="mb-3">
                                                 <label htmlFor={`schoolYear-${professor.id}`} className="block text-xs font-medium text-blue-100 mb-1">
                                                     School Year
@@ -610,9 +589,7 @@ const ProfessorManagement = () => {
                                                 </select>
                                             </div>
 
-                                            {/* Semester load info */}
                                             <div className="grid grid-cols-2 gap-3 mt-2">
-                                                {/* First Semester */}
                                                 <div className="bg-white bg-opacity-10 rounded p-2">
                                                     <h4 className="text-xs font-medium mb-1">First Semester</h4>
                                                     <div className="flex items-center justify-between">
@@ -625,8 +602,6 @@ const ProfessorManagement = () => {
                                                                     {(() => {
                                                                         const loadKey = `${professor.id}-${selectedSchoolYears[professor.id]}`;
                                                                         const loadData = professorLoads[loadKey];
-
-                                                                        // Display the units from load data if available, else use professor details
                                                                         if (loadData && loadData.First_Sem_Units !== undefined) {
                                                                             return loadData.First_Sem_Units;
                                                                         } else {
@@ -639,7 +614,6 @@ const ProfessorManagement = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Second Semester */}
                                                 <div className="bg-white bg-opacity-10 rounded p-2">
                                                     <h4 className="text-xs font-medium mb-1">Second Semester</h4>
                                                     <div className="flex items-center justify-between">
@@ -652,8 +626,6 @@ const ProfessorManagement = () => {
                                                                     {(() => {
                                                                         const loadKey = `${professor.id}-${selectedSchoolYears[professor.id]}`;
                                                                         const loadData = professorLoads[loadKey];
-
-                                                                        // Display the units from load data if available, else use professor details
                                                                         if (loadData && loadData.Second_Sem_Units !== undefined) {
                                                                             return loadData.Second_Sem_Units;
                                                                         } else {
@@ -804,12 +776,18 @@ const ProfessorManagement = () => {
                 />
             )}
             {isAssignCourseModalOpen && selectedProfForCourse && (
-                <AddAssignationModal isOpen={isAssignCourseModalOpen} onClose={() => setIsAssignCourseModalOpen(false)} onAssignationAdded={(newAssignation) => {
-                    setIsAssignCourseModalOpen(false);
-                    fetchDepartmentAssignations();
-                    fetchProfessors();
-                    showNotification("Course assigned successfully", "success");
-                }} professorId={selectedProfForCourse.id} schoolYearId={selectedSchoolYears[selectedProfForCourse.id]}
+                <AddAssignationModal
+                    isOpen={isAssignCourseModalOpen}
+                    onClose={() => setIsAssignCourseModalOpen(false)}
+                    onAssignationAdded={(newAssignation) => {
+                        setIsAssignCourseModalOpen(false);
+                        fetchDepartmentAssignations();
+                        fetchProfessors();
+                        showNotification("Course assigned successfully", "success");
+                    }}
+                    professorId={selectedProfForCourse.id}
+                    schoolYearId={selectedSchoolYears[selectedProfForCourse.id] ||
+                        (schoolYears.length > 0 ? schoolYears[0].id : null)}
                 />
             )}
             {isDeleteAssignmentWarningOpen && (

@@ -649,6 +649,13 @@ const getCoursesByDept = async (req, res, next) => {
           model: RoomType,
           attributes: ['id', 'Type'], // Include the RoomType attributes you want to show
           required: false
+        },
+        {
+          model: CourseProg,
+          as: "CourseProgs",
+          attributes: ['Year', 'Semester', 'ProgramId'],
+          required: false,
+
         }
       ]
     });
