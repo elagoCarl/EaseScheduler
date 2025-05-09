@@ -65,19 +65,30 @@ const ProfessorManagement = () => {
         try {
             const response = await axios.get("/schoolYear/getAllSchoolYears");
             if (response.data.successful) {
-                setSchoolYears(response.data.data);
+                const years = response.data.data;
+                setSchoolYears(years);
 
-                // Initialize selected school years with the first in the list for each professor
-                if (response.data.data.length > 0) {
-                    const defaultSchoolYear = response.data.data[0];
-                    const initialSelectedYears = {};
+                if (years.length > 0 && professors.length > 0) {
+                    const defaultSchoolYear = years[0];
+                    const initialSelectedYears = { ...selectedSchoolYears };
+                    let shouldUpdateState = false;
+
+                    // Set default school year for each professor if not already set
                     professors.forEach(prof => {
-                        initialSelectedYears[prof.id] = defaultSchoolYear.id;
+                        if (!initialSelectedYears[prof.id]) {
+                            initialSelectedYears[prof.id] = defaultSchoolYear.id;
+                            shouldUpdateState = true;
+                        }
                     });
-                    setSelectedSchoolYears(initialSelectedYears);
+
+                    // Only update state if there were changes
+                    if (shouldUpdateState) {
+                        setSelectedSchoolYears(initialSelectedYears);
+                    }
                 }
             }
         } catch (error) {
+            console.error("Failed to fetch school years:", error);
             showNotification("Failed to fetch school years", "error");
         }
     };
@@ -89,11 +100,29 @@ const ProfessorManagement = () => {
         if (!profId || !syId) return;
 
         try {
+            // Check if we're already loading this professor's load
+            if (loadingProfessorLoads[profId]) {
+                return; // Already loading, exit early
+            }
+
+            // Mark this professor's load as loading
             setLoadingProfessorLoads(prev => ({
                 ...prev,
                 [profId]: true
             }));
 
+            // Check if we already have this load in the state
+            const loadKey = `${profId}-${syId}`;
+            if (professorLoads[loadKey] !== undefined) {
+                // Already loaded, just update loading state and exit
+                setLoadingProfessorLoads(prev => ({
+                    ...prev,
+                    [profId]: false
+                }));
+                return;
+            }
+
+            // Use query parameters explicitly to match backend expectations
             const response = await axios.get("/profLoad/getProfLoadByProfAndSY", {
                 params: {
                     profId: profId,
@@ -101,16 +130,20 @@ const ProfessorManagement = () => {
                 }
             });
 
+            console.log(`Load data for prof ${profId}, SY ${syId}:`, response.data);
+
             if (response.data.successful) {
+                // Store the load data with the correct key
                 setProfessorLoads(prev => ({
                     ...prev,
-                    [`${profId}-${syId}`]: response.data.data
+                    [loadKey]: response.data.data
                 }));
             } else {
-                // If no load found or error, set to null to indicate we checked but nothing found
+                console.log("API returned unsuccessful:", response.data.message);
+                // Set null for this professor-SY combination to indicate we checked
                 setProfessorLoads(prev => ({
                     ...prev,
-                    [`${profId}-${syId}`]: null
+                    [loadKey]: null
                 }));
             }
         } catch (error) {
@@ -173,24 +206,46 @@ const ProfessorManagement = () => {
     const getLoadingStatus = (professor, semester, schoolYearId) => {
         if (!professor || Object.keys(profStatusMap).length === 0) return "Normal Load";
 
+        // Get the status name and find its ID in the status map
         const statusName = professor.status;
-        const statusId = Object.entries(profStatusMap).find(
+        const statusEntry = Object.entries(profStatusMap).find(
             ([, info]) => info.status === statusName
-        )?.[0];
+        );
 
-        if (!statusId) return "Normal Load";
+        if (!statusEntry) return "Normal Load";
 
-        const maxUnits = profStatusMap[statusId].maxUnits;
+        const maxUnits = statusEntry[1].maxUnits;
 
-        // Get semester units from professor loads if available
-        const loadKey = `${professor.id}-${schoolYearId}`;
-        const profLoad = professorLoads[loadKey];
+        // Only if schoolYearId is provided, use it for load lookup
+        let semesterUnits = 0;
 
-        // Use the load data if available, otherwise fall back to professor details
-        const semesterUnits = profLoad
-            ? (semester === 1 ? profLoad.First_Sem_Units : profLoad.Second_Sem_Units)
-            : (semester === 1 ? professor.details.firstSemUnits : professor.details.secondSemUnits);
+        if (schoolYearId) {
+            // Get load key for correct lookup
+            const loadKey = `${professor.id}-${schoolYearId}`;
+            const profLoad = professorLoads[loadKey];
 
+            if (profLoad) {
+                // If profLoad exists and is not null
+                semesterUnits = semester === 1 ?
+                    profLoad.First_Sem_Units :
+                    profLoad.Second_Sem_Units;
+            } else {
+                // Fall back to professor details if load not found
+                semesterUnits = semester === 1 ?
+                    professor.details.firstSemUnits :
+                    professor.details.secondSemUnits;
+            }
+        } else {
+            // If no schoolYearId, just use professor details
+            semesterUnits = semester === 1 ?
+                professor.details.firstSemUnits :
+                professor.details.secondSemUnits;
+        }
+
+        // Default to 0 if semesterUnits is undefined or null
+        semesterUnits = semesterUnits || 0;
+
+        // Compare with max units and return status
         if (semesterUnits < maxUnits) return "Underload";
         if (semesterUnits > maxUnits) return "Overload";
         return "Normal Load";
@@ -323,6 +378,41 @@ const ProfessorManagement = () => {
         }
     }, [searchTerm, activeTab, professors]);
 
+    useEffect(() => {
+        // Only run if we have professors and school years loaded
+        if (professors.length > 0 && schoolYears.length > 0) {
+            // Initialize selected school years if not already set
+            const updatedSelectedYears = { ...selectedSchoolYears };
+            let shouldUpdateState = false;
+
+            // For each professor, set default school year if not already set
+            professors.forEach(prof => {
+                if (!updatedSelectedYears[prof.id] && schoolYears.length > 0) {
+                    updatedSelectedYears[prof.id] = schoolYears[0].id;
+                    shouldUpdateState = true;
+                }
+            });
+
+            // Update state if needed (but only once)
+            if (shouldUpdateState) {
+                setSelectedSchoolYears(updatedSelectedYears);
+            }
+
+            // Only fetch loads for professors with selected school years
+            // that haven't been loaded yet
+            professors.forEach(prof => {
+                const schoolYearId = updatedSelectedYears[prof.id];
+                if (schoolYearId) {
+                    const loadKey = `${prof.id}-${schoolYearId}`;
+
+                    // Only fetch if we don't already have this load or are not currently loading it
+                    if (professorLoads[loadKey] === undefined && !loadingProfessorLoads[prof.id]) {
+                        fetchProfessorLoad(prof.id, schoolYearId);
+                    }
+                }
+            });
+        }
+    }, [professors, schoolYears]);
 
     useEffect(() => {
         fetchData();
@@ -532,8 +622,17 @@ const ProfessorManagement = () => {
                                                                 <span>Loading...</span>
                                                             ) : (
                                                                 <span>
-                                                                    {professorLoads[`${professor.id}-${selectedSchoolYears[professor.id]}`]?.First_Sem_Units ??
-                                                                        professor.details.firstSemUnits ?? 0} Units
+                                                                    {(() => {
+                                                                        const loadKey = `${professor.id}-${selectedSchoolYears[professor.id]}`;
+                                                                        const loadData = professorLoads[loadKey];
+
+                                                                        // Display the units from load data if available, else use professor details
+                                                                        if (loadData && loadData.First_Sem_Units !== undefined) {
+                                                                            return loadData.First_Sem_Units;
+                                                                        } else {
+                                                                            return professor.details.firstSemUnits || 0;
+                                                                        }
+                                                                    })()} Units
                                                                 </span>
                                                             )}
                                                         </div>
@@ -550,8 +649,17 @@ const ProfessorManagement = () => {
                                                                 <span>Loading...</span>
                                                             ) : (
                                                                 <span>
-                                                                    {professorLoads[`${professor.id}-${selectedSchoolYears[professor.id]}`]?.Second_Sem_Units ??
-                                                                        professor.details.secondSemUnits ?? 0} Units
+                                                                    {(() => {
+                                                                        const loadKey = `${professor.id}-${selectedSchoolYears[professor.id]}`;
+                                                                        const loadData = professorLoads[loadKey];
+
+                                                                        // Display the units from load data if available, else use professor details
+                                                                        if (loadData && loadData.Second_Sem_Units !== undefined) {
+                                                                            return loadData.Second_Sem_Units;
+                                                                        } else {
+                                                                            return professor.details.secondSemUnits || 0;
+                                                                        }
+                                                                    })()} Units
                                                                 </span>
                                                             )}
                                                         </div>
