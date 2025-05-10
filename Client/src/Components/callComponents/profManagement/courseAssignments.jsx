@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { ChevronRight, Plus, X, Search, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, Plus, X, Search, Users, Calendar } from 'lucide-react';
 
 const CourseAssignments = ({
     professor,
     departmentAssignations,
     onAssignCourse,
-    onDeleteAssignment
+    onDeleteAssignment,
+    selectedSchoolYear // Add this new prop
 }) => {
     const [assignmentSearch, setAssignmentSearch] = useState('');
     const [activeSemester, setActiveSemester] = useState('all');
@@ -18,10 +19,17 @@ const CourseAssignments = ({
         }));
     };
 
-    const getFilteredAssignments = (profId, searchTerm, semesterFilter = 'all') => {
+    const getFilteredAssignments = (profId, searchTerm, semesterFilter = 'all', schoolYearId) => {
         let profAssignments = departmentAssignations.filter(
             assignment => assignment.ProfessorId === profId
         );
+
+        // Apply school year filter if provided
+        if (schoolYearId) {
+            profAssignments = profAssignments.filter(
+                assignment => assignment.SchoolYearId === parseInt(schoolYearId, 10)
+            );
+        }
 
         // Apply semester filter if not 'all'
         if (semesterFilter !== 'all') {
@@ -44,7 +52,22 @@ const CourseAssignments = ({
         return profAssignments;
     };
 
-    const filteredAssignments = getFilteredAssignments(professor.id, assignmentSearch, activeSemester);
+    const filteredAssignments = getFilteredAssignments(
+        professor.id, 
+        assignmentSearch, 
+        activeSemester, 
+        selectedSchoolYear
+    );
+
+    // Reset expanded state when professor or school year changes
+    useEffect(() => {
+        setExpandedAssignments({});
+    }, [professor.id, selectedSchoolYear]);
+
+    // Reset semester filter when school year changes
+    useEffect(() => {
+        setActiveSemester('all');
+    }, [selectedSchoolYear]);
 
     return (
         <div className="p-8">
@@ -62,6 +85,16 @@ const CourseAssignments = ({
                     Assign Course
                 </button>
             </div>
+
+            {/* Display selected school year */}
+            {selectedSchoolYear && (
+                <div className="mb-3 bg-blue-50 p-2 rounded flex items-center gap-2">
+                    <Calendar size={16} className="text-blue-500" />
+                    <span className="text-sm text-blue-700">
+                        Showing assignments for selected school year
+                    </span>
+                </div>
+            )}
 
             <div className="mb-3 flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-grow">
@@ -96,6 +129,10 @@ const CourseAssignments = ({
                     <div className="space-y-2">
                         {filteredAssignments.map((assignment) => (
                             <div key={assignment.id} className="bg-gray-50 rounded hover:bg-gray-100 transition duration-150 group">
+                                {/* Assignment content - keep existing code */}
+                                {/* ... */}
+                                
+                                {/* Assignment header row */}
                                 <div className="flex justify-between items-center p-2.5">
                                     <div className="flex items-start gap-2">
                                         <button 
@@ -163,8 +200,15 @@ const CourseAssignments = ({
             ) : (
                 <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
                     <p className="text-gray-500 text-sm">
-                        {assignmentSearch || activeSemester !== 'all' ? "No matching courses found" : "No courses assigned"}
+                        {assignmentSearch || activeSemester !== 'all' || selectedSchoolYear ? 
+                            "No matching course assignments found" : 
+                            "No courses assigned"}
                     </p>
+                    {selectedSchoolYear && (
+                        <p className="text-xs text-gray-400 mt-1">
+                            Try selecting a different school year or semester
+                        </p>
+                    )}
                 </div>
             )}
         </div>

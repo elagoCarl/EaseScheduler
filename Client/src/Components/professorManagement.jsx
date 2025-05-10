@@ -46,7 +46,7 @@ const ProfessorManagement = () => {
     const [areAllExpanded, setAreAllExpanded] = useState(true);
     const [professorLoads, setProfessorLoads] = useState({});
     const [loadingProfessorLoads, setLoadingProfessorLoads] = useState({});
-    
+
     const professorsPerPage = 8;
     const showNotification = (message, type = "info") => toast[type](message);
 
@@ -96,12 +96,26 @@ const ProfessorManagement = () => {
             showNotification("Failed to fetch school years", "error");
         }
     }
+    const refreshProfessorLoadData = async (profId) => {
+        if (!profId || !selectedSchoolYears[profId]) return;
+
+        // Clear existing load data first
+        const loadKey = `${profId}-${selectedSchoolYears[profId]}`;
+        setProfessorLoads(prev => {
+            const newLoads = { ...prev };
+            delete newLoads[loadKey]; // Remove the existing data
+            return newLoads;
+        });
+
+        // Fetch fresh data
+        return fetchProfessorLoad(profId, selectedSchoolYears[profId]);
+    }
 
     const fetchProfessorLoad = async (profId, syId) => {
-        if (!profId || !syId) return;
+        if (!profId || !syId) return null;
 
         try {
-            if (loadingProfessorLoads[profId]) return;
+            if (loadingProfessorLoads[profId]) return null;
 
             setLoadingProfessorLoads(prev => ({
                 ...prev,
@@ -109,13 +123,9 @@ const ProfessorManagement = () => {
             }));
 
             const loadKey = `${profId}-${syId}`;
-            if (professorLoads[loadKey] !== undefined) {
-                setLoadingProfessorLoads(prev => ({
-                    ...prev,
-                    [profId]: false
-                }));
-                return;
-            }
+
+            // Force a refresh by not checking if the data already exists
+            // This way we always get fresh data after an assignment change
 
             const response = await axios.get("/profLoad/getProfLoadByProfAndSY", {
                 params: { profId, syId }
@@ -126,11 +136,15 @@ const ProfessorManagement = () => {
                     ...prev,
                     [loadKey]: response.data.data
                 }));
+
+                return response.data.data;
             } else {
                 setProfessorLoads(prev => ({
                     ...prev,
                     [loadKey]: null
                 }));
+
+                return null;
             }
         } catch (error) {
             console.error("Error fetching professor load:", error);
@@ -139,6 +153,8 @@ const ProfessorManagement = () => {
                 ...prev,
                 [`${profId}-${syId}`]: null
             }));
+
+            return null;
         } finally {
             setLoadingProfessorLoads(prev => ({
                 ...prev,
@@ -146,6 +162,7 @@ const ProfessorManagement = () => {
             }));
         }
     };
+
 
     const handleSchoolYearChange = (profId, schoolYearId) => {
         setSelectedSchoolYears(prev => ({
@@ -304,10 +321,42 @@ const ProfessorManagement = () => {
         if (!selectedAssignmentId) return;
 
         try {
+            // Find the assignation before deleting it to get the professor ID
+            const assignation = departmentAssignations.find(a => a.id === selectedAssignmentId);
+            const profId = assignation?.ProfessorId;
+
             const response = await axios.delete(`/assignation/deleteAssignation/${selectedAssignmentId}`);
             if (response.data.successful) {
-                fetchDepartmentAssignations();
-                fetchProfessors();
+                await fetchDepartmentAssignations();
+
+                // Directly force a refresh of this professor's load data
+                if (profId) {
+                    await refreshProfessorLoadData(profId);
+
+                    // Update the professors array with the updated load status
+                    setProfessors(prev => prev.map(prof => {
+                        if (prof.id === profId) {
+                            return {
+                                ...prof,
+                                loadStatus1: getLoadingStatus(prof, 1, selectedSchoolYears[prof.id]),
+                                loadStatus2: getLoadingStatus(prof, 2, selectedSchoolYears[prof.id]),
+                            };
+                        }
+                        return prof;
+                    }));
+
+                    setFilteredProfessors(prev => prev.map(prof => {
+                        if (prof.id === profId) {
+                            return {
+                                ...prof,
+                                loadStatus1: getLoadingStatus(prof, 1, selectedSchoolYears[prof.id]),
+                                loadStatus2: getLoadingStatus(prof, 2, selectedSchoolYears[prof.id]),
+                            };
+                        }
+                        return prof;
+                    }));
+                }
+
                 showNotification("Assignment removed successfully", "success");
             } else {
                 showNotification("Failed to remove assignment", "error");
@@ -318,7 +367,7 @@ const ProfessorManagement = () => {
             setIsDeleteAssignmentWarningOpen(false);
             setSelectedAssignmentId(null);
         }
-    };
+    }
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -647,6 +696,7 @@ const ProfessorManagement = () => {
                                             departmentAssignations={departmentAssignations}
                                             onAssignCourse={handleAssignCourse}
                                             onDeleteAssignment={handleDeleteCourseAssignment}
+                                            selectedSchoolYear={selectedSchoolYears[professor.id]} // Pass the selected school year
                                         />
                                     </div>
 
@@ -779,10 +829,40 @@ const ProfessorManagement = () => {
                 <AddAssignationModal
                     isOpen={isAssignCourseModalOpen}
                     onClose={() => setIsAssignCourseModalOpen(false)}
-                    onAssignationAdded={(newAssignation) => {
+                    onAssignationAdded={async (newAssignation) => {
                         setIsAssignCourseModalOpen(false);
-                        fetchDepartmentAssignations();
-                        fetchProfessors();
+
+                        // Refresh the department assignations
+                        await fetchDepartmentAssignations();
+
+                        // Directly force a refresh of this professor's load data
+                        if (selectedProfForCourse && selectedProfForCourse.id) {
+                            await refreshProfessorLoadData(selectedProfForCourse.id);
+
+                            // Also update the professors array with the updated load status
+                            setProfessors(prev => prev.map(prof => {
+                                if (prof.id === selectedProfForCourse.id) {
+                                    return {
+                                        ...prof,
+                                        loadStatus1: getLoadingStatus(prof, 1, selectedSchoolYears[prof.id]),
+                                        loadStatus2: getLoadingStatus(prof, 2, selectedSchoolYears[prof.id]),
+                                    };
+                                }
+                                return prof;
+                            }));
+
+                            setFilteredProfessors(prev => prev.map(prof => {
+                                if (prof.id === selectedProfForCourse.id) {
+                                    return {
+                                        ...prof,
+                                        loadStatus1: getLoadingStatus(prof, 1, selectedSchoolYears[prof.id]),
+                                        loadStatus2: getLoadingStatus(prof, 2, selectedSchoolYears[prof.id]),
+                                    };
+                                }
+                                return prof;
+                            }));
+                        }
+
                         showNotification("Course assigned successfully", "success");
                     }}
                     professorId={selectedProfForCourse.id}
@@ -790,6 +870,7 @@ const ProfessorManagement = () => {
                         (schoolYears.length > 0 ? schoolYears[0].id : null)}
                 />
             )}
+
             {isDeleteAssignmentWarningOpen && (
                 <DeleteWarning isOpen={isDeleteAssignmentWarningOpen} onClose={() => setIsDeleteAssignmentWarningOpen(false)} onConfirm={handleDeleteAssignment} title="Remove Course Assignment" message="Are you sure you want to remove this course assignment? This will update the professor's total units."
                 />

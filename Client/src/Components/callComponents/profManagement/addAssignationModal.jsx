@@ -112,58 +112,61 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
 
     // Filter sections based on course program and check if already assigned
     useEffect(() => {
-        if (formData.CourseId && sections.length > 0 && courses.length > 0) {
-            const selectedCourse = courses.find(c => c.id === parseInt(formData.CourseId, 10));
-            
-            if (selectedCourse && selectedCourse.CourseProgs) {
-                // Get all valid program-year combinations for this course
-                const validProgramYears = selectedCourse.CourseProgs.map(cp => ({
+    if (formData.CourseId && formData.Semester && sections.length > 0 && courses.length > 0) {
+        const selectedCourse = courses.find(c => c.id === parseInt(formData.CourseId, 10));
+        const selectedSemester = parseInt(formData.Semester, 10);
+        
+        if (selectedCourse && selectedCourse.CourseProgs) {
+            // Get all valid program-year combinations for this course AND SEMESTER
+            const validProgramYears = selectedCourse.CourseProgs
+                .filter(cp => cp.Semester === selectedSemester || selectedCourse.isTutorial)
+                .map(cp => ({
                     programId: cp.ProgramId,
                     year: cp.Year
                 }));
-                
-                // Filter sections that match the course programs and year
-                let courseSections = sections.filter(section => 
-                    validProgramYears.some(validPY => 
-                        section.Program?.id === validPY.programId && 
-                        section.Year === validPY.year
-                    )
+            
+            // Filter sections that match the course programs and year for the selected semester
+            let courseSections = sections.filter(section => 
+                validProgramYears.some(validPY => 
+                    section.Program?.id === validPY.programId && 
+                    section.Year === validPY.year
+                )
+            );
+            
+            // Further filter out sections that are already assigned to this professor, course and school year
+            if (departmentAssignations.length > 0 && formData.ProfessorId && schoolYearId) {
+                // Find existing assignations for this professor, course and school year
+                const existingAssignations = departmentAssignations.filter(assignation => 
+                    assignation.ProfessorId === parseInt(formData.ProfessorId, 10) && 
+                    assignation.CourseId === parseInt(formData.CourseId, 10) && 
+                    assignation.SchoolYearId === parseInt(schoolYearId, 10) &&
+                    assignation.Semester === selectedSemester
                 );
                 
-                // Further filter out sections that are already assigned to this professor, course and school year
-                if (departmentAssignations.length > 0 && formData.ProfessorId && schoolYearId) {
-                    // Find existing assignations for this professor, course and school year
-                    const existingAssignations = departmentAssignations.filter(assignation => 
-                        assignation.ProfessorId === parseInt(formData.ProfessorId, 10) && 
-                        assignation.CourseId === parseInt(formData.CourseId, 10) && 
-                        assignation.SchoolYearId === schoolYearId &&
-                        assignation.Semester === parseInt(formData.Semester, 10)
-                    );
-                    
-                    // Get all section IDs that are already assigned
-                    const alreadyAssignedSectionIds = [];
-                    existingAssignations.forEach(assignation => {
-                        if (assignation.ProgYrSecs) {
-                            assignation.ProgYrSecs.forEach(section => {
-                                alreadyAssignedSectionIds.push(section.id);
-                            });
-                        }
-                    });
-                    
-                    // Filter out already assigned sections
-                    courseSections = courseSections.filter(section => 
-                        !alreadyAssignedSectionIds.includes(section.id)
-                    );
-                }
+                // Get all section IDs that are already assigned
+                const alreadyAssignedSectionIds = [];
+                existingAssignations.forEach(assignation => {
+                    if (assignation.ProgYrSecs) {
+                        assignation.ProgYrSecs.forEach(section => {
+                            alreadyAssignedSectionIds.push(section.id);
+                        });
+                    }
+                });
                 
-                setFilteredSections(courseSections);
-            } else {
-                setFilteredSections([]);
+                // Filter out already assigned sections
+                courseSections = courseSections.filter(section => 
+                    !alreadyAssignedSectionIds.includes(section.id)
+                );
             }
+            
+            setFilteredSections(courseSections);
         } else {
             setFilteredSections([]);
         }
-    }, [formData.CourseId, formData.ProfessorId, formData.Semester, sections, courses, departmentAssignations, schoolYearId]);
+    } else {
+        setFilteredSections([]);
+    }
+}, [formData.CourseId, formData.ProfessorId, formData.Semester, sections, courses, departmentAssignations, schoolYearId]);
 
     useEffect(() => {
         if (isOpen) {
