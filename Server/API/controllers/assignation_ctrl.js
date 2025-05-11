@@ -866,7 +866,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                 },
                 { 
                     model: Professor, 
-                    attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] 
+                    attributes: ['Name', 'Email'] 
                 },
                 { 
                     model: Department, 
@@ -878,7 +878,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                     include: [
                         {
                             model: Program,
-                            attributes: ['Code', 'Description']
+                            attributes: ['Code', 'Name']
                         }
                     ]
                 }
