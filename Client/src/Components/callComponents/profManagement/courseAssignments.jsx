@@ -6,7 +6,8 @@ const CourseAssignments = ({
     departmentAssignations,
     onAssignCourse,
     onDeleteAssignment,
-    selectedSchoolYear // Add this new prop
+    selectedSchoolYear,
+    departmentId
 }) => {
     const [assignmentSearch, setAssignmentSearch] = useState('');
     const [activeSemester, setActiveSemester] = useState('all');
