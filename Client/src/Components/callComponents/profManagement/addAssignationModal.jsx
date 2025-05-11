@@ -4,13 +4,13 @@ import axios from "../../../axiosConfig";
 import { useAuth } from '../../authContext';
 import { X, Check, AlertCircle, Calendar } from "lucide-react";
 
-const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId, schoolYearId }) => {
+const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId, schoolYearId, departmentId }) => {
     const { user } = useAuth();
     const [formData, setFormData] = useState({
         Semester: "",
         CourseId: "",
         ProfessorId: professorId ? professorId.toString() : "",
-        DepartmentId: user.DepartmentId,
+        DepartmentId: departmentId || user.DepartmentId,
         SchoolYearId: schoolYearId?.toString() || ""
     });
 
@@ -38,7 +38,8 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
         if (isOpen) {
             const fetchData = async () => {
                 try {
-                    const assignationsResponse = await axios.get(`/assignation/getAllAssignationsByDept/${user.DepartmentId}`);
+                    // Use departmentId instead of user.DepartmentId
+                    const assignationsResponse = await axios.get(`/assignation/getAllAssignationsByDept/${departmentId || user.DepartmentId}`);
                     if (assignationsResponse.status === 200) {
                         setDepartmentAssignations(assignationsResponse.data.data);
                     } else {
@@ -46,7 +47,8 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                         return;
                     }
 
-                    const coursesResponse = await axios.get(`course/getCoursesByDept/${user.DepartmentId}`)
+                    // Use departmentId instead of user.DepartmentId
+                    const coursesResponse = await axios.get(`course/getCoursesByDept/${departmentId || user.DepartmentId}`)
                     if (coursesResponse.status === 200) {
                         setCourses(coursesResponse.data.data);
                     } else {
@@ -86,7 +88,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
 
             fetchData();
         }
-    }, [isOpen, user.DepartmentId]);
+    }, [isOpen, user.DepartmentId, departmentId]);
 
     useEffect(() => {
         if (courses.length > 0 && formData.ProfessorId && formData.Semester) {
@@ -97,7 +99,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                 if (course.isTutorial) {
                     return true;
                 }
-                
+
                 // Regular courses are filtered by semester
                 return course.CourseProgs && course.CourseProgs.some(
                     prog => prog.Semester === semesterAsNumber
@@ -112,61 +114,61 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
 
     // Filter sections based on course program and check if already assigned
     useEffect(() => {
-    if (formData.CourseId && formData.Semester && sections.length > 0 && courses.length > 0) {
-        const selectedCourse = courses.find(c => c.id === parseInt(formData.CourseId, 10));
-        const selectedSemester = parseInt(formData.Semester, 10);
-        
-        if (selectedCourse && selectedCourse.CourseProgs) {
-            // Get all valid program-year combinations for this course AND SEMESTER
-            const validProgramYears = selectedCourse.CourseProgs
-                .filter(cp => cp.Semester === selectedSemester || selectedCourse.isTutorial)
-                .map(cp => ({
-                    programId: cp.ProgramId,
-                    year: cp.Year
-                }));
-            
-            // Filter sections that match the course programs and year for the selected semester
-            let courseSections = sections.filter(section => 
-                validProgramYears.some(validPY => 
-                    section.Program?.id === validPY.programId && 
-                    section.Year === validPY.year
-                )
-            );
-            
-            // Further filter out sections that are already assigned to this professor, course and school year
-            if (departmentAssignations.length > 0 && formData.ProfessorId && schoolYearId) {
-                // Find existing assignations for this professor, course and school year
-                const existingAssignations = departmentAssignations.filter(assignation => 
-                    assignation.ProfessorId === parseInt(formData.ProfessorId, 10) && 
-                    assignation.CourseId === parseInt(formData.CourseId, 10) && 
-                    assignation.SchoolYearId === parseInt(schoolYearId, 10) &&
-                    assignation.Semester === selectedSemester
+        if (formData.CourseId && formData.Semester && sections.length > 0 && courses.length > 0) {
+            const selectedCourse = courses.find(c => c.id === parseInt(formData.CourseId, 10));
+            const selectedSemester = parseInt(formData.Semester, 10);
+
+            if (selectedCourse && selectedCourse.CourseProgs) {
+                // Get all valid program-year combinations for this course AND SEMESTER
+                const validProgramYears = selectedCourse.CourseProgs
+                    .filter(cp => cp.Semester === selectedSemester || selectedCourse.isTutorial)
+                    .map(cp => ({
+                        programId: cp.ProgramId,
+                        year: cp.Year
+                    }));
+
+                // Filter sections that match the course programs and year for the selected semester
+                let courseSections = sections.filter(section =>
+                    validProgramYears.some(validPY =>
+                        section.Program?.id === validPY.programId &&
+                        section.Year === validPY.year
+                    )
                 );
-                
-                // Get all section IDs that are already assigned
-                const alreadyAssignedSectionIds = [];
-                existingAssignations.forEach(assignation => {
-                    if (assignation.ProgYrSecs) {
-                        assignation.ProgYrSecs.forEach(section => {
-                            alreadyAssignedSectionIds.push(section.id);
-                        });
-                    }
-                });
-                
-                // Filter out already assigned sections
-                courseSections = courseSections.filter(section => 
-                    !alreadyAssignedSectionIds.includes(section.id)
-                );
+
+                // Further filter out sections that are already assigned to this professor, course and school year
+                if (departmentAssignations.length > 0 && formData.ProfessorId && schoolYearId) {
+                    // Find existing assignations for this professor, course and school year
+                    const existingAssignations = departmentAssignations.filter(assignation =>
+                        assignation.ProfessorId === parseInt(formData.ProfessorId, 10) &&
+                        assignation.CourseId === parseInt(formData.CourseId, 10) &&
+                        assignation.SchoolYearId === parseInt(schoolYearId, 10) &&
+                        assignation.Semester === selectedSemester
+                    );
+
+                    // Get all section IDs that are already assigned
+                    const alreadyAssignedSectionIds = [];
+                    existingAssignations.forEach(assignation => {
+                        if (assignation.ProgYrSecs) {
+                            assignation.ProgYrSecs.forEach(section => {
+                                alreadyAssignedSectionIds.push(section.id);
+                            });
+                        }
+                    });
+
+                    // Filter out already assigned sections
+                    courseSections = courseSections.filter(section =>
+                        !alreadyAssignedSectionIds.includes(section.id)
+                    );
+                }
+
+                setFilteredSections(courseSections);
+            } else {
+                setFilteredSections([]);
             }
-            
-            setFilteredSections(courseSections);
         } else {
             setFilteredSections([]);
         }
-    } else {
-        setFilteredSections([]);
-    }
-}, [formData.CourseId, formData.ProfessorId, formData.Semester, sections, courses, departmentAssignations, schoolYearId]);
+    }, [formData.CourseId, formData.ProfessorId, formData.Semester, sections, courses, departmentAssignations, schoolYearId]);
 
     useEffect(() => {
         if (isOpen) {
@@ -174,7 +176,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                 Semester: "",
                 CourseId: "",
                 ProfessorId: professorId ? professorId.toString() : "",
-                DepartmentId: user.DepartmentId,
+                DepartmentId: departmentId || user.DepartmentId,
                 SchoolYearId: schoolYearId?.toString() || ""
             });
             setErrorMessage("");
@@ -188,14 +190,14 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
             setMaxAllowedUnits(0);
             setSelectedSectionIds([]);
         }
-    }, [isOpen, user.DepartmentId, professorId, schoolYearId]);
+    }, [isOpen, departmentId, professorId, schoolYearId]);
 
     useEffect(() => {
         if (formData.CourseId && formData.Semester) {
             const courseStillAvailable = filteredAvailableCourses.some(
                 course => course.id === parseInt(formData.CourseId, 10)
             );
-            
+
             if (!courseStillAvailable) {
                 setFormData(prev => ({
                     ...prev,
@@ -257,7 +259,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        
+
         if (name === "Semester") {
             setFormData({
                 ...formData,
@@ -320,7 +322,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
         };
 
         try {
-            
+
             const response = await axios.post(
                 "/assignation/addAssignation",
                 submissionData
@@ -328,7 +330,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
 
             if (response.data.successful) {
                 setSuccessMessage(response.data.message);
-                
+
                 if (response.data.warning) {
                     setWarningMessage(response.data.warning);
                 }
@@ -352,7 +354,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                 error.message ||
                 "Failed to add assignation."
             );
-            
+
         } finally {
             setIsSubmitting(false);
         }
@@ -402,9 +404,8 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                         <input
                             type="text"
                             placeholder={isCourseSelectionDisabled ? "Select a semester first" : "Search for a course..."}
-                            className={`w-full p-2.5 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
-                                isCourseSelectionDisabled ? "bg-gray-100 border-gray-200 cursor-not-allowed" : "border-gray-300"
-                            }`}
+                            className={`w-full p-2.5 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${isCourseSelectionDisabled ? "bg-gray-100 border-gray-200 cursor-not-allowed" : "border-gray-300"
+                                }`}
                             value={courseSearch}
                             onChange={handleCourseSearchChange}
                             onFocus={() => {
@@ -494,7 +495,7 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                     {formData.CourseId && (
                         <div className="space-y-1.5">
                             <label className="block text-sm font-medium text-gray-700">Sections</label>
-                            
+
                             <div className="border border-gray-300 rounded p-2">
                                 {filteredSections.length > 0 ? (
                                     <div className="grid grid-cols-3 gap-2">
@@ -516,19 +517,19 @@ const AddAssignationModal = ({ isOpen, onClose, onAssignationAdded, professorId,
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500 p-1">
-                                        {formData.CourseId 
-                                            ? "No available sections for this course" 
+                                        {formData.CourseId
+                                            ? "No available sections for this course"
                                             : "Select a course to see available sections"}
                                     </p>
                                 )}
                             </div>
-                            
+
                             {selectedSectionIds.length > 0 && (
                                 <p className="text-sm text-blue-600 mt-1">
                                     {selectedSectionIds.length} section(s) selected
                                 </p>
                             )}
-                            
+
                             <p className="text-xs text-gray-500 mt-1">
                                 Leave empty for tutorial courses or courses without specific sections
                             </p>
@@ -584,7 +585,8 @@ AddAssignationModal.propTypes = {
     onClose: PropTypes.func.isRequired,
     onAssignationAdded: PropTypes.func,
     professorId: PropTypes.number,
-    schoolYearId: PropTypes.number
-};
+    schoolYearId: PropTypes.number,
+    departmentId: PropTypes.number
+}
 
 export default AddAssignationModal;
