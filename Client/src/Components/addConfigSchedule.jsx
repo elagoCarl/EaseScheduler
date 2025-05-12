@@ -162,96 +162,6 @@ const AddConfigSchedule = () => {
     }
   }, [showDeptSelector]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (!deptId) {
-          return;
-        }
-
-        try {
-          const roomsRes = await axios.get(`/room/getRoomsByDept/${deptId}`);
-
-          if (roomsRes.data.successful) {
-            setRooms(roomsRes.data.data);
-          } else {
-            console.error("Failed to fetch rooms:", roomsRes.data.message);
-            setRooms([]);
-            setNotification({
-              type: 'error',
-              message: `Room fetch failed: ${roomsRes.data.message}`
-            });
-          }
-        } catch (roomError) {
-          console.error("Error fetching rooms:", roomError);
-          setRooms([]);
-          setNotification({
-            type: 'error',
-            message: 'Room fetch failed. Check network connection or API configuration.'
-          });
-        }
-
-        try {
-          const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
-
-          if (assignationsRes.data.successful) {
-            const assignationsData = assignationsRes.data.data;
-            setAssignations(assignationsData);
-
-            const semesterMap = {};
-            assignationsData.forEach(a => {
-              if (!semesterMap[a.Semester]) {
-                semesterMap[a.Semester] = [];
-              }
-              semesterMap[a.Semester].push(a);
-            });
-
-            const semesters = [...new Set(assignationsData.map(a => a.Semester))].sort((a, b) => a - b);
-
-            setSemesterData(semesterMap);
-            setSemesters(semesters);
-
-            if (selectedSemester && semesterMap[selectedSemester]) {
-              setCurrentAssignations(semesterMap[selectedSemester]);
-            } else {
-              setCurrentAssignations([]);
-            }
-
-          } else {
-            console.error("Failed to fetch assignations:", assignationsRes.data.message);
-            setAssignations([]);
-            setSemesterData({});
-          }
-        } catch (assignationError) {
-          console.error("Error fetching assignations:", assignationError);
-          setAssignations([]);
-          setSemesterData({});
-        }
-
-        try {
-          const professorsRes = await axios.get(`/prof/getProfByDept/${deptId}`);
-          if (professorsRes.data.successful) {
-            setProfessors(professorsRes.data.data);
-          } else {
-            console.error("Failed to fetch professors:", professorsRes.data.message);
-            setProfessors([]);
-          }
-        } catch (profError) {
-          console.error("Error fetching professors:", profError);
-          setProfessors([]);
-        }
-
-      } catch (error) {
-        console.error("General error fetching data:", error);
-        setNotification({
-          type: 'error',
-          message: 'Failed to load required data. Please try refreshing.'
-        });
-      }
-    };
-    fetchData();
-  }, [deptId, selectedSemester]);
-
     useEffect(() => {
       const handleResize = () => setIsMobileView(window.innerWidth < 768);
       window.addEventListener('resize', handleResize);
@@ -462,7 +372,6 @@ const AddConfigSchedule = () => {
         }
       } catch (assignationError) {
         console.error("Error fetching assignations:", assignationError);
-        // Show user-friendly error:
         setNotification({
           type: 'error',
           message: 'Unable to load course assignations. There might be a server issue.'
@@ -504,15 +413,12 @@ const AddConfigSchedule = () => {
     setSchedules([]);
     setSemesters([]);
     setProfessors([]);
-    // Fetch data for the selected department
     if (deptId) {
       fetchDataForDepartment(deptId);
     }
   };
 
   useEffect(() => {
-    // If user has a department ID, hide the selector
-    // Otherwise, show it
     setShowDeptSelector(!user?.DepartmentId);
     console.log("User department ID:", user?.DepartmentId);
     console.log("Show department selector:", !user?.DepartmentId);

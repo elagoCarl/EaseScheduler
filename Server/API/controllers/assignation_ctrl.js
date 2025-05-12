@@ -821,7 +821,9 @@ const getAllAssignationsByDept = async (req, res, next) => {
 
 const getAllAssignationsByDeptInclude = async (req, res, next) => {
     try {
-        const {DepartmentId, SchoolYearId} = req.body;
+        const DepartmentId = req.params.id; 
+        const { SchoolYearId } = req.body; 
+        
         if (!DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -902,7 +904,6 @@ const deleteAssignation = async (req, res, next) => {
         const t = await sequelize.transaction();
 
         try {
-            // Find the assignation with related information
             const assignation = await Assignation.findByPk(id, {
                 include: [
                     { 
@@ -931,8 +932,6 @@ const deleteAssignation = async (req, res, next) => {
                 });
             }
 
-            // If the assignation has a professor and the course is not a tutorial,
-            // decrease the professor's units in the ProfessorLoad model
             if (assignation.Professor && assignation.Course && !assignation.Course.isTutorial) {
                 const unitsToDecrease = assignation.Course.Units;
                 const semester = assignation.Semester; // Use the semester field directly from assignation
