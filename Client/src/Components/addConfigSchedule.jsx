@@ -162,6 +162,7 @@ const AddConfigSchedule = () => {
     }
   }, [showDeptSelector]);
 
+
     useEffect(() => {
       const handleResize = () => setIsMobileView(window.innerWidth < 768);
       window.addEventListener('resize', handleResize);

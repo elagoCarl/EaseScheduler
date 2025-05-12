@@ -821,9 +821,14 @@ const getAllAssignationsByDept = async (req, res, next) => {
 
 const getAllAssignationsByDeptInclude = async (req, res, next) => {
     try {
-        const DepartmentId = req.params.id; 
-        const { SchoolYearId } = req.body; 
+        const DepartmentId = req.params.id;
+        const { SchoolYearId } = req.body;
         
+        const whereClause = { DepartmentId };
+        if (SchoolYearId) {
+            whereClause.SchoolYearId = SchoolYearId;
+        }
+
         if (!DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -841,7 +846,7 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
         
         const assignations = await Assignation.findAll({
             order: [['createdAt', 'DESC']],
-            where: { DepartmentId, SchoolYearId },
+            where: whereClause,
             include: [
                 {
                     model: Course, 
