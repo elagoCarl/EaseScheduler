@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg,SchoolYear, ProfessorLoad, Program, ProfAvail, sequelize } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg, SchoolYear, ProfessorLoad, Program, ProfAvail, sequelize } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -49,11 +49,11 @@ const addAssignation = async (req, res, next) => {
                     { model: CourseProg, as: 'CourseProgs' },
                 ]
             });
-            
+
             if (!course) {
                 return res.status(404).json({ successful: false, message: "Course not found." });
             }
-            
+
             // Find all paired courses if this course has a PairId
             let pairedCourses = [];
             if (course.PairId) {
@@ -76,7 +76,7 @@ const addAssignation = async (req, res, next) => {
                     message: "Tutorial courses cannot be assigned to sections.",
                 });
             }
-            
+
             // 2. Non-tutorial courses MUST have sections
             if (!course.isTutorial && (!SectionIds || SectionIds.length === 0)) {
                 return res.status(400).json({
@@ -84,7 +84,7 @@ const addAssignation = async (req, res, next) => {
                     message: "Non-tutorial courses must be assigned to at least one section.",
                 });
             }
-            
+
             // 3. Check for duplicate tutorial course assignation (for same professor)
             if (course.isTutorial && ProfessorId) {
                 const existingTutorialAssignation = await Assignation.findOne({
@@ -95,7 +95,7 @@ const addAssignation = async (req, res, next) => {
                         ProfessorId
                     }
                 });
-                
+
                 if (existingTutorialAssignation) {
                     return res.status(400).json({
                         successful: false,
@@ -118,14 +118,14 @@ const addAssignation = async (req, res, next) => {
                         { model: ProfAvail },
                     ]
                 });
-                
+
                 if (!professor) {
                     return res.status(404).json({ successful: false, message: "Professor not found." });
                 }
 
                 // Calculate total duration needed including all paired courses
                 let totalCourseHours = course.Duration + 0.5; // Main course + buffer
-                
+
                 // Add duration of paired courses
                 for (const pairedCourse of pairedCourses) {
                     totalCourseHours += pairedCourse.Duration + 0.5; // Each paired course + buffer
@@ -241,7 +241,7 @@ const addAssignation = async (req, res, next) => {
                             message: `Course ${course.Code} cannot be assigned to section ${section.id} (Program: ${section.Program.Code}, Year: ${sectionYear}) as it's not configured for this program-year combination`
                         });
                     }
-                    
+
                     // Check if the semester of the assignment matches the semester in the course program
                     if (courseProgForSection.Semester !== Semester) {
                         return res.status(400).json({
@@ -269,7 +269,7 @@ const addAssignation = async (req, res, next) => {
                     // For non-tutorial courses, check for duplicate section assignments
                     // Check if these sections already have this course or any paired courses assigned
                     const allCourseIds = [CourseId, ...pairedCourses.map(pc => pc.id)];
-                    
+
                     // Find existing assignations for the given course, semester, and school year where any of the 
                     // requested sections are already assigned
                     const existingAssignations = await Assignation.findAll({
@@ -286,7 +286,7 @@ const addAssignation = async (req, res, next) => {
                         ],
                         transaction: t
                     });
-                    
+
                     // Extract all section IDs from existing assignations
                     const existingSectionIds = new Set();
                     for (const assign of existingAssignations) {
@@ -294,10 +294,10 @@ const addAssignation = async (req, res, next) => {
                             existingSectionIds.add(sec.id);
                         }
                     }
-                    
+
                     // Check if any of the requested sections are already assigned
                     const duplicateSectionIds = SectionIds.filter(id => existingSectionIds.has(id));
-                    
+
                     if (duplicateSectionIds.length > 0) {
                         // Get section details for the error message
                         const duplicateSections = await ProgYrSec.findAll({
@@ -307,11 +307,11 @@ const addAssignation = async (req, res, next) => {
                             include: [{ model: Program }],
                             transaction: t
                         });
-                        
+
                         const sectionDetails = duplicateSections.map(section =>
                             `${section.Program.Code} ${section.Year}-${section.Section}`
                         ).join(', ');
-                        
+
                         await t.rollback();
                         return res.status(400).json({
                             successful: false,
@@ -326,7 +326,7 @@ const addAssignation = async (req, res, next) => {
                     const status = await ProfStatus.findByPk(professor.ProfStatusId, {
                         transaction: t
                     });
-                    
+
                     if (!status) {
                         await t.rollback();
                         return res.status(404).json({ successful: false, message: "Professor status not found." });
@@ -350,7 +350,7 @@ const addAssignation = async (req, res, next) => {
                         },
                         transaction: t
                     });
-                    
+
                     if (Semester === 1) {
                         // Calculate new total units for first semester
                         const newTotalUnits = professorLoad.First_Sem_Units + totalUnits;
@@ -404,9 +404,9 @@ const addAssignation = async (req, res, next) => {
                         transaction: t
                     });
                 }
-                
+
                 createdAssignations.push(newAssignation);
-                
+
                 // Create assignations for paired courses if they exist
                 for (const pairedCourse of pairedCourses) {
                     // Check if paired course is tutorial and already has an assignation for this semester/school year with the same professor
@@ -420,36 +420,36 @@ const addAssignation = async (req, res, next) => {
                             },
                             transaction: t
                         });
-                        
+
                         if (existingTutorialAssignation) {
                             // Skip this paired course as it already has an assignation with this professor
                             continue;
                         }
                     }
-                    
+
                     const pairedAssignationData = {
                         SchoolYearId,
                         CourseId: pairedCourse.id,
                         DepartmentId,
                         Semester
                     };
-                    
+
                     // Always use the same professor for paired courses
                     if (ProfessorId) {
                         pairedAssignationData.ProfessorId = ProfessorId;
                     }
-                    
+
                     const pairedAssignation = await Assignation.create(pairedAssignationData, {
                         transaction: t
                     });
-                    
+
                     // Only assign sections if the paired course is not a tutorial
                     if (SectionIds && SectionIds.length > 0 && !pairedCourse.isTutorial) {
                         await pairedAssignation.setProgYrSecs(SectionIds, {
                             transaction: t
                         });
                     }
-                    
+
                     createdAssignations.push(pairedAssignation);
                 }
 
@@ -821,14 +821,7 @@ const getAllAssignationsByDept = async (req, res, next) => {
 
 const getAllAssignationsByDeptInclude = async (req, res, next) => {
     try {
-        const DepartmentId = req.params.id;
-        const { SchoolYearId } = req.body;
-        
-        const whereClause = { DepartmentId };
-        if (SchoolYearId) {
-            whereClause.SchoolYearId = SchoolYearId;
-        }
-
+        const { DepartmentId, SchoolYearId } = req.body;
         if (!DepartmentId) {
             return res.status(400).json({
                 successful: false,
@@ -843,13 +836,13 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                 message: `Department with ID ${DepartmentId} not found`,
             });
         }
-        
+
         const assignations = await Assignation.findAll({
             order: [['createdAt', 'DESC']],
-            where: whereClause,
+            where: { DepartmentId, SchoolYearId },
             include: [
                 {
-                    model: Course, 
+                    model: Course,
                     attributes: ['Code', 'Description', 'Units', 'Type', 'Duration'],
                     include: [
                         {
@@ -858,14 +851,14 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                         }
                     ]
                 },
-                { 
-                    model: Professor, 
+                {
+                    model: Professor,
                     attributes: ['Name', 'Email'],
                     include: [{ model: ProfessorLoad }]
                 },
-                { 
-                    model: Department, 
-                    attributes: ['Name'] 
+                {
+                    model: Department,
+                    attributes: ['Name']
                 },
                 {
                     model: ProgYrSec,
@@ -886,8 +879,8 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
                 data: [],
             });
         }
-        
-        
+
+
         return res.status(200).json({
             successful: true,
             data: assignations,
@@ -911,11 +904,11 @@ const deleteAssignation = async (req, res, next) => {
         try {
             const assignation = await Assignation.findByPk(id, {
                 include: [
-                    { 
-                        model: Course, 
-                        attributes: ['Units', 'isTutorial', 'id', 'PairId'] 
+                    {
+                        model: Course,
+                        attributes: ['Units', 'isTutorial', 'id', 'PairId']
                     },
-                    { 
+                    {
                         model: Professor
                     },
                     {
@@ -928,19 +921,19 @@ const deleteAssignation = async (req, res, next) => {
                 ],
                 transaction: t
             });
-            
+
             if (!assignation) {
                 await t.rollback();
-                return res.status(404).json({ 
-                    successful: false, 
-                    message: "Assignation not found." 
+                return res.status(404).json({
+                    successful: false,
+                    message: "Assignation not found."
                 });
             }
 
             if (assignation.Professor && assignation.Course && !assignation.Course.isTutorial) {
                 const unitsToDecrease = assignation.Course.Units;
                 const semester = assignation.Semester; // Use the semester field directly from assignation
-                
+
                 // If we have a semester value, update the professor's units in ProfessorLoad
                 if (semester && assignation.SchoolYear) {
                     // Find the professor's load record for this school year
@@ -951,19 +944,19 @@ const deleteAssignation = async (req, res, next) => {
                         },
                         transaction: t
                     });
-                    
+
                     if (professorLoad) {
                         if (semester === 1) {
                             // Ensure we don't go below 0
                             const newUnits = Math.max(0, professorLoad.First_Sem_Units - unitsToDecrease);
-                            await professorLoad.update({ 
-                                First_Sem_Units: newUnits 
+                            await professorLoad.update({
+                                First_Sem_Units: newUnits
                             }, { transaction: t });
                         } else if (semester === 2) {
                             // Ensure we don't go below 0
                             const newUnits = Math.max(0, professorLoad.Second_Sem_Units - unitsToDecrease);
-                            await professorLoad.update({ 
-                                Second_Sem_Units: newUnits 
+                            await professorLoad.update({
+                                Second_Sem_Units: newUnits
                             }, { transaction: t });
                         }
                     } else {
@@ -1002,13 +995,13 @@ const deleteAssignation = async (req, res, next) => {
                     ],
                     transaction: t
                 });
-                
+
                 // Delete the paired assignations
                 for (const pairedAssignation of pairedCourseAssignations) {
                     // Decrease professor units for paired courses if they're not tutorials
                     if (pairedAssignation.Course && !pairedAssignation.Course.isTutorial && assignation.Professor) {
                         const pairedUnitsToDecrease = pairedAssignation.Course.Units;
-                        
+
                         // Find the professor's load record for this school year
                         const professorLoad = await ProfessorLoad.findOne({
                             where: {
@@ -1017,19 +1010,19 @@ const deleteAssignation = async (req, res, next) => {
                             },
                             transaction: t
                         });
-                        
+
                         if (professorLoad) {
                             if (assignation.Semester === 1) {
                                 // Ensure we don't go below 0
                                 const newUnits = Math.max(0, professorLoad.First_Sem_Units - pairedUnitsToDecrease);
-                                await professorLoad.update({ 
-                                    First_Sem_Units: newUnits 
+                                await professorLoad.update({
+                                    First_Sem_Units: newUnits
                                 }, { transaction: t });
                             } else if (assignation.Semester === 2) {
                                 // Ensure we don't go below 0
                                 const newUnits = Math.max(0, professorLoad.Second_Sem_Units - pairedUnitsToDecrease);
-                                await professorLoad.update({ 
-                                    Second_Sem_Units: newUnits 
+                                await professorLoad.update({
+                                    Second_Sem_Units: newUnits
                                 }, { transaction: t });
                             }
                         } else {
@@ -1040,7 +1033,7 @@ const deleteAssignation = async (req, res, next) => {
                             });
                         }
                     }
-                    
+
                     // Delete the paired assignation
                     await pairedAssignation.destroy({ transaction: t });
                 }
@@ -1048,7 +1041,7 @@ const deleteAssignation = async (req, res, next) => {
 
             // Delete the assignation
             await assignation.destroy({ transaction: t });
-            
+
             // Commit the transaction
             await t.commit();
 
@@ -1059,7 +1052,7 @@ const deleteAssignation = async (req, res, next) => {
                     message: "Unauthorized: refreshToken not found."
                 });
             }
-            
+
             let decoded;
             try {
                 decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
@@ -1069,7 +1062,7 @@ const deleteAssignation = async (req, res, next) => {
                     message: "Invalid refreshToken."
                 });
             }
-            
+
             const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
             const page = 'Assignation';
             const details = `Deleted Assignation ID: ${id}, Course: ${assignation.CourseId}, Prof: ${assignation.ProfessorId || 'None'}`;
@@ -1079,7 +1072,7 @@ const deleteAssignation = async (req, res, next) => {
                 successful: true,
                 message: "Assignation deleted successfully.",
             });
-            
+
         } catch (error) {
             // Rollback transaction on error
             await t.rollback();
