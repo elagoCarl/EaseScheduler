@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, BookOpen, Trash2, Plus } from 'lucide-react';
+import { X, BookOpen, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import Axios from '../../../axiosConfig';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../authContext';
@@ -16,6 +16,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     const [selectedYear, setSelectedYear] = useState(1);
     const [selectedSemester, setSelectedSemester] = useState(1);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [programToDelete, setProgramToDelete] = useState(null);
 
     useEffect(() => {
         console.log("Modal opened with courseId:", courseId);
@@ -73,12 +75,17 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
         }
     };
 
-    const handleDeleteCourseProg = async (courseProgramId) => {
-        if (!confirm("Are you sure you want to remove this program association?")) {
-            return;
-        }
+    const openDeleteConfirmation = (program) => {
+        setProgramToDelete(program);
+        setDeleteConfirmOpen(true);
+    };
 
+    const handleDeleteCourseProg = async () => {
+        if (!programToDelete) return;
+
+        const courseProgramId = programToDelete.courseProgramId;
         setDeleting(courseProgramId);
+
         try {
             const response = await Axios.delete(`/courseProg/deleteCourseProg/${courseProgramId}`);
             if (response.data.successful) {
@@ -95,6 +102,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
             console.error(error);
         } finally {
             setDeleting(null);
+            setDeleteConfirmOpen(false);
+            setProgramToDelete(null);
         }
     };
 
@@ -188,7 +197,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                        className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
                     >
                         <X size={20} />
                     </button>
@@ -280,7 +289,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                                     >
                                         {adding ? (
                                             <span className="flex items-center">
-                                                <div className="w-4 h-4 mr-2 border-t-2 border-white border-solid rounded-full animate-spin"></div>
+                                                <div className="w-4 h-4 mr-2 border-t-2 border-white border-solid rounded animate-spin"></div>
                                                 Adding...
                                             </span>
                                         ) : (
@@ -294,7 +303,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
 
                     {loading ? (
                         <div className="flex justify-center items-center h-40">
-                            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
+                            <div className="animate-spin rounded h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
                         </div>
                     ) : programs.length > 0 ? (
                         <div className="space-y-4">
@@ -317,14 +326,14 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                                                         {program.code && <p className="text-xs text-gray-500">{program.code}</p>}
                                                     </div>
                                                     <button
-                                                        onClick={() => handleDeleteCourseProg(program.courseProgramId)}
+                                                        onClick={() => openDeleteConfirmation(program)}
                                                         disabled={deleting === program.courseProgramId}
-                                                        className={`text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 
+                                                        className={`text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 
                                                             ${deleting === program.courseProgramId ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         title="Remove program association"
                                                     >
                                                         {deleting === program.courseProgramId ? (
-                                                            <div className="w-4 h-4 border-t-2 border-red-500 border-solid rounded-full animate-spin"></div>
+                                                            <div className="w-4 h-4 border-t-2 border-red-500 border-solid rounded animate-spin"></div>
                                                         ) : (
                                                             <Trash2 size={16} />
                                                         )}
@@ -352,6 +361,72 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                     </button>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                        <div className="bg-red-50 p-4 flex items-start space-x-3">
+                            <div className="bg-red-100 rounded p-2">
+                                <AlertTriangle className="text-red-600" size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-800">Confirm Removal</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Are you sure you want to remove this program association? This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+
+                        {programToDelete && (
+                            <div className="p-4 border-t border-b border-gray-200 bg-gray-50">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{programToDelete.name}</span>
+                                    {programToDelete.code && (
+                                        <span className="text-xs text-gray-500">{programToDelete.code}</span>
+                                    )}
+                                    <div className="flex items-center mt-1 text-xs text-gray-500">
+                                        <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
+                                            Year {programToDelete.year || "Unspecified"}
+                                        </span>
+                                        <span className="mx-2">•</span>
+                                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs">
+                                            Semester {programToDelete.semester || "Unspecified"}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="p-4 flex justify-end space-x-3">
+                            <button
+                                onClick={() => {
+                                    setDeleteConfirmOpen(false);
+                                    setProgramToDelete(null);
+                                }}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteCourseProg}
+                                disabled={deleting}
+                                className={`px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center
+                                    ${deleting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                                {deleting ? (
+                                    <>
+                                        <div className="w-4 h-4 mr-2 border-t-2 border-white border-solid rounded animate-spin"></div>
+                                        Removing...
+                                    </>
+                                ) : (
+                                    "Remove"
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

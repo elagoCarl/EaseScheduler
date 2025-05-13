@@ -34,6 +34,8 @@ const CourseManagement = () => {
   const [assignations, setAssignations] = useState([]);
   const [isProgramsModalOpen, setIsProgramsModalOpen] = useState(false);
   const [selectedCourseForPrograms, setSelectedCourseForPrograms] = useState(null);
+  const [schoolYears, setSchoolYears] = useState([]);
+  const [selectedSchoolYears, setSelectedSchoolYears] = useState({});
   const coursesPerPage = 8;
 
   const uniqueYears = ['All', ...new Set(courses.map(c => c.year).filter(Boolean))].sort((a, b) => a - b);
@@ -76,39 +78,104 @@ const CourseManagement = () => {
     }
   };
 
-  const fetchAssignations = async () => {
+  const fetchAssignations = async (courseId = null, schoolYearId = null) => {
     try {
-      const response = await Axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
-      if (response.data.successful) setAssignations(response.data.data);
-      else showNotification("Failed to fetch professor assignations", "error");
+      let url = `/assignation/getAllAssignationsByDeptInclude/${deptId}`;
+      let params = {};
+
+      if (schoolYearId) {
+        params.SchoolYearId = schoolYearId;
+      }
+
+      const response = await Axios.get(url, { params });
+
+      if (response.data.successful) {
+        setAssignations(response.data.data);
+        return response.data.data;
+      } else {
+        showNotification("Failed to fetch course assignations", "error");
+        return [];
+      }
     } catch (error) {
-      showNotification("Error fetching professor assignations", "error");
+      showNotification("Error fetching course assignations", "error");
+      return [];
     }
   };
 
-  const getProfessorsByCourse = (courseId) => {
-    if (!assignations || assignations.length === 0) return [];
+  const fetchSchoolYears = async () => {
+    try {
+      const response = await Axios.get("/schoolYear/getAllSchoolYears");
+      if (response.data.successful) {
+        const years = response.data.data;
+        setSchoolYears(years);
 
-    const uniqueProfessors = [];
-    const professorMap = new Map();
+        if (years.length > 0 && courses.length > 0) {
+          const defaultSchoolYear = years[0];
+          const initialSelectedYears = { ...selectedSchoolYears };
+          let shouldUpdateState = false;
 
-    assignations.filter(a => a.CourseId === courseId && a.ProfessorId).forEach(assignation => {
-      if (assignation.Professor) {
-        const key = `${assignation.ProfessorId}-${assignation.Semester}`;
-        if (!professorMap.has(key)) {
-          professorMap.set(key, true);
-          const professorName = assignation.Professor.Name ||
-            `${assignation.Professor.FirstName || ''} ${assignation.Professor.LastName || ''}`.trim();
-          uniqueProfessors.push({
-            id: assignation.Professor.id || assignation.ProfessorId,
-            name: professorName,
-            email: assignation.Professor.Email,
-            semester: assignation.Semester
+          courses.forEach(course => {
+            if (!initialSelectedYears[course.id]) {
+              initialSelectedYears[course.id] = defaultSchoolYear.id;
+              shouldUpdateState = true;
+            }
           });
+
+          if (shouldUpdateState) {
+            setSelectedSchoolYears(initialSelectedYears);
+          }
         }
       }
-    });
-    return uniqueProfessors;
+    } catch (error) {
+      console.error("Failed to fetch school years:", error);
+      showNotification("Failed to fetch school years", "error");
+    }
+  };
+
+  // Replace the old getProfessorsByCourse function with this
+  const getProfessorsByCourse = (courseId) => {
+    const courseDetails = getCourseDetailsForSchoolYear(courseId, selectedSchoolYears[courseId]);
+    return courseDetails.professors;
+  };
+
+  const getCourseDetailsForSchoolYear = (courseId, schoolYearId) => {
+    if (!assignations || assignations.length === 0) return [];
+
+    // Filter assignations for this course and school year
+    const relevantAssignations = assignations.filter(a =>
+      a.CourseId === courseId &&
+      (schoolYearId ? a.SchoolYearId === parseInt(schoolYearId) : true)
+    );
+
+    // Create professor-based structure with their assigned sections
+    const professorsWithSections = relevantAssignations.map(assignation => {
+      if (!assignation.Professor) return null;
+
+      const professorName = assignation.Professor.Name ||
+        `${assignation.Professor.FirstName || ''} ${assignation.Professor.LastName || ''}`.trim();
+
+      // Process sections for this assignation
+      const sections = assignation.ProgYrSecs ? assignation.ProgYrSecs.map(section => ({
+        id: section.id,
+        year: section.Year,
+        section: section.Section,
+        program: section.Program ? {
+          code: section.Program.Code,
+          name: section.Program.Name
+        } : { code: 'Unknown', name: 'Unknown' }
+      })) : [];
+
+      return {
+        assignationId: assignation.id,
+        professorId: assignation.ProfessorId,
+        professorName: professorName,
+        professorEmail: assignation.Professor.Email,
+        semester: assignation.Semester,
+        sections: sections
+      };
+    }).filter(item => item !== null);
+
+    return professorsWithSections;
   };
 
   const toggleMinimize = (id) => {
@@ -153,6 +220,17 @@ const CourseManagement = () => {
     }
   };
 
+  const handleSchoolYearChange = (courseId, schoolYearId) => {
+    setSelectedSchoolYears(prev => ({
+      ...prev,
+      [courseId]: schoolYearId
+    }));
+
+    // Refetch assignations with the new school year ID
+    fetchAssignations(null, schoolYearId);
+  };
+
+
   const getTypeColor = (type) => {
     switch (type) {
       case "Major": return "bg-emerald-100 text-emerald-800 border-emerald-200";
@@ -165,8 +243,11 @@ const CourseManagement = () => {
 
   useEffect(() => {
     if (deptId) {
-      fetchCourses();
-      fetchAssignations();
+      Promise.all([
+        fetchCourses(),
+        fetchAssignations(),
+        fetchSchoolYears()
+      ]);
     }
   }, [deptId]);
 
@@ -186,6 +267,32 @@ const CourseManagement = () => {
     setFilteredCourses(filtered);
     // Remove the setCurrentPage(1) here - we don't want to reset page when just collapsing
   }, [searchTerm, yearFilter, typeFilter, courses]);
+
+  useEffect(() => {
+    if (courses.length > 0 && schoolYears.length > 0) {
+      const updatedSelectedYears = { ...selectedSchoolYears };
+      let shouldUpdateState = false;
+
+      courses.forEach(course => {
+        if (!updatedSelectedYears[course.id] && schoolYears.length > 0) {
+          updatedSelectedYears[course.id] = schoolYears[0].id;
+          shouldUpdateState = true;
+        }
+      });
+
+      if (shouldUpdateState) {
+        setSelectedSchoolYears(updatedSelectedYears);
+      }
+    }
+  }, [courses, schoolYears]);
+
+  // Add this useEffect to update assignations when selected school year changes
+  useEffect(() => {
+    // Check if we have any selected school years
+    if (Object.keys(selectedSchoolYears).length > 0) {
+      fetchAssignations(null, Object.values(selectedSchoolYears)[0]);
+    }
+  }, [selectedSchoolYears]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -345,6 +452,7 @@ const CourseManagement = () => {
                     </div>
 
                     <div className="mt-3 pt-2 border-t border-blue-500 border-opacity-30 text-white text-sm flex flex-wrap gap-4">
+                      {/* Existing course info */}
                       <div className="flex items-center gap-6 tracking-tight">
                         <span>{course.description}</span>
                       </div>
@@ -358,13 +466,40 @@ const CourseManagement = () => {
                           <span>Course Duration: {course.details.duration}</span>
                         </div>
                       )}
+
+                      {/* Add school year dropdown */}
+                      <div className="w-full mt-3">
+                        <label htmlFor={`schoolYear-${course.id}`} className="block text-xs font-medium text-blue-100 mb-1">
+                          School Year
+                        </label>
+                        <select
+                          id={`schoolYear-${course.id}`}
+                          value={selectedSchoolYears[course.id] || ''}
+                          onChange={(e) => handleSchoolYearChange(course.id, e.target.value)}
+                          className="w-full bg-white bg-opacity-10 border border-blue-400 border-opacity-30 rounded py-1 px-2 text-white text-sm"
+                        >
+                          {schoolYears.length > 0 ? (
+                            schoolYears.map((year) => (
+                              <option key={year.id} value={year.id} className="bg-blue-700 text-white">
+                                {year.SY_Name}
+                              </option>
+                            ))
+                          ) : (
+                            <option value="" disabled className="bg-blue-700 text-white">
+                              No school years available
+                            </option>
+                          )}
+                        </select>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Add this to the course card display section, after the professors section */}
+                  {/* Replace the previous professors and sections display with this */}
                   <div className={`transition-all duration-300 ${course.minimized ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-screen opacity-100'}`}>
                     <div className="p-8 overflow-y-auto max-h-200">
                       {!course.rawData.isTutorial && (
-                        <div className="">
+                        <div className="mb-4">
                           <button
                             onClick={() => handleViewPrograms(course.id)}
                             className="w-full gap-8 py-1.5 bg-blue-50 text-blue-600 rounded font-medium flex items-center justify-center hover:bg-blue-200 transition-colors"
@@ -374,29 +509,68 @@ const CourseManagement = () => {
                           </button>
                         </div>
                       )}
-                      <h3 className="font-medium text-gray-800 mb-2">Assigned Professors</h3>
-                      {getProfessorsByCourse(course.id).length > 0 ? (
-                        <div className="space-y-3">
-                          {getProfessorsByCourse(course.id).map(professor => (
-                            <div key={`${course.id}-${professor.id}-${professor.semester}`} className="flex items-start bg-gray-50 p-3 rounded border border-gray-100">
-                              <div className="flex-shrink-0 mr-3">
-                                <div className="bg-blue-100 p-2 rounded-full">
-                                  <User size={18} className="text-blue-600" />
+
+                      {/* Professors and their Sections */}
+                      <h3 className="font-medium text-gray-800 mb-2">Assigned Professors & Sections</h3>
+                      {(() => {
+                        const professorsWithSections = getCourseDetailsForSchoolYear(course.id, selectedSchoolYears[course.id]);
+
+                        if (professorsWithSections.length > 0) {
+                          return (
+                            <div className="space-y-6">
+                              {professorsWithSections.map(assignment => (
+                                <div key={`${assignment.assignationId}`} className="bg-gray-50 p-4 rounded border border-gray-200">
+                                  {/* Professor Info */}
+                                  <div className="flex items-start mb-3">
+                                    <div className="flex-shrink-0 mr-3">
+                                      <div className="bg-blue-100 p-2 rounded-full">
+                                        <User size={18} className="text-blue-600" />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-sm font-medium text-gray-800">{assignment.professorName}</h4>
+                                      <p className="text-xs text-gray-500">Semester {assignment.semester}</p>
+                                      {assignment.professorEmail && <p className="text-xs text-gray-500">{assignment.professorEmail}</p>}
+                                    </div>
+                                  </div>
+
+                                  {/* Sections taught by this professor */}
+                                  <div className="pl-10">
+                                    <h5 className="text-xs font-medium text-gray-600 mb-2">Teaching Sections:</h5>
+                                    {assignment.sections.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {assignment.sections.map(section => (
+                                          <div key={`section-${section.id}`} className="flex items-center bg-white p-2 rounded border border-gray-100">
+                                            <div className="flex-shrink-0 mr-2">
+                                              <div className="bg-green-50 p-1 rounded-full">
+
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <p className="text-xs font-medium">
+                                                {section.program.code} {section.year}-{section.section}
+                                              </p>
+                                              <p className="text-xs text-gray-500">{section.program.name}</p>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-gray-500 italic">No specific sections assigned</p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-800">{professor.name}</h4>
-                                <p className="text-xs text-gray-500">Semester {professor.semester}</p>
-                                {professor.email && <p className="text-xs text-gray-500">{professor.email}</p>}
-                              </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
-                          <p className="text-gray-500 text-sm">No professors assigned</p>
-                        </div>
-                      )}
+                          );
+                        } else {
+                          return (
+                            <div className="text-center py-6 bg-gray-50 rounded border border-dashed border-gray-200">
+                              <p className="text-gray-500 text-sm">No assignments for this course in the selected school year</p>
+                            </div>
+                          );
+                        }
+                      })()}
                     </div>
                   </div>
 

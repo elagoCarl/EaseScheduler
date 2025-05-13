@@ -58,6 +58,14 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
       // Remove second course if no longer a pair
       setCourses([courses[0]]);
     }
+
+    // If this is a pair, sync program years between courses
+    if (isPair && courses.length === 2) {
+      const updatedCourses = [...courses];
+      // Ensure both courses have the same ProgYears
+      updatedCourses[1].ProgYears = JSON.parse(JSON.stringify(updatedCourses[0].ProgYears));
+      setCourses(updatedCourses);
+    }
   }, [isPair]);
 
   useEffect(() => {
@@ -166,18 +174,53 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
       ...updatedCourses[courseIndex].ProgYears,
       { ProgramId: "", Year: "", Semester: "1" }
     ];
+
+    // If this is a pair, add to the other course as well
+    if (isPair && courses.length === 2) {
+      const otherCourseIndex = courseIndex === 0 ? 1 : 0;
+      updatedCourses[otherCourseIndex].ProgYears = [
+        ...updatedCourses[otherCourseIndex].ProgYears,
+        { ProgramId: "", Year: "", Semester: "1" }
+      ];
+    }
+
     setCourses(updatedCourses);
   };
 
   const removeProgramYear = (courseIndex, progIndex) => {
     const updatedCourses = [...courses];
     updatedCourses[courseIndex].ProgYears.splice(progIndex, 1);
+
+    // If this is a pair, remove from the other course as well
+    if (isPair && courses.length === 2) {
+      const otherCourseIndex = courseIndex === 0 ? 1 : 0;
+      updatedCourses[otherCourseIndex].ProgYears.splice(progIndex, 1);
+    }
+
     setCourses(updatedCourses);
   };
 
   const handleProgramYearChange = (courseIndex, progIndex, field, value) => {
     const updatedCourses = [...courses];
     updatedCourses[courseIndex].ProgYears[progIndex][field] = value;
+
+    // If this is a pair, update the other course as well
+    if (isPair && courses.length === 2) {
+      const otherCourseIndex = courseIndex === 0 ? 1 : 0;
+
+      // Make sure the other course has this program year entry
+      if (!updatedCourses[otherCourseIndex].ProgYears[progIndex]) {
+        updatedCourses[otherCourseIndex].ProgYears[progIndex] = {
+          ProgramId: "",
+          Year: "",
+          Semester: "1"
+        };
+      }
+
+      // Update the corresponding field in the other course
+      updatedCourses[otherCourseIndex].ProgYears[progIndex][field] = value;
+    }
+
     setCourses(updatedCourses);
   };
 
@@ -330,7 +373,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                 onChange={(e) => setIsPair(e.target.checked)}
               />
               <span className="ml-2 text-sm font-medium text-gray-700">
-                Create as Course Pair (Lecture + Lab)
+                Create as Course Pair (Lecture + Lab together)
               </span>
             </label>
           </div>
@@ -377,16 +420,33 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                     <label className="block text-sm font-medium text-gray-700">
                       <div className="flex items-center justify-between">
                         <span>No. of Units</span>
-                        <label className="flex items-center text-xs">
-                          <input
-                            type="checkbox"
-                            name="isTutorial"
-                            className="mr-1"
-                            checked={course.isTutorial}
-                            onChange={(e) => handleInputChange(courseIndex, e)}
-                          />
-                          check if this is a tutorial course
-                        </label>
+                        {/* Only show the tutorial checkbox on the first course or if not a pair */}
+                        {(!isPair || courseIndex === 0) && (
+                          <label className="flex items-center text-xs">
+                            <input
+                              type="checkbox"
+                              name="isTutorial"
+                              className="mr-1"
+                              checked={course.isTutorial}
+                              onChange={(e) => {
+                                handleInputChange(courseIndex, e);
+                                // If it's a pair, sync the isTutorial value to the other course
+                                if (isPair && courses.length === 2) {
+                                  const otherIndex = courseIndex === 0 ? 1 : 0;
+                                  const event = {
+                                    target: {
+                                      name: "isTutorial",
+                                      type: "checkbox",
+                                      checked: e.target.checked
+                                    }
+                                  };
+                                  handleInputChange(otherIndex, event);
+                                }
+                              }}
+                            />
+                            check if this is a tutorial course
+                          </label>
+                        )}
                       </div>
                     </label>
                     <input
@@ -406,7 +466,9 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                     <select
                       name="Type"
                       className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                      value={course.Type} onChange={(e) => handleInputChange(courseIndex, e)} required
+                      value={course.Type}
+                      onChange={(e) => handleInputChange(courseIndex, e)}
+                      required
                     >
                       <option value="" disabled>Select Course Type</option>
                       <option
@@ -416,6 +478,8 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                         Core {!isCore && "(Requires Core Department Access)"}
                       </option>
                       <option value="Professional">Professional</option>
+                      <option value="General">General</option>
+                      <option value="Elective">Elective</option>
                     </select>
                   </div>
 
@@ -424,7 +488,9 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                     <select
                       name="RoomTypeId"
                       className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                      value={course.RoomTypeId} onChange={(e) => handleInputChange(courseIndex, e)} required
+                      value={course.RoomTypeId}
+                      onChange={(e) => handleInputChange(courseIndex, e)}
+                      required
                     >
                       <option value="" disabled>Select Room Type</option>
                       {roomTypes.map((roomType) => (
@@ -434,10 +500,14 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                   </div>
                 </div>
 
-                {!course.isTutorial && (
+                {/* Only show the Program & Year Levels section for the first course when it's a pair */}
+                {!course.isTutorial && (!isPair || courseIndex === 0) && (
                   <div className="space-y-3 pt-2">
                     <div className="flex justify-between items-center">
-                      <label className="block text-sm font-medium text-gray-700">Program & Year Levels</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Program & Year Levels
+                        {isPair && <span className="ml-2 text-xs text-blue-600">(Will apply to both courses)</span>}
+                      </label>
                       <button
                         type="button"
                         className="flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors"
