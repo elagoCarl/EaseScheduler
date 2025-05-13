@@ -316,7 +316,7 @@ const Room = () => {
       <ToastContainer position="top-right" autoClose={3000} />
 
       <div className="flex-grow flex justify-center items-center pt-20 pb-8 px-4">
-        <div className="w-full sm:max-w-7xl max-w-6xl my-50">
+        <div className="w-full max-w-6xl sm:max-w-6xl my-50 m-5 p-4">
           {/* Header */}
           <div className="mb-6 flex flex-col md:flex-row justify-between items-center">
             <h1 className="text-xl sm:text-3xl font-bold text-white mb-2">Room Management</h1>
