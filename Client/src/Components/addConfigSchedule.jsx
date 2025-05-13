@@ -918,27 +918,6 @@ const AddConfigSchedule = () => {
     )
   );
 
-  const renderSchoolYearSelector = () => {
-    return (
-      <div className="mb-4 border-b pb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Select School Year:</label>
-        <select
-          value={selectedSchoolYearId || ''}
-          onChange={handleSchoolYearChange}
-          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          required
-        >
-          <option value="">Select School Year</option>
-          {schoolYears.map(sy => (
-            <option key={sy.id} value={sy.id}>
-              {sy.SY_Name} ({new Date(sy.Start_date).getFullYear()}-{new Date(sy.End_date).getFullYear()})
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  };
-
   const renderAutomationSection = () => {
     return (
       <div className={`mt-4 ${activeMode !== 'automation' ? 'opacity-50 pointer-events-none' : ''}`}>
