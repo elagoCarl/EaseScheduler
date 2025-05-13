@@ -595,7 +595,9 @@ const generateScheduleVariants = async (req, res, next) => {
                     },
                     include: [
                         {
-                            model: Course
+                            model: Course,
+                            // Include PairId to identify paired courses
+                            attributes: ['id', 'Code', 'Description', 'Duration', 'Type', 'RoomTypeId', 'PairId']
                         },
                         { model: Professor, attributes: ['id', 'Name'] }
                     ]
@@ -729,14 +731,47 @@ const generateScheduleVariants = async (req, res, next) => {
             professorAvailabilityCache[`prof-count-${profId}`] = availData.length;
         });
 
-        // 7) Sort assignations by prioritizedProfessor (consistent across variants)
+        // 7) MODIFICATION: First prioritize courses with PairId, and then within that apply other priorities
+        // Split assignations into paired and non-paired
+        const pairedAssignations = unscheduledAssignations.filter(a => a.Course?.PairId);
+        const nonPairedAssignations = unscheduledAssignations.filter(a => !a.Course?.PairId);
+
+        // Group paired assignations by PairId
+        const pairGroups = {};
+        pairedAssignations.forEach(a => {
+            const pairId = a.Course.PairId;
+            if (!pairGroups[pairId]) {
+                pairGroups[pairId] = [];
+            }
+            pairGroups[pairId].push(a);
+        });
+
+        // Sort within pair groups if professor priorities exist
         if (priorities.professor) {
-            unscheduledAssignations.sort((a, b) => {
+            // Sort paired assignations within each pair group
+            Object.keys(pairGroups).forEach(pairId => {
+                pairGroups[pairId].sort((a, b) => {
+                    const aP = priorities.professor.includes(a.Professor?.id);
+                    const bP = priorities.professor.includes(b.Professor?.id);
+                    return (bP === aP) ? 0 : (aP ? -1 : 1);
+                });
+            });
+            
+            // Sort non-paired assignations by professor priority
+            nonPairedAssignations.sort((a, b) => {
                 const aP = priorities.professor.includes(a.Professor?.id);
                 const bP = priorities.professor.includes(b.Professor?.id);
-                return (bP === aP) ? 0 : (aP ? -1 : 1); // Prioritized first (-1)
+                return (bP === aP) ? 0 : (aP ? -1 : 1);
             });
         }
+            
+        // Create a flattened list of paired assignations grouped by their pairs
+        const orderedPairedAssignations = Object.values(pairGroups).flat();
+
+        // Combine the sorted lists: paired assignations first, then non-paired
+        unscheduledAssignations = [...orderedPairedAssignations, ...nonPairedAssignations];
+        
+        console.log(`Prioritized ${orderedPairedAssignations.length} paired courses out of ${unscheduledAssignations.length} total assignations`);
 
         // Modify room ordering to place "lec" types at the end
         rooms.sort((a, b) => {
@@ -834,44 +869,57 @@ const generateScheduleVariants = async (req, res, next) => {
             // Clone unscheduled assignations for this variant
             let variantAssignations = [...unscheduledAssignations];
 
-            // IMPORTANT: Split into prioritized and non-prioritized groups - only shuffle non-prioritized
-            if (variant > 0) { // First variant keeps the original ordering
-                if (priorities.professor) {
-                    const prioritizedAssignations = variantAssignations.filter(a =>
-                        priorities.professor.includes(a.Professor?.id));
-                    const nonPrioritizedAssignations = variantAssignations.filter(a =>
-                        !priorities.professor.includes(a.Professor?.id));
-
-                    // Only shuffle the non-prioritized assignations
-                    const shuffledNonPriority = shuffleDeterministic([...nonPrioritizedAssignations], variant);
-
-                    // Recombine while preserving priority order
-                    variantAssignations = [...prioritizedAssignations, ...shuffledNonPriority];
-                } else {
-                    // If no professor priorities, shuffle everything
-                    variantAssignations = shuffleDeterministic([...unscheduledAssignations], variant);
-                }
-
-                // Handle room prioritization - split, shuffle non-priority, recombine
-                let variantRooms = [...rooms];
-                if (priorities.room) {
-                    const prioritizedRooms = variantRooms.filter(r =>
-                        priorities.room.includes(r.id));
-                    const nonPrioritizedRooms = variantRooms.filter(r =>
-                        !priorities.room.includes(r.id));
-
-                    // Only shuffle the non-prioritized rooms
-                    const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
-
-                    // Recombine while preserving priority order
-                    variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
-                } else {
-                    // If no room priorities, shuffle everything
-                    variantRooms = shuffleDeterministic([...rooms], variant);
-                }
-
-                rooms = variantRooms;
+            // IMPORTANT: For variants after the first, we need to maintain pair grouping
+            if (variant > 0) {
+                // First extract all paired assignations, keeping them grouped
+                const pairedGroups = {};
+                const nonPairedList = [];
+                
+                variantAssignations.forEach(a => {
+                    if (a.Course?.PairId) {
+                        if (!pairedGroups[a.Course.PairId]) {
+                            pairedGroups[a.Course.PairId] = [];
+                        }
+                        pairedGroups[a.Course.PairId].push(a);
+                    } else {
+                        nonPairedList.push(a);
+                    }
+                });
+                
+                // Shuffle the order of pairs (as groups), not individual paired courses
+                const pairIds = Object.keys(pairedGroups);
+                const shuffledPairIds = shuffleDeterministic([...pairIds], variant);
+                
+                // Shuffle non-paired courses
+                const shuffledNonPaired = shuffleDeterministic([...nonPairedList], variant);
+                
+                // Reconstruct the list with the new ordering, keeping pairs together
+                variantAssignations = [];
+                shuffledPairIds.forEach(pairId => {
+                    variantAssignations.push(...pairedGroups[pairId]);
+                });
+                variantAssignations.push(...shuffledNonPaired);
             }
+
+            // Handle room prioritization - split, shuffle non-priority, recombine
+            let variantRooms = [...rooms];
+            if (priorities.room && variant > 0) {
+                const prioritizedRooms = variantRooms.filter(r =>
+                    priorities.room.includes(r.id));
+                const nonPrioritizedRooms = variantRooms.filter(r =>
+                    !priorities.room.includes(r.id));
+
+                // Only shuffle the non-prioritized rooms
+                const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
+
+                // Recombine while preserving priority order
+                variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
+            } else if (variant > 0) {
+                // If no room priorities, shuffle everything
+                variantRooms = shuffleDeterministic([...rooms], variant);
+            }
+
+            rooms = variantRooms;
 
             // 11) Run scheduler with this variant's configuration
             const report = [], failedAssignations = [];
