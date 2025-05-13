@@ -57,6 +57,7 @@ const AddConfigSchedule = () => {
   const [newPriorityRoom, setNewPriorityRoom] = useState("");
   const [semesters, setSemesters] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedSchoolYearId, setSelectedSchoolYearId] = useState(""); // Added state for selectedSchoolYearId
   const [filteredAssignations, setFilteredAssignations] = useState([]);
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [selectedProfessorId, setSelectedProfessorId] = useState(null);
@@ -231,6 +232,462 @@ const AddConfigSchedule = () => {
 
     return [value, setValue];
   }
+
+  const addAssignation = async (req, res, next) => {
+    try {
+        let assignations = req.body;
+
+        if (!Array.isArray(assignations)) {
+            assignations = [assignations];
+        }
+
+        let createdAssignations = [];
+        let warningMessage = null;
+
+        for (let assignation of assignations) {
+            let { SchoolYearId, CourseId, ProfessorId, DepartmentId, SectionIds, Semester } = assignation;
+            if (!util.checkMandatoryFields([SchoolYearId, CourseId, DepartmentId, Semester])) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "A mandatory field is missing.",
+                });
+            }
+
+            // Validate Semester value
+            if (Semester !== 1 && Semester !== 2) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Semester must be either 1 or 2.",
+                });
+            }
+
+            // Validate SchoolYear
+            const schoolYear = await SchoolYear.findByPk(SchoolYearId);
+            if (!schoolYear) {
+                return res.status(404).json({ successful: false, message: "School Year not found." });
+            }
+
+            // Validate Course and check for paired courses
+            const course = await Course.findByPk(CourseId, {
+                include: [
+                    { model: CourseProg, as: 'CourseProgs' },
+                ]
+            });
+            
+            if (!course) {
+                return res.status(404).json({ successful: false, message: "Course not found." });
+            }
+            
+            // Find all paired courses if this course has a PairId
+            let pairedCourses = [];
+            if (course.PairId) {
+                pairedCourses = await Course.findAll({
+                    where: {
+                        PairId: course.PairId,
+                        id: { [Op.ne]: course.id } // Exclude the current course
+                    },
+                    include: [
+                        { model: CourseProg, as: 'CourseProgs' }
+                    ]
+                });
+            }
+
+            if (course.isTutorial && SectionIds && SectionIds.length > 0) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Tutorial courses cannot be assigned to sections.",
+                });
+            }
+            if (!course.isTutorial && (!SectionIds || SectionIds.length === 0)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Non-tutorial courses must be assigned to at least one section.",
+                });
+            }
+            if (course.isTutorial && ProfessorId) {
+                const existingTutorialAssignation = await Assignation.findOne({
+                    where: {
+                        SchoolYearId,
+                        CourseId,
+                        Semester,
+                        ProfessorId
+                    }
+                });
+                
+                if (existingTutorialAssignation) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `This tutorial course (${course.Code}) is already assigned to the same professor for School Year ID ${SchoolYearId} and Semester ${Semester}.`
+                    });
+                }
+            }
+
+            const department = await Department.findByPk(DepartmentId);
+            if (!department) {
+                return res.status(404).json({ successful: false, message: "Department not found." });
+            }
+
+            let professor = null;
+            if (ProfessorId) {
+                professor = await Professor.findByPk(ProfessorId, {
+                    include: [
+                        { model: ProfAvail },
+                    ]
+                });
+                
+                if (!professor) {
+                    return res.status(404).json({ successful: false, message: "Professor not found." });
+                }
+                let totalCourseHours = course.Duration + 0.5; // Main course + buffer
+                
+                // Add duration of paired courses
+                for (const pairedCourse of pairedCourses) {
+                    totalCourseHours += pairedCourse.Duration + 0.5; // Each paired course + buffer
+                }
+
+                // Check professor's total availability against current and new assignations
+                if (professor.ProfAvails && professor.ProfAvails.length > 0) {
+                    // Calculate professor's total available hours
+                    let totalAvailableMinutes = 0;
+
+                    for (const avail of professor.ProfAvails) {
+                        const startTime = new Date(`1970-01-01T${avail.Start_time}`);
+                        const endTime = new Date(`1970-01-01T${avail.End_time}`);
+
+                        // Calculate minutes between start and end time
+                        const minutesDiff = (endTime - startTime) / (1000 * 60);
+                        totalAvailableMinutes += minutesDiff;
+                    }
+
+                    const totalAvailableHours = totalAvailableMinutes / 60;
+                    const existingAssignations = await Assignation.findAll({
+                        where: {
+                            ProfessorId,
+                            SchoolYearId,
+                            Semester 
+                        },
+                        include: [
+                            {
+                                model: Course,
+                                attributes: ['Duration']
+                            }
+                        ]
+                    });
+                    let currentTotalHours = 0;
+                    for (const existingAssign of existingAssignations) {
+                        currentTotalHours += (existingAssign.Course.Duration + 0.5);
+                    }
+                    const newTotalHours = currentTotalHours + totalCourseHours;
+
+                    if (newTotalHours > totalAvailableHours) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Professor ${professor.Name} doesn't have enough available time. Required: ${newTotalHours.toFixed(2)} hours, Available: ${totalAvailableHours.toFixed(2)} hours.`
+                        });
+                    }
+                } else {
+                    return res.status(400).json({
+                        successful: false,
+                        message: `Professor ${professor.Name} has no availability set. Please set availability before assigning courses.`
+                    });
+                }
+            }
+
+            if (SectionIds && SectionIds.length > 0) {
+                const sections = await ProgYrSec.findAll({
+                    where: {
+                        id: SectionIds
+                    },
+                    include: [
+                        {
+                            model: Program,
+                        }
+                    ]
+                });
+
+                if (sections.length !== SectionIds.length) {
+                    const foundIds = sections.map(section => section.id);
+                    const invalidIds = SectionIds.filter(id => !foundIds.includes(id));
+
+                    return res.status(404).json({
+                        successful: false,
+                        message: `One or more section IDs do not exist: ${invalidIds.join(', ')}`
+                    });
+                }
+
+                // Get all program IDs from the sections
+                const programIds = [...new Set(sections.map(section => section.Program.id))];
+
+                // Find CourseProgs for this course and these programs
+                const courseProgs = await CourseProg.findAll({
+                    where: {
+                        CourseId: CourseId,
+                        ProgramId: programIds
+                    }
+                });
+                for (const section of sections) {
+                    const programId = section.Program.id;
+                    const sectionYear = section.Year;
+
+                    const courseProgForSection = courseProgs.find(cp =>
+                        cp.ProgramId === programId &&
+                        (cp.Year === sectionYear || cp.Year === null) // null Year in CourseProg means it's valid for any year
+                    );
+
+                    if (!courseProgForSection) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Course ${course.Code} cannot be assigned to section ${section.id} (Program: ${section.Program.Code}, Year: ${sectionYear}) as it's not configured for this program-year combination`
+                        });
+                    }
+                    
+                    if (courseProgForSection.Semester !== Semester) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Course ${course.Code} for program ${section.Program.Code} Year ${sectionYear} is offered in Semester ${courseProgForSection.Semester}, but you're trying to assign it to Semester ${Semester}.`
+                        });
+                    }
+                }
+
+                const totalStudents = sections.reduce((acc, section) => acc + section.NumberOfStudents, 0);
+                if (totalStudents > 50) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: "The total number of students in the sections exceeds 50."
+                    });
+                }
+            }
+
+            const t = await sequelize.transaction();
+
+            try {
+                if (SectionIds && SectionIds.length > 0) {
+                    const allCourseIds = [CourseId, ...pairedCourses.map(pc => pc.id)];
+                    const existingAssignations = await Assignation.findAll({
+                        where: {
+                            SchoolYearId,
+                            CourseId: allCourseIds,
+                            Semester
+                        },
+                        include: [
+                            {
+                                model: ProgYrSec,
+                                required: true
+                            }
+                        ],
+                        transaction: t
+                    });
+                    
+                    // Extract all section IDs from existing assignations
+                    const existingSectionIds = new Set();
+                    for (const assign of existingAssignations) {
+                        for (const sec of assign.ProgYrSecs) {
+                            existingSectionIds.add(sec.id);
+                        }
+                    }
+                    
+                    const duplicateSectionIds = SectionIds.filter(id => existingSectionIds.has(id));
+                    
+                    if (duplicateSectionIds.length > 0) {
+                        const duplicateSections = await ProgYrSec.findAll({
+                            where: {
+                                id: duplicateSectionIds
+                            },
+                            include: [{ model: Program }],
+                            transaction: t
+                        });
+                        
+                        const sectionDetails = duplicateSections.map(section =>
+                            `${section.Program.Code} ${section.Year}-${section.Section}`
+                        ).join(', ');
+                        
+                        await t.rollback();
+                        return res.status(400).json({
+                            successful: false,
+                            message: `This course or one of its paired courses is already assigned to the following section(s): ${sectionDetails} for the same semester and school year.`
+                        });
+                    }
+                }
+                if (professor) {
+                    const status = await ProfStatus.findByPk(professor.ProfStatusId, {
+                        transaction: t
+                    });
+                    
+                    if (!status) {
+                        await t.rollback();
+                        return res.status(404).json({ successful: false, message: "Professor status not found." });
+                    }
+
+                    let totalUnits = course.Units;
+                    for (const pairedCourse of pairedCourses) {
+                        totalUnits += pairedCourse.Units;
+                    }
+
+                    let [professorLoad, created] = await ProfessorLoad.findOrCreate({
+                        where: {
+                            ProfId: professor.id,
+                            SY_Id: SchoolYearId
+                        },
+                        defaults: {
+                            First_Sem_Units: 0,
+                            Second_Sem_Units: 0
+                        },
+                        transaction: t
+                    });
+                    
+                    if (Semester === 1) {
+                        const newTotalUnits = professorLoad.First_Sem_Units + totalUnits;
+                        if (newTotalUnits > status.Max_units) {
+                            // Instead of returning an error, set a warning message
+                            warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                        }
+
+                        // Update professor's load with the new calculated value
+                        await professorLoad.update({ First_Sem_Units: newTotalUnits }, {
+                            transaction: t
+                        });
+                    } else if (Semester === 2) {
+                        // Calculate new total units for second semester
+                        const newTotalUnits = professorLoad.Second_Sem_Units + totalUnits;
+
+                        // Check if the total new units will exceed the limit
+                        if (newTotalUnits > status.Max_units) {
+                            // Instead of returning an error, set a warning message
+                            warningMessage = `Professor ${professor.Name} is overloaded (${newTotalUnits}/${status.Max_units} units).`;
+                        }
+
+                        // Update professor's load with the new calculated value
+                        await professorLoad.update({ Second_Sem_Units: newTotalUnits }, {
+                            transaction: t
+                        });
+                    }
+                }
+
+                // Create Assignation for the main course
+                const assignationData = {
+                    SchoolYearId,
+                    CourseId,
+                    DepartmentId,
+                    Semester
+                };
+
+                // Add ProfessorId if it was provided
+                if (ProfessorId) {
+                    assignationData.ProfessorId = ProfessorId;
+                }
+
+                const newAssignation = await Assignation.create(assignationData, {
+                    transaction: t
+                });
+
+                if (SectionIds && SectionIds.length > 0) {
+                    await newAssignation.setProgYrSecs(SectionIds, {
+                        transaction: t
+                    });
+                }
+                
+                createdAssignations.push(newAssignation);
+                
+                // Create assignations for paired courses if they exist
+                for (const pairedCourse of pairedCourses) {
+                    // Check if paired course is tutorial and already has an assignation for this semester/school year with the same professor
+                    if (pairedCourse.isTutorial && ProfessorId) {
+                        const existingTutorialAssignation = await Assignation.findOne({
+                            where: {
+                                SchoolYearId,
+                                CourseId: pairedCourse.id,
+                                Semester,
+                                ProfessorId
+                            },
+                            transaction: t
+                        });
+                        
+                        if (existingTutorialAssignation) {
+                            // Skip this paired course as it already has an assignation with this professor
+                            continue;
+                        }
+                    }
+                    
+                    const pairedAssignationData = {
+                        SchoolYearId,
+                        CourseId: pairedCourse.id,
+                        DepartmentId,
+                        Semester
+                    };
+                    
+                    // Always use the same professor for paired courses
+                    if (ProfessorId) {
+                        pairedAssignationData.ProfessorId = ProfessorId;
+                    }
+                    
+                    const pairedAssignation = await Assignation.create(pairedAssignationData, {
+                        transaction: t
+                    });
+                    
+                    // Only assign sections if the paired course is not a tutorial
+                    if (SectionIds && SectionIds.length > 0 && !pairedCourse.isTutorial) {
+                        await pairedAssignation.setProgYrSecs(SectionIds, {
+                            transaction: t
+                        });
+                    }
+                    
+                    createdAssignations.push(pairedAssignation);
+                }
+
+                // Commit the transaction
+                await t.commit();
+            } catch (error) {
+                // Roll back transaction on error
+                await t.rollback();
+                throw error; // Re-throw to be caught by the outer try/catch
+            }
+        }
+        if (createdAssignations.length === 0) {
+            return res.status(400).json({
+                successful: false,
+                message: "No assignations were created. Check for missing fields or duplicates.",
+            });
+        }
+
+        const token = req.cookies?.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                successful: false,
+                message: "Unauthorized: refreshToken not found."
+            });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+        } catch (err) {
+            return res.status(403).json({
+                successful: false,
+                message: "Invalid refreshToken."
+            });
+        }
+
+        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+        const page = 'Assignation';
+        const details = `Added Assignation ID(s): ${createdAssignations.map(a => a.id).join(', ')}`;
+        await addHistoryLog(accountId, page, details);
+
+        return res.status(201).json({
+            successful: true,
+            message: `${createdAssignations.length} assignation(s) created successfully.`,
+            data: createdAssignations,
+            warning: warningMessage
+        });
+
+    } catch (err) {
+        console.error("Error in addAssignation:", err);
+        return res.status(500).json({
+            successful: false,
+            message: "An unexpected error occurred while creating assignations.",
+            error: err.message,
+        });
+    }
+};
 
   const fetchSectionsForCourse = (courseId) => {
     if (!deptId) return;
@@ -917,6 +1374,27 @@ const AddConfigSchedule = () => {
     )
   );
 
+  const renderSchoolYearSelector = () => {
+    return (
+      <div className="mb-4 border-b pb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select School Year:</label>
+        <select
+          value={selectedSchoolYearId || ''}
+          onChange={handleSchoolYearChange}
+          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
+          <option value="">Select School Year</option>
+          {schoolYears.map(sy => (
+            <option key={sy.id} value={sy.id}>
+              {sy.SY_Name} ({new Date(sy.Start_date).getFullYear()}-{new Date(sy.End_date).getFullYear()})
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   const renderAutomationSection = () => {
     return (
       <div className={`mt-4 ${activeMode !== 'automation' ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -1167,7 +1645,7 @@ const AddConfigSchedule = () => {
                     <input type="time" name="custom_start_time" value={customStartTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
                     <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
@@ -1176,11 +1654,14 @@ const AddConfigSchedule = () => {
                   <button onClick={resetForm} className="flex flex-1 justify-center bg-red-500 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors">
                     Reset
                   </button>
-                  <button onClick={handleAddSchedule} className="flex flex-1 justify-center bg-blue-600 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                  <button 
+                    onClick={handleAddSchedule} 
+                    disabled={!selectedSchoolYearId}
+                    className={`flex flex-1 justify-center ${!selectedSchoolYearId ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors`}
+                  >
                     Save
                   </button>
                 </div>
-                {/* {renderManualSchedulingSection()} */}
                 {renderAutomationSection()}
               </div>
             </div>
@@ -1264,29 +1745,46 @@ const AddConfigSchedule = () => {
           setIsDeleteModalOpen(false);
         }}
         title="Delete Confirmation"
-        message="Are you sure you want to delete ALL schedules in this department? This action cannot be undone."
+        message="Are you sure you want to delete ALL schedules in this department for the selected school year? This action cannot be undone."
       />
 
-      <EditSchedRecordModal isOpen={isEditModalOpen} schedule={selectedSchedule} onClose={() => {
-        setIsEditModalOpen(false);
-        setSelectedSchedule(null);
-      }} onUpdate={(updatedSchedule) => {
-        if (formData.room_id) {
-          fetchSchedulesForRoom(formData.room_id);
-        }
-      }} rooms={rooms} assignations={assignations} Semester={selectedSemester}
+      <EditSchedRecordModal 
+        isOpen={isEditModalOpen} 
+        schedule={selectedSchedule} 
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedSchedule(null);
+        }} 
+        onUpdate={(updatedSchedule) => {
+          if (formData.room_id) {
+            fetchSchedulesForRoom(formData.room_id);
+          }
+        }} 
+        rooms={rooms} 
+        assignations={assignations} 
+        Semester={selectedSemester}
+        SchoolYearId={selectedSchoolYearId}
       />
 
-      <SettingsModal isOpen={isSettingsOpen} closeSettingsModal={closeSettingsModal}
+      <SettingsModal isOpen={isSettingsOpen} closeSettingsModal={closeSettingsModal} />
+
+      <ScheduleReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} scheduleData={reportData} />
+
+      <ScheduleVariantModal 
+        show={showVariantModal} 
+        onHide={() => setShowVariantModal(false)} 
+        variants={scheduleVariants} 
+        loading={isAutomating} 
+        onSelectVariant={handleSelectVariant} 
+        departmentId={deptId}
+        schoolYearId={selectedSchoolYearId}
       />
 
-      <ScheduleReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} scheduleData={reportData}
-      />
-
-      <ScheduleVariantModal show={showVariantModal} onHide={() => setShowVariantModal(false)} variants={scheduleVariants} loading={isAutomating} onSelectVariant={handleSelectVariant} departmentId={deptId}
-      />
-
-      <ProfAvailabilityModal isOpen={isAvailabilityModalOpen} onClose={() => setIsAvailabilityModalOpen(false)} professorId={selectedProfessorId}
+      <ProfAvailabilityModal 
+        isOpen={isAvailabilityModalOpen} 
+        onClose={() => setIsAvailabilityModalOpen(false)} 
+        professorId={selectedProfessorId}
+        schoolYearId={selectedSchoolYearId}
       />
     </div>
   );
