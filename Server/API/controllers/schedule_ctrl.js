@@ -69,8 +69,11 @@ const isSchedulePossible = async (
     roomCache,
     professorAvailabilityCache
 ) => {
+    console.log(`Checking if schedule is possible: Room=${roomId}, Prof=${professorId || 'NONE'}, Day=${day}, Hour=${startHour}`);
+    
     // Check if room is available
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) {
+        console.log(`Room ${roomId} is not available at this time`);
         return false;
     }
 
@@ -81,6 +84,7 @@ const isSchedulePossible = async (
     // Check room type compatibility
     if (courseData?.RoomTypeId) {
         if (!room.RoomTypeIds || !room.RoomTypeIds.includes(courseData.RoomTypeId)) {
+            console.log(`Room ${roomId} doesn't support required room type for course ${courseId}`);
             return false; // Room doesn't support this course's required room type
         }
     }
@@ -91,9 +95,13 @@ const isSchedulePossible = async (
         startHour, duration, settings, professorId, day,
         professorAvailabilityCache
     )) {
+        console.log(`Professor ${professorId} is not available at this time`);
         return false;
+    } else if (!professorId) {
+        console.log(`No professor assigned - skipping professor availability check`);
     }
 
+    console.log(`Schedule is possible!`);
     return true;
 };
 
@@ -283,10 +291,22 @@ const scheduleAssignation = async (
     // Base case: all assignations handled
     if (index === assignations.length) return true;
 
+    // Log all assignations being received at the start
+    if (index === 0) {
+        console.log("===== ALL ASSIGNATIONS RECEIVED =====");
+        assignations.forEach((a, i) => {
+            console.log(`Assignation ${i}: Course ${a.Course?.Code}, Professor: ${a.Professor?.Name || 'NONE'}`);
+        });
+        console.log("====================================");
+    }
+
     const assignation = assignations[index];
     const { Course: courseParam, Professor: professorInfo } = assignation;
     const duration = courseParam.Duration;
 
+    // Log the current assignation being processed
+    console.log(`\nProcessing assignation ${index}: Course ${courseParam.Code}, Professor: ${professorInfo?.Name || 'NONE'}`);
+    
     try {
         // --- 1) Build the candidate room list, enforcing RoomType === assignation.RoomType ---
         // build two lists: prioritized, then the rest
@@ -327,7 +347,10 @@ const scheduleAssignation = async (
             return 0;
         });
 
+        console.log(`Found ${roomsToTry.length} compatible rooms for course ${courseParam.Code}`);
+
         if (!roomsToTry.length) {
+            console.log(`Failed to schedule - No compatible rooms found for course ${courseParam.Code}`);
             failedAssignations.push({
                 id: assignation.id,
                 Course: courseParam.Code,
@@ -393,6 +416,8 @@ const scheduleAssignation = async (
 
                 // Try each hour
                 for (let hour of hourOptions) {
+                    console.log(`Trying room ${room.Code}, day ${day}, hour ${hour} for course ${courseParam.Code}`);
+                    
                     const isPossible = await isSchedulePossible(
                         roomSchedules, 
                         professorSchedule, 
@@ -410,6 +435,8 @@ const scheduleAssignation = async (
                     );
 
                     if (isPossible) {
+                        console.log(`SUCCESS! Found viable slot for ${courseParam.Code} in room ${room.Code}, day ${day}, hour ${hour}`);
+                        
                         // Update trackers
                         if (professorInfo) {
                             professorSchedule[professorInfo.id][day].hours += duration;
@@ -417,6 +444,8 @@ const scheduleAssignation = async (
                                 start: hour, 
                                 end: hour + duration 
                             });
+                        } else {
+                            console.log(`No professor to update for ${courseParam.Code}`);
                         }
 
                         courseSchedules[courseParam.id][day].push({ 
@@ -447,6 +476,8 @@ const scheduleAssignation = async (
 
                         successfullyScheduled = true;
                         break; // Found a suitable time slot, stop checking hours
+                    } else {
+                        console.log(`Cannot schedule at this time slot - conflicts exist`);
                     }
                 }
             }
@@ -454,6 +485,7 @@ const scheduleAssignation = async (
 
         // If couldn't schedule, add to failed assignations
         if (!successfullyScheduled) {
+            console.log(`FAILED to schedule course ${courseParam.Code}`);
             failedAssignations.push({
                 id: assignation.id,
                 Course: courseParam.Code,
