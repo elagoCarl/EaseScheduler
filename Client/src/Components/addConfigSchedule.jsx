@@ -233,6 +233,7 @@ const AddConfigSchedule = () => {
     return [value, setValue];
   }
 
+  //this part is gonna make drew crazy - ro 22 years old 
   const addAssignation = async (req, res, next) => {
     try {
         let assignations = req.body;
@@ -240,7 +241,6 @@ const AddConfigSchedule = () => {
         if (!Array.isArray(assignations)) {
             assignations = [assignations];
         }
-
         let createdAssignations = [];
         let warningMessage = null;
 
@@ -252,22 +252,17 @@ const AddConfigSchedule = () => {
                     message: "A mandatory field is missing.",
                 });
             }
-
-            // Validate Semester value
             if (Semester !== 1 && Semester !== 2) {
                 return res.status(400).json({
                     successful: false,
                     message: "Semester must be either 1 or 2.",
                 });
             }
-
-            // Validate SchoolYear
             const schoolYear = await SchoolYear.findByPk(SchoolYearId);
             if (!schoolYear) {
                 return res.status(404).json({ successful: false, message: "School Year not found." });
             }
 
-            // Validate Course and check for paired courses
             const course = await Course.findByPk(CourseId, {
                 include: [
                     { model: CourseProg, as: 'CourseProgs' },
@@ -277,8 +272,6 @@ const AddConfigSchedule = () => {
             if (!course) {
                 return res.status(404).json({ successful: false, message: "Course not found." });
             }
-            
-            // Find all paired courses if this course has a PairId
             let pairedCourses = [];
             if (course.PairId) {
                 pairedCourses = await Course.findAll({
@@ -339,15 +332,11 @@ const AddConfigSchedule = () => {
                     return res.status(404).json({ successful: false, message: "Professor not found." });
                 }
                 let totalCourseHours = course.Duration + 0.5; // Main course + buffer
-                
-                // Add duration of paired courses
                 for (const pairedCourse of pairedCourses) {
                     totalCourseHours += pairedCourse.Duration + 0.5; // Each paired course + buffer
                 }
 
-                // Check professor's total availability against current and new assignations
                 if (professor.ProfAvails && professor.ProfAvails.length > 0) {
-                    // Calculate professor's total available hours
                     let totalAvailableMinutes = 0;
 
                     for (const avail of professor.ProfAvails) {
@@ -415,10 +404,7 @@ const AddConfigSchedule = () => {
                     });
                 }
 
-                // Get all program IDs from the sections
                 const programIds = [...new Set(sections.map(section => section.Program.id))];
-
-                // Find CourseProgs for this course and these programs
                 const courseProgs = await CourseProg.findAll({
                     where: {
                         CourseId: CourseId,
@@ -478,7 +464,6 @@ const AddConfigSchedule = () => {
                         transaction: t
                     });
                     
-                    // Extract all section IDs from existing assignations
                     const existingSectionIds = new Set();
                     for (const assign of existingAssignations) {
                         for (const sec of assign.ProgYrSecs) {
