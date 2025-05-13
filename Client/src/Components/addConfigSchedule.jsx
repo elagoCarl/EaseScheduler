@@ -1299,7 +1299,7 @@ const AddConfigSchedule = () => {
           setIsEditModalOpen(false);
           setSelectedSchedule(null);
         }} 
-        onUpdate={(updatedSchedule) => {
+        onUpdate={() => {
           if (formData.room_id) {
             fetchSchedulesForRoom(formData.room_id);
           }
