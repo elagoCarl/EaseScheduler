@@ -37,8 +37,8 @@ const DeptProg = () => {
 
     // Validation functions
     const isValidName = (name) => {
-        // Only allow letters, spaces and hyphens in names
-        const nameRegex = /^[A-Za-z\s-]+$/;
+        // Only allow letters and spaces in names
+        const nameRegex = /^[A-Za-z\s]+$/;
         return nameRegex.test(name);
     };
 

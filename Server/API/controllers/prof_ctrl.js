@@ -4,6 +4,7 @@ const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env
 
+const isValidName = (str) => /^[A-Za-z]+([ '-][A-Za-z]+)*$/.test(str);
 
 const addProf = async (req, res, next) => {
     try {
@@ -50,6 +51,14 @@ const addProf = async (req, res, next) => {
                     message: "Invalid email format."
                 });
             }
+
+            if (!isValidName(Name)) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Invalid name format. Only letters, spaces, hyphens, and apostrophes are allowed."
+                });
+            }
+
 
             const status = await ProfStatus.findByPk(Status);
             if (!status) {
@@ -263,6 +272,14 @@ const updateProf = async (req, res, next) => {
                 message: "A mandatory field is missing."
             });
         }
+
+        if (!isValidName(name)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Invalid name format. Only letters, spaces, hyphens, and apostrophes are allowed."
+            });
+        }
+
 
         // Validate email format
         if (!util.validateEmail(email)) {
