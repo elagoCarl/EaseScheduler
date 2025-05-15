@@ -298,14 +298,12 @@ const AddConfigSchedule = () => {
       const response = await axios.post("/schedule/addSchedule", payload);
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule added successfully!" });
-        // Only reset assignation, day, times and sections
         setFormData(prev => ({
           ...prev,
           assignation_id: "",
           day: "",
           start_time: "",
           end_time: "",
-          // If you want to keep assignation, remove assignation_id
         }));
         setCustomStartTime("");
         setCustomEndTime("");
