@@ -743,16 +743,16 @@ const ProfessorManagement = () => {
                                             </div>
                                         </div>
                                     </div>
-
-                                    <CourseAssignments
-                                        professor={professor}
-                                        departmentAssignations={departmentAssignations}
-                                        onAssignCourse={handleAssignCourse}
-                                        onDeleteAssignment={handleDeleteCourseAssignment}
-                                        selectedSchoolYear={selectedSchoolYears[professor.id]}
-                                        departmentId={selectedDepartment || user.DepartmentId}
-                                    />
-
+                                    {!professor.minimized && (
+                                        <CourseAssignments
+                                            professor={professor}
+                                            departmentAssignations={departmentAssignations}
+                                            onAssignCourse={handleAssignCourse}
+                                            onDeleteAssignment={handleDeleteCourseAssignment}
+                                            selectedSchoolYear={selectedSchoolYears[professor.id]}
+                                            departmentId={selectedDepartment || user.DepartmentId}
+                                        />
+                                    )}
                                     <div className="px-4 py-3 m-2 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
                                         <button
                                             className="px-3 py-1.5 bg-gray-200 gap-4 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition duration-150 flex items-center" onClick={() => {
