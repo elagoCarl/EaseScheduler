@@ -52,6 +52,15 @@ const addCourse = async (req, res) => {
         });
       }
 
+      // Validate that Code is alphanumeric only
+      if (!/^[a-zA-Z0-9]+$/.test(Code)) {
+        return res.status(406).json({
+          successful: false,
+          message: "Course code must be alphanumeric (letters and numbers only, no spaces or special characters).",
+        });
+      }
+
+
       // For non-tutorial courses, require Units and ProgYears
       if (!isTutorial && (!Units || !ProgYears)) {
         return res.status(400).json({
@@ -347,7 +356,7 @@ const updateCourse = async (req, res) => {
   try {
     // Find course by primary key
     const course = await Course.findByPk(req.params.id);
-    const { Code, Description, Duration, Units, Type, DepartmentId, RoomTypeId } = req.body;
+    const { Code, Description, Duration, Units, Type, RoomTypeId } = req.body;
 
     // Check if course exists
     if (!course) {
@@ -364,6 +373,13 @@ const updateCourse = async (req, res) => {
       return res.status(400).json({
         successful: false,
         message: "A mandatory field is missing.",
+      });
+    }
+
+    if (!/^[a-zA-Z0-9]+$/.test(Code)) {
+      return res.status(406).json({
+        successful: false,
+        message: "Course code must be alphanumeric (letters and numbers only, no spaces or special characters).",
       });
     }
 
