@@ -38,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
     const adminOnlyPaths = ['/accountlist', '/deptprog'];
 
     // Routes that Admin cannot access (accessible by other roles)
-    const adminRestrictedPaths = ['/courseprog', '/progyrsec', '/assignationscourseprof', '/course', '/settings', '/addconfigschedule', '/roomtimetable', '/proftimetable', '/sectiontimetable'];
+    const adminRestrictedPaths = ['/courseprog', '/progyrsec', '/assignationscourseprof', '/course', '/settings',];
 
     // Check for Program Head and Admin routes
     if (programHeadAndAdminPaths.includes(normalizedPath) &&

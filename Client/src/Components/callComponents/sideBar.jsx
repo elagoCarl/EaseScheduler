@@ -4,8 +4,6 @@ import PropTypes from 'prop-types';
 import { useAuth } from '../../Components/authContext';
 import axios from 'axios';
 import { BASE_URL } from '../../axiosConfig';
-
-// Import Lucide React Icons
 import { Home, Settings, Calendar, Users, Building2, BookOpen, Layers, UserCog, LogOut, ChevronDown } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -56,9 +54,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const isAdmin = user?.Roles === 'Admin';
   const isProgramHead = user?.Roles === 'Program Head';
   const isAdminOrProgramHead = isAdmin || isProgramHead;
-  const isNonAdmin = user?.Roles !== 'Admin';
 
-  // Menu item component for consistent styling
   const MenuItem = ({ label, onClick, hasChildren, isActive, icon: Icon, children }) => (
     <div className="w-full mb-6">
       <button
@@ -78,7 +74,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     </div>
   );
 
-  // Submenu item component for consistent styling
   const SubMenuItem = ({ label, onClick }) => (
     <button
       className="hover:bg-gray-700 py-2 px-12 rounded w-full flex items-center text-sm transition-colors text-left"
@@ -128,50 +123,46 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           />
         )} */}
 
-        {/* Timetables Section - Admin cannot access */}
-        {isNonAdmin && (
-          <MenuItem
-            label="Timetables"
-            icon={Calendar}
-            hasChildren={true}
-            isActive={activeSection === 'Timetables'}
-            onClick={() => toggleSubContent('Timetables')}
-          >
-            <div
-              className={`space-y-5 overflow-hidden transition-all duration-300 ${activeSection === 'Timetables' ? 'max-h-screen py-5' : 'max-h-0'
-                }`}
-            >
-              <SubMenuItem
-                label="Add/Configure Timetables"
-                onClick={() => {
-                  navigate('/addConfigSchedule');
-                  toggleSidebar(false);
-                }}
-              />
-              <SubMenuItem
-                label="Room Timetables"
-                onClick={() => {
-                  navigate('/roomTimetable');
-                  toggleSidebar(false);
-                }}
-              />
-              <SubMenuItem
-                label="Professors Timetables"
-                onClick={() => {
-                  navigate('/profTimetable');
-                  toggleSidebar(false);
-                }}
-              />
-              <SubMenuItem
-                label="Section Timetables"
-                onClick={() => {
-                  navigate('/sectionTimetable');
-                  toggleSidebar(false);
-                }}
-              />
-            </div>
-          </MenuItem>
-        )}
+        {/* Timetables Section - Now available to all users including Admin */}
+        <MenuItem
+          label="Timetables"
+          icon={Calendar}
+          hasChildren={true}
+          isActive={activeSection === 'Timetables'}
+          onClick={() => toggleSubContent('Timetables')}
+        >
+          <div
+            className={`space-y-5 overflow-hidden transition-all duration-300 ${activeSection === 'Timetables' ? 'max-h-screen py-5' : 'max-h-0'}`}>
+            <SubMenuItem
+              label="Add/Configure Timetables"
+              onClick={() => {
+                navigate('/addConfigSchedule');
+                toggleSidebar(false);
+              }}
+            />
+            <SubMenuItem
+              label="Room Timetables"
+              onClick={() => {
+                navigate('/roomTimetable');
+                toggleSidebar(false);
+              }}
+            />
+            <SubMenuItem
+              label="Professors Timetables"
+              onClick={() => {
+                navigate('/profTimetable');
+                toggleSidebar(false);
+              }}
+            />
+            <SubMenuItem
+              label="Section Timetables"
+              onClick={() => {
+                navigate('/sectionTimetable');
+                toggleSidebar(false);
+              }}
+            />
+          </div>
+        </MenuItem>
 
         {/* Professor Management - No dropdown, direct link */}
         <MenuItem
@@ -193,17 +184,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           }}
         />
 
-        {/* Courses Section - Admin cannot access */}
-        {isNonAdmin && (
-          <MenuItem
-            label="Course Management"
-            icon={BookOpen}
-            onClick={() => {
-              navigate('/course');
-              toggleSidebar(false);
-            }}
-          />
-        )}
+        {/* Courses Section - Now available to all users including Admin */}
+        <MenuItem
+          label="Course Management"
+          icon={BookOpen}
+          onClick={() => {
+            navigate('/course');
+            toggleSidebar(false);
+          }}
+        />
 
         {/* Departments & Programs Section */}
         <MenuItem
@@ -228,16 +217,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               />
             )}
 
-            {/* Program, Year, & Sections - Admin cannot access */}
-            {isNonAdmin && (
-              <SubMenuItem
-                label="Program, Year, & Sections"
-                onClick={() => {
-                  navigate('/progYrSec');
-                  toggleSidebar(false);
-                }}
-              />
-            )}
+            {/* Program, Year, & Sections - Now available to all users including Admin */}
+            <SubMenuItem
+              label="Program, Year, & Sections"
+              onClick={() => {
+                navigate('/progYrSec');
+                toggleSidebar(false);
+              }}
+            />
 
             {/* Course & Program - Removed as requested */}
           </div>

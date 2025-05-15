@@ -18,37 +18,82 @@ const RoomTimetable = () => {
   const [semesters, setSemesters] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [loadingSemesters, setLoadingSemesters] = useState(false);
-  
+  // Add school year state variables
+  const [schoolYears, setSchoolYears] = useState([]);
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState(null);
+  const [loadingSchoolYears, setLoadingSchoolYears] = useState(true);
+
   const { user } = useAuth();
   const DeptId = user.DepartmentId;
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
-  // Fetch semesters from assignations
+  // Fetch school years
+  useEffect(() => {
+    const fetchSchoolYears = async () => {
+      try {
+        setLoadingSchoolYears(true);
+        const { data } = await axios.get('/schoolYear/getAllSchoolYears');
+        if (data.successful && data.data.length) {
+          setSchoolYears(data.data);
+          setSelectedSchoolYear(data.data[0]?.id || null);
+        } else {
+          console.error('No school years found or API error');
+        }
+      } catch (error) {
+        console.error('Error fetching school years:', error);
+      } finally {
+        setLoadingSchoolYears(false);
+      }
+    };
+    fetchSchoolYears();
+  }, []);
+
+  // Fetch semesters based on selected school year
   useEffect(() => {
     const fetchSemesters = async () => {
-      setLoadingSemesters(true);
       try {
-        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${DeptId}`);
+        if (!DeptId || !selectedSchoolYear) {
+          console.error('DepartmentId or SchoolYear is missing');
+          return;
+        }
+
+        setLoadingSemesters(true);
+        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${DeptId}?SchoolYearId=${selectedSchoolYear}`);
+
         if (data.successful && data.data.length) {
           // Extract unique semesters from assignations
-          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean);
+          const uniqueSemesters = [...new Set(data.data
+            .filter(assignation => assignation.Semester)
+            .map(assignation => assignation.Semester))]
+            .sort();
+
           setSemesters(uniqueSemesters);
-          // Select the most recent semester by default
-          if (uniqueSemesters.length > 0) {
+
+          // Set initial selection if semesters available
+          if (uniqueSemesters.length) {
             setSelectedSemester(uniqueSemesters[0]);
+          } else {
+            setSelectedSemester(null);
           }
         } else {
           console.error('No assignations found or API error');
+          setSemesters([]);
+          setSelectedSemester(null);
         }
       } catch (error) {
         console.error('Error fetching semesters:', error);
+        setSemesters([]);
+        setSelectedSemester(null);
       } finally {
         setLoadingSemesters(false);
       }
     };
-    fetchSemesters();
-  }, [DeptId]);
+
+    if (selectedSchoolYear) {
+      fetchSemesters();
+    }
+  }, [DeptId, selectedSchoolYear]);
 
   // Fetch rooms
   useEffect(() => {
@@ -68,16 +113,19 @@ const RoomTimetable = () => {
     fetchRooms();
   }, [DeptId]);
 
-  // Fetch schedules when selectedRoom or selectedSemester changes
+  // Fetch schedules when selectedRoom, selectedSemester, or selectedSchoolYear changes
   useEffect(() => {
-    if (!selectedRoom || !selectedSemester) return;
-    
+    if (!selectedRoom || !selectedSemester || !selectedSchoolYear) return;
+
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        // Modified to include semester in the payload
-        const { data } = await axios.post(`/schedule/getSchedsByRoom/${selectedRoom.id}`, { Semester: selectedSemester });
-        
+        // Modified to include semester and school year in the payload
+        const { data } = await axios.post(`/schedule/getSchedsByRoom/${selectedRoom.id}`, {
+          Semester: selectedSemester,
+          SchoolYearId: selectedSchoolYear
+        });
+
         if (data.successful) {
           setSchedules(data.data);
         } else {
@@ -92,7 +140,7 @@ const RoomTimetable = () => {
       }
     };
     fetchSchedules();
-  }, [selectedRoom, selectedSemester]);
+  }, [selectedRoom, selectedSemester, selectedSchoolYear]);
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
@@ -105,13 +153,32 @@ const RoomTimetable = () => {
     return { top: `${(sMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
+  // Handle school year change
+  const handleSchoolYearChange = (e) => {
+    const newSchoolYearId = e.target.value;
+    setSelectedSchoolYear(newSchoolYearId);
+    // Reset semester when school year changes
+    setSelectedSemester(null);
+    setSemesters([]);
+  };
+
+  const getSelectedSchoolYearName = () => {
+    const schoolYear = schoolYears.find(sy => sy.id === selectedSchoolYear);
+    return schoolYear?.SY_Name || 'Unknown';
+  };
+
   // New component similar to ScheduleEvent in AddConfigSchedule
   const RoomScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
-    const sections = schedule.ProgYrSecs
-      .map(sec => `${sec.Program.Code} ${sec.Year}-${sec.Section}`)
-      .join(', ');
+
+    // Check if ProgYrSecs exists in Assignation
+    const sections = schedule.Assignation && schedule.Assignation.ProgYrSecs
+      ? schedule.Assignation.ProgYrSecs
+        .map(sec => `${sec.Program?.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`)
+        .join(', ')
+      : 'Unknown';
+
     return (
       <div
         onMouseEnter={() => setHovered(true)}
@@ -123,11 +190,11 @@ const RoomTimetable = () => {
           <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
           <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
         </div>
-        <div className="text-sm font-semibold">{schedule.Assignation.Course.Code}</div>
+        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'Unknown'}</div>
         <div className={`text-xs ${hovered ? '' : 'truncate'}`}>
-          {schedule.Assignation.Course.Description}
+          {schedule.Assignation?.Course?.Description || 'No description'}
         </div>
-        <div className="text-xs">{schedule.Assignation.Professor.Name}</div>
+        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'Unknown'}</div>
       </div>
     );
   };
@@ -138,6 +205,8 @@ const RoomTimetable = () => {
     const apiDayIndex = dayIndex + 1;
     return schedules
       .filter(schedule => {
+        if (!schedule.Start_time || !schedule.End_time) return false;
+
         const [sHour, sMin] = schedule.Start_time.split(':').map(Number);
         const [eHour, eMin] = schedule.End_time.split(':').map(Number);
         return (
@@ -155,110 +224,151 @@ const RoomTimetable = () => {
 
   return (
     <div
-    className="min-h-screen flex flex-col bg-gray-800"
-  >
-    {/* Sidebar and TopMenu */}
-    <div className="fixed top-0 h-full z-50">
-      <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-    </div>
-    <TopMenu toggleSidebar={toggleSidebar} />
+      className="min-h-screen flex flex-col bg-gray-800"
+    >
+      {/* Sidebar and TopMenu */}
+      <div className="fixed top-0 h-full z-50">
+        <Sidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+      </div>
+      <TopMenu toggleSidebar={toggleSidebar} />
 
-    {/* Main Content */}
-    <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
-        
-        {/* Header */}
-        <div className="bg-blue-600 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
+      {/* Main Content */}
+      <div className="container mx-auto px-2 sm:px-4 pt-20 pb-10 flex-1 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
 
-              {selectedRoom ? (
-                <div className="text-blue-100 mt-1">
-                  <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
-                  <div className="flex flex-row gap-x-4 text-sm mt-1">
-                    <span>{selectedRoom.Floor} Floor</span>
-                    <span>•</span>
-                    <span>{selectedRoom.Building} Building</span>
-                    <span>•</span>
-                    <span>{selectedRoom.TypeRooms.map(item => item.Type).join(', ')}</span>
+          {/* Header */}
+          <div className="bg-blue-600 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white">Room Timetable</h1>
+
+                {selectedRoom ? (
+                  <div className="text-blue-100 mt-1">
+                    <p className="text-lg font-semibold">Room {selectedRoom.Code}</p>
+                    <div className="flex flex-row gap-x-4 text-sm mt-1">
+                      <span>{selectedRoom.Floor} Floor</span>
+                      <span>•</span>
+                      <span>{selectedRoom.Building} Building</span>
+                      <span>•</span>
+                      <span>{selectedRoom.TypeRooms.map(item => item.Type).join(', ')}</span>
+                    </div>
+                    {selectedSchoolYear && selectedSemester && (
+                      <div className="text-sm mt-1">
+                        <span>SY: {getSelectedSchoolYearName()}, Semester: {selectedSemester}</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ) : (
-                <p className="text-blue-100 mt-1">Loading room details...</p>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-3 mt-4 sm:mt-0">
-
-              {/* BACK BUTTON */}
-              <button
-                onClick={() => navigate('/addConfigSchedule')}
-                className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
-                title="Go Back"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-
-              {/* SEMESTER DROPDOWN */}
-              <select
-                value={selectedSemester || ''}
-                onChange={e => setSelectedSemester(e.target.value)}
-                disabled={loadingSemesters || semesters.length === 0}
-                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-              >
-                {loadingSemesters ? (
-                  <option>Loading semesters...</option>
-                ) : semesters.length === 0 ? (
-                  <option>No semesters found</option>
                 ) : (
-                  semesters.map(semester => (
-                    <option key={semester} value={semester}>Semester: {semester}</option>
-                  ))
+                  <p className="text-blue-100 mt-1">Loading room details...</p>
                 )}
-              </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 mt-4 sm:mt-0">
 
-              {/* ROOM DROPDOWN */}
-              <select
-                value={selectedRoom?.id || ''}
-                onChange={e =>
-                  setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
-                }
-                className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-              >
-                {rooms.map(room => (
-                  <option key={room.id} value={room.id}>
-                    Room {room.Code} - {room.Building}
-                  </option>
-                ))}
-              </select>
+                {/* BACK BUTTON */}
+                <button
+                  onClick={() => navigate('/addConfigSchedule')}
+                  className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
+                  title="Go Back"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
 
-              {/* EXPORT BUTTON - Added to desktop view */}
-              {selectedRoom && selectedSemester && !loadingSchedules && (
-                <ExportButton
-                  selectedRoom={selectedRoom}
-                  schedules={schedules}
-                  days={days}
-                  timeSlots={timeSlots}
-                  semester={selectedSemester}
-                />
-              )}
+                {/* SCHOOL YEAR DROPDOWN */}
+                <div className="flex flex-col w-full sm:w-auto">
+                  <label className="text-blue-100 text-xs sm:text-sm mb-1">School Year</label>
+                  <select
+                    value={selectedSchoolYear || ''}
+                    onChange={handleSchoolYearChange}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                    disabled={loadingSchoolYears}
+                  >
+                    {loadingSchoolYears ? (
+                      <option>Loading school years...</option>
+                    ) : schoolYears.length > 0 ? (
+                      schoolYears.map(sy => (
+                        <option key={sy.id} value={sy.id}>
+                          SY: {sy.SY_Name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No school years available</option>
+                    )}
+                  </select>
+                </div>
 
+                {/* SEMESTER DROPDOWN */}
+                <div className="flex flex-col w-full sm:w-auto">
+                  <label className="text-blue-100 text-xs sm:text-sm mb-1">Semester</label>
+                  <select
+                    value={selectedSemester || ''}
+                    onChange={e => setSelectedSemester(e.target.value)}
+                    disabled={loadingSemesters || semesters.length === 0 || !selectedSchoolYear}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                  >
+                    {loadingSemesters ? (
+                      <option>Loading semesters...</option>
+                    ) : semesters.length === 0 ? (
+                      <option>No semesters found</option>
+                    ) : (
+                      semesters.map(semester => (
+                        <option key={semester} value={semester}>Semester: {semester}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                {/* ROOM DROPDOWN */}
+                <div className="flex flex-col w-full sm:w-auto">
+                  <label className="text-blue-100 text-xs sm:text-sm mb-1">Room</label>
+                  <select
+                    value={selectedRoom?.id || ''}
+                    onChange={e =>
+                      setSelectedRoom(rooms.find(r => r.id === parseInt(e.target.value)))
+                    }
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                  >
+                    {rooms.map(room => (
+                      <option key={room.id} value={room.id}>
+                        Room {room.Code} - {room.Building}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* EXPORT BUTTON - Added to desktop view */}
+                {selectedRoom && selectedSemester && selectedSchoolYear && !loadingSchedules && (
+                  <ExportButton
+                    selectedRoom={selectedRoom}
+                    schedules={schedules}
+                    days={days}
+                    timeSlots={timeSlots}
+                    semester={selectedSemester}
+                    schoolYear={getSelectedSchoolYearName()}
+                  />
+                )}
+
+              </div>
             </div>
           </div>
-        </div>
           {/* Timetable */}
           <div className="overflow-x-auto">
             <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
-                {loadingSchedules || !selectedSemester ? (
+                {!selectedSchoolYear ? (
+                  <div className="flex items-center justify-center py-16">
+                    <span className="text-gray-500 font-medium">Please select a school year to view schedules</span>
+                  </div>
+                ) : !selectedSemester ? (
+                  <div className="flex items-center justify-center py-16">
+                    <span className="text-gray-500 font-medium">Please select a semester to view schedules</span>
+                  </div>
+                ) : loadingSchedules ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600" />
-                    <span className="ml-3 text-blue-600 font-medium">
-                      {!selectedSemester ? 'Please select a semester' : 'Loading schedule...'}
-                    </span>
+                    <span className="ml-3 text-blue-600 font-medium">Loading schedule...</span>
                   </div>
                 ) : (
                   <table className="w-full border-collapse">
@@ -299,13 +409,14 @@ const RoomTimetable = () => {
                 <div className="flex justify-between bg-gray-50 border-b-2 border-gray-200 p-2">
                   <span className="text-gray-700 font-medium text-sm">Time</span>
                   <div className="flex items-center gap-2">
-                    {selectedRoom && selectedSemester && !loadingSchedules && (
+                    {selectedRoom && selectedSemester && selectedSchoolYear && !loadingSchedules && (
                       <ExportButton
                         selectedRoom={selectedRoom}
                         schedules={schedules}
                         days={days}
                         timeSlots={timeSlots}
                         semester={selectedSemester}
+                        schoolYear={getSelectedSchoolYearName()}
                       />
                     )}
                     <select
@@ -321,12 +432,18 @@ const RoomTimetable = () => {
                     </select>
                   </div>
                 </div>
-                {loadingSchedules || !selectedSemester ? (
+                {!selectedSchoolYear ? (
+                  <div className="flex items-center justify-center py-10">
+                    <span className="text-gray-500 font-medium text-sm">Please select a school year to view schedules</span>
+                  </div>
+                ) : !selectedSemester ? (
+                  <div className="flex items-center justify-center py-10">
+                    <span className="text-gray-500 font-medium text-sm">Please select a semester to view schedules</span>
+                  </div>
+                ) : loadingSchedules ? (
                   <div className="flex items-center justify-center py-10">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600" />
-                    <span className="ml-3 text-blue-600 font-medium text-sm">
-                      {!selectedSemester ? 'Please select a semester' : 'Loading schedule...'}
-                    </span>
+                    <span className="ml-3 text-blue-600 font-medium text-sm">Loading schedule...</span>
                   </div>
                 ) : (
                   <table className="w-full border-collapse">

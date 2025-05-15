@@ -190,7 +190,7 @@ const AddConfigSchedule = () => {
     if (showDeptSelector) {
       fetchDepartments();
     }
-    
+
     // Fetch school years on component mount
     fetchSchoolYears();
   }, [showDeptSelector]);
@@ -233,22 +233,22 @@ const AddConfigSchedule = () => {
       return;
     }
 
-    axios.post(`/schedule/getSchedsByRoom/${roomId}`, { 
+    axios.post(`/schedule/getSchedsByRoom/${roomId}`, {
       Semester: selectedSemester,
-      SchoolYearId: selectedSchoolYearId 
+      SchoolYearId: selectedSchoolYearId
     })
-    .then(({ data }) => {
-      if (data.successful) {
-        setSchedules(data.data);
-      } else {
+      .then(({ data }) => {
+        if (data.successful) {
+          setSchedules(data.data);
+        } else {
+          setSchedules([]);
+          console.error("Error fetching schedules:", data.message);
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching schedules:", err);
         setSchedules([]);
-        console.error("Error fetching schedules:", data.message);
-      }
-    })
-    .catch(err => {
-      console.error("Error fetching schedules:", err);
-      setSchedules([]);
-    });
+      });
   };
 
   function usePersistentState(key, initialValue) {
@@ -274,24 +274,24 @@ const AddConfigSchedule = () => {
 
   const fetchSectionsForCourse = (courseId) => {
     if (!deptId) return;
-    
-    axios.post('/progYrSec/getProgYrSecByCourse', { 
-      CourseId: courseId, 
+
+    axios.post('/progYrSec/getProgYrSecByCourse', {
+      CourseId: courseId,
       DepartmentId: deptId,
       SchoolYearId: selectedSchoolYearId // Add school year filter
     })
-    .then(({ data }) => {
-      if (data.successful) {
-        setAvailableSections(data.data);
-        setSelectedSections([]);
-      } else {
+      .then(({ data }) => {
+        if (data.successful) {
+          setAvailableSections(data.data);
+          setSelectedSections([]);
+        } else {
+          setAvailableSections([]);
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching sections:", err);
         setAvailableSections([]);
-      }
-    })
-    .catch(err => {
-      console.error("Error fetching sections:", err);
-      setAvailableSections([]);
-    });
+      });
   };
 
   const deleteSchedule = async (scheduleId) => {
@@ -317,12 +317,12 @@ const AddConfigSchedule = () => {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
-    
+
     if (!selectedSchoolYearId) {
       setNotification({ type: 'error', message: "Please select a school year first." });
       return;
     }
-    
+
     if (!formData.assignation_id || !formData.room_id || !formData.day || !formData.start_time || !formData.end_time) {
       setNotification({ type: 'error', message: "Please fill in all mandatory fields." });
       return;
@@ -404,11 +404,11 @@ const AddConfigSchedule = () => {
       // Fetch assignations with school year filter
       try {
         const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${departmentId}`, {
-          params: { 
-            SchoolYearId: selectedSchoolYearId 
+          params: {
+            SchoolYearId: selectedSchoolYearId
           }
         });
-        
+
         if (assignationsRes.data.successful) {
           const assignationsData = assignationsRes.data.data;
           setAssignations(assignationsData);
@@ -424,7 +424,7 @@ const AddConfigSchedule = () => {
           const semesters = [...new Set(assignationsData.map(a => a.Semester))].sort((a, b) => a - b);
           setSemesterData(semesterMap);
           setSemesters(semesters);
-          
+
           // If there are semesters, select the first one by default
           if (semesters.length > 0 && !selectedSemester) {
             setSelectedSemester(semesters[0].toString());
@@ -487,13 +487,13 @@ const AddConfigSchedule = () => {
     const schoolYearId = e.target.value;
     setSelectedSchoolYearId(schoolYearId);
     resetForm();
-    
+
     // Clear existing data that depends on school year
     setAssignations([]);
     setSchedules([]);
     setSemesters([]);
     setSelectedSemester("");
-    
+
     // Refetch data with the new school year
     if ((deptId || selectedDeptId) && schoolYearId) {
       fetchDataForDepartment(deptId || selectedDeptId);
@@ -512,16 +512,16 @@ const AddConfigSchedule = () => {
 
   const renderDepartmentSelector = () => {
     if (!showDeptSelector) return null;
-    
+
     return (
       <div className="mb-4 border-b pb-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">Select Department:</label>
         <select
-            value={selectedDeptId || ''}
-            onChange={handleDepartmentChange}
-            className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          >
+          value={selectedDeptId || ''}
+          onChange={handleDepartmentChange}
+          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
           <option value="">Select Department</option>
           {departments.map(dept => (
             <option key={dept.id} value={dept.id}>
@@ -560,12 +560,12 @@ const AddConfigSchedule = () => {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
-    
+
     if (!selectedSchoolYearId) {
       setNotification({ type: 'error', message: "Please select a school year first." });
       return;
     }
-    
+
     setIsAutomating(true);
     try {
       if (automateType === 'room' && !formData.room_id) {
@@ -655,7 +655,7 @@ const AddConfigSchedule = () => {
 
   const handleSelectVariant = async (variantIndex) => {
     if (!deptId || !selectedSchoolYearId) return;
-    
+
     try {
       const selectedVariant = scheduleVariants[variantIndex];
 
@@ -779,9 +779,9 @@ const AddConfigSchedule = () => {
     setPrioritizedRooms(prev => prev.filter(val => val !== id));
   };
 
-const toggleLockStatus = async (scheduleId, currentLockStatus) => {
+  const toggleLockStatus = async (scheduleId, currentLockStatus) => {
     if (!deptId) return;
-    
+
     try {
       const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId });
       if (response.data.successful) {
@@ -846,14 +846,14 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
-    
+
     try {
       const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`, {
         params: {
           SchoolYearId: selectedSchoolYearId
         }
       });
-      
+
       if (response.data.success) {
         setIsDeleteModalOpen(false);
         setNotification({ type: 'success', message: `Successfully deleted all schedules in the department for the selected school year.` });
@@ -898,55 +898,55 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
         .join(', ')
       : 'No sections';
 
-      return (
-        <div
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
-          style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
-        >
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
-            <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
-          </div>
-          <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
-          <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
-          <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
-          {hovered && (
-            <div className="mt-2 text-xs">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
-                </div>
-                <div className="flex">
-                  <button onClick={(e) => {
-                    e.stopPropagation();
-                    toggleLockStatus(schedule.id, schedule.isLocked);
-                  }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors" title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
-                  >
-                    <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
-                  </button>
-                  <button onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedSchedule(schedule);
-                    setIsEditModalOpen(true);
-                  }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
-                    <img src={editBtn} alt="Edit" className="w-10 h-10" />
-                  </button>
-                  <button onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedScheduleId(schedule.id);
-                    setIsDeleteWarningOpen(true);
-                  }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
-                    <img src={delBtn} alt="Delete" className="w-10 h-10" />
-                  </button>
-                </div>
+    return (
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className={`absolute bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200 left-0 right-0 mx-2 mb-1 transition-all text-blue-700 overflow-y-auto scrollbar-hide ${hovered ? 'z-[9999] scale-110' : 'z-10'}`}
+        style={{ top: pos.top, height: hovered ? 'auto' : pos.height }}
+      >
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-medium">{formatTimeRange(schedule.Start_time, schedule.End_time)}</span>
+          <span className="text-xs font-medium bg-blue-100 px-1 rounded">{sections}</span>
+        </div>
+        <div className="text-sm font-semibold">{schedule.Assignation?.Course?.Code || 'No Course'}</div>
+        <div className={`text-xs ${hovered ? '' : 'truncate'}`}>{schedule.Assignation?.Course?.Description || 'No Description'}</div>
+        <div className="text-xs">{schedule.Assignation?.Professor?.Name || 'No Professor'}</div>
+        {hovered && (
+          <div className="mt-2 text-xs">
+            <div className="flex justify-between items-center">
+              <div>
+                <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
+              </div>
+              <div className="flex">
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  toggleLockStatus(schedule.id, schedule.isLocked);
+                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors" title={schedule.isLocked ? "Unlock schedule" : "Lock schedule"}
+                >
+                  <img src={schedule.isLocked ? lock : unlock} alt={schedule.isLocked ? "Locked" : "Unlocked"} className="w-14 h-14" />
+                </button>
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedSchedule(schedule);
+                  setIsEditModalOpen(true);
+                }} className="ml-2 p-1 hover:bg-blue-100 rounded-full transition-colors">
+                  <img src={editBtn} alt="Edit" className="w-10 h-10" />
+                </button>
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedScheduleId(schedule.id);
+                  setIsDeleteWarningOpen(true);
+                }} disabled={isDeleting} className="ml-2 p-1 hover:bg-red-100 rounded-full transition-colors">
+                  <img src={delBtn} alt="Delete" className="w-10 h-10" />
+                </button>
               </div>
             </div>
-          )}
-        </div>
-      );
-    };
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderEventInCell = (hour, dayIndex) => {
     if (!selectedRoom) return null;
@@ -1218,7 +1218,7 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
             <div className="lg:w-1/4 p-3 sm:p-5 bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200">
               <div className="space-y-3 sm:space-y-4">
                 {renderModeToggle()}
-                {renderDepartmentSelector()} 
+                {renderDepartmentSelector()}
                 {/* Add the school year selector */}
                 {renderSchoolYearSelector()}
                 <div className="flex items-center mt-2">
@@ -1250,10 +1250,10 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
                 </select>
 
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-                <select 
-                  name="room_id" 
-                  value={formData.room_id} 
-                  onChange={handleInputChange} 
+                <select
+                  name="room_id"
+                  value={formData.room_id}
+                  onChange={handleInputChange}
                   className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   disabled={!selectedSchoolYearId}
                 >
@@ -1266,11 +1266,11 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
                 </select>
 
                 <label className={`block text-xs sm:text-sm font-medium mb-1 ${(!selectedSemester || !selectedSchoolYearId) ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
-                <select 
-                  name="assignation_id" 
-                  value={formData.assignation_id} 
-                  onChange={handleInputChange} 
-                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${(!selectedSemester || !selectedSchoolYearId) ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                <select
+                  name="assignation_id"
+                  value={formData.assignation_id}
+                  onChange={handleInputChange}
+                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${(!selectedSemester || !selectedSchoolYearId) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   disabled={activeMode !== 'manual' || !selectedSemester || !selectedSchoolYearId}
                 >
                   <option value="">Select Assignation</option>
@@ -1284,11 +1284,11 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Day:</label>
-                    <select 
-                      name="day" 
-                      value={formData.day} 
-                      onChange={handleInputChange} 
-                      disabled={activeMode !== 'manual' || !selectedSchoolYearId} 
+                    <select
+                      name="day"
+                      value={formData.day}
+                      onChange={handleInputChange}
+                      disabled={activeMode !== 'manual' || !selectedSchoolYearId}
                       className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     >
                       <option value="">Select Day</option>
@@ -1299,34 +1299,34 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
-                    <input 
-                      type="time" 
-                      name="custom_start_time" 
-                      value={customStartTime} 
-                      onChange={handleTimeChange} 
-                      disabled={activeMode !== 'manual' || !selectedSchoolYearId} 
-                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                    <input
+                      type="time"
+                      name="custom_start_time"
+                      value={customStartTime}
+                      onChange={handleTimeChange}
+                      disabled={activeMode !== 'manual' || !selectedSchoolYearId}
+                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     />
                   </div>
                   <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
-                    <input 
-                      type="time" 
-                      name="custom_end_time" 
-                      value={customEndTime} 
-                      onChange={handleTimeChange} 
-                      disabled={activeMode !== 'manual' || !selectedSchoolYearId} 
-                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                    <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
+                    <input
+                      type="time"
+                      name="custom_end_time"
+                      value={customEndTime}
+                      onChange={handleTimeChange}
+                      disabled={activeMode !== 'manual' || !selectedSchoolYearId}
+                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     />
                   </div>
                 </div>
                 {activeMode === 'manual' && renderSectionsSelect()}
-<div className="flex pt-3 sm:pt-4 gap-10">
+                <div className="flex pt-3 sm:pt-4 gap-10">
                   <button onClick={resetForm} className="flex flex-1 justify-center bg-red-500 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors">
                     Reset
                   </button>
-                  <button 
-                    onClick={handleAddSchedule} 
+                  <button
+                    onClick={handleAddSchedule}
                     disabled={!selectedSchoolYearId || activeMode !== 'manual'}
                     className={`flex flex-1 justify-center ${!selectedSchoolYearId || activeMode !== 'manual' ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors`}
                   >
@@ -1395,67 +1395,41 @@ const toggleLockStatus = async (scheduleId, currentLockStatus) => {
         </div>
       </div>
 
-      <DeleteWarning
-        isOpen={isDeleteWarningOpen}
-        onClose={() => {
-          setIsDeleteWarningOpen(false);
-          setSelectedScheduleId(null);
-        }}
-        onConfirm={() => {
-          deleteSchedule(selectedScheduleId);
-          setIsDeleteWarningOpen(false);
-          setSelectedScheduleId(null);
-        }}
+      <DeleteWarning isOpen={isDeleteWarningOpen} onClose={() => {
+        setIsDeleteWarningOpen(false);
+        setSelectedScheduleId(null);
+      }} onConfirm={() => {
+        deleteSchedule(selectedScheduleId);
+        setIsDeleteWarningOpen(false);
+        setSelectedScheduleId(null);
+      }}
       />
 
-      <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={() => {
-          handleDeleteAllSchedules();
-          setIsDeleteModalOpen(false);
-        }}
-        title="Delete Confirmation"
+      <DeleteConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={() => {
+        handleDeleteAllSchedules();
+        setIsDeleteModalOpen(false);
+      }} title="Delete Confirmation"
         message={`Are you sure you want to delete ALL schedules in this department for the school year ${schoolYears.find(y => y.id === parseInt(selectedSchoolYearId))?.SY_Name || ''}? This action cannot be undone.`}
       />
 
-      <EditSchedRecordModal 
-        isOpen={isEditModalOpen} 
-        schedule={selectedSchedule} 
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedSchedule(null);
-        }} 
-        onUpdate={() => {
-          if (formData.room_id) {
-            fetchSchedulesForRoom(formData.room_id);
-          }
-        }} 
-        rooms={rooms} 
-        assignations={assignations} 
-        Semester={selectedSemester}
-        SchoolYearId={selectedSchoolYearId}
+      <EditSchedRecordModal isOpen={isEditModalOpen} schedule={selectedSchedule} onClose={() => {
+        setIsEditModalOpen(false);
+        setSelectedSchedule(null);
+      }} onUpdate={() => {
+        if (formData.room_id) {
+          fetchSchedulesForRoom(formData.room_id);
+        }
+      }} rooms={rooms} assignations={assignations} Semester={selectedSemester} SchoolYearId={selectedSchoolYearId}
       />
 
       <SettingsModal isOpen={isSettingsOpen} closeSettingsModal={closeSettingsModal} />
 
       <ScheduleReportModal isOpen={isReportOpen} onClose={() => setIsReportOpen(false)} scheduleData={reportData} />
 
-      <ScheduleVariantModal 
-        show={showVariantModal} 
-        onHide={() => setShowVariantModal(false)} 
-        variants={scheduleVariants} 
-        loading={isAutomating} 
-        onSelectVariant={handleSelectVariant} 
-        departmentId={deptId}
-        schoolYearId={selectedSchoolYearId}
+      <ScheduleVariantModal show={showVariantModal} onHide={() => setShowVariantModal(false)} variants={scheduleVariants} loading={isAutomating} onSelectVariant={handleSelectVariant} departmentId={deptId} schoolYearId={selectedSchoolYearId}
       />
 
-      <ProfAvailabilityModal 
-        isOpen={isAvailabilityModalOpen} 
-        onClose={() => setIsAvailabilityModalOpen(false)} 
-        professorId={selectedProfessorId}
-        schoolYearId={selectedSchoolYearId}
+      <ProfAvailabilityModal isOpen={isAvailabilityModalOpen} onClose={() => setIsAvailabilityModalOpen(false)} professorId={selectedProfessorId} schoolYearId={selectedSchoolYearId}
       />
     </div>
   );

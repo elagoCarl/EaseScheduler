@@ -1,5 +1,5 @@
 // Import required models and dependencies
-const { Settings, Schedule, Room, Assignation, Program, Professor, Department, Course, ProfAvail, RoomType, SchoolYear } = require('../models');
+const { Settings, Schedule, Room, Assignation, Program, Professor, Department, Course, ProfAvail, RoomType, SchoolYear, ProgYrSec } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
 
@@ -2416,7 +2416,7 @@ const getAllSchedules = async (req, res, next) => {
 
 const getSchedsByRoom = async (req, res, next) => {
     try {
-        const { Semester } = req.body;
+        const { Semester, SchoolYearId } = req.body;
 
         const sched = await Schedule.findAll({
             where: { RoomId: req.params.id },
@@ -2424,8 +2424,11 @@ const getSchedsByRoom = async (req, res, next) => {
             include: [
                 {
                     model: Assignation,
-                    where: { Semester },
-                    attributes: ['id', 'Semester', 'DepartmentId'],
+                    where: { 
+                        Semester,
+                        SchoolYearId // Add SchoolYearId to filter schedules
+                    },
+                    attributes: ['id', 'Semester', 'DepartmentId', 'SchoolYearId'],
                     include: [
                         {
                             model: Course,
@@ -2434,6 +2437,17 @@ const getSchedsByRoom = async (req, res, next) => {
                         {
                             model: Professor,
                             attributes: ['Name']
+                        },
+                        {
+                            // Add ProgYrSec to include section data
+                            model: ProgYrSec,
+                            attributes: ['id', 'Year', 'Section'],
+                            include: [
+                                {
+                                    model: Program,
+                                    attributes: ['id', 'Code', 'Name']
+                                }
+                            ]
                         }
                     ]
                 }
@@ -2468,7 +2482,7 @@ const getSchedsByRoom = async (req, res, next) => {
 const getSchedsByProf = async (req, res, next) => {
     try {
         const profId = req.params.id;
-        const { Semester } = req.body;
+        const { Semester, SchoolYearId } = req.body;
 
         const scheds = await Schedule.findAll({
             attributes: { exclude: ['createdAt', 'updatedAt'] },
@@ -2476,12 +2490,27 @@ const getSchedsByProf = async (req, res, next) => {
                 {
                     // only include schedules linked to this professor
                     model: Assignation,
-                    where: { ProfessorId: profId, Semester },
+                    where: { 
+                        ProfessorId: profId, 
+                        Semester,
+                        SchoolYearId // Add SchoolYearId to the where clause
+                    },
                     attributes: ['id', 'Semester'],
                     include: [
                         {
                             model: Course,
                             attributes: ['Code', 'Description']
+                        },
+                        {
+                            // Add this to include the ProgYrSec data
+                            model: ProgYrSec,
+                            attributes: ['id', 'Year', 'Section'],
+                            include: [
+                                {
+                                    model: Program,
+                                    attributes: ['Code', 'Name']
+                                }
+                            ]
                         }
                     ]
                 },
@@ -2534,15 +2563,33 @@ const getSchedsByProf = async (req, res, next) => {
 const getSchedsByDept = async (req, res, next) => {
     try {
         const deptId = req.params.id;
-        const { Semester } = req.body;
+        const { Semester, SchoolYearId } = req.body;
+
+        // First, get all assignations for the given department, semester, and school year
+        const assignations = await Assignation.findAll({
+            where: {
+                DepartmentId: deptId,
+                Semester,
+                SchoolYearId
+            },
+            include: [
+                {
+                    model: ProgYrSec,
+                    include: [{ model: Program }]
+                }
+            ]
+        });
+
+        // Get the assignation IDs
+        const assignationIds = assignations.map(a => a.id);
 
         const scheds = await Schedule.findAll({
             attributes: { exclude: ['createdAt', 'updatedAt'] },
             include: [
                 {
                     model: Assignation,
-                    where: { DepartmentId: deptId, Semester },
-                    attributes: ['id', 'Semester'],
+                    where: { id: assignationIds },
+                    attributes: ['id', 'Semester', 'SchoolYearId'],
                     include: [
                         {
                             model: Course,
@@ -2551,11 +2598,20 @@ const getSchedsByDept = async (req, res, next) => {
                         {
                             model: Professor,
                             attributes: ['id', 'Name']
+                        },
+                        {
+                            model: ProgYrSec,
+                            attributes: ['id', 'Year', 'Section'],
+                            include: [
+                                {
+                                    model: Program,
+                                    attributes: ['id', 'Code', 'Name']
+                                }
+                            ]
                         }
                     ]
                 },
                 {
-                    // pull in the Room directly off Schedule
                     model: Room,
                     attributes: ['Code', 'Floor', 'Building'],
                     include: [
@@ -2563,9 +2619,7 @@ const getSchedsByDept = async (req, res, next) => {
                             model: RoomType,
                             as: 'TypeRooms',
                             attributes: ['id', 'Type'],
-                            through: {
-                                attributes: []
-                            }
+                            through: { attributes: [] }
                         }
                     ]
                 }
@@ -2585,11 +2639,21 @@ const getSchedsByDept = async (req, res, next) => {
             });
         }
 
+        // Add ProgYrSecs to each schedule
+        const schedsWithSections = scheds.map(sched => {
+            const schedData = sched.toJSON();
+            if (schedData.Assignation) {
+                // If Assignation already has ProgYrSecs, keep them
+                // This should be the case with the proper includes above
+            }
+            return schedData;
+        });
+
         res.status(200).json({
             successful: true,
             message: 'Retrieved all schedules',
-            count: scheds.length,
-            data: scheds
+            count: schedsWithSections.length,
+            data: schedsWithSections
         });
     } catch (err) {
         console.error('Error in getSchedsByDept:', err);

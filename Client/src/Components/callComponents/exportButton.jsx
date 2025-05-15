@@ -10,7 +10,9 @@ const ExportButton = ({
     selectedProf,
     schedules,
     days,
-    timeSlots
+    timeSlots,
+    schoolYear,  // Add school year parameter
+    semester     // Add semester parameter (already existed but wasn't used fully)
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -37,47 +39,65 @@ const ExportButton = ({
     };
 
     const getSubtitleText = () => {
+        // Add school year and semester to subtitle
+        const schoolYearText = schoolYear ? `School Year: ${schoolYear}` : '';
+        const semesterText = semester ? `Semester: ${semester}` : '';
+        const academicInfo = [schoolYearText, semesterText].filter(Boolean).join(', ');
+
+        let modeSpecificText = '';
         switch (mode) {
             case "room":
-                return `${selectedRoom.Floor} Floor, ${selectedRoom.Building} Building (${selectedRoom.Type})`;
+                modeSpecificText = `${selectedRoom.Floor} Floor, ${selectedRoom.Building} Building (${selectedRoom.TypeRooms ? selectedRoom.TypeRooms.map(item => item.Type).join(', ') : 'N/A'})`;
+                break;
             case "section":
-                return `${selectedSection.Program} Program, Year ${selectedSection.Year}, Section ${selectedSection.Section}`;
+                modeSpecificText = `${selectedSection.Program} Program, Year ${selectedSection.Year}, Section ${selectedSection.Section}`;
+                break;
             case "prof":
-                return `Professor ID: ${selectedProf.id}`;
+                modeSpecificText = `Professor ID: ${selectedProf.id}`;
+                break;
             default:
-                return "";
+                modeSpecificText = "";
         }
+
+        return academicInfo ? `${modeSpecificText} - ${academicInfo}` : modeSpecificText;
     };
 
     const getFilename = (ext) => {
+        // Include school year and semester in filename
+        const schoolYearPart = schoolYear ? `_SY${schoolYear.replace(/[\s-]/g, '_')}` : '';
+        const semesterPart = semester ? `_Sem${semester}` : '';
+        const academicSuffix = `${schoolYearPart}${semesterPart}`;
+
         switch (mode) {
             case "room":
-                return `Room_${selectedRoom.Code}_Timetable${ext}`;
+                return `Room_${selectedRoom.Code}_Timetable${academicSuffix}${ext}`;
             case "section":
-                return `Section_${selectedSection.Program}_${selectedSection.Year}_${selectedSection.Section}_Timetable${ext}`;
+                return `Section_${selectedSection.Program}_${selectedSection.Year}_${selectedSection.Section}_Timetable${academicSuffix}${ext}`;
             case "prof":
-                return `Professor_${selectedProf.Name.replace(/\s+/g, '_')}_Timetable${ext}`;
+                return `Professor_${selectedProf.Name.replace(/\s+/g, '_')}_Timetable${academicSuffix}${ext}`;
             default:
-                return `Timetable${ext}`;
+                return `Timetable${academicSuffix}${ext}`;
         }
     };
 
     const getScheduleForCell = (hour, dayIndex) => {
         const apiDayIndex = dayIndex + 1;
         return schedules.filter(s => {
+            if (!s.Start_time) return false;
             const [sHour] = s.Start_time.split(':').map(Number);
             return s.Day === apiDayIndex && sHour === hour;
         });
     };
 
     const formatSections = (schedule) => {
-        if (!schedule.ProgYrSecs?.length) return "N/A";
-        return schedule.ProgYrSecs
-            .map(sec => `${sec.Program?.Code || ''} ${sec.Year}-${sec.Section}`)
+        // Check if ProgYrSecs is in the Assignation (updated structure)
+        if (!schedule.Assignation?.ProgYrSecs?.length) return "N/A";
+
+        return schedule.Assignation.ProgYrSecs
+            .map(sec => `${sec.Program?.Code || ''} ${sec.Year || '?'}-${sec.Section || '?'}`)
             .join(', ');
     };
 
-    // *** Updated to read room from schedule.Room ***
     const formatRoomInfo = (schedule) => {
         if (mode === "room") return "";
         const room = schedule.Room;
@@ -164,13 +184,15 @@ const ExportButton = ({
         setExportType('excel');
 
         try {
-            // header
-            const ws = XLSX.utils.aoa_to_sheet([
+            // header with school year and semester information
+            const headers = [
                 [getTitleText()],
                 [getSubtitleText()],
                 [],
                 ['Time', ...days]
-            ]);
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(headers);
 
             ws['!cols'] = [{ width: 10 }, ...days.map(() => ({ width: 20 }))];
             ws['!merges'] = [
