@@ -4,7 +4,7 @@ const Page404 = () => {
   const navigate = useNavigate();
 
   return (
-    <div className='flex justify-center items-center h-screen bg-black/85'>
+    <div className='flex justify-center items-center h-screen bg-gray-900'>
       <div className='text-center'>
         {/* <Frown className ="mx-auto text-gray-400" size= {120}/> */}
         <h1 className='text-9xl font-bold text-gray-300'>404</h1>
