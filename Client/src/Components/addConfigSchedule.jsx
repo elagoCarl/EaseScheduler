@@ -57,7 +57,8 @@ const AddConfigSchedule = () => {
   const [newPriorityRoom, setNewPriorityRoom] = useState("");
   const [semesters, setSemesters] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState("");
-  const [selectedSchoolYearId, setSelectedSchoolYearId] = useState(""); // Added state for selectedSchoolYearId
+  const [selectedSchoolYearId, setSelectedSchoolYearId] = useState(""); // State for selectedSchoolYearId
+  const [schoolYears, setSchoolYears] = useState([]); // New state for school years
   const [filteredAssignations, setFilteredAssignations] = useState([]);
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [selectedProfessorId, setSelectedProfessorId] = useState(null);
@@ -136,6 +137,34 @@ const AddConfigSchedule = () => {
   const [semesterData, setSemesterData] = useState({});
   const [currentAssignations, setCurrentAssignations] = useState([]);
 
+  // Add function to fetch school years
+  const fetchSchoolYears = async () => {
+    try {
+      const response = await axios.get('/schoolYear/getAllSchoolYears');
+      if (response.data.successful) {
+        setSchoolYears(response.data.data);
+        // If there are school years, select the most recent one by default
+        if (response.data.data.length > 0) {
+          // Sort by name descending (assuming format "YYYY-YYYY")
+          const sortedYears = [...response.data.data].sort((a, b) => b.SY_Name.localeCompare(a.SY_Name));
+          setSelectedSchoolYearId(sortedYears[0].id);
+        }
+      } else {
+        console.error("Failed to fetch school years:", response.data.message);
+        setNotification({
+          type: 'error',
+          message: `School years fetch failed: ${response.data.message}`
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching school years:", error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to load school years. Please check your network connection.'
+      });
+    }
+  };
+
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
@@ -161,55 +190,65 @@ const AddConfigSchedule = () => {
     if (showDeptSelector) {
       fetchDepartments();
     }
+    
+    // Fetch school years on component mount
+    fetchSchoolYears();
   }, [showDeptSelector]);
 
 
-    useEffect(() => {
-      const handleResize = () => setIsMobileView(window.innerWidth < 768);
-      window.addEventListener('resize', handleResize);
-      // Only fetch data if user has a department ID or if an admin has selected a department
-      if (deptId) {
-        fetchDataForDepartment(deptId);
-      }
-      return () => window.removeEventListener('resize', handleResize);
-    }, [deptId]);
+  useEffect(() => {
+    const handleResize = () => setIsMobileView(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    // Only fetch data if user has a department ID or if an admin has selected a department
+    if (deptId && selectedSchoolYearId) {
+      fetchDataForDepartment(deptId);
+    }
+    return () => window.removeEventListener('resize', handleResize);
+  }, [deptId, selectedSchoolYearId]); // Add selectedSchoolYearId as dependency
 
-    useEffect(() => {
-      if (!selectedSemester) {
-        setFilteredAssignations([]);
-        return;
-      }
-  
-      if (semesterData && semesterData[selectedSemester]) {
-        setFilteredAssignations(semesterData[selectedSemester]);
+  useEffect(() => {
+    if (!selectedSemester || !selectedSchoolYearId) {
+      setFilteredAssignations([]);
+      return;
+    }
+
+    if (semesterData && semesterData[selectedSemester]) {
+      // Filter by both semester and school year
+      const filteredBySchoolYear = semesterData[selectedSemester].filter(
+        a => a.SchoolYearId === parseInt(selectedSchoolYearId)
+      );
+      setFilteredAssignations(filteredBySchoolYear);
+    } else {
+      setFilteredAssignations([]);
+    }
+
+    if (formData.room_id) {
+      fetchSchedulesForRoom(formData.room_id);
+    }
+  }, [selectedSemester, semesterData, formData.room_id, selectedSchoolYearId]);
+
+  const fetchSchedulesForRoom = (roomId) => {
+    if (!roomId || !selectedSemester || !deptId || !selectedSchoolYearId) {
+      setSchedules([]);
+      return;
+    }
+
+    axios.post(`/schedule/getSchedsByRoom/${roomId}`, { 
+      Semester: selectedSemester,
+      SchoolYearId: selectedSchoolYearId 
+    })
+    .then(({ data }) => {
+      if (data.successful) {
+        setSchedules(data.data);
       } else {
-        setFilteredAssignations([]);
-      }
-  
-      if (formData.room_id) {
-        fetchSchedulesForRoom(formData.room_id);
-      }
-    }, [selectedSemester, semesterData, formData.room_id]);
-
-    const fetchSchedulesForRoom = (roomId) => {
-      if (!roomId || !selectedSemester || !deptId) {
         setSchedules([]);
-        return;
+        console.error("Error fetching schedules:", data.message);
       }
-
-    axios.post(`/schedule/getSchedsByRoom/${roomId}`, { Semester: selectedSemester })
-      .then(({ data }) => {
-        if (data.successful) {
-          setSchedules(data.data);
-        } else {
-          setSchedules([]);
-          console.error("Error fetching schedules:", data.message);
-        }
-      })
-      .catch(err => {
-        console.error("Error fetching schedules:", err);
-        setSchedules([]);
-      });
+    })
+    .catch(err => {
+      console.error("Error fetching schedules:", err);
+      setSchedules([]);
+    });
   };
 
   function usePersistentState(key, initialValue) {
@@ -236,19 +275,23 @@ const AddConfigSchedule = () => {
   const fetchSectionsForCourse = (courseId) => {
     if (!deptId) return;
     
-    axios.post('/progYrSec/getProgYrSecByCourse', { CourseId: courseId, DepartmentId: deptId })
-      .then(({ data }) => {
-        if (data.successful) {
-          setAvailableSections(data.data);
-          setSelectedSections([]);
-        } else {
-          setAvailableSections([]);
-        }
-      })
-      .catch(err => {
-        console.error("Error fetching sections:", err);
+    axios.post('/progYrSec/getProgYrSecByCourse', { 
+      CourseId: courseId, 
+      DepartmentId: deptId,
+      SchoolYearId: selectedSchoolYearId // Add school year filter
+    })
+    .then(({ data }) => {
+      if (data.successful) {
+        setAvailableSections(data.data);
+        setSelectedSections([]);
+      } else {
         setAvailableSections([]);
-      });
+      }
+    })
+    .catch(err => {
+      console.error("Error fetching sections:", err);
+      setAvailableSections([]);
+    });
   };
 
   const deleteSchedule = async (scheduleId) => {
@@ -275,6 +318,11 @@ const AddConfigSchedule = () => {
       return;
     }
     
+    if (!selectedSchoolYearId) {
+      setNotification({ type: 'error', message: "Please select a school year first." });
+      return;
+    }
+    
     if (!formData.assignation_id || !formData.room_id || !formData.day || !formData.start_time || !formData.end_time) {
       setNotification({ type: 'error', message: "Please fill in all mandatory fields." });
       return;
@@ -291,7 +339,8 @@ const AddConfigSchedule = () => {
       RoomId: parseInt(formData.room_id),
       AssignationId: parseInt(formData.assignation_id),
       Sections: selectedSections,
-      Semester: selectedSemester
+      Semester: selectedSemester,
+      SchoolYearId: parseInt(selectedSchoolYearId)
     };
 
     try {
@@ -329,6 +378,11 @@ const AddConfigSchedule = () => {
         return;
       }
 
+      if (!selectedSchoolYearId) {
+        console.error("No school year selected");
+        return;
+      }
+
       // Fetch rooms
       try {
         const roomsRes = await axios.get(`/room/getRoomsByDept/${departmentId}`);
@@ -347,9 +401,14 @@ const AddConfigSchedule = () => {
         setRooms([]);
       }
 
-      // Fetch assignations
+      // Fetch assignations with school year filter
       try {
-        const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${departmentId}`);
+        const assignationsRes = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${departmentId}`, {
+          params: { 
+            SchoolYearId: selectedSchoolYearId 
+          }
+        });
+        
         if (assignationsRes.data.successful) {
           const assignationsData = assignationsRes.data.data;
           setAssignations(assignationsData);
@@ -365,6 +424,11 @@ const AddConfigSchedule = () => {
           const semesters = [...new Set(assignationsData.map(a => a.Semester))].sort((a, b) => a - b);
           setSemesterData(semesterMap);
           setSemesters(semesters);
+          
+          // If there are semesters, select the first one by default
+          if (semesters.length > 0 && !selectedSemester) {
+            setSelectedSemester(semesters[0].toString());
+          }
         } else {
           console.error("Failed to fetch assignations:", assignationsRes.data.message);
           setAssignations([]);
@@ -413,8 +477,26 @@ const AddConfigSchedule = () => {
     setSchedules([]);
     setSemesters([]);
     setProfessors([]);
-    if (deptId) {
+    if (deptId && selectedSchoolYearId) {
       fetchDataForDepartment(deptId);
+    }
+  };
+
+  // Handle school year change
+  const handleSchoolYearChange = (e) => {
+    const schoolYearId = e.target.value;
+    setSelectedSchoolYearId(schoolYearId);
+    resetForm();
+    
+    // Clear existing data that depends on school year
+    setAssignations([]);
+    setSchedules([]);
+    setSemesters([]);
+    setSelectedSemester("");
+    
+    // Refetch data with the new school year
+    if ((deptId || selectedDeptId) && schoolYearId) {
+      fetchDataForDepartment(deptId || selectedDeptId);
     }
   };
 
@@ -451,11 +533,39 @@ const AddConfigSchedule = () => {
     );
   };
 
+  // Add a school year selector
+  const renderSchoolYearSelector = () => {
+    return (
+      <div className="mb-4 border-b pb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">School Year:</label>
+        <select
+          value={selectedSchoolYearId || ''}
+          onChange={handleSchoolYearChange}
+          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
+          <option value="">Select School Year</option>
+          {schoolYears.map(year => (
+            <option key={year.id} value={year.id}>
+              {year.SY_Name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   const handleAutomateSchedule = async () => {
     if (!deptId) {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
+    
+    if (!selectedSchoolYearId) {
+      setNotification({ type: 'error', message: "Please select a school year first." });
+      return;
+    }
+    
     setIsAutomating(true);
     try {
       if (automateType === 'room' && !formData.room_id) {
@@ -471,6 +581,7 @@ const AddConfigSchedule = () => {
       const payload = {
         DepartmentId: deptId,
         semester: selectedSemester,
+        SchoolYearId: parseInt(selectedSchoolYearId),
         variantCount: 2,
         prioritizedProfessor:
           prioritizedProfessors.length > 0
@@ -543,7 +654,7 @@ const AddConfigSchedule = () => {
   };
 
   const handleSelectVariant = async (variantIndex) => {
-    if (!deptId) return;
+    if (!deptId || !selectedSchoolYearId) return;
     
     try {
       const selectedVariant = scheduleVariants[variantIndex];
@@ -551,7 +662,8 @@ const AddConfigSchedule = () => {
       const response = await axios.post('/schedule/saveScheduleVariants', {
         variant: selectedVariant,
         DepartmentId: deptId,
-        semester: selectedSemester
+        semester: selectedSemester,
+        SchoolYearId: parseInt(selectedSchoolYearId)
       });
 
       if (response.data.successful) {
@@ -667,7 +779,7 @@ const AddConfigSchedule = () => {
     setPrioritizedRooms(prev => prev.filter(val => val !== id));
   };
 
-  const toggleLockStatus = async (scheduleId, currentLockStatus) => {
+const toggleLockStatus = async (scheduleId, currentLockStatus) => {
     if (!deptId) return;
     
     try {
@@ -736,10 +848,15 @@ const AddConfigSchedule = () => {
     }
     
     try {
-      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`);
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`, {
+        params: {
+          SchoolYearId: selectedSchoolYearId
+        }
+      });
+      
       if (response.data.success) {
         setIsDeleteModalOpen(false);
-        setNotification({ type: 'success', message: `Successfully deleted all schedules in the department.` });
+        setNotification({ type: 'success', message: `Successfully deleted all schedules in the department for the selected school year.` });
         if (formData.room_id) await fetchSchedulesForRoom(formData.room_id);
         setSelectedSchedule(null);
         setSelectedScheduleId(null);
@@ -1037,7 +1154,7 @@ const AddConfigSchedule = () => {
           )}
         </div>
 
-        <button onClick={handleAutomateSchedule} disabled={isAutomating || (automateType === 'room' && !formData.room_id) || activeMode !== 'automation'} className={`flex flex-1 justify-center mt-2 ${automateType === 'room' && !formData.room_id || activeMode !== 'automation'
+        <button onClick={handleAutomateSchedule} disabled={isAutomating || (automateType === 'room' && !formData.room_id) || activeMode !== 'automation' || !selectedSchoolYearId} className={`flex flex-1 justify-center mt-2 ${(automateType === 'room' && !formData.room_id) || activeMode !== 'automation' || !selectedSchoolYearId
           ? 'bg-gray-400'
           : 'bg-green-600 hover:bg-green-700'
           } text-white px-4 py-2 rounded-lg transition-colors`}
@@ -1102,6 +1219,8 @@ const AddConfigSchedule = () => {
               <div className="space-y-3 sm:space-y-4">
                 {renderModeToggle()}
                 {renderDepartmentSelector()} 
+                {/* Add the school year selector */}
+                {renderSchoolYearSelector()}
                 <div className="flex items-center mt-2">
                   {formData.professorId && formData.professorName && (
                     <button type="button" onClick={() => handleCheckAvailability(formData.professorId)} className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
@@ -1118,8 +1237,9 @@ const AddConfigSchedule = () => {
                   name="semester"
                   value={selectedSemester}
                   onChange={handleInputChange}
-                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   required
+                  disabled={!selectedSchoolYearId}
                 >
                   <option value="">Select Semester</option>
                   {semesters.map(semester => (
@@ -1130,7 +1250,12 @@ const AddConfigSchedule = () => {
                 </select>
 
                 <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Room:</label>
-                <select name="room_id" value={formData.room_id} onChange={handleInputChange} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <select 
+                  name="room_id" 
+                  value={formData.room_id} 
+                  onChange={handleInputChange} 
+                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  disabled={!selectedSchoolYearId}
                 >
                   <option value="">Select Room</option>
                   {rooms.map(room => (
@@ -1140,8 +1265,13 @@ const AddConfigSchedule = () => {
                   ))}
                 </select>
 
-                <label className={`block text-xs sm:text-sm font-medium mb-1 ${!selectedSemester ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
-                <select name="assignation_id" value={formData.assignation_id} onChange={handleInputChange} className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSemester ? 'bg-gray-100 cursor-not-allowed' : ''}`} disabled={activeMode !== 'manual'}
+                <label className={`block text-xs sm:text-sm font-medium mb-1 ${(!selectedSemester || !selectedSchoolYearId) ? 'text-gray-400' : 'text-gray-700'}`}>Assignation:</label>
+                <select 
+                  name="assignation_id" 
+                  value={formData.assignation_id} 
+                  onChange={handleInputChange} 
+                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${(!selectedSemester || !selectedSchoolYearId) ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                  disabled={activeMode !== 'manual' || !selectedSemester || !selectedSchoolYearId}
                 >
                   <option value="">Select Assignation</option>
                   {filteredAssignations.map(a => (
@@ -1154,7 +1284,13 @@ const AddConfigSchedule = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Day:</label>
-                    <select name="day" value={formData.day} onChange={handleInputChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select 
+                      name="day" 
+                      value={formData.day} 
+                      onChange={handleInputChange} 
+                      disabled={activeMode !== 'manual' || !selectedSchoolYearId} 
+                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    >
                       <option value="">Select Day</option>
                       {days.map((d, i) => (
                         <option key={d} value={i + 1}>{d}</option>
@@ -1163,22 +1299,36 @@ const AddConfigSchedule = () => {
                   </div>
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
-                    <input type="time" name="custom_start_time" value={customStartTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input 
+                      type="time" 
+                      name="custom_start_time" 
+                      value={customStartTime} 
+                      onChange={handleTimeChange} 
+                      disabled={activeMode !== 'manual' || !selectedSchoolYearId} 
+                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                    />
                   </div>
                   <div>
                   <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">End Time:</label>
-                    <input type="time" name="custom_end_time" value={customEndTime} onChange={handleTimeChange} disabled={activeMode !== 'manual'} className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input 
+                      type="time" 
+                      name="custom_end_time" 
+                      value={customEndTime} 
+                      onChange={handleTimeChange} 
+                      disabled={activeMode !== 'manual' || !selectedSchoolYearId} 
+                      className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`} 
+                    />
                   </div>
                 </div>
                 {activeMode === 'manual' && renderSectionsSelect()}
-                <div className="flex pt-3 sm:pt-4 gap-10">
+<div className="flex pt-3 sm:pt-4 gap-10">
                   <button onClick={resetForm} className="flex flex-1 justify-center bg-red-500 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-red-600 transition-colors">
                     Reset
                   </button>
                   <button 
                     onClick={handleAddSchedule} 
-                    disabled={!selectedSchoolYearId}
-                    className={`flex flex-1 justify-center ${!selectedSchoolYearId ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors`}
+                    disabled={!selectedSchoolYearId || activeMode !== 'manual'}
+                    className={`flex flex-1 justify-center ${!selectedSchoolYearId || activeMode !== 'manual' ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors`}
                   >
                     Save
                   </button>
@@ -1266,7 +1416,7 @@ const AddConfigSchedule = () => {
           setIsDeleteModalOpen(false);
         }}
         title="Delete Confirmation"
-        message="Are you sure you want to delete ALL schedules in this department for the selected school year? This action cannot be undone."
+        message={`Are you sure you want to delete ALL schedules in this department for the school year ${schoolYears.find(y => y.id === parseInt(selectedSchoolYearId))?.SY_Name || ''}? This action cannot be undone.`}
       />
 
       <EditSchedRecordModal 

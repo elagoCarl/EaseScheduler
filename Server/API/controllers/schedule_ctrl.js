@@ -2,8 +2,169 @@
 const { Settings, Schedule, Room, Assignation, Program, Professor, Department, Course, ProfAvail, RoomType, SchoolYear } = require('../models');
 const { Op } = require('sequelize');
 const util = require("../../utils");
-const { json } = require('body-parser');
-const { lock } = require('../routers/profStatus_rtr');
+
+
+
+
+
+
+// Add this debugging function at the top level (outside any other functions)
+const roomTypeDebugger = {
+    courseInfo: {},
+    roomTypeMatches: {},
+    failureReasons: {},
+
+    // Initialize the debugger
+    init: function () {
+        this.courseInfo = {};
+        this.roomTypeMatches = {};
+        this.failureReasons = {};
+    },
+
+    // Log course room type info
+    logCourseInfo: function (courseId, courseCode, roomTypeId) {
+        this.courseInfo[courseId] = {
+            courseCode: courseCode,
+            roomTypeId: roomTypeId
+        };
+    },
+
+    // Log only essential room compatibility info
+    logRoomMatch: function (courseId, roomId, roomCode, primaryTypeId, secondaryTypes,
+        isPrimaryMatch, isSecondaryMatch, pass) {
+        // Only log once per room per course for each pass
+        const key = `${courseId}-${roomId}-${pass}`;
+        if (!this.roomTypeMatches[key]) {
+            if (!this.roomTypeMatches[courseId]) {
+                this.roomTypeMatches[courseId] = {};
+            }
+
+            this.roomTypeMatches[courseId][roomId] = {
+                roomCode,
+                primaryTypeId,
+                secondaryTypes,
+                isPrimaryMatch,
+                isSecondaryMatch,
+                passes: [pass]
+            };
+
+            this.roomTypeMatches[key] = true;
+        } else if (this.roomTypeMatches[courseId] &&
+            this.roomTypeMatches[courseId][roomId] &&
+            !this.roomTypeMatches[courseId][roomId].passes.includes(pass)) {
+            // Just add the pass number if we've seen this room-course combo before
+            this.roomTypeMatches[courseId][roomId].passes.push(pass);
+        }
+    },
+
+    // Log only the first occurrence of each failure reason for each course-room combo
+    logFailure: function (courseId, roomId, roomCode, reason, pass) {
+        const key = `${courseId}-${roomId}-${reason}-${pass}`;
+        if (!this.failureReasons[key]) {
+            if (!this.failureReasons[courseId]) {
+                this.failureReasons[courseId] = [];
+            }
+
+            this.failureReasons[courseId].push({
+                roomId,
+                roomCode,
+                reason,
+                pass
+            });
+
+            this.failureReasons[key] = true;
+        }
+    },
+
+    // Generate concise report
+    generateReport: function () {
+        let report = "\n===== ROOM TYPE DEBUG REPORT =====\n";
+
+        // Course info section
+        report += "\nCOURSE INFORMATION:\n";
+        for (const courseId in this.courseInfo) {
+            const info = this.courseInfo[courseId];
+            report += `Course: ${info.courseCode}, Room Type ID: ${info.roomTypeId}\n`;
+        }
+
+        // Room matches section (condensed)
+        report += "\nROOM COMPATIBILITY SUMMARY:\n";
+        for (const courseId in this.roomTypeMatches) {
+            const info = this.courseInfo[courseId];
+            if (!info) continue;
+
+            report += `\nFor course ${info.courseCode} (Type ID: ${info.roomTypeId}):\n`;
+
+            // Count different match types
+            let primaryMatches = 0;
+            let secondaryMatches = 0;
+            let noMatches = 0;
+
+            // List rooms by compatibility
+            const primaryRooms = [];
+            const secondaryRooms = [];
+            const noMatchRooms = [];
+
+            for (const roomId in this.roomTypeMatches[courseId]) {
+                const match = this.roomTypeMatches[courseId][roomId];
+                if (match.isPrimaryMatch) {
+                    primaryMatches++;
+                    primaryRooms.push(match.roomCode);
+                } else if (match.isSecondaryMatch) {
+                    secondaryMatches++;
+                    secondaryRooms.push(match.roomCode);
+                } else {
+                    noMatches++;
+                    noMatchRooms.push(match.roomCode);
+                }
+            }
+
+            report += `  Primary matches: ${primaryMatches} rooms (${primaryRooms.join(', ')})\n`;
+            report += `  Secondary matches: ${secondaryMatches} rooms (${secondaryRooms.join(', ')})\n`;
+            report += `  No matches: ${noMatches} rooms\n`;
+
+            // Indicate which passes each room was tried in
+            report += `  First pass rooms: ${Object.values(this.roomTypeMatches[courseId])
+                .filter(r => r.passes.includes(1))
+                .map(r => r.roomCode)
+                .join(', ') || 'None'}\n`;
+
+            report += `  Second pass rooms: ${Object.values(this.roomTypeMatches[courseId])
+                .filter(r => r.passes.includes(2))
+                .map(r => r.roomCode)
+                .join(', ') || 'None'}\n`;
+        }
+
+        // Failure reasons section (condensed)
+        report += "\nFAILURE REASONS SUMMARY:\n";
+        for (const courseId in this.failureReasons) {
+            const info = this.courseInfo[courseId];
+            if (!info) continue;
+
+            report += `\nFor course ${info.courseCode} (Type ID: ${info.roomTypeId}):\n`;
+
+            // Group and count by reason and pass
+            const reasonCounts = {};
+            this.failureReasons[courseId].forEach(failure => {
+                const key = `${failure.reason} (${failure.pass === 1 ? 'first' : 'second'} pass)`;
+                reasonCounts[key] = (reasonCounts[key] || 0) + 1;
+            });
+
+            // Print counts only
+            for (const reason in reasonCounts) {
+                report += `  ${reason}: ${reasonCounts[reason]} times\n`;
+            }
+        }
+
+        report += "\n===== END REPORT =====\n";
+        return report;
+    }
+};
+
+
+
+
+
 
 // HELPER FUNCTIONS
 
@@ -22,38 +183,77 @@ const timeToSeconds = (timeStr) => {
 
 const isValidTime = (startTime, endTime, res) => {
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-
-    // Validate format
     if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
         return res.status(400).json({
             successful: false,
             message: "Invalid time format. Please use HH:mm in 24-hour format."
         });
     }
-
-    // Ensure start time is earlier than end time
     const [startHours, startMinutes] = startTime.split(":").map(Number);
     const [endHours, endMinutes] = endTime.split(":").map(Number);
-
     if (startHours > endHours || (startHours === endHours && startMinutes >= endMinutes)) {
         return res.status(400).json({
             successful: false,
             message: "Start time must be earlier than end time."
         });
     }
-
     return true;
 };
 
-// Helper function to convert day numbers to names
 function convertDayNumberToName(dayNumber) {
     const days = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     return days[dayNumber] || "";
 }
 
-/**
- * Check if a schedule is possible based on room and professor availability.
- */
+// Track scheduling failures for debugging
+const schedulingLog = {
+    failureReasons: {},
+    successCount: 0,
+    failureCount: 0,
+    roomTypeFailures: 0,
+    roomAvailFailures: 0,
+    profAvailFailures: 0,
+    initReport: function () {
+        this.failureReasons = {};
+        this.successCount = 0;
+        this.failureCount = 0;
+        this.roomTypeFailures = 0;
+        this.roomAvailFailures = 0;
+        this.profAvailFailures = 0;
+    },
+    logSuccess: function (course) {
+        this.successCount++;
+    },
+    logFailure: function (course, reason) {
+        this.failureCount++;
+        if (!this.failureReasons[course]) {
+            this.failureReasons[course] = {};
+        }
+        this.failureReasons[course][reason] = (this.failureReasons[course][reason] || 0) + 1;
+
+        // Track specific failure types
+        if (reason.includes('room type')) this.roomTypeFailures++;
+        if (reason.includes('not available')) this.roomAvailFailures++;
+        if (reason.includes('professor')) this.profAvailFailures++;
+    },
+    getReport: function () {
+        let report = `\n==== SCHEDULING REPORT ====`;
+        report += `\nTotal successes: ${this.successCount}`;
+        report += `\nTotal failures: ${this.failureCount}`;
+        report += `\nFailure breakdown: Room Type=${this.roomTypeFailures}, Room Availability=${this.roomAvailFailures}, Professor=${this.profAvailFailures}`;
+
+        report += `\n\nPer-course failure details:`;
+        for (const course in this.failureReasons) {
+            report += `\n${course}:`;
+            for (const reason in this.failureReasons[course]) {
+                report += `\n  - ${reason}: ${this.failureReasons[course][reason]} times`;
+            }
+        }
+
+        return report;
+    }
+};
+
 const isSchedulePossible = async (
     roomSchedules,
     professorSchedule,
@@ -67,25 +267,59 @@ const isSchedulePossible = async (
     priorities,
     courseId,
     roomCache,
-    professorAvailabilityCache
+    professorAvailabilityCache,
+    onlyCheckPrimaryType,
+    courseCode // Added for logging
 ) => {
-    console.log(`Checking if schedule is possible: Room=${roomId}, Prof=${professorId || 'NONE'}, Day=${day}, Hour=${startHour}`);
-    
     // Check if room is available
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) {
-        console.log(`Room ${roomId} is not available at this time`);
+        schedulingLog.logFailure(courseCode, "room not available");
+        roomTypeDebugger.logFailure(courseId, roomId, roomCache[roomId].Code, "room not available", onlyCheckPrimaryType ? 1 : 2);
         return false;
     }
 
     // Verify room has the required room type for this course
     const room = roomCache[roomId];
-    const courseData = await Course.findByPk(courseId);
-    
+    const courseData = await Course.findByPk(courseId, {
+        include: [{ model: RoomType }]
+    });
+
+    // DEBUG: Log course room type info (only once per course)
+    if (!roomTypeDebugger.courseInfo[courseId] && courseData) {
+        roomTypeDebugger.logCourseInfo(courseId, courseCode, courseData.RoomTypeId);
+    }
+
     // Check room type compatibility
     if (courseData?.RoomTypeId) {
-        if (!room.RoomTypeIds || !room.RoomTypeIds.includes(courseData.RoomTypeId)) {
-            console.log(`Room ${roomId} doesn't support required room type for course ${courseId}`);
-            return false; // Room doesn't support this course's required room type
+        const hasPrimaryTypeMatch = room.PrimaryTypeId === courseData.RoomTypeId;
+
+        // Check secondary types if allowed
+        const hasMatchingTypeInArray = !hasPrimaryTypeMatch && !onlyCheckPrimaryType &&
+            room.RoomTypeIds && room.RoomTypeIds.includes(courseData.RoomTypeId);
+
+        // DEBUG: Log room compatibility check
+        roomTypeDebugger.logRoomMatch(
+            courseId,
+            roomId,
+            room.Code,
+            room.PrimaryTypeId,
+            room.RoomTypeIds,
+            hasPrimaryTypeMatch,
+            hasMatchingTypeInArray,
+            onlyCheckPrimaryType ? 1 : 2
+        );
+
+        // If we're only checking primary type and there's no match, return false
+        if (onlyCheckPrimaryType && !hasPrimaryTypeMatch) {
+            schedulingLog.logFailure(courseCode, "no primary room type match");
+            roomTypeDebugger.logFailure(courseId, roomId, room.Code, "no primary room type match", 1);
+            return false;
+        }
+
+        if (!hasPrimaryTypeMatch && !hasMatchingTypeInArray) {
+            schedulingLog.logFailure(courseCode, "room type not compatible");
+            roomTypeDebugger.logFailure(courseId, roomId, room.Code, "room type not compatible", onlyCheckPrimaryType ? 1 : 2);
+            return false;
         }
     }
 
@@ -95,13 +329,11 @@ const isSchedulePossible = async (
         startHour, duration, settings, professorId, day,
         professorAvailabilityCache
     )) {
-        console.log(`Professor ${professorId} is not available at this time`);
+        schedulingLog.logFailure(courseCode, "professor not available");
+        roomTypeDebugger.logFailure(courseId, roomId, room.Code, "professor not available", onlyCheckPrimaryType ? 1 : 2);
         return false;
-    } else if (!professorId) {
-        console.log(`No professor assigned - skipping professor availability check`);
     }
 
-    console.log(`Schedule is possible!`);
     return true;
 };
 
@@ -113,8 +345,8 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
     const endTimeSeconds = typeof startHour === 'number' ? (startHour + duration) * 3600 :
         timeToSeconds(startHour) + (duration * 3600);
 
-    return !roomSchedules[roomId][day].some(time => {
-        // Convert scheduled times to seconds if they're not already
+    // Check for conflicts
+    const conflicts = roomSchedules[roomId][day].filter(time => {
         const timeStartSeconds = typeof time.start === 'number' && time.start < 100 ?
             time.start * 3600 : (typeof time.start === 'string' ?
                 timeToSeconds(time.start) : time.start);
@@ -126,6 +358,8 @@ const isRoomAvailable = (roomSchedules, roomId, day, startHour, duration) => {
             (endTimeSeconds > timeStartSeconds && endTimeSeconds <= timeEndSeconds) ||
             (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds);
     });
+
+    return conflicts.length === 0;
 };
 
 const canScheduleProfessor = (profSchedule, startHour, duration, settings, professorId, day, professorAvailabilityCache) => {
@@ -151,8 +385,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             avail.Day === convertDayNumberToName(day)
         );
     } else {
-        // If no cached data, assume available (will be checked in main function)
-        return true;
+        return true; // If no cached data, assume available
     }
 
     // If the professor has availability records but none for this day, they're unavailable
@@ -160,7 +393,7 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
     if (anyAvailRecords > 0 && profAvails.length === 0) {
         return false;
     } else if (profAvails.length > 0) {
-        // If they have records for this day, check if the proposed time falls within any availability window
+        // Check if the proposed time falls within any availability window
         let isAvailable = false;
         for (const avail of profAvails) {
             const availStartSeconds = timeToSeconds(avail.Start_time);
@@ -171,16 +404,16 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
                 break;
             }
         }
-
         if (!isAvailable) return false;
     }
 
     // Check if adding this schedule would exceed max hours
-    if (profSchedule.hours + duration > settings.ProfessorMaxHours) return false;
+    if (profSchedule.hours + duration > settings.ProfessorMaxHours) {
+        return false;
+    }
 
-    // Check for overlapping schedules with second precision
-    for (const time of profSchedule.dailyTimes) {
-        // Convert scheduled times to seconds
+    // Check for overlapping schedules
+    const hasOverlap = profSchedule.dailyTimes.some(time => {
         const timeStartSeconds = typeof time.start === 'number' && time.start < 100 ?
             time.start * 3600 : (typeof time.start === 'string' ?
                 timeToSeconds(time.start) : time.start);
@@ -188,16 +421,16 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
             time.end * 3600 : (typeof time.end === 'string' ?
                 timeToSeconds(time.end) : time.end);
 
-        if ((startTimeSeconds >= timeStartSeconds && startTimeSeconds < timeEndSeconds) ||
+        return (startTimeSeconds >= timeStartSeconds && startTimeSeconds < timeEndSeconds) ||
             (endTimeSeconds > timeStartSeconds && endTimeSeconds <= timeEndSeconds) ||
-            (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds)) {
-            return false;
-        }
-    }
+            (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds);
+    });
 
-    // If no schedules yet, no need to check for contiguous blocks
+    if (hasOverlap) return false;
+
+    // If no schedules yet, only check if this single class exceeds max continuous hours
     if (profSchedule.dailyTimes.length === 0) {
-        return durationSeconds <= maxContinuousSeconds; // Check if this single class exceeds max continuous hours
+        return durationSeconds <= maxContinuousSeconds;
     }
 
     // Sort schedules and convert to seconds
@@ -270,6 +503,34 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
     return true;
 };
 
+// Check if a course can find a primary type match in any room
+const hasPrimaryTypeMatch = async (courseId, roomCache, rooms) => {
+    try {
+        // Get course data
+        const courseData = await Course.findByPk(courseId, {
+            include: [{ model: RoomType }]
+        });
+
+        if (!courseData?.RoomTypeId) {
+            return true; // No room type required, so always return true
+        }
+
+        // Check if any available room has this course's type as its primary type
+        const matchingRooms = rooms.filter(room => room.PrimaryTypeId === courseData.RoomTypeId);
+
+        // Only log when there's no match (potential problem case)
+        if (matchingRooms.length === 0) {
+            console.log(`WARNING: No primary type match for ${courseData.Code} (Type: ${courseData.RoomTypeId})`);
+        }
+
+        return matchingRooms.length > 0;
+    } catch (error) {
+        console.error(`Error in hasPrimaryTypeMatch for course ${courseId}:`, error);
+        return false;
+    }
+};
+
+// Optimized schedule assignation function with focused error reporting
 const scheduleAssignation = async (
     assignations,
     rooms,
@@ -286,224 +547,410 @@ const scheduleAssignation = async (
     roomId,
     seed,
     roomCache,
-    professorAvailabilityCache
+    professorAvailabilityCache,
+    postponedAssignations = [],
+    isSecondPass = false,
+    maxFailAllowed = 2
 ) => {
     // Base case: all assignations handled
-    if (index === assignations.length) return true;
+    if (index === assignations.length) {
+        // If this is the first pass and we have postponed assignations, process them now
+        if (!isSecondPass && postponedAssignations.length > 0) {
+            console.log(`First pass complete. Starting second pass with ${postponedAssignations.length} postponed assignations.`);
+            return scheduleAssignation(
+                postponedAssignations,
+                rooms,
+                professorSchedule,
+                courseSchedules,
+                roomSchedules,
+                0,
+                report,
+                startHour,
+                endHour,
+                settings,
+                priorities,
+                failedAssignations,
+                roomId,
+                seed,
+                roomCache,
+                professorAvailabilityCache,
+                [],
+                true,
+                maxFailAllowed
+            );
+        }
 
-    // Log all assignations being received at the start
-    if (index === 0) {
-        console.log("===== ALL ASSIGNATIONS RECEIVED =====");
-        assignations.forEach((a, i) => {
-            console.log(`Assignation ${i}: Course ${a.Course?.Code}, Professor: ${a.Professor?.Name || 'NONE'}`);
-        });
-        console.log("====================================");
+        // Print summary report
+        console.log(schedulingLog.getReport());
+
+        // Otherwise we're done
+        return true;
+    }
+
+    // Initialize scheduling log if first assignation
+    if (index === 0 && !isSecondPass) {
+        schedulingLog.initReport();
     }
 
     const assignation = assignations[index];
     const { Course: courseParam, Professor: professorInfo } = assignation;
     const duration = courseParam.Duration;
 
-    // Log the current assignation being processed
-    console.log(`\nProcessing assignation ${index}: Course ${courseParam.Code}, Professor: ${professorInfo?.Name || 'NONE'}`);
-    
     try {
-        // --- 1) Build the candidate room list, enforcing RoomType === assignation.RoomType ---
-        // build two lists: prioritized, then the rest
-        const prioritizedList = priorities?.room
-            ? rooms.filter(r => priorities.room.includes(r.id))
-            : [];
-        const fallbackList = priorities?.room
-            ? rooms.filter(r => !priorities.room.includes(r.id))
-            : rooms;
+        // In first pass, check if this course should be postponed
+        if (!isSecondPass && courseParam.RoomTypeId) {
+            // Check if this course has any room with primary type match
+            const hasPrimary = await hasPrimaryTypeMatch(courseParam.id, roomCache, rooms);
 
-        // Combine room lists
-        let roomsToTry = [
-            ...prioritizedList,
-            ...fallbackList
-        ].filter(r => r.RoomTypeId === assignation.RoomTypeId);
+            if (!hasPrimary) {
+                console.log(`POSTPONING TO SECOND PASS: ${courseParam.Code} (Type: ${courseParam.RoomTypeId}) - No primary type match`);
+                postponedAssignations.push(assignation);
 
-        // Further sort rooms by moving "lec" to the end
-        roomsToTry.sort((a, b) => {
-            // Get room types from roomCache
-            const aRoomTypes = roomCache[a.id]?.RoomTypeIds || [];
-            const bRoomTypes = roomCache[b.id]?.RoomTypeIds || [];
-
-            // Check for "lec" room type in the cached data
-            const aHasLecType = aRoomTypes.some(typeId => {
-                // Get the room type object
-                const roomTypeObj = a.TypeRooms?.find(rt => rt.id === typeId);
-                return roomTypeObj && roomTypeObj.Name?.toLowerCase().includes('lec');
-            });
-
-            const bHasLecType = bRoomTypes.some(typeId => {
-                const roomTypeObj = b.TypeRooms?.find(rt => rt.id === typeId);
-                return roomTypeObj && roomTypeObj.Name?.toLowerCase().includes('lec');
-            });
-
-            // If only one has "lec" type, put it last
-            if (aHasLecType && !bHasLecType) return 1;
-            if (!aHasLecType && bHasLecType) return -1;
-            return 0;
-        });
-
-        console.log(`Found ${roomsToTry.length} compatible rooms for course ${courseParam.Code}`);
-
-        if (!roomsToTry.length) {
-            console.log(`Failed to schedule - No compatible rooms found for course ${courseParam.Code}`);
-            failedAssignations.push({
-                id: assignation.id,
-                Course: courseParam.Code,
-                Professor: professorInfo?.Name,
-                reason: "No rooms of matching RoomType available"
-            });
-            return scheduleAssignation(
-                assignations, rooms, professorSchedule, courseSchedules,
-                roomSchedules, index + 1,
-                report, startHour, endHour, settings, priorities,
-                failedAssignations, roomId, seed, roomCache, professorAvailabilityCache
-            );
-        }
-
-        // --- 2) For variants, introduce different scheduling patterns ---
-        // Variant-specific room ordering based on seed
-        if (seed % 3 === 0) {
-            // Sort rooms by capacity ascending
-            roomsToTry.sort((a, b) => a.NumberOfSeats - b.NumberOfSeats);
-        } else if (seed % 3 === 1) {
-            // Sort rooms by capacity descending
-            roomsToTry.sort((a, b) => b.NumberOfSeats - a.NumberOfSeats);
-        }
-
-        // --- 3) Try scheduling on each day and room ---
-        // Get different day orderings based on seed
-        const allDays = [1, 2, 3, 4, 5, 6];
-        let dayOrdering;
-
-        if (seed % 2 === 0) {
-            // Variant 1: Standard day ordering
-            dayOrdering = [...allDays];
-        } else {
-            // Variant 2: Different day ordering
-            dayOrdering = [3, 2, 4, 1, 5, 6]; // Try middle of week first
-        }
-
-        let successfullyScheduled = false;
-
-        // Try each room
-        for (const room of roomsToTry) {
-            if (successfullyScheduled) break;
-
-            // Try each day
-            for (const day of dayOrdering) {
-                if (successfullyScheduled) break;
-
-                // Get different hour orderings based on seed
-                let hourOptions = [];
-                for (let h = startHour; h + duration <= endHour; h++) {
-                    hourOptions.push(h);
-                }
-
-                // Apply variant-specific hour ordering
-                if (seed % 3 === 1) {
-                    // Reverse (descending order)
-                    hourOptions.reverse();
-                } else if (seed % 3 === 2) {
-                    // Start from middle of the day
-                    const mid = Math.floor(hourOptions.length / 2);
-                    hourOptions = [...hourOptions.slice(mid), ...hourOptions.slice(0, mid)];
-                }
-
-                // Try each hour
-                for (let hour of hourOptions) {
-                    console.log(`Trying room ${room.Code}, day ${day}, hour ${hour} for course ${courseParam.Code}`);
-                    
-                    const isPossible = await isSchedulePossible(
-                        roomSchedules, 
-                        professorSchedule, 
-                        courseSchedules,
-                        room.id, 
-                        professorInfo?.id, 
-                        day, 
-                        hour,
-                        duration, 
-                        settings, 
-                        priorities, 
-                        courseParam.id,
-                        roomCache, 
-                        professorAvailabilityCache
-                    );
-
-                    if (isPossible) {
-                        console.log(`SUCCESS! Found viable slot for ${courseParam.Code} in room ${room.Code}, day ${day}, hour ${hour}`);
-                        
-                        // Update trackers
-                        if (professorInfo) {
-                            professorSchedule[professorInfo.id][day].hours += duration;
-                            professorSchedule[professorInfo.id][day].dailyTimes.push({ 
-                                start: hour, 
-                                end: hour + duration 
-                            });
-                        } else {
-                            console.log(`No professor to update for ${courseParam.Code}`);
-                        }
-
-                        courseSchedules[courseParam.id][day].push({ 
-                            start: hour, 
-                            end: hour + duration 
-                        });
-                        
-                        roomSchedules[room.id] = roomSchedules[room.id] || {};
-                        roomSchedules[room.id][day] = roomSchedules[room.id][day] || [];
-                        roomSchedules[room.id][day].push({ 
-                            start: hour, 
-                            end: hour + duration 
-                        });
-
-                        // Record the schedule
-                        report.push({
-                            Professor: professorInfo?.Name,
-                            Course: courseParam.Code,
-                            CourseType: courseParam.Type,
-                            Room: room.Code,
-                            RoomId: room.id,
-                            Day: day,
-                            Start_time: `${hour}:00`,
-                            End_time: `${hour + duration}:00`,
-                            isLocked: false,
-                            AssignationId: assignation.id
-                        });
-
-                        successfullyScheduled = true;
-                        break; // Found a suitable time slot, stop checking hours
-                    } else {
-                        console.log(`Cannot schedule at this time slot - conflicts exist`);
-                    }
-                }
+                // Skip to next assignation
+                return scheduleAssignation(
+                    assignations, rooms, professorSchedule, courseSchedules,
+                    roomSchedules, index + 1,
+                    report, startHour, endHour, settings, priorities,
+                    failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
+                    postponedAssignations, isSecondPass, maxFailAllowed
+                );
             }
         }
 
-        // If couldn't schedule, add to failed assignations
-        if (!successfullyScheduled) {
-            console.log(`FAILED to schedule course ${courseParam.Code}`);
+        // Build the candidate room list based on the current pass
+        const prioritizedByUserList = priorities?.room
+            ? rooms.filter(r => priorities.room.includes(r.id))
+            : [];
+
+        let roomsToTry = [];
+
+        if (!isSecondPass) {
+            // FIRST PASS: Only use rooms with primary type match
+            const requiredTypeId = courseParam.RoomTypeId;
+            const primaryTypeMatchList = requiredTypeId
+                ? rooms.filter(r => r.PrimaryTypeId === requiredTypeId &&
+                    (!priorities?.room || !priorities.room.includes(r.id)))
+                : rooms.filter(r => !priorities?.room || !priorities.room.includes(r.id));
+
+            // First pass only uses primary match rooms (plus user priorities)
+            roomsToTry = [...prioritizedByUserList, ...primaryTypeMatchList];
+        } else {
+            // SECOND PASS: Try any room with compatible type (primary or secondary)
+            const requiredTypeId = courseParam.RoomTypeId;
+
+            const primaryTypeMatchList = requiredTypeId
+                ? rooms.filter(r => r.PrimaryTypeId === requiredTypeId &&
+                    (!priorities?.room || !priorities.room.includes(r.id)))
+                : [];
+
+            const secondaryTypeMatchList = requiredTypeId
+                ? rooms.filter(r => r.PrimaryTypeId !== requiredTypeId &&
+                    r.TypeRooms?.some(type => type.id === requiredTypeId) &&
+                    (!priorities?.room || !priorities.room.includes(r.id)))
+                : [];
+
+            // In second pass, we use both primary and secondary match rooms
+            roomsToTry = [...prioritizedByUserList, ...primaryTypeMatchList, ...secondaryTypeMatchList];
+
+            // If no RoomTypeId is specified, include all rooms
+            if (!requiredTypeId) {
+                const otherRooms = rooms.filter(r =>
+                    (!priorities?.room || !priorities.room.includes(r.id)) &&
+                    !primaryTypeMatchList.some(pm => pm.id === r.id) &&
+                    !secondaryTypeMatchList.some(sm => sm.id === r.id)
+                );
+                roomsToTry = [...roomsToTry, ...otherRooms];
+            }
+        }
+
+        // Create a deep copy of the current state for backtracking
+        const saveState = () => {
+            return {
+                professorSchedule: JSON.parse(JSON.stringify(professorSchedule)),
+                courseSchedules: JSON.parse(JSON.stringify(courseSchedules)),
+                roomSchedules: JSON.parse(JSON.stringify(roomSchedules)),
+                report: [...report]
+            };
+        };
+
+        // Restore state when backtracking
+        const restoreState = (state) => {
+            // Copy all properties back to the original objects
+            Object.keys(state.professorSchedule).forEach(profId => {
+                if (professorSchedule[profId]) {
+                    Object.keys(state.professorSchedule[profId]).forEach(day => {
+                        professorSchedule[profId][day] = state.professorSchedule[profId][day];
+                    });
+                }
+            });
+
+            Object.keys(state.courseSchedules).forEach(courseId => {
+                if (courseSchedules[courseId]) {
+                    Object.keys(state.courseSchedules[courseId]).forEach(day => {
+                        courseSchedules[courseId][day] = state.courseSchedules[courseId][day];
+                    });
+                }
+            });
+
+            Object.keys(state.roomSchedules).forEach(roomId => {
+                roomSchedules[roomId] = state.roomSchedules[roomId];
+            });
+
+            // Truncate report to match the saved state
+            report.length = 0;
+            report.push(...state.report);
+        };
+
+        // Get day orderings based on seed
+        const allDays = [1, 2, 3, 4, 5, 6];
+
+        // Create multiple day orderings to try if initial attempts fail
+        const dayOrderingVariations = [
+            [...allDays], // Standard order
+            [3, 2, 4, 1, 5, 6], // Alternative order
+            [2, 4, 1, 3, 5, 6], // Another alternative
+            [1, 3, 5, 2, 4, 6]  // Yet another alternative
+        ];
+
+        // Start with the seed-based ordering
+        let dayOrderingIndex = seed % dayOrderingVariations.length;
+        let dayOrdering = dayOrderingVariations[dayOrderingIndex];
+
+        // MODIFIED: Apply variant-specific room ordering based on dynamic priority
+        let categoryRooms = [...roomsToTry];
+
+        // IMPORTANT: Remove the hard-coded "lec" type sorting
+        // Instead, use a dynamic room type priority system from settings
+        if (settings.roomTypePriorities && settings.roomTypePriorities.length > 0) {
+            categoryRooms.sort((a, b) => {
+                const aPrimaryId = a.PrimaryTypeId;
+                const bPrimaryId = b.PrimaryTypeId;
+
+                // Use the priority index to sort (lower index = higher priority)
+                const aPriority = settings.roomTypePriorities.indexOf(aPrimaryId);
+                const bPriority = settings.roomTypePriorities.indexOf(bPrimaryId);
+
+                // If both room types are in the priority list, sort by priority
+                if (aPriority !== -1 && bPriority !== -1) {
+                    return aPriority - bPriority;
+                }
+
+                // If only one is in the priority list, prioritize it
+                if (aPriority !== -1) return -1;
+                if (bPriority !== -1) return 1;
+
+                // Otherwise, don't change the order
+                return 0;
+            });
+        }
+
+        // Keep track of how many consecutive failures we've had
+        let consecutiveFailures = 0;
+        let savedOriginalState = null;
+
+        // Add outer loop to try different day orderings if needed
+        for (let attempt = 0; attempt < dayOrderingVariations.length; attempt++) {
+            // Only switch day orderings after the first attempt
+            if (attempt > 0) {
+                dayOrderingIndex = (dayOrderingIndex + 1) % dayOrderingVariations.length;
+                dayOrdering = dayOrderingVariations[dayOrderingIndex];
+
+                // Restore to original state before this assignation
+                if (savedOriginalState) {
+                    restoreState(savedOriginalState);
+                }
+            }
+
+            // Try each room in the category
+            for (const room of categoryRooms) {
+                // Save state for potential backtracking (only on first room of first attempt)
+                if (attempt === 0 && room === categoryRooms[0]) {
+                    savedOriginalState = saveState();
+                }
+
+                // Save the current state before trying this room
+                const roomOriginalState = saveState();
+
+                // Try each day
+                for (const day of dayOrdering) {
+                    // Get different hour orderings based on seed and attempt
+                    let hourOptions = [];
+                    for (let h = startHour; h + duration <= endHour; h++) {
+                        hourOptions.push(h);
+                    }
+
+                    // Create multiple hour ordering variations to try
+                    const hourOrderingVariations = [
+                        [...hourOptions], // Original order
+                        [...hourOptions].reverse(), // Reverse order
+                        // Mixed order - start from middle
+                        (() => {
+                            const mid = Math.floor(hourOptions.length / 2);
+                            return [...hourOptions.slice(mid), ...hourOptions.slice(0, mid)];
+                        })(),
+                        // Another mixed order
+                        (() => {
+                            const result = [];
+                            for (let i = 0; i < hourOptions.length; i++) {
+                                if (i % 2 === 0) {
+                                    result.push(hourOptions[i]);
+                                } else {
+                                    result.unshift(hourOptions[i]);
+                                }
+                            }
+                            return result;
+                        })()
+                    ];
+
+                    // Choose hour ordering based on seed and attempt
+                    const hourOrderIndex = (seed + attempt) % hourOrderingVariations.length;
+                    const finalHourOptions = hourOrderingVariations[hourOrderIndex];
+
+                    // Try each hour
+                    for (let hour of finalHourOptions) {
+                        // Pass onlyCheckPrimaryType flag based on the current pass
+                        const isPossible = await isSchedulePossible(
+                            roomSchedules,
+                            professorSchedule,
+                            courseSchedules,
+                            room.id,
+                            professorInfo?.id,
+                            day,
+                            hour,
+                            duration,
+                            settings,
+                            priorities,
+                            courseParam.id,
+                            roomCache,
+                            professorAvailabilityCache,
+                            !isSecondPass, // In first pass, only check primary type
+                            courseParam.Code // Pass the course code for logging
+                        );
+
+                        if (isPossible) {
+                            // Log success
+                            schedulingLog.logSuccess(courseParam.Code);
+
+                            // Update trackers
+                            if (professorInfo) {
+                                professorSchedule[professorInfo.id][day].hours += duration;
+                                professorSchedule[professorInfo.id][day].dailyTimes.push({
+                                    start: hour,
+                                    end: hour + duration
+                                });
+                            }
+
+                            courseSchedules[courseParam.id][day].push({
+                                start: hour,
+                                end: hour + duration
+                            });
+
+                            roomSchedules[room.id] = roomSchedules[room.id] || {};
+                            roomSchedules[room.id][day] = roomSchedules[room.id][day] || [];
+                            roomSchedules[room.id][day].push({
+                                start: hour,
+                                end: hour + duration
+                            });
+
+                            // Record the schedule
+                            report.push({
+                                Professor: professorInfo?.Name,
+                                Course: courseParam.Code,
+                                CourseType: courseParam.Type,
+                                Room: room.Code,
+                                RoomId: room.id,
+                                Day: day,
+                                Start_time: `${hour}:00`,
+                                End_time: `${hour + duration}:00`,
+                                isLocked: false,
+                                AssignationId: assignation.id,
+                                roomTypeCategory: isSecondPass ? "secondPass" : "firstPass",
+                                hasPrimaryTypeMatch: room.PrimaryTypeId === courseParam.RoomTypeId,
+                                attempt: attempt
+                            });
+
+                            // Reset consecutive failures counter since we found a viable slot
+                            consecutiveFailures = 0;
+
+                            // Try to schedule the next assignation
+                            const nextSuccess = await scheduleAssignation(
+                                assignations, rooms, professorSchedule, courseSchedules,
+                                roomSchedules, index + 1,
+                                report, startHour, endHour, settings, priorities,
+                                failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
+                                postponedAssignations, isSecondPass, maxFailAllowed
+                            );
+
+                            if (nextSuccess) {
+                                // We've found a complete solution
+                                return true;
+                            } else {
+                                // This path leads to a dead end, backtrack
+                                consecutiveFailures++;
+
+                                // If we've had too many consecutive failures, try a different approach
+                                if (consecutiveFailures >= maxFailAllowed) {
+                                    break; // Break out of hour loop to try different day ordering
+                                }
+
+                                // Restore state to before we tried this room
+                                restoreState(roomOriginalState);
+                            }
+                        }
+                    }
+
+                    // If we've had too many consecutive failures, break out of day loop too
+                    if (consecutiveFailures >= maxFailAllowed) {
+                        break;
+                    }
+                }
+
+                // If we've had too many consecutive failures, break out of room loop too
+                if (consecutiveFailures >= maxFailAllowed) {
+                    break;
+                }
+            }
+
+            // If we've already tried all day orderings or found a solution, no need to continue
+            if (attempt === dayOrderingVariations.length - 1 || consecutiveFailures < maxFailAllowed) {
+                break;
+            }
+
+            // Reset consecutive failures counter before trying a new day ordering
+            consecutiveFailures = 0;
+        }
+
+        // If we get here, we've tried all room options and couldn't schedule this assignation
+        console.log(`Failed to schedule ${courseParam.Code} in ${isSecondPass ? 'second' : 'first'} pass`);
+
+        // If we get here, we've tried all room options and couldn't schedule this assignation
+        console.log(`Failed to schedule ${courseParam.Code} in ${isSecondPass ? 'second' : 'first'} pass`);
+
+        // If this is the first pass, always postpone to the second pass to try secondary types
+        if (!isSecondPass) {
+            console.log(`POSTPONING: ${courseParam.Code} to second pass due to scheduling failure`);
+            postponedAssignations.push(assignation);
+        } else {
+            // Only add to failedAssignations if we're in the second pass
             failedAssignations.push({
                 id: assignation.id,
                 Course: courseParam.Code,
                 Professor: professorInfo?.Name,
-                reason: "Could not find suitable time slot"
+                reason: `Could not find suitable time slot in any compatible room (second pass)`
             });
         }
 
-        // Move on to next assignation regardless of success
+        // Move on to next assignation regardless
         return scheduleAssignation(
             assignations, rooms, professorSchedule, courseSchedules,
             roomSchedules, index + 1,
             report, startHour, endHour, settings, priorities,
-            failedAssignations, roomId, seed, roomCache, professorAvailabilityCache
+            failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
+            postponedAssignations, isSecondPass, maxFailAllowed
         );
 
     } catch (err) {
-        console.error("Error in scheduleAssignation:", err);
+        console.error(`Error scheduling ${courseParam.Code}:`, err);
         failedAssignations.push({
             id: assignation.id,
             Course: courseParam.Code,
@@ -514,13 +961,15 @@ const scheduleAssignation = async (
             assignations, rooms, professorSchedule, courseSchedules,
             roomSchedules, index + 1,
             report, startHour, endHour, settings, priorities,
-            failedAssignations, roomId, seed, roomCache, professorAvailabilityCache
+            failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
+            postponedAssignations, isSecondPass, maxFailAllowed
         );
     }
 };
 
 const generateScheduleVariants = async (req, res, next) => {
     try {
+        roomTypeDebugger.init();
         const {
             DepartmentId,
             prioritizedProfessor,
@@ -564,28 +1013,27 @@ const generateScheduleVariants = async (req, res, next) => {
             delete priorities.room;
         }
 
-        console.log(`→ Fetching settings for DepartmentId=${DepartmentId}`)
+        console.log(`Fetching settings for DepartmentId=${DepartmentId}`)
         // 2) Load settings
-        
-        const settings = await Settings.findOne({where: 1});
+
+        const settings = await Settings.findOne({ where: 1 });
         if (!settings) {
-            console.log(`⚠️  No settings found for DepartmentId=${DepartmentId}`);
-        } else {
-            console.log('✅  Loaded settings:', settings.get({ plain: true }));
-            console.log(
-                `Using settings for Dept ${settings}:`,
-                `StartHour=${settings.StartHour},`,
-                `EndHour=${settings.EndHour},`,
-                `StudentMaxHours=${settings.StudentMaxHours}`
-            );
+            console.log(`Warning: No settings found. Using defaults.`);
         }
         const { StartHour, EndHour } = settings;
 
-        // Create caches for better performance - defining at the top for scope
+        // Default to empty array if not defined in settings
+        if (!settings.roomTypePriorities) {
+            settings.roomTypePriorities = [];
+        }
+
+        // Create caches for better performance
         const roomCache = {};
         const professorAvailabilityCache = {};
 
-        // 3) OPTIMIZATION: Fetch department, assignations, courses, professors, and rooms all in one go
+        // 3) Fetch department data
+        console.log("Fetching department data...");
+
         const department = await Department.findByPk(DepartmentId, {
             include: [
                 {
@@ -597,7 +1045,8 @@ const generateScheduleVariants = async (req, res, next) => {
                         {
                             model: Course,
                             // Include PairId to identify paired courses
-                            attributes: ['id', 'Code', 'Description', 'Duration', 'Type', 'RoomTypeId', 'PairId']
+                            attributes: ['id', 'Code', 'Description', 'Duration', 'Type', 'RoomTypeId', 'PairId'],
+                            include: [{ model: RoomType }] // Make sure to include the RoomType for each course
                         },
                         { model: Professor, attributes: ['id', 'Name'] }
                     ]
@@ -605,11 +1054,18 @@ const generateScheduleVariants = async (req, res, next) => {
                 {
                     model: Room,
                     as: 'DeptRooms',
-                    include: [{
-                        model: RoomType,
-                        as: 'TypeRooms', // This matches your association name
-                        through: { attributes: [] } // Don't include junction table attributes
-                    }]
+                    include: [
+                        {
+                            model: RoomType,
+                            as: 'TypeRooms',
+                            through: { attributes: [] }
+                        },
+                        {
+                            model: RoomType,
+                            as: 'RoomType',
+                            foreignKey: 'PrimaryTypeId'
+                        }
+                    ]
                 }
             ]
         });
@@ -641,21 +1097,137 @@ const generateScheduleVariants = async (req, res, next) => {
             }
         }
 
-        // OPTIMIZATION: Cache all rooms data
+        // ============== DETAILED ROOM LOGGING START ==============
+        console.log("\n============= DETAILED ROOM INFORMATION =============");
+        console.log(`Total rooms available: ${rooms.length}`);
+
+        // Create a mapping of room type IDs to names
+        const roomTypeNames = {};
+        rooms.forEach(room => {
+            if (room.RoomType && room.RoomType.id) {
+                roomTypeNames[room.RoomType.id] = room.RoomType.Type;
+            }
+
+            if (room.TypeRooms) {
+                room.TypeRooms.forEach(type => {
+                    if (type.id) {
+                        roomTypeNames[type.id] = type.Type;
+                    }
+                });
+            }
+        });
+
+        // Log room type mapping
+        console.log("\nRoom Type Mapping:");
+        for (const [typeId, typeName] of Object.entries(roomTypeNames)) {
+            console.log(`  Type ID ${typeId}: ${typeName}`);
+        }
+
+        // Log detailed information for each room
+        console.log("\nDetailed Room Information:");
+        rooms.forEach((room, index) => {
+            console.log(`\nRoom ${index + 1}:`);
+            console.log(`  ID: ${room.id}`);
+            console.log(`  Code: ${room.Code}`);
+            console.log(`  Primary Type ID: ${room.PrimaryTypeId}`);
+            console.log(`  Primary Type Name: ${room.RoomType ? room.RoomType.Type : 'N/A'}`);
+
+            console.log(`  Secondary Types: ${room.TypeRooms && room.TypeRooms.length > 0 ?
+                room.TypeRooms.map(type => `${type.id} (${type.Type})`).join(', ') : 'None'}`);
+        });
+
+        // Log course room type requirements
+        console.log("\nCourse Room Type Requirements:");
+        const coursesByRoomType = {};
+        assignations.forEach(a => {
+            if (a.Course && a.Course.RoomTypeId) {
+                if (!coursesByRoomType[a.Course.RoomTypeId]) {
+                    coursesByRoomType[a.Course.RoomTypeId] = [];
+                }
+                coursesByRoomType[a.Course.RoomTypeId].push(a.Course.Code);
+            } else if (a.Course) {
+                if (!coursesByRoomType['no_requirement']) {
+                    coursesByRoomType['no_requirement'] = [];
+                }
+                coursesByRoomType['no_requirement'].push(a.Course.Code);
+            }
+        });
+
+        for (const [typeId, courses] of Object.entries(coursesByRoomType)) {
+            const typeName = typeId === 'no_requirement' ? 'No specific requirement' :
+                `Type ${typeId} (${roomTypeNames[typeId] || 'Unknown'})`;
+            console.log(`  ${typeName}: ${courses.join(', ')}`);
+        }
+
+        // Check room compatibility for each course
+        console.log("\nRoom Compatibility Analysis:");
+        assignations.forEach(a => {
+            if (!a.Course) return;
+
+            const courseRoomTypeId = a.Course.RoomTypeId;
+            const courseName = a.Course.Code;
+
+            console.log(`\n  Course: ${courseName}`);
+            console.log(`  Required Room Type: ${courseRoomTypeId ?
+                `${courseRoomTypeId} (${roomTypeNames[courseRoomTypeId] || 'Unknown'})` : 'Any'}`);
+
+            if (courseRoomTypeId) {
+                // Find primary matching rooms
+                const primaryMatches = rooms.filter(r => r.PrimaryTypeId === courseRoomTypeId);
+                console.log(`  Primary Type Matching Rooms: ${primaryMatches.length}`);
+                primaryMatches.forEach(r => console.log(`    - Room ${r.Code} (ID: ${r.id})`));
+
+                // Find secondary matching rooms
+                const secondaryMatches = rooms.filter(r =>
+                    r.PrimaryTypeId !== courseRoomTypeId &&
+                    r.TypeRooms && r.TypeRooms.some(t => t.id === courseRoomTypeId)
+                );
+                console.log(`  Secondary Type Matching Rooms: ${secondaryMatches.length}`);
+                secondaryMatches.forEach(r => console.log(`    - Room ${r.Code} (ID: ${r.id})`));
+
+                console.log(`  Total Compatible Rooms: ${primaryMatches.length + secondaryMatches.length}`);
+            } else {
+                console.log(`  All Rooms Compatible: ${rooms.length}`);
+            }
+        });
+        console.log("\n============= END ROOM INFORMATION =============\n");
+        // ============== DETAILED ROOM LOGGING END ==============
+
+        // Log room type summary for debugging
+        console.log(`Room type mapping summary:`);
+        const roomTypeCounts = {};
+        rooms.forEach(room => {
+            if (!roomTypeCounts[room.PrimaryTypeId]) {
+                roomTypeCounts[room.PrimaryTypeId] = 0;
+            }
+            roomTypeCounts[room.PrimaryTypeId]++;
+        });
+        for (const [typeId, count] of Object.entries(roomTypeCounts)) {
+            console.log(`  Room type ${typeId}: ${count} rooms`);
+        }
+
+        // Cache all rooms data
         rooms.forEach(room => {
             roomCache[room.id] = {
                 id: room.id,
                 Code: room.Code,
-                NumberOfSeats: room.NumberOfSeats,
-                // Store array of room type IDs
-                RoomTypeIds: room.TypeRooms ? room.TypeRooms.map(rt => rt.id) : []
+                RoomTypeIds: room.TypeRooms ? room.TypeRooms.map(rt => rt.id) : [],
+                PrimaryTypeId: room.PrimaryTypeId,
+                PrimaryTypeName: room.RoomType ? room.RoomType.Type : null
             };
         });
+
+        console.log("\n=== ROOM CACHE ===");
+        for (const roomId in roomCache) {
+            const room = roomCache[roomId];
+            console.log(`Room ${room.Code}: Primary=${room.PrimaryTypeId}, Secondary=[${room.RoomTypeIds.join(',')}]`);
+        }
+        console.log("=== END ROOM CACHE ===\n");
 
         // 4) Get existing locked schedules for this department
         const assignationIds = assignations.map(a => a.id);
 
-        // OPTIMIZATION: Eager load all locked schedules with related data
+        // Eager load all locked schedules with related data
         const lockedSchedules = await Schedule.findAll({
             where: {
                 AssignationId: { [Op.in]: assignationIds },
@@ -676,7 +1248,7 @@ const generateScheduleVariants = async (req, res, next) => {
 
         console.log(`Found ${lockedSchedules.length} locked schedules`);
 
-        // 5) OPTIMIZATION: Get ALL existing schedules for ANY room that might be used in one query
+        // 5) Get ALL existing schedules for ANY room that might be used in one query
         const roomIds = rooms.map(r => r.id);
 
         const allRoomSchedules = await Schedule.findAll({
@@ -692,7 +1264,7 @@ const generateScheduleVariants = async (req, res, next) => {
             ]
         });
 
-        console.log(`Found ${allRoomSchedules.length} schedules across all rooms`);
+        console.log(`Found ${allRoomSchedules.length} existing schedules across all rooms`);
 
         // Figure out which assignations remain locked
         const lockedAssignIds = new Set(
@@ -756,7 +1328,7 @@ const generateScheduleVariants = async (req, res, next) => {
                     return (bP === aP) ? 0 : (aP ? -1 : 1);
                 });
             });
-            
+
             // Sort non-paired assignations by professor priority
             nonPairedAssignations.sort((a, b) => {
                 const aP = priorities.professor.includes(a.Professor?.id);
@@ -764,49 +1336,100 @@ const generateScheduleVariants = async (req, res, next) => {
                 return (bP === aP) ? 0 : (aP ? -1 : 1);
             });
         }
-            
+
         // Create a flattened list of paired assignations grouped by their pairs
         const orderedPairedAssignations = Object.values(pairGroups).flat();
 
         // Combine the sorted lists: paired assignations first, then non-paired
         unscheduledAssignations = [...orderedPairedAssignations, ...nonPairedAssignations];
-        
+
         console.log(`Prioritized ${orderedPairedAssignations.length} paired courses out of ${unscheduledAssignations.length} total assignations`);
 
-        // Modify room ordering to place "lec" types at the end
-        rooms.sort((a, b) => {
-            // Get room types from cache
-            const aRoomTypes = roomCache[a.id]?.RoomTypeIds || [];
-            const bRoomTypes = roomCache[b.id]?.RoomTypeIds || [];
+        // Helper function for deterministic shuffling based on seed
+        function shuffleDeterministic(array, seed) {
+            const newArray = [...array];
+            // Simple deterministic shuffle algorithm based on seed
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor((i * seed) % (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
 
-            // Check if any room type contains "lec" (case insensitive)
-            const aHasLecType = aRoomTypes.some(typeId => {
-                const typeObj = a.TypeRooms?.find(tr => tr.id === typeId);
-                return typeObj && typeObj.Name?.toLowerCase().includes('lec');
+        // MODIFIED: Remove the hard-coded room sorting based on "lec" type
+        // Instead, use the dynamic room type priority list from settings
+        if (settings.roomTypePriorities && settings.roomTypePriorities.length > 0) {
+            rooms.sort((a, b) => {
+                const aPrimaryId = a.PrimaryTypeId;
+                const bPrimaryId = b.PrimaryTypeId;
+
+                // Use the priority index to sort (lower index = higher priority)
+                const aPriority = settings.roomTypePriorities.indexOf(aPrimaryId);
+                const bPriority = settings.roomTypePriorities.indexOf(bPrimaryId);
+
+                // If both room types are in the priority list, sort by priority
+                if (aPriority !== -1 && bPriority !== -1) {
+                    return aPriority - bPriority;
+                }
+
+                // If only one is in the priority list, prioritize it
+                if (aPriority !== -1) return -1;
+                if (bPriority !== -1) return 1;
+
+                // Otherwise, don't change the order
+                return 0;
             });
+        }
 
-            const bHasLecType = bRoomTypes.some(typeId => {
-                const typeObj = b.TypeRooms?.find(tr => tr.id === typeId);
-                return typeObj && typeObj.Name?.toLowerCase().includes('lec');
-            });
-
-            // If only one has "lec" type, put it last
-            if (aHasLecType && !bHasLecType) return 1;
-            if (!aHasLecType && bHasLecType) return -1;
-            return 0;
-        });
-
-        // 8) Array to store our variants
+        // Array to store our variants
         const scheduleVariants = [];
 
         // Generate multiple schedule variants
         for (let variant = 0; variant < variantCount; variant++) {
-            console.log(`\n====== Generating variant ${variant + 1} of ${variantCount} ======`);
+            console.log(`\nGenerating variant ${variant + 1} of ${variantCount}`);
 
-            // 9a) Initialize tracking structures
+            // ============== VARIANT ROOM LOGGING START ==============
+            console.log(`\n--- ROOMS FOR VARIANT ${variant + 1} ---`);
+
+            // Handle room prioritization - split, shuffle non-priority, recombine
+            let variantRooms = [...rooms];
+            if (priorities.room && variant > 0) {
+                const prioritizedRooms = variantRooms.filter(r =>
+                    priorities.room.includes(r.id));
+                const nonPrioritizedRooms = variantRooms.filter(r =>
+                    !priorities.room.includes(r.id));
+
+                // Only shuffle the non-prioritized rooms
+                const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
+
+                // Recombine while preserving priority order
+                variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
+
+                console.log(`Priority rooms: ${prioritizedRooms.map(r => r.Code).join(', ')}`);
+                console.log(`Non-priority rooms (shuffled): ${shuffledNonPriorityRooms.map(r => r.Code).join(', ')}`);
+            } else if (variant > 0) {
+                // If no room priorities, shuffle everything
+                variantRooms = shuffleDeterministic([...rooms], variant);
+                console.log(`All rooms (shuffled): ${variantRooms.map(r => r.Code).join(', ')}`);
+            } else {
+                console.log(`All rooms (original order): ${variantRooms.map(r => r.Code).join(', ')}`);
+            }
+
+            // MODIFIED: Log room ordering without "lec" type sorting mention
+            if (variant === 0) {
+                console.log(`\nRoom order after priority sorting:`);
+                variantRooms.forEach((r, i) => {
+                    console.log(`  ${i + 1}. Room ${r.Code} (ID: ${r.id}), Primary Type: ${r.PrimaryTypeId}, Secondary Types: ${r.TypeRooms && r.TypeRooms.length > 0 ?
+                            r.TypeRooms.map(t => t.id).join(', ') : 'None'
+                        }`);
+                });
+            }
+            // ============== VARIANT ROOM LOGGING END ==============
+
+            // Initialize tracking structures
             const professorSchedule = {}, courseSchedules = {}, roomSchedules = {};
 
-            // 9b) Initialize structures for this variant
+            // Initialize structures for this variant
             for (const a of assignations) {
                 if (a.Professor) {
                     professorSchedule[a.Professor.id] = {};
@@ -822,7 +1445,7 @@ const generateScheduleVariants = async (req, res, next) => {
                 }
             }
 
-            // 9c) Initialize roomSchedules with ALL existing schedules from all departments
+            // Initialize roomSchedules with ALL existing schedules from all departments
             for (const sch of allRoomSchedules) {
                 const day = sch.Day;
                 const startTimeSeconds = timeToSeconds(sch.Start_time);
@@ -865,7 +1488,7 @@ const generateScheduleVariants = async (req, res, next) => {
                 });
             }
 
-            // 10) For each variant, preserve priority ordering but apply variation to non-priority items
+            // For each variant, preserve priority ordering but apply variation to non-priority items
             // Clone unscheduled assignations for this variant
             let variantAssignations = [...unscheduledAssignations];
 
@@ -874,7 +1497,7 @@ const generateScheduleVariants = async (req, res, next) => {
                 // First extract all paired assignations, keeping them grouped
                 const pairedGroups = {};
                 const nonPairedList = [];
-                
+
                 variantAssignations.forEach(a => {
                     if (a.Course?.PairId) {
                         if (!pairedGroups[a.Course.PairId]) {
@@ -885,47 +1508,36 @@ const generateScheduleVariants = async (req, res, next) => {
                         nonPairedList.push(a);
                     }
                 });
-                
+
                 // Shuffle the order of pairs (as groups), not individual paired courses
                 const pairIds = Object.keys(pairedGroups);
                 const shuffledPairIds = shuffleDeterministic([...pairIds], variant);
-                
+
                 // Shuffle non-paired courses
                 const shuffledNonPaired = shuffleDeterministic([...nonPairedList], variant);
-                
+
                 // Reconstruct the list with the new ordering, keeping pairs together
                 variantAssignations = [];
                 shuffledPairIds.forEach(pairId => {
                     variantAssignations.push(...pairedGroups[pairId]);
                 });
                 variantAssignations.push(...shuffledNonPaired);
-            }
 
-            // Handle room prioritization - split, shuffle non-priority, recombine
-            let variantRooms = [...rooms];
-            if (priorities.room && variant > 0) {
-                const prioritizedRooms = variantRooms.filter(r =>
-                    priorities.room.includes(r.id));
-                const nonPrioritizedRooms = variantRooms.filter(r =>
-                    !priorities.room.includes(r.id));
-
-                // Only shuffle the non-prioritized rooms
-                const shuffledNonPriorityRooms = shuffleDeterministic([...nonPrioritizedRooms], variant);
-
-                // Recombine while preserving priority order
-                variantRooms = [...prioritizedRooms, ...shuffledNonPriorityRooms];
-            } else if (variant > 0) {
-                // If no room priorities, shuffle everything
-                variantRooms = shuffleDeterministic([...rooms], variant);
+                // ===== Log the variant assignation order =====
+                console.log(`\nVariant ${variant + 1} Assignation Order:`);
+                variantAssignations.forEach((a, i) => {
+                    console.log(`  ${i + 1}. ${a.Course.Code} (PairId: ${a.Course.PairId || 'None'}, RoomTypeId: ${a.Course.RoomTypeId || 'None'})`);
+                });
             }
 
             rooms = variantRooms;
 
-            // 11) Run scheduler with this variant's configuration
+            // Run scheduler with this variant's configuration
             const report = [], failedAssignations = [];
             const variantSeed = variant + 1; // Use variant number as seed
+            const postponedAssignations = []; // Array to store postponed assignations
 
-            // Run scheduling algorithm with cached data
+            // Run the modified scheduling algorithm with two-pass approach
             await scheduleAssignation(
                 variantAssignations,
                 rooms,
@@ -942,12 +1554,21 @@ const generateScheduleVariants = async (req, res, next) => {
                 roomId,
                 variantSeed,
                 roomCache,
-                professorAvailabilityCache
+                professorAvailabilityCache,
+                postponedAssignations, // Pass the array to store postponed assignations
+                false                 // Start with first pass
             );
 
             console.log(`Variant ${variant + 1} results: ${report.length} scheduled, ${failedAssignations.length} failed`);
 
-            // 12) Store both locked schedules and newly generated ones for this variant
+            // After running the scheduler in the variant loop, add this logging
+            console.log("\n=== VARIANT FAILURE SUMMARY ===");
+            for (const failure of failedAssignations) {
+                console.log(`Failed: ${failure.Course} - Reason: ${failure.reason}`);
+            }
+            console.log("=== END VARIANT FAILURE SUMMARY ===\n");
+
+            // Store both locked schedules and newly generated ones for this variant
             const combinedReport = [
                 ...lockedSchedules.map(sch => {
                     return {
@@ -975,7 +1596,10 @@ const generateScheduleVariants = async (req, res, next) => {
             });
         }
 
-        // 13) Form response with execution time
+        // Print our detailed room type debug report
+        console.log(roomTypeDebugger.generateReport());
+
+        // Form response with execution time
         const executionTime = Date.now() - startTime;
         return res.status(200).json({
             successful: true,
@@ -991,6 +1615,24 @@ const generateScheduleVariants = async (req, res, next) => {
         });
     }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Deterministic shuffle function for consistent variants
 function shuffleDeterministic(array, seed) {
@@ -1395,6 +2037,39 @@ const addSchedule = async (req, res, next) => {
     }
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Update Schedule
 const updateSchedule = async (req, res, next) => {
     try {
@@ -1668,12 +2343,12 @@ const updateSchedule = async (req, res, next) => {
         // Retrieve the updated schedule with associated data
         const updatedSchedule = await Schedule.findByPk(id, {
             include: [
-                { 
-                    model: Assignation, 
+                {
+                    model: Assignation,
                     include: [
-                        { model: Course }, 
+                        { model: Course },
                         { model: Professor }
-                    ] 
+                    ]
                 },
                 { model: Room }
             ]
@@ -1700,8 +2375,8 @@ const getSchedule = async (req, res, next) => {
         const schedule = await Schedule.findByPk(id, {
             include: [
                 { model: Room },
-                { 
-                    model: Assignation, 
+                {
+                    model: Assignation,
                     include: [
                         { model: Course },
                         { model: Professor }
@@ -1724,8 +2399,8 @@ const getAllSchedules = async (req, res, next) => {
         const schedules = await Schedule.findAll({
             include: [
                 { model: Room },
-                { 
-                    model: Assignation, 
+                {
+                    model: Assignation,
                     include: [
                         { model: Course },
                         { model: Professor }
