@@ -525,7 +525,6 @@ const hasPrimaryTypeMatch = async (courseId, roomCache, rooms) => {
     }
 };
 
-// Optimized schedule assignation function with focused error reporting
 const scheduleAssignation = async (
     assignations,
     rooms,
@@ -939,7 +938,8 @@ const scheduleAssignation = async (
                                             hasPrimaryTypeMatch: room.PrimaryTypeId === courseParam.RoomTypeId,
                                             attempt: attempt,
                                             isPaired: true,
-                                            pairId: courseParam.PairId
+                                            pairId: courseParam.PairId,
+                                            isPrimaryInPair: true // This is the first course in pair (lecture)
                                         });
 
                                         // Schedule the second course
@@ -980,7 +980,8 @@ const scheduleAssignation = async (
                                             hasPrimaryTypeMatch: nextRoom.PrimaryTypeId === nextCourse.RoomTypeId,
                                             attempt: attempt,
                                             isPaired: true,
-                                            pairId: nextCourse.PairId
+                                            pairId: nextCourse.PairId,
+                                            isPrimaryInPair: false // This is the second course in pair (not lecture)
                                         });
 
                                         // Log success for both courses
@@ -1256,7 +1257,7 @@ const scheduleAssignation = async (
 
                 // Try each room in the category
                 for (const room of categoryRooms) {
-                    // Save state for potential backtracking (only on first room of first attempt)
+// Save state for potential backtracking (only on first room of first attempt)
                     if (attempt === 0 && room === categoryRooms[0]) {
                         savedOriginalState = saveState();
                     }
@@ -1459,7 +1460,6 @@ const scheduleAssignation = async (
         }
     }
 };
-
 
 const generateScheduleVariants = async (req, res, next) => {
     try {
@@ -1909,14 +1909,29 @@ const generateScheduleVariants = async (req, res, next) => {
             pairGroups[compositeKey].push(a);
         });
 
+        // MODIFIED: Sort assignations within each pair group by Course ID
+        // This ensures the first course in the database (which we assume is the lecture)
+        // always appears first in the pair group
+        for (const key in pairGroups) {
+            if (pairGroups[key].length >= 2) {
+                // Sort by Course ID (which correlates with database insertion order)
+                pairGroups[key].sort((a, b) => {
+                    // Lower Course ID indicates it was created earlier in the database
+                    return a.Course.id - b.Course.id;
+                });
+                
+                console.log(`Sorted pair group ${key}: ${pairGroups[key].map(a => 
+                    `${a.Course.Code} (ID: ${a.Course.id})`).join(' -> ')}`);
+            }
+        }
+
         // Log all pairing information for diagnostic purposes
         console.log("\nCourse Pairing Information:");
         for (const [pairId, courses] of Object.entries(coursePairInfo)) {
             console.log(`\nPair ID: ${pairId}`);
             console.log("Courses in this pair group:");
             courses.forEach(course => {
-                console.log(`  - ${course.code} (${course.
-                    Info})`);
+                console.log(`  - ${course.code} (ID: ${course.id}, AssignationID: ${course.assignationId})`);
             });
         }
 
@@ -2017,6 +2032,7 @@ const generateScheduleVariants = async (req, res, next) => {
         console.log(`Prioritized ${orderedPairedAssignations.length} paired courses out of ${unscheduledAssignations.length} total assignations`);
 
         // Helper function for deterministic shuffling based on seed
+// Helper function for deterministic shuffling based on seed
         function shuffleDeterministic(array, seed) {
             const newArray = [...array];
             // Simple deterministic shuffle algorithm based on seed
@@ -2167,8 +2183,8 @@ const generateScheduleVariants = async (req, res, next) => {
             // Clone unscheduled assignations for this variant
             let variantAssignations = [...unscheduledAssignations];
 
-            // MODIFIED: For variants after the first, ensure that we keep paired courses together
-            // with the improved section-aware pairing
+            // MODIFIED: For variants after the first, ensure we maintain the course ordering
+            // within each pair group, keeping the first course (lecture) first
             if (variant > 0) {
                 // First extract all paired assignations, keeping them properly grouped
                 const variantPairGroups = {};
@@ -2206,6 +2222,14 @@ const generateScheduleVariants = async (req, res, next) => {
                     }
                 });
 
+                // Before shuffling, ensure courses in each pair are sorted by ID
+                // to maintain first course (lecture) as first in each pair
+                for (const key in variantPairGroups) {
+                    if (variantPairGroups[key].length >= 2) {
+                        variantPairGroups[key].sort((a, b) => a.Course.id - b.Course.id);
+                    }
+                }
+
                 // Shuffle the order of pairs (as groups), not individual paired courses
                 const compositePairKeys = Object.keys(variantPairGroups);
                 const shuffledPairKeys = shuffleDeterministic([...compositePairKeys], variant);
@@ -2228,7 +2252,7 @@ const generateScheduleVariants = async (req, res, next) => {
                     const pairGroup = variantPairGroups[key];
                     console.log(`  Pair Group ${key}:`);
                     pairGroup.forEach(a => {
-                        console.log(`    ${currentIndex++}. ${a.Course.Code} (Assignation ID: ${a.id})`);
+                        console.log(`    ${currentIndex++}. ${a.Course.Code} (ID: ${a.Course.id}, AssignID: ${a.id})`);
                     });
                 });
 
@@ -2335,7 +2359,6 @@ const generateScheduleVariants = async (req, res, next) => {
         });
     }
 };
-
 
 // Endpoint to save a selected variant to the database
 const saveScheduleVariant = async (req, res, next) => {
