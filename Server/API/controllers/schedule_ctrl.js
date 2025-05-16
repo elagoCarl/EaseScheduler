@@ -4,10 +4,6 @@ const { Op } = require('sequelize');
 const util = require("../../utils");
 
 
-
-
-
-
 // Add this debugging function at the top level (outside any other functions)
 const roomTypeDebugger = {
     courseInfo: {},
@@ -406,7 +402,6 @@ const canScheduleProfessor = (profSchedule, startHour, duration, settings, profe
         }
         if (!isAvailable) return false;
     }
-
     // Check if adding this schedule would exceed max hours
     if (profSchedule.hours + duration > settings.ProfessorMaxHours) {
         return false;
@@ -1811,7 +1806,7 @@ const addSchedule = async (req, res, next) => {
             const SchoolYearId = assignation.SchoolYear.id;
             const SchoolYearName = assignation.SchoolYear.SY_Name;
 
-            const settings = await Settings.findOne({ where: { DepartmentId: assignation.DepartmentId } });
+            const settings = await Settings.findByPk(1);
             if (!settings) {
                 return res.status(500).json({
                     successful: false,
@@ -1990,9 +1985,7 @@ const addSchedule = async (req, res, next) => {
                 include: [{
                     model: Assignation,
                     where: {
-                        CourseId: assignation.Course.id,
-                        Semester,
-                        SchoolYearId
+                        id: AssignationId
                     }
                 }]
             });
@@ -2037,39 +2030,6 @@ const addSchedule = async (req, res, next) => {
     }
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Update Schedule
 const updateSchedule = async (req, res, next) => {
     try {
@@ -2112,7 +2072,7 @@ const updateSchedule = async (req, res, next) => {
         const SchoolYearId = assignation.SchoolYear.id;
         const SchoolYearName = assignation.SchoolYear.SY_Name;
 
-        const settings = await Settings.findOne({ where: { DepartmentId: assignation.DepartmentId } });
+        const settings = await Settings.findByPk(1);
         if (!settings) {
             return res.status(500).json({
                 successful: false,
@@ -2311,11 +2271,7 @@ const updateSchedule = async (req, res, next) => {
         const existingCourseSchedules = await Schedule.findAll({
             include: [{
                 model: Assignation,
-                where: {
-                    CourseId: assignation.Course.id,
-                    Semester,
-                    SchoolYearId
-                }
+                where: {id: AssignationId}
             }],
             where: {
                 id: { [Op.ne]: id } // Exclude current schedule
