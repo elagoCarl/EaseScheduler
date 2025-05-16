@@ -76,6 +76,14 @@ const addCourse = async (req, res) => {
         });
       }
 
+      // Add validation to limit Duration to a maximum of 5 hours
+      if (Duration > 5) {
+        return res.status(406).json({
+          successful: false,
+          message: "Duration cannot exceed 5 hours.",
+        });
+      }
+
       // Only check Units for non-tutorial courses
       if (!isTutorial && (Units <= 0)) {
         return res.status(406).json({
@@ -395,6 +403,14 @@ const updateCourse = async (req, res) => {
       return res.status(406).json({
         successful: false,
         message: "Duration and Units must be positive integers.",
+      });
+    }
+
+    // Add validation to limit Duration to a maximum of 5 hours
+    if (Duration > 5) {
+      return res.status(406).json({
+        successful: false,
+        message: "Duration cannot exceed 5 hours.",
       });
     }
 
