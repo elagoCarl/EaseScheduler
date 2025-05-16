@@ -47,7 +47,6 @@ const AddConfigSchedule = () => {
   const [selectedScheduleId, setSelectedScheduleId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
-  const [professors, setProfessors] = useState([]);
   const [automateType, setAutomateType] = useState('room');
   const [semesters, setSemesters] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState("");
@@ -63,6 +62,7 @@ const AddConfigSchedule = () => {
   const selectedRoom = rooms.find(r => r.id === parseInt(formData.room_id));
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const effectiveDeptId = user?.DepartmentId || selectedDeptId;
+  const [semesterData, setSemesterData] = useState({});
 
   const uniqueSemesters = useMemo(() => {
     if (!assignations.length) return [];
@@ -128,9 +128,6 @@ const AddConfigSchedule = () => {
     return typeRooms.map(item => item.Type).join(', ')
   };
 
-  const [semesterData, setSemesterData] = useState({});
-  const [currentAssignations, setCurrentAssignations] = useState([]);
-
   // Add function to fetch school years
   const fetchSchoolYears = async () => {
     try {
@@ -184,8 +181,6 @@ const AddConfigSchedule = () => {
     if (showDeptSelector) {
       fetchDepartments();
     }
-
-    // Fetch school years on component mount
     fetchSchoolYears();
   }, [showDeptSelector]);
 
@@ -193,7 +188,6 @@ const AddConfigSchedule = () => {
   useEffect(() => {
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
-    // Only fetch data if there's a department ID and school year ID
     if (effectiveDeptId && selectedSchoolYearId) {
       fetchDataForDepartment(effectiveDeptId);
     }
@@ -207,7 +201,6 @@ const AddConfigSchedule = () => {
     }
 
     if (semesterData && semesterData[selectedSemester]) {
-      // Filter by both semester and school year
       const filteredBySchoolYear = semesterData[selectedSemester].filter(
         a => a.SchoolYearId === parseInt(selectedSchoolYearId)
       );
@@ -222,11 +215,10 @@ const AddConfigSchedule = () => {
   }, [selectedSemester, semesterData, formData.room_id, selectedSchoolYearId]);
 
   const fetchSchedulesForRoom = (roomId) => {
-    if (!roomId || !selectedSemester || !deptId || !selectedSchoolYearId) {
+    if (!roomId || !selectedSemester || !selectedSchoolYearId) {
       setSchedules([]);
       return;
     }
-
     axios.post(`/schedule/getSchedsByRoom/${roomId}`, {
       Semester: selectedSemester,
       SchoolYearId: selectedSchoolYearId
@@ -235,13 +227,21 @@ const AddConfigSchedule = () => {
         if (data.successful) {
           setSchedules(data.data);
         } else {
+          console.error("API returned error:", data.message);
           setSchedules([]);
-          console.error("Error fetching schedules:", data.message);
+          setNotification({
+            type: 'error',
+            message: `Failed to retrieve schedules: ${data.message}`
+          });
         }
       })
       .catch(err => {
-        console.error("Error fetching schedules:", err);
+        console.error("Network or server error:", err);
         setSchedules([]);
+        setNotification({
+          type: 'error',
+          message: 'Network error while fetching schedules'
+        });
       });
   };
 
@@ -407,20 +407,6 @@ const AddConfigSchedule = () => {
         setSemesterData({});
       }
 
-      // Fetch professors
-      try {
-        const professorsRes = await axios.get(`/prof/getProfByDept/${departmentId}`);
-        if (professorsRes.data.successful) {
-          setProfessors(professorsRes.data.data);
-        } else {
-          console.error("Failed to fetch professors:", professorsRes.data.message);
-          setProfessors([]);
-        }
-      } catch (profError) {
-        console.error("Error fetching professors:", profError);
-        setProfessors([]);
-      }
-
     } catch (error) {
       console.error("General error fetching data:", error);
       setNotification({
@@ -432,41 +418,44 @@ const AddConfigSchedule = () => {
 
   const handleDepartmentChange = (e) => {
     const deptId = e.target.value;
-    console.log("Selected department ID:", deptId);
     setSelectedDeptId(deptId);
+    const currentRoomId = formData.room_id;
     resetForm();
+
     setRooms([]);
     setAssignations([]);
     setSchedules([]);
     setSemesters([]);
     setProfessors([]);
+
     if (deptId && selectedSchoolYearId) {
       fetchDataForDepartment(deptId);
+      if (currentRoomId) {
+        setTimeout(() => {
+          setFormData(prev => ({ ...prev, room_id: currentRoomId }));
+          fetchSchedulesForRoom(currentRoomId);
+        }, 1000);
+      }
     }
   };
 
-  // Handle school year change
   const handleSchoolYearChange = (e) => {
     const schoolYearId = e.target.value;
     setSelectedSchoolYearId(schoolYearId);
+    const deptIdToUse = effectiveDeptId || selectedDeptId;
     resetForm();
-
-    // Clear existing data that depends on school year
     setAssignations([]);
     setSchedules([]);
     setSemesters([]);
     setSelectedSemester("");
 
-    // Refetch data with the new school year
-    if ((deptId || selectedDeptId) && schoolYearId) {
-      fetchDataForDepartment(deptId || selectedDeptId);
+    if (deptIdToUse && schoolYearId) {
+      fetchDataForDepartment(deptIdToUse);
     }
   };
 
   useEffect(() => {
     setShowDeptSelector(!user?.DepartmentId);
-    console.log("User department ID:", user?.DepartmentId);
-    console.log("Show department selector:", !user?.DepartmentId);
   }, [user]);
 
   useEffect(() => {
@@ -496,7 +485,6 @@ const AddConfigSchedule = () => {
     );
   };
 
-  // Add a school year selector
   const renderSchoolYearSelector = () => {
     return (
       <div className="mb-4 border-b pb-4">
@@ -1059,13 +1047,14 @@ const AddConfigSchedule = () => {
                   name="room_id"
                   value={formData.room_id}
                   onChange={handleInputChange}
-                  className={`w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!selectedSchoolYearId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                  disabled={!selectedSchoolYearId}
+                  className="w-full p-1.5 sm:p-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
                 >
                   <option value="">Select Room</option>
                   {rooms.map(room => (
                     <option key={room.id} value={room.id}>
-                      {room.Code} - {room.Building} {room.Floor} (Type: {safeRenderRoomType(room.TypeRooms)})
+                      {room.Code} - {room.Building} {room.Floor} (Primary Type: {room.RoomType?.Type || 'None'})
+                      (Additional Types: {room.TypeRooms?.map(item => item.Type).join(', ') || 'None'})
                     </option>
                   ))}
                 </select>

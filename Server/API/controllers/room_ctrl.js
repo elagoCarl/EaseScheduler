@@ -528,6 +528,10 @@ const getRoomsByDept = async (req, res, next) => {
                 },
                 {
                     model: RoomType,
+                    attributes: ['id', 'Type'],
+                },
+                {
+                    model: RoomType,
                     as: 'TypeRooms',
                     attributes: ['id', 'Type'],
                     through: { attributes: [] }
