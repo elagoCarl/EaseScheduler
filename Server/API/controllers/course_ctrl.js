@@ -101,10 +101,10 @@ const addCourse = async (req, res) => {
       }
 
       // Units validation for non-tutorial courses
-      if (!isTutorial && (Units < 1 || Units > 30)) {
+      if (!isTutorial && (Units < 0 || Units > 30)) {
         return res.status(406).json({
           successful: false,
-          message: "Units should be between 1 and 30",
+          message: "Units should be between 0 and 30",
         });
       }
 
@@ -383,15 +383,15 @@ const updateCourse = async (req, res) => {
       });
     }
 
-    if (Units < 1 || Units > 30) {
+    if (Units < 0 || Units > 30) {
       return res.status(406).json({
         successful: false,
-        message: "Units should be between 1 and 30",
+        message: "Units should be between 0 and 30",
       });
     }
 
     // Validate that `Duration` and `Units` are positive integers
-    if (Duration <= 0 || Units <= 0) {
+    if (Duration <= 0 || Units < 0) {
       return res.status(406).json({
         successful: false,
         message: "Duration and Units must be positive integers.",

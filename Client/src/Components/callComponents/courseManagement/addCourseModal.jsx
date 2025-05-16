@@ -4,9 +4,14 @@ import { useAuth } from '../../authContext';
 import PropTypes from "prop-types";
 import { X, Check, AlertCircle, Plus, Trash, PlusCircle } from "lucide-react";
 
-const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
+const AddCourseModal = ({ isOpen, onClose, fetchCourse, departmentId: propDepartmentId }) => {
   const { user } = useAuth();
-  const isCore = user?.Department?.isCore;
+  // Use either the user's department or the one passed as prop
+  const departmentId = user?.DepartmentId || propDepartmentId;
+
+  // State to store department details including isCore status
+  const [departmentDetails, setDepartmentDetails] = useState(null);
+  const isCore = departmentDetails?.isCore || user?.Department?.isCore;
   const [isPair, setIsPair] = useState(false);
   const [courses, setCourses] = useState([{
     Code: "",
@@ -29,25 +34,44 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   useEffect(() => {
     if (isOpen) {
       resetForm();
-      fetchPrograms();
       fetchRoomTypes();
+
+      // Only fetch programs and department details if we have a department ID
+      if (departmentId) {
+        fetchPrograms(departmentId);
+        fetchDepartmentDetails(departmentId);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, departmentId]);
+
+  // Fetch department details to determine if it's a core department
+  const fetchDepartmentDetails = async (deptId) => {
+    try {
+      if (!deptId) return;
+
+      const response = await Axios.get(`/department/getDepartmentById/${deptId}`);
+      if (response.data.successful) {
+        setDepartmentDetails(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch department details:", error);
+    }
+  };
 
   // Separate effect to handle department ID updates
   useEffect(() => {
-    if (isOpen && user?.DepartmentId) {
+    if (isOpen && departmentId) {
       setCourses(prevCourses => {
-        // Only update if the first course doesn't already have the user's department ID
-        if (prevCourses[0]?.DepartmentId !== user.DepartmentId) {
+        // Only update if the first course doesn't already have the department ID
+        if (prevCourses[0]?.DepartmentId !== departmentId) {
           const updatedCourses = [...prevCourses];
-          updatedCourses[0] = { ...updatedCourses[0], DepartmentId: user.DepartmentId };
+          updatedCourses[0] = { ...updatedCourses[0], DepartmentId: departmentId };
           return updatedCourses;
         }
         return prevCourses;
       });
     }
-  }, [isOpen, user?.DepartmentId]);
+  }, [isOpen, departmentId]);
 
   useEffect(() => {
     // Initialize pair if needed
@@ -95,7 +119,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
       Duration: "",
       Units: "",
       Type: "",
-      DepartmentId: user?.DepartmentId || "",
+      DepartmentId: departmentId || "", // Use current departmentId
       RoomTypeId: "",
       ProgYears: [],
       isTutorial: false
@@ -105,12 +129,24 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
     setIsSubmitting(false);
   };
 
-  const fetchPrograms = async () => {
+  const fetchPrograms = async (deptId) => {
+    if (!deptId) {
+      console.log("No department ID available for fetching programs");
+      setPrograms([]);
+      return;
+    }
+
     try {
-      const response = await Axios.get(`/program/getAllProgByDept/${user.DepartmentId}`);
-      if (response.data.successful) setPrograms(response.data.data);
+      const response = await Axios.get(`/program/getAllProgByDept/${deptId}`);
+      if (response.data.successful) {
+        setPrograms(response.data.data);
+      } else {
+        setErrorMessage("Failed to fetch programs for the selected department");
+        setPrograms([]);
+      }
     } catch (error) {
       setErrorMessage("Failed to fetch programs. Please try again.");
+      setPrograms([]);
     }
   };
 
@@ -124,6 +160,40 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
   };
 
   if (!isOpen) return null;
+
+  // If no department is selected, show a message
+  if (!departmentId) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-xl w-11/12 md:max-w-md overflow-hidden transform transition-all">
+          <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xl text-white font-semibold">Add Course</h2>
+            <button
+              type="button"
+              className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="p-6 text-center">
+            <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Department Required</h3>
+            <p className="text-gray-600 mb-4">
+              Please select a department first to add a course.
+            </p>
+            <button
+              type="button"
+              className="px-4 py-2 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const shakeForm = () => {
     setIsShaking(true);
@@ -530,7 +600,7 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse }) => {
                               <option value="">Select Program</option>
                               {programs.map((program) => (
                                 <option key={program.id} value={program.id}>
-                                  {program.Code} - {program.Description}
+                                  {program.Code} - {program.Name}
                                 </option>
                               ))}
                             </select>
@@ -616,6 +686,7 @@ AddCourseModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   fetchCourse: PropTypes.func.isRequired,
+  departmentId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) // Optional prop for when user has no department
 };
 
 export default AddCourseModal;

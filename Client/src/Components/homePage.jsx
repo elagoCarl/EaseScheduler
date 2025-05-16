@@ -258,17 +258,13 @@ const HomePage = () => {
                   </span>
                 </button>
 
-                {/* Course Management Card - Still Disabled for Admin */}
+                {/* Course Management Card - Now accessible for Admin too */}
                 <button
-                  onClick={() => !isAdmin && navigate('/course')}
-                  disabled={isAdmin}
-                  className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
-                    ${isAdmin
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
+                  onClick={() => navigate('/course')}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <BookOpen className={`h-70 w-70 md:h-100 md:w-100 text-white ${isAdmin ? 'opacity-50' : ''}`} />
-                  <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
+                  <BookOpen className="h-70 w-70 md:h-100 md:w-100 text-white" />
+                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Course Management
                   </span>
                 </button>

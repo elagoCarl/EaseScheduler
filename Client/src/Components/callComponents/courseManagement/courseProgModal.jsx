@@ -4,9 +4,11 @@ import Axios from '../../../axiosConfig';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../authContext';
 
-const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
+const CourseProgModal = ({ isOpen, onClose, courseId, courseName, departmentId: propDepartmentId }) => {
     const { user } = useAuth();
-    const departmentId = user?.DepartmentId;
+    // Use the prop departmentId if user's department is null
+    const departmentId = user?.DepartmentId || propDepartmentId;
+
     const [programs, setPrograms] = useState([]);
     const [allPrograms, setAllPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -20,8 +22,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     const [programToDelete, setProgramToDelete] = useState(null);
 
     useEffect(() => {
-        console.log("Modal opened with courseId:", courseId);
-        if (isOpen && courseId) {
+        console.log("Modal opened with courseId:", courseId, "departmentId:", departmentId);
+        if (isOpen && courseId && departmentId) {
             fetchProgramsForCourse(courseId);
             fetchDepartmentPrograms(departmentId);
         }
@@ -155,6 +157,27 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     console.log("Available programs for dropdown:", availablePrograms);
 
     if (!isOpen) return null;
+
+    // Display a message if no department is selected
+    if (!departmentId) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
+                    <AlertTriangle className="mx-auto text-yellow-500 mb-4" size={48} />
+                    <h2 className="text-xl font-semibold text-gray-800 mb-2">Department Required</h2>
+                    <p className="text-gray-600 mb-4">
+                        Please select a department first to view and manage program associations.
+                    </p>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     // Group programs by year and semester
     const programsByYearAndSemester = {};
