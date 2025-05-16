@@ -1,4 +1,4 @@
-const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg, SchoolYear, ProfessorLoad, Program, ProfAvail, sequelize } = require('../models');
+const { Assignation, Course, Professor, Department, ProfStatus, RoomType, Room, ProgYrSec, CourseProg, SchoolYear, ProfessorLoad, Program, ProfAvail, sequelize, Schedule } = require('../models');
 const jwt = require('jsonwebtoken');
 const { REFRESH_TOKEN_SECRET } = process.env;
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
@@ -1147,6 +1147,148 @@ const getAssignationsWithSchedules = async (req, res, next) => {
     }
 };
 
+
+const getSchedulableAssignationsByDept = async (req, res, next) => {
+    try {
+        // Extract DepartmentId from URL parameters
+        const DepartmentId = req.params.id;
+        const { SchoolYearId, Semester } = req.query; // Get SchoolYearId and Semester from query params
+        
+        if (!DepartmentId) {
+            return res.status(400).json({
+                successful: false,
+                message: "Department id is required.",
+            });
+        }
+
+        if (!SchoolYearId) {
+            return res.status(400).json({
+                successful: false,
+                message: "School year id is required.",
+            });
+        }
+
+        if (!Semester) {
+            return res.status(400).json({
+                successful: false,
+                message: "Semester is required.",
+            });
+        }
+
+        const department = await Department.findByPk(DepartmentId);
+        if (!department) {
+            return res.status(404).json({
+                successful: false,
+                message: `Department with ID ${DepartmentId} not found`,
+            });
+        }
+
+        // Create the where clause with DepartmentId, SchoolYearId, and Semester
+        const whereClause = { 
+            DepartmentId,
+            SchoolYearId,
+            Semester
+        };
+
+        // Fetch all assignations matching the criteria
+        const assignations = await Assignation.findAll({
+            order: [['createdAt', 'DESC']],
+            where: whereClause,
+            include: [
+                {
+                    model: Course,
+                    attributes: ['id', 'Code', 'Description', 'Units', 'Type', 'Duration', 'RoomTypeId'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                {
+                    model: Professor,
+                    attributes: ['id', 'Name', 'Email'],
+                    include: [{ model: ProfessorLoad }]
+                },
+                {
+                    model: Department,
+                    attributes: ['Name']
+                },
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['id', 'Code', 'Name']
+                        }
+                    ]
+                },
+                {
+                    model: Schedule,
+                    attributes: ['id', 'Day', 'Start_time', 'End_time', 'RoomId']
+                }
+            ],
+        });
+        
+        if (!assignations || assignations.length === 0) {
+            return res.status(200).json({
+                successful: true,
+                message: "No assignations found for this department",
+                data: [],
+            });
+        }
+
+        // Filter assignations to only include those that can be scheduled
+        const schedulableAssignations = assignations.filter(assignation => {
+            // Skip assignations without a course or duration
+            if (!assignation.Course || !assignation.Course.Duration) {
+                return false;
+            }
+
+            const courseDuration = assignation.Course.Duration;
+            
+            // Calculate already scheduled hours for this course
+            let scheduledMinutes = 0;
+            assignation.Schedules.forEach(schedule => {
+                // Parse hours and minutes from time strings
+                const [startHours, startMinutes] = schedule.Start_time.split(':').map(Number);
+                const [endHours, endMinutes] = schedule.End_time.split(':').map(Number);
+                
+                // Convert to total minutes
+                const startTotalMinutes = (startHours * 60) + startMinutes;
+                const endTotalMinutes = (endHours * 60) + endMinutes;
+                
+                // Add duration in minutes
+                scheduledMinutes += (endTotalMinutes - startTotalMinutes);
+            });
+            
+            // Convert minutes to hours with decimal precision
+            const scheduledHours = scheduledMinutes / 60;
+            
+            // Calculate remaining hours
+            const remainingHours = courseDuration - scheduledHours;
+            
+            // Add remaining hours to the assignation object
+            assignation.dataValues.remainingHours = remainingHours;
+            assignation.dataValues.scheduledHours = scheduledHours;
+            
+            // Return true if there are still hours to schedule
+            return remainingHours > 0.01; // Allow a small tolerance for floating point errors
+        });
+
+        return res.status(200).json({
+            successful: true,
+            data: schedulableAssignations,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: `Error retrieving schedulable assignations: ${error.message}`,
+            error: error.stack
+        });
+    }
+};
 module.exports = {
     addAssignation,
     updateAssignation,
@@ -1155,5 +1297,6 @@ module.exports = {
     deleteAssignation,
     getAllAssignationsByDept,
     getAllAssignationsByDeptInclude,
-    getAssignationsWithSchedules
+    getAssignationsWithSchedules,
+    getSchedulableAssignationsByDept
 };
