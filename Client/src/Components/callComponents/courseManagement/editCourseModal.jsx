@@ -4,9 +4,15 @@ import { useAuth } from "../../authContext";
 import PropTypes from "prop-types";
 import { X, Check, AlertCircle, AlertTriangle } from "lucide-react";
 
-const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
+const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentId: propDepartmentId }) => {
   const { user } = useAuth();
-  const isCore = user?.Department?.isCore;
+  // Use the user's department ID or the prop if user has no department
+  const departmentId = user?.DepartmentId || propDepartmentId;
+
+  // State to store department details including isCore status
+  const [departmentDetails, setDepartmentDetails] = useState(null);
+  const isCore = departmentDetails?.isCore || user?.Department?.isCore;
+
   const [formData, setFormData] = useState({
     Code: "",
     Description: "",
@@ -38,18 +44,37 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
         Duration: course.Duration || "",
         Units: course.Units || "",
         RoomTypeId: course.RoomTypeId || "",
-        DepartmentId: user?.DepartmentId || ""
+        DepartmentId: departmentId || ""
       });
       setErrorMessage("");
       setSuccessMessage("");
       fetchRoomTypes();
+
+      // Fetch department details if we have a departmentId
+      if (departmentId) {
+        fetchDepartmentDetails(departmentId);
+      }
 
       // If this is a paired course, fetch the paired course info
       if (course.PairId) {
         fetchPairedCourse(course.id, course.PairId);
       }
     }
-  }, [isOpen, course, user]);
+  }, [isOpen, course, departmentId]);
+
+  // Fetch department details to determine if it's a core department
+  const fetchDepartmentDetails = async (deptId) => {
+    try {
+      if (!deptId) return;
+
+      const response = await Axios.get(`/department/getDepartmentById/${deptId}`);
+      if (response.data.successful) {
+        setDepartmentDetails(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch department details:", error);
+    }
+  };
 
   // State to store the paired course information
   const [pairedCourse, setPairedCourse] = useState(null);
@@ -93,6 +118,40 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
 
   if (!isOpen) return null;
 
+  // If no department is selected, show a message
+  if (!departmentId) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex justify-center items-center z-50 backdrop-filter backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-xl w-11/12 md:max-w-md overflow-hidden transform transition-all">
+          <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xl text-white font-semibold">Edit Course</h2>
+            <button
+              type="button"
+              className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1 transition-colors duration-200"
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="p-6 text-center">
+            <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Department Required</h3>
+            <p className="text-gray-600 mb-4">
+              Please select a department first to edit a course.
+            </p>
+            <button
+              type="button"
+              className="px-4 py-2 bg-blue-600 text-white font-medium rounded shadow-md hover:bg-blue-700 transition duration-200"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const shakeForm = () => {
     setIsShaking(true);
     setTimeout(() => setIsShaking(false), 500);
@@ -135,7 +194,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
           Units: parseInt(formData.Units),
           Type: formData.Type,
           RoomTypeId: formData.RoomTypeId,
-          DepartmentId: user.DepartmentId
+          DepartmentId: departmentId
         }
       );
 
@@ -282,6 +341,8 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess }) => {
                   Core {!isCore && "(Requires Core Department Access)"}
                 </option>
                 <option value="Professional">Professional</option>
+                <option value="General">General</option>
+                <option value="Elective">Elective</option>
               </select>
             </div>
 
@@ -349,7 +410,8 @@ EditCourseModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   course: PropTypes.object,
-  onUpdateSuccess: PropTypes.func
+  onUpdateSuccess: PropTypes.func,
+  departmentId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]) // Optional prop for when user has no department
 };
 
 export default EditCourseModal;
