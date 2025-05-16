@@ -232,7 +232,6 @@ const ScheduleVariantModal = ({
                                 
                                 {days.map(day => {
                                   const schedules = getSchedulesForSlot(day, timeSlot);
-                                  
                                   return (
                                     <div key={`${day}-${timeSlot}`} className="dayCell">
                                       {schedules.map((schedule, i) => (

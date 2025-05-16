@@ -170,9 +170,6 @@ const AddConfigSchedule = () => {
         }
       });
 
-      console.log(response.data.data);
-      
-
       if (response.data.successful) {
         setSchedulableAssignations(response.data.data);
       } else {
