@@ -11,5 +11,5 @@ router.get('/getAllAssignationsByDept/:id', assignation_ctrl.getAllAssignationsB
 router.get('/getAllAssignationsByDeptInclude/:id', assignation_ctrl.getAllAssignationsByDeptInclude);
 router.put('/updateAssignation/:id', assignation_ctrl.updateAssignation);
 router.delete('/deleteAssignation/:id', assignation_ctrl.deleteAssignation);
-
+router.get('/getSchedulableAssignationsByDept/:id', assignation_ctrl.getSchedulableAssignationsByDept)
 module.exports = router;

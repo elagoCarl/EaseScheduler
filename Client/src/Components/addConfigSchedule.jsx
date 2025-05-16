@@ -22,7 +22,7 @@ const AddConfigSchedule = () => {
   const deptId = user?.DepartmentId;
   const [departments, setDepartments] = useState([]);
   const [showDeptSelector, setShowDeptSelector] = useState(true);
-
+  const [schedulableAssignations, setSchedulableAssignations] = useState([]);
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -156,6 +156,35 @@ const AddConfigSchedule = () => {
     }
   };
 
+  const fetchSchedulableAssignations = async () => {
+    if (!effectiveDeptId || !selectedSemester || !selectedSchoolYearId) {
+      setSchedulableAssignations([]);
+      return;
+    }
+
+    try {
+      const response = await axios.get(`/assignation/getSchedulableAssignationsByDept/${effectiveDeptId}`, {
+        params: {
+          Semester: selectedSemester,
+          SchoolYearId: selectedSchoolYearId
+        }
+      });
+
+      console.log(response.data.data);
+      
+
+      if (response.data.successful) {
+        setSchedulableAssignations(response.data.data);
+      } else {
+        console.error("Failed to fetch schedulable assignations:", response.data.message);
+        setSchedulableAssignations([]);
+      }
+    } catch (error) {
+      console.error("Error fetching schedulable assignations:", error);
+      setSchedulableAssignations([]);
+    }
+  };
+
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
@@ -184,6 +213,17 @@ const AddConfigSchedule = () => {
     fetchSchoolYears();
   }, [showDeptSelector]);
 
+  useEffect(() => {
+    if (effectiveDeptId && selectedSemester && selectedSchoolYearId) {
+      fetchSchedulableAssignations();
+    }
+  }, [effectiveDeptId, selectedSemester, selectedSchoolYearId]);
+
+  useEffect(() => {
+    if (schedules.length > 0 && effectiveDeptId && selectedSemester && selectedSchoolYearId) {
+      fetchSchedulableAssignations();
+    }
+  }, [schedules]);
 
   useEffect(() => {
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
@@ -1068,7 +1108,8 @@ const AddConfigSchedule = () => {
                   disabled={activeMode !== 'manual' || !selectedSemester || !selectedSchoolYearId}
                 >
                   <option value="">Select Assignation</option>
-                  {filteredAssignations.map(a => {
+                  {schedulableAssignations.map(a => {
+                    // Format sections string
                     const sectionsString = a.ProgYrSecs && a.ProgYrSecs.length > 0
                       ? a.ProgYrSecs
                         .filter(sec => sec && sec.Program)
@@ -1076,9 +1117,14 @@ const AddConfigSchedule = () => {
                         .join(', ')
                       : 'No sections';
 
+                    // Display remaining hours (included in the API response)
+                    const remainingHours = a.remainingHours || 0;
+                    const scheduledHours = a.scheduledHours || 0;
+                    const courseDuration = a.Course?.Duration || 0;
+
                     return (
                       <option key={a.id} value={a.id}>
-                        {a.Course?.Code} - {a.Course?.Description} | {a.Professor?.Name} | {sectionsString}
+                        {a.Course?.Code} - {a.Course?.Description} | {a.Professor?.Name} | {sectionsString} | {scheduledHours.toFixed(1)}/{courseDuration}h ({remainingHours.toFixed(1)}h remaining)
                       </option>
                     );
                   })}
