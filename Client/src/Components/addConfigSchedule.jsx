@@ -199,12 +199,12 @@ const AddConfigSchedule = () => {
   useEffect(() => {
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
-    // Only fetch data if user has a department ID or if an admin has selected a department
-    if (deptId && selectedSchoolYearId) {
-      fetchDataForDepartment(deptId);
+    // Only fetch data if there's a department ID and school year ID
+    if (effectiveDeptId && selectedSchoolYearId) {
+      fetchDataForDepartment(effectiveDeptId);
     }
     return () => window.removeEventListener('resize', handleResize);
-  }, [deptId, selectedSchoolYearId]); // Add selectedSchoolYearId as dependency
+  }, [effectiveDeptId, selectedSchoolYearId]);
 
   useEffect(() => {
     if (!selectedSemester || !selectedSchoolYearId) {
@@ -273,12 +273,12 @@ const AddConfigSchedule = () => {
   }
 
   const fetchSectionsForCourse = (courseId) => {
-    if (!deptId) return;
+    if (!effectiveDeptId) return;
 
     axios.post('/progYrSec/getProgYrSecByCourse', {
       CourseId: courseId,
-      DepartmentId: deptId,
-      SchoolYearId: selectedSchoolYearId // Add school year filter
+      DepartmentId: effectiveDeptId,
+      SchoolYearId: selectedSchoolYearId
     })
       .then(({ data }) => {
         if (data.successful) {
@@ -295,10 +295,10 @@ const AddConfigSchedule = () => {
   };
 
   const deleteSchedule = async (scheduleId) => {
-    if (isDeleting || !deptId) return;
+    if (isDeleting || !effectiveDeptId) return;
     setIsDeleting(true);
     try {
-      const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: deptId });
+      const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: effectiveDeptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -313,7 +313,7 @@ const AddConfigSchedule = () => {
   };
 
   const handleAddSchedule = async () => {
-    if (!deptId) {
+    if (!effectiveDeptId) {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
@@ -556,7 +556,7 @@ const AddConfigSchedule = () => {
   };
 
   const handleAutomateSchedule = async () => {
-    if (!deptId) {
+    if (!effectiveDeptId) {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
@@ -577,9 +577,8 @@ const AddConfigSchedule = () => {
         return;
       }
 
-
       const payload = {
-        DepartmentId: deptId,
+        DepartmentId: effectiveDeptId,
         semester: selectedSemester,
         SchoolYearId: parseInt(selectedSchoolYearId),
         variantCount: 2,
@@ -608,7 +607,7 @@ const AddConfigSchedule = () => {
 
         localStorage.setItem('scheduleVariants', JSON.stringify({
           variants: variants,
-          departmentId: deptId,
+          departmentId: effectiveDeptId,
           timestamp: Date.now()
         }));
         setNotification({
@@ -654,14 +653,14 @@ const AddConfigSchedule = () => {
   };
 
   const handleSelectVariant = async (variantIndex) => {
-    if (!deptId || !selectedSchoolYearId) return;
+    if (!effectiveDeptId || !selectedSchoolYearId) return;
 
     try {
       const selectedVariant = scheduleVariants[variantIndex];
 
       const response = await axios.post('/schedule/saveScheduleVariants', {
         variant: selectedVariant,
-        DepartmentId: deptId,
+        DepartmentId: effectiveDeptId,
         semester: selectedSemester,
         SchoolYearId: parseInt(selectedSchoolYearId)
       });
@@ -780,10 +779,10 @@ const AddConfigSchedule = () => {
   };
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
-    if (!deptId) return;
+    if (!effectiveDeptId) return;
 
     try {
-      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: deptId });
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: effectiveDeptId });
       if (response.data.successful) {
         setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -819,7 +818,7 @@ const AddConfigSchedule = () => {
       const response = await axios.put("/schedule/toggleLockAllSchedules", {
         scheduleIds: targetSchedules,
         isLocked: lockAction,
-        DepartmentId: deptId
+        DepartmentId: effectiveDeptId
       });
 
       if (response.data.successful) {
@@ -842,13 +841,13 @@ const AddConfigSchedule = () => {
   };
 
   const handleDeleteAllSchedules = async () => {
-    if (!deptId) {
+    if (!effectiveDeptId) {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
 
     try {
-      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${deptId}`, {
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${effectiveDeptId}`, {
         params: {
           SchoolYearId: selectedSchoolYearId
         }
