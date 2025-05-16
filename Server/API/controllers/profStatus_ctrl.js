@@ -5,6 +5,9 @@ const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 const { Op } = require('sequelize');
 
+const isValidStatus = (str) => /^[A-Za-z]+(-[A-Za-z]+)*$/.test(str);
+
+
 const addStatus = async (req, res, next) => {
     try {
         let status = req.body;
@@ -33,7 +36,14 @@ const addStatus = async (req, res, next) => {
                 })
             }
 
-            if(Max_units < 1 || Max_units > 40) {
+            if (!isValidStatus(Status)) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Status must contain only letters and dashes (e.g., 'Part-Time')."
+                });
+            }
+
+            if (Max_units < 1 || Max_units > 40) {
                 return res.status(400).json({
                     successful: false,
                     message: "Max units must be between 1 and 40."
@@ -209,11 +219,18 @@ const updateStatus = async (req, res, next) => {
             })
         }
 
-        if(Max_units < 1 || Max_units > 40) {
+        if (Max_units < 1 || Max_units > 40) {
             return res.status(400).json({
                 successful: false,
                 message: "Max units must be between 1 and 40."
             })
+        }
+
+        if (!isValidStatus(Status)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Status must contain only letters and dashes (e.g., 'Part-Time')."
+            });
         }
 
         if (Status !== status.Status) {
