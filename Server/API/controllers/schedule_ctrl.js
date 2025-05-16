@@ -3,6 +3,17 @@ const { Settings, Schedule, Room, Assignation, Program, Professor, Department, C
 const { Op } = require('sequelize');
 const util = require("../../utils");
 
+// Add this to the HELPER FUNCTIONS section
+const formatTimeString = (decimalHours) => {
+    // Get the whole hours
+    const hours = Math.floor(decimalHours);
+    
+    // Get the minutes (convert decimal portion to minutes)
+    const minutes = Math.round((decimalHours - hours) * 60);
+    
+    // Format with leading zeros if needed
+    return `${hours}:${minutes.toString().padStart(2, '0')}`;
+};
 
 // Add this debugging function at the top level (outside any other functions)
 const roomTypeDebugger = {
@@ -160,7 +171,60 @@ const roomTypeDebugger = {
 
 
 
-
+// Add this new function to track section schedules
+const canScheduleSection = (sectionSchedules, sectionIds, day, startHour, duration, settings) => {
+    if (!sectionIds || sectionIds.length === 0) return true;
+    
+    const requiredBreak = settings.nextScheduleBreak || 0.5; // Default break duration: 30 minutes
+    const requiredBreakSeconds = requiredBreak * 3600;
+    
+    // Convert input to seconds
+    const startTimeSeconds = typeof startHour === 'number' ? startHour * 3600 : timeToSeconds(startHour);
+    const endTimeSeconds = startTimeSeconds + (duration * 3600);
+    
+    // Check each section involved in this course
+    for (const sectionId of sectionIds) {
+        // Skip if no schedule exists yet for this section
+        if (!sectionSchedules[sectionId] || !sectionSchedules[sectionId][day]) continue;
+        
+        // Check for conflicts with existing schedules including required breaks
+        const conflicts = sectionSchedules[sectionId][day].some(time => {
+            const timeStartSeconds = typeof time.start === 'number' ? 
+                time.start * 3600 : (typeof time.start === 'string' ? 
+                    timeToSeconds(time.start) : time.start);
+            const timeEndSeconds = typeof time.end === 'number' ? 
+                time.end * 3600 : (typeof time.end === 'string' ? 
+                    timeToSeconds(time.end) : time.end);
+            
+            // Check if this new class starts too soon after previous class
+            // (without enough break time)
+            if (startTimeSeconds >= timeEndSeconds && 
+                startTimeSeconds < timeEndSeconds + requiredBreakSeconds) {
+                return true; // Conflict: not enough break after previous class
+            }
+            
+            // Check if previous class starts too soon after this new class would end
+            // (without enough break time)
+            if (endTimeSeconds <= timeStartSeconds && 
+                endTimeSeconds > timeStartSeconds - requiredBreakSeconds) {
+                return true; // Conflict: not enough break before next class
+            }
+            
+            // Check for direct overlap
+            if ((startTimeSeconds >= timeStartSeconds && startTimeSeconds < timeEndSeconds) ||
+                (endTimeSeconds > timeStartSeconds && endTimeSeconds <= timeEndSeconds) ||
+                (startTimeSeconds <= timeStartSeconds && endTimeSeconds >= timeEndSeconds)) {
+                return true; // Direct time conflict
+            }
+            
+            return false; // No conflict
+        });
+        
+        if (conflicts) return false;
+    }
+    
+    return true; // All sections can be scheduled
+};
 
 // HELPER FUNCTIONS
 
@@ -254,6 +318,7 @@ const isSchedulePossible = async (
     roomSchedules,
     professorSchedule,
     courseSchedules,
+    sectionSchedules, // Add this new parameter
     roomId,
     professorId,
     day,
@@ -265,7 +330,8 @@ const isSchedulePossible = async (
     roomCache,
     professorAvailabilityCache,
     onlyCheckPrimaryType,
-    courseCode // Added for logging
+    courseCode, // Added for logging
+    sectionIds // Add this new parameter for section IDs
 ) => {
     // Check if room is available
     if (!isRoomAvailable(roomSchedules, roomId, day, startHour, duration)) {
@@ -327,6 +393,15 @@ const isSchedulePossible = async (
     )) {
         schedulingLog.logFailure(courseCode, "professor not available");
         roomTypeDebugger.logFailure(courseId, roomId, room.Code, "professor not available", onlyCheckPrimaryType ? 1 : 2);
+        return false;
+    }
+    
+    // NEW: Check section availability (students need breaks between classes)
+    if (sectionIds && sectionIds.length > 0 && !canScheduleSection(
+        sectionSchedules, sectionIds, day, startHour, duration, settings
+    )) {
+        schedulingLog.logFailure(courseCode, "section break requirements not met");
+        roomTypeDebugger.logFailure(courseId, roomId, room.Code, "section break requirements not met", onlyCheckPrimaryType ? 1 : 2);
         return false;
     }
 
@@ -544,7 +619,8 @@ const scheduleAssignation = async (
     professorAvailabilityCache,
     postponedAssignations = [],
     isSecondPass = false,
-    maxFailAllowed = 2
+    maxFailAllowed = 2,
+    sectionSchedules = {} // Add this parameter to track section schedules
 ) => {
     // Base case: all assignations handled
     if (index === assignations.length) {
@@ -570,7 +646,8 @@ const scheduleAssignation = async (
                 professorAvailabilityCache,
                 [],
                 true,
-                maxFailAllowed
+                maxFailAllowed,
+                sectionSchedules // Pass section schedules to second pass
             );
         }
 
@@ -606,6 +683,12 @@ const scheduleAssignation = async (
         console.log(`Found paired courses: ${courseParam.Code} and ${nextCourse.Code} with PairId ${courseParam.PairId}`);
 
         try {
+            // Extract section IDs from both courses for section break checking
+            const firstCourseSectionIds = currentAssignation.ProgYrSecs ? 
+                currentAssignation.ProgYrSecs.map(section => section.id) : [];
+            const secondCourseSectionIds = nextAssignation.ProgYrSecs ? 
+                nextAssignation.ProgYrSecs.map(section => section.id) : [];
+
             // Build the candidate room list based on the current pass for first course
             const prioritizedByUserList = priorities?.room
                 ? rooms.filter(r => priorities.room.includes(r.id))
@@ -693,6 +776,7 @@ const scheduleAssignation = async (
                     professorSchedule: JSON.parse(JSON.stringify(professorSchedule)),
                     courseSchedules: JSON.parse(JSON.stringify(courseSchedules)),
                     roomSchedules: JSON.parse(JSON.stringify(roomSchedules)),
+                    sectionSchedules: JSON.parse(JSON.stringify(sectionSchedules)), // Include section schedules
                     report: [...report]
                 };
             };
@@ -718,6 +802,11 @@ const scheduleAssignation = async (
 
                 Object.keys(state.roomSchedules).forEach(roomId => {
                     roomSchedules[roomId] = state.roomSchedules[roomId];
+                });
+
+                // Also restore section schedules
+                Object.keys(state.sectionSchedules).forEach(sectionId => {
+                    sectionSchedules[sectionId] = state.sectionSchedules[sectionId];
                 });
 
                 // Truncate report to match the saved state
@@ -816,7 +905,12 @@ const scheduleAssignation = async (
                         for (const day of dayOrdering) {
                             // Get different hour orderings based on seed and attempt
                             let hourOptions = [];
-                            for (let h = startHour; h + courseParam.Duration + nextCourse.Duration <= endHour; h++) {
+                            
+                            // MODIFIED: Account for the required break between paired courses
+                            // We need to ensure there's enough room for both courses + the break
+                            const requiredBreakHours = settings.ProfessorBreak || 0.5; // Default to 0.5 if not defined
+                            
+                            for (let h = startHour; h + courseParam.Duration + requiredBreakHours + nextCourse.Duration <= endHour; h++) {
                                 hourOptions.push(h);
                             }
 
@@ -854,14 +948,16 @@ const scheduleAssignation = async (
 
                             // Try each hour for the PAIR (both courses need to be scheduled together)
                             for (let hour of finalHourOptions) {
-                                // Calculate the start hour for the second course (immediately after first)
-                                const nextHour = hour + courseParam.Duration;
+                                // MODIFIED: Calculate the start hour for the second course with a break
+                                const requiredBreakHours = settings.ProfessorBreak || 0.5; // Default break duration: 0.5 hour
+                                const nextHour = hour + courseParam.Duration + requiredBreakHours;
 
                                 // Check if first course can be scheduled
                                 const isPossible1 = await isSchedulePossible(
                                     roomSchedules,
                                     professorSchedule,
                                     courseSchedules,
+                                    sectionSchedules, // Add section schedules parameter
                                     room.id,
                                     professorInfo?.id,
                                     day,
@@ -873,7 +969,8 @@ const scheduleAssignation = async (
                                     roomCache,
                                     professorAvailabilityCache,
                                     !isSecondPass,
-                                    courseParam.Code
+                                    courseParam.Code,
+                                    firstCourseSectionIds // Pass section IDs
                                 );
 
                                 // If first course can be scheduled, check the second course
@@ -882,6 +979,7 @@ const scheduleAssignation = async (
                                         roomSchedules,
                                         professorSchedule,
                                         courseSchedules,
+                                        sectionSchedules, // Add section schedules parameter
                                         nextRoom.id,
                                         nextProfessor?.id,
                                         day,
@@ -893,7 +991,8 @@ const scheduleAssignation = async (
                                         roomCache,
                                         professorAvailabilityCache,
                                         !isSecondPass,
-                                        nextCourse.Code
+                                        nextCourse.Code,
+                                        secondCourseSectionIds // Pass section IDs
                                     );
 
                                     // If both courses can be scheduled together
@@ -919,6 +1018,19 @@ const scheduleAssignation = async (
                                             end: hour + courseParam.Duration
                                         });
                                         
+                                        // Update section schedules for first course
+                                        if (firstCourseSectionIds.length > 0) {
+                                            firstCourseSectionIds.forEach(sectionId => {
+                                                if (!sectionSchedules[sectionId]) sectionSchedules[sectionId] = {};
+                                                if (!sectionSchedules[sectionId][day]) sectionSchedules[sectionId][day] = [];
+                                                
+                                                sectionSchedules[sectionId][day].push({
+                                                    start: hour,
+                                                    end: hour + courseParam.Duration
+                                                });
+                                            });
+                                        }
+                                        
                                         // Record the first course schedule
                                         report.push({
                                             Professor: professorInfo?.Name,
@@ -927,8 +1039,8 @@ const scheduleAssignation = async (
                                             Room: room.Code,
                                             RoomId: room.id,
                                             Day: day,
-                                            Start_time: `${hour}:00`,
-                                            End_time: `${hour + courseParam.Duration}:00`,
+                                            Start_time: formatTimeString(hour),
+                                            End_time: formatTimeString(hour + courseParam.Duration),
                                             isLocked: false,
                                             AssignationId: currentAssignation.id,
                                             Sections: currentAssignation.ProgYrSecs ? currentAssignation.ProgYrSecs.map(section => (
@@ -962,6 +1074,20 @@ const scheduleAssignation = async (
                                             start: nextHour,
                                             end: nextHour + nextCourse.Duration
                                         });
+                                        
+                                        // Update section schedules for second course
+                                        if (secondCourseSectionIds.length > 0) {
+                                            secondCourseSectionIds.forEach(sectionId => {
+                                                if (!sectionSchedules[sectionId]) sectionSchedules[sectionId] = {};
+                                                if (!sectionSchedules[sectionId][day]) sectionSchedules[sectionId][day] = [];
+                                                
+                                                sectionSchedules[sectionId][day].push({
+                                                    start: nextHour,
+                                                    end: nextHour + nextCourse.Duration
+                                                });
+                                            });
+                                        }
+                                        
                                         report.push({
                                             Professor: nextProfessor?.Name,
                                             Course: nextCourse.Code,
@@ -969,8 +1095,8 @@ const scheduleAssignation = async (
                                             Room: nextRoom.Code,
                                             RoomId: nextRoom.id,
                                             Day: day,
-                                            Start_time: `${nextHour}:00`,
-                                            End_time: `${nextHour + nextCourse.Duration}:00`,
+                                            Start_time: formatTimeString(nextHour),
+                                            End_time: formatTimeString(nextHour + nextCourse.Duration),
                                             isLocked: false,
                                             AssignationId: nextAssignation.id,
                                             Sections: nextAssignation.ProgYrSecs ? nextAssignation.ProgYrSecs.map(section => (
@@ -997,7 +1123,7 @@ const scheduleAssignation = async (
                                             roomSchedules, index + 2,
                                             report, startHour, endHour, settings, priorities,
                                             failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                                            postponedAssignations, isSecondPass, maxFailAllowed
+                                            postponedAssignations, isSecondPass, maxFailAllowed, sectionSchedules
                                         );
 
                                         if (nextSuccess) {
@@ -1077,7 +1203,7 @@ const scheduleAssignation = async (
                 roomSchedules, index + 2,
                 report, startHour, endHour, settings, priorities,
                 failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                postponedAssignations, isSecondPass, maxFailAllowed
+                postponedAssignations, isSecondPass, maxFailAllowed, sectionSchedules
             );
 
         } catch (err) {
@@ -1104,7 +1230,7 @@ const scheduleAssignation = async (
                 roomSchedules, index + 2,
                 report, startHour, endHour, settings, priorities,
                 failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                postponedAssignations, isSecondPass, maxFailAllowed
+                postponedAssignations, isSecondPass, maxFailAllowed, sectionSchedules
             );
         }
     } else {
@@ -1112,6 +1238,10 @@ const scheduleAssignation = async (
         const duration = courseParam.Duration;
 
         try {
+            // Extract section IDs for this course
+            const sectionIds = currentAssignation.ProgYrSecs ? 
+                currentAssignation.ProgYrSecs.map(section => section.id) : [];
+
             // Build the candidate room list based on the current pass
             const prioritizedByUserList = priorities?.room
                 ? rooms.filter(r => priorities.room.includes(r.id))
@@ -1164,6 +1294,7 @@ const scheduleAssignation = async (
                     professorSchedule: JSON.parse(JSON.stringify(professorSchedule)),
                     courseSchedules: JSON.parse(JSON.stringify(courseSchedules)),
                     roomSchedules: JSON.parse(JSON.stringify(roomSchedules)),
+                    sectionSchedules: JSON.parse(JSON.stringify(sectionSchedules)), // Include section schedules
                     report: [...report]
                 };
             };
@@ -1179,7 +1310,7 @@ const scheduleAssignation = async (
                     }
                 });
 
-                Object.keys(state.courseSchedules).forEach(courseId => {
+Object.keys(state.courseSchedules).forEach(courseId => {
                     if (courseSchedules[courseId]) {
                         Object.keys(state.courseSchedules[courseId]).forEach(day => {
                             courseSchedules[courseId][day] = state.courseSchedules[courseId][day];
@@ -1189,6 +1320,11 @@ const scheduleAssignation = async (
 
                 Object.keys(state.roomSchedules).forEach(roomId => {
                     roomSchedules[roomId] = state.roomSchedules[roomId];
+                });
+                
+                // Also restore section schedules
+                Object.keys(state.sectionSchedules).forEach(sectionId => {
+                    sectionSchedules[sectionId] = state.sectionSchedules[sectionId];
                 });
 
                 // Truncate report to match the saved state
@@ -1257,7 +1393,7 @@ const scheduleAssignation = async (
 
                 // Try each room in the category
                 for (const room of categoryRooms) {
-// Save state for potential backtracking (only on first room of first attempt)
+                    // Save state for potential backtracking (only on first room of first attempt)
                     if (attempt === 0 && room === categoryRooms[0]) {
                         savedOriginalState = saveState();
                     }
@@ -1271,7 +1407,14 @@ const scheduleAssignation = async (
                         let hourOptions = [];
                         for (let h = startHour; h + duration <= endHour; h++) {
                             hourOptions.push(h);
-                        }// Create multiple hour ordering variations to try
+                        }
+                        
+                        // Skip if no viable hour options for this day
+                        if (hourOptions.length === 0) {
+                            continue;
+                        }
+                        
+                        // Create multiple hour ordering variations to try
                         const hourOrderingVariations = [
                             [...hourOptions], // Original order
                             [...hourOptions].reverse(), // Reverse order
@@ -1301,10 +1444,12 @@ const scheduleAssignation = async (
                         // Try each hour
                         for (let hour of finalHourOptions) {
                             // Pass onlyCheckPrimaryType flag based on the current pass
+                            // Include section schedules and section IDs for student break checks
                             const isPossible = await isSchedulePossible(
                                 roomSchedules,
                                 professorSchedule,
                                 courseSchedules,
+                                sectionSchedules, // Add section schedules
                                 room.id,
                                 professorInfo?.id,
                                 day,
@@ -1316,7 +1461,8 @@ const scheduleAssignation = async (
                                 roomCache,
                                 professorAvailabilityCache,
                                 !isSecondPass, // In first pass, only check primary type
-                                courseParam.Code // Pass the course code for logging
+                                courseParam.Code, // Pass the course code for logging
+                                sectionIds // Pass section IDs for break checks
                             );
 
                             if (isPossible) {
@@ -1343,8 +1489,20 @@ const scheduleAssignation = async (
                                     start: hour,
                                     end: hour + duration
                                 });
-
                                 
+                                // Update section schedules
+                                if (sectionIds.length > 0) {
+                                    sectionIds.forEach(sectionId => {
+                                        if (!sectionSchedules[sectionId]) sectionSchedules[sectionId] = {};
+                                        if (!sectionSchedules[sectionId][day]) sectionSchedules[sectionId][day] = [];
+                                        
+                                        sectionSchedules[sectionId][day].push({
+                                            start: hour,
+                                            end: hour + duration
+                                        });
+                                    });
+                                }
+
                                 report.push({
                                     Professor: professorInfo?.Name,
                                     Course: courseParam.Code,
@@ -1352,8 +1510,8 @@ const scheduleAssignation = async (
                                     Room: room.Code,
                                     RoomId: room.id,
                                     Day: day,
-                                    Start_time: `${hour}:00`,
-                                    End_time: `${hour + duration}:00`,
+                                    Start_time: formatTimeString(hour),
+                                    End_time: formatTimeString(hour + duration),
                                     isLocked: false,
                                     AssignationId: currentAssignation.id,
                                     Sections: currentAssignation.ProgYrSecs ? currentAssignation.ProgYrSecs.map(section => (
@@ -1374,7 +1532,7 @@ const scheduleAssignation = async (
                                     roomSchedules, index + 1,
                                     report, startHour, endHour, settings, priorities,
                                     failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                                    postponedAssignations, isSecondPass, maxFailAllowed
+                                    postponedAssignations, isSecondPass, maxFailAllowed, sectionSchedules
                                 );
 
                                 if (nextSuccess) {
@@ -1439,7 +1597,7 @@ const scheduleAssignation = async (
                 roomSchedules, index + 1,
                 report, startHour, endHour, settings, priorities,
                 failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                postponedAssignations, isSecondPass, maxFailAllowed
+                postponedAssignations, isSecondPass, maxFailAllowed, sectionSchedules
             );
 
         } catch (err) {
@@ -1455,7 +1613,7 @@ const scheduleAssignation = async (
                 roomSchedules, index + 1,
                 report, startHour, endHour, settings, priorities,
                 failedAssignations, roomId, seed, roomCache, professorAvailabilityCache,
-                postponedAssignations, isSecondPass, maxFailAllowed
+                postponedAssignations, isSecondPass, maxFailAllowed, sectionSchedules
             );
         }
     }
