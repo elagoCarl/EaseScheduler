@@ -548,8 +548,8 @@ const AddCourseModal = ({ isOpen, onClose, fetchCourse, departmentId: propDepart
                         Core {!isCore && "(Requires Core Department Access)"}
                       </option>
                       <option value="Professional">Professional</option>
-                      <option value="General">General</option>
-                      <option value="Elective">Elective</option>
+                      {/* <option value="General">General</option> */}
+                      {/* <option value="Elective">Elective</option> */}
                     </select>
                   </div>
 
