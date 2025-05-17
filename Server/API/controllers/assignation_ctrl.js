@@ -732,44 +732,6 @@ const getAssignation = async (req, res, next) => {
     }
 };
 
-// Get all Assignations
-const getAllAssignations = async (req, res, next) => {
-    try {
-        const assignations = await Assignation.findAll({
-            include: [
-                {
-                    model: Course, attributes: ['Code', 'Description', 'Units'],
-                    include: [
-                        {
-                            model: RoomType,
-                            attributes: ['id', 'Type']
-                        }
-                    ]
-                },
-                { model: Professor, attributes: ['Name', 'Email', 'FirstSemUnits', 'SecondSemUnits'] },
-                { model: Department, attributes: ['Name'] },
-                {
-                    model: ProgYrSec,
-                    attributes: ['id', 'Year', 'Section'],
-                    include: [
-                        {
-                            model: Program,
-                            attributes: ['Code', 'Description']
-                        }
-                    ]
-                }
-            ],
-        });
-
-        return res.status(200).json({
-            successful: true,
-            data: assignations,
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
 const getAllAssignationsByDept = async (req, res, next) => {
     try {
         const departmentId = req.params.id;
@@ -886,6 +848,73 @@ const getAllAssignationsByDeptInclude = async (req, res, next) => {
             return res.status(200).json({
                 successful: true,
                 message: "No assignations found for this department",
+                data: [],
+            });
+        }
+
+        return res.status(200).json({
+            successful: true,
+            data: assignations,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: `Error retrieving assignations: ${error.message}`,
+            error: error.stack
+        });
+    }
+};
+
+const getAllAssignations = async (req, res, next) => {
+    try {
+        const { SchoolYearId } = req.query;
+        
+        // Build where clause
+        const whereClause = {};
+        if (SchoolYearId) {
+            whereClause.SchoolYearId = SchoolYearId;
+        }
+
+        const assignations = await Assignation.findAll({
+            order: [['createdAt', 'DESC']],
+            where: whereClause,
+            include: [
+                {
+                    model: Course,
+                    attributes: ['Code', 'Description', 'Units', 'Type', 'Duration'],
+                    include: [
+                        {
+                            model: RoomType,
+                            attributes: ['id', 'Type']
+                        }
+                    ]
+                },
+                {
+                    model: Professor,
+                    attributes: ['Name', 'Email'],
+                    include: [{ model: ProfessorLoad }]
+                },
+                {
+                    model: Department,
+                    attributes: ['Name']
+                },
+                {
+                    model: ProgYrSec,
+                    attributes: ['id', 'Year', 'Section'],
+                    include: [
+                        {
+                            model: Program,
+                            attributes: ['Code', 'Name']
+                        }
+                    ]
+                }
+            ],
+        });
+        
+        if (!assignations || assignations.length === 0) {
+            return res.status(200).json({
+                successful: true,
+                message: "No assignations found",
                 data: [],
             });
         }
@@ -1298,5 +1327,6 @@ module.exports = {
     getAllAssignationsByDept,
     getAllAssignationsByDeptInclude,
     getAssignationsWithSchedules,
-    getSchedulableAssignationsByDept
+    getSchedulableAssignationsByDept,
+    getAllAssignations
 };

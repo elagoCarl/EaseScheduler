@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import ScheduleReportModal from '../Components/callComponents/scheduleReport.jsx';
 import ScheduleVariantModal from '../Components/callComponents/variantSelectHandler.jsx';
 import ProfAvailabilityModal from '../Components/callComponents/miniProfAvailabilityModal.jsx';
+import AllDepartmentScheduleModal from './callComponents/AllDepartmentScheduleModal.jsx';
 import axios from '../axiosConfig.js';
 import delBtn from './Img/delBtn.png';
 import editBtn from './Img/editBtn.png';
@@ -20,6 +21,7 @@ import DeleteConfirmationModal from './callComponents/deleteConfirmationModal.js
 const AddConfigSchedule = () => {
   const { user } = useAuth();
   const deptId = user?.DepartmentId;
+  const isAdmin = user?.role === 'admin';
   const [departments, setDepartments] = useState([]);
   const [showDeptSelector, setShowDeptSelector] = useState(true);
   const [schedulableAssignations, setSchedulableAssignations] = useState([]);
@@ -31,10 +33,13 @@ const AddConfigSchedule = () => {
   const [activeMode, setActiveMode] = useState('manual');
   const [scheduleVariants, setScheduleVariants] = useState([]);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [showAllDeptAutomationModal, setShowAllDeptAutomationModal] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({ assignation_id: "", room_id: "", day: "", start_time: "", end_time: "" });
   const [rooms, setRooms] = useState([]);
+  const [allRooms, setAllRooms] = useState([]); // Added to store all rooms from all departments
   const [assignations, setAssignations] = useState([]);
+  const [allAssignations, setAllAssignations] = useState([]); // Added to store all assignations from all departments
   const [schedules, setSchedules] = useState([]);
   const [selectedDay, setSelectedDay] = useState(0);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
@@ -49,6 +54,7 @@ const AddConfigSchedule = () => {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [automateType, setAutomateType] = useState('room');
   const [semesters, setSemesters] = useState([]);
+  const [allSemesters, setAllSemesters] = useState([]); // Added to store all semesters from all departments
   const [selectedSemester, setSelectedSemester] = useState("");
   const [selectedSchoolYearId, setSelectedSchoolYearId] = useState(""); // State for selectedSchoolYearId
   const [schoolYears, setSchoolYears] = useState([]); // New state for school years
@@ -63,6 +69,9 @@ const AddConfigSchedule = () => {
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const effectiveDeptId = user?.DepartmentId || selectedDeptId;
   const [semesterData, setSemesterData] = useState({});
+  
+  // Check if user can access all-department features (admin or no department assigned)
+  const canAccessAllDepartments = isAdmin || !deptId;
 
   const uniqueSemesters = useMemo(() => {
     if (!assignations.length) return [];
@@ -128,6 +137,85 @@ const AddConfigSchedule = () => {
     return typeRooms.map(item => item.Type).join(', ')
   };
 
+  // Function to fetch all rooms from all departments
+  const fetchAllRooms = async () => {
+    try {
+      const response = await axios.get('/room/getAllRooms');
+      if (response.data.successful) {
+        setAllRooms(response.data.data);
+        // If we're viewing "All" departments, set rooms to all rooms
+        if (selectedDeptId === "all") {
+          setRooms(response.data.data);
+        }
+      } else {
+        console.error("Failed to fetch all rooms:", response.data.message);
+        setNotification({
+          type: 'error',
+          message: `Room fetch failed: ${response.data.message}`
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching all rooms:", error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to load all rooms. Please check your network connection.'
+      });
+    }
+  };
+
+  // Function to fetch all assignations from all departments
+  const fetchAllAssignations = async () => {
+    if (!selectedSchoolYearId) {
+      setAllAssignations([]);
+      return;
+    }
+    
+    try {
+      const response = await axios.get('/assignation/getAllAssignations', {
+        params: {
+          SchoolYearId: selectedSchoolYearId
+        }
+      });
+      
+      if (response.data.successful) {
+        setAllAssignations(response.data.data);
+        
+        // Extract all unique semesters from all assignations
+        const allSems = [...new Set(response.data.data.map(a => a.Semester))].sort((a, b) => a - b);
+        setAllSemesters(allSems);
+        
+        // If we're viewing "All" departments, set assignations to all assignations
+        if (selectedDeptId === "all") {
+          setAssignations(response.data.data);
+          
+          // Create semester mapping for all departments
+          const allSemesterMap = {};
+          response.data.data.forEach(a => {
+            if (!allSemesterMap[a.Semester]) {
+              allSemesterMap[a.Semester] = [];
+            }
+            allSemesterMap[a.Semester].push(a);
+          });
+          
+          setSemesters(allSems);
+          setSemesterData(allSemesterMap);
+        }
+      } else {
+        console.error("Failed to fetch all assignations:", response.data.message);
+        setAllAssignations([]);
+        setAllSemesters([]);
+      }
+    } catch (error) {
+      console.error("Error fetching all assignations:", error);
+      setAllAssignations([]);
+      setAllSemesters([]);
+      setNotification({
+        type: 'error',
+        message: 'Unable to load all assignations. There might be a server issue.'
+      });
+    }
+  };
+
   // Add function to fetch school years
   const fetchSchoolYears = async () => {
     try {
@@ -157,12 +245,34 @@ const AddConfigSchedule = () => {
   };
 
   const fetchSchedulableAssignations = async () => {
-    if (!effectiveDeptId || !selectedSemester || !selectedSchoolYearId) {
+    if ((!effectiveDeptId && selectedDeptId !== "all") || !selectedSemester || !selectedSchoolYearId) {
       setSchedulableAssignations([]);
       return;
     }
 
     try {
+      // If "All" departments is selected, extract schedulable assignations from allAssignations
+      if (selectedDeptId === "all") {
+        const schedulableFromAll = allAssignations.filter(a => 
+          a.Semester.toString() === selectedSemester && 
+          a.SchoolYearId.toString() === selectedSchoolYearId
+        );
+        
+        // For each assignation, calculate remaining hours (this would normally come from the API)
+        const calculatedSchedulable = schedulableFromAll.map(a => {
+          const courseHours = a.Course?.Duration || 0;
+          return {
+            ...a,
+            remainingHours: courseHours,
+            scheduledHours: 0
+          };
+        });
+        
+        setSchedulableAssignations(calculatedSchedulable);
+        return;
+      }
+      
+      // For specific department, use the existing API endpoint
       const response = await axios.get(`/assignation/getSchedulableAssignationsByDept/${effectiveDeptId}`, {
         params: {
           Semester: selectedSemester,
@@ -208,16 +318,26 @@ const AddConfigSchedule = () => {
       fetchDepartments();
     }
     fetchSchoolYears();
+    
+    // Fetch all rooms and all assignations for the "All" option
+    fetchAllRooms();
   }, [showDeptSelector]);
 
+  // Fetch all assignations when school year changes
   useEffect(() => {
-    if (effectiveDeptId && selectedSemester && selectedSchoolYearId) {
-      fetchSchedulableAssignations();
+    if (selectedSchoolYearId) {
+      fetchAllAssignations();
     }
-  }, [effectiveDeptId, selectedSemester, selectedSchoolYearId]);
+  }, [selectedSchoolYearId]);
 
   useEffect(() => {
-    if (schedules.length > 0 && effectiveDeptId && selectedSemester && selectedSchoolYearId) {
+    if ((effectiveDeptId || selectedDeptId === "all") && selectedSemester && selectedSchoolYearId) {
+      fetchSchedulableAssignations();
+    }
+  }, [effectiveDeptId, selectedDeptId, selectedSemester, selectedSchoolYearId]);
+
+  useEffect(() => {
+    if (schedules.length > 0 && (effectiveDeptId || selectedDeptId === "all") && selectedSemester && selectedSchoolYearId) {
       fetchSchedulableAssignations();
     }
   }, [schedules]);
@@ -225,11 +345,11 @@ const AddConfigSchedule = () => {
   useEffect(() => {
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
-    if (effectiveDeptId && selectedSchoolYearId) {
+    if ((effectiveDeptId || selectedDeptId === "all") && selectedSchoolYearId) {
       fetchDataForDepartment(effectiveDeptId);
     }
     return () => window.removeEventListener('resize', handleResize);
-  }, [effectiveDeptId, selectedSchoolYearId]);
+  }, [effectiveDeptId, selectedDeptId, selectedSchoolYearId]);
 
   useEffect(() => {
     if (!selectedSemester || !selectedSchoolYearId) {
@@ -304,10 +424,12 @@ const AddConfigSchedule = () => {
   }
 
   const deleteSchedule = async (scheduleId) => {
-    if (isDeleting || !effectiveDeptId) return;
+    if (isDeleting || (!effectiveDeptId && selectedDeptId !== "all")) return;
     setIsDeleting(true);
     try {
-      const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { DepartmentId: effectiveDeptId });
+      const response = await axios.post(`/schedule/deleteSchedule/${scheduleId}`, { 
+        DepartmentId: selectedDeptId === "all" ? null : effectiveDeptId 
+      });
       if (response.data.successful) {
         setNotification({ type: 'success', message: "Schedule deleted successfully!" });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -322,7 +444,7 @@ const AddConfigSchedule = () => {
   };
 
   const handleAddSchedule = async () => {
-    if (!effectiveDeptId) {
+    if (!effectiveDeptId && selectedDeptId !== "all") {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
@@ -369,6 +491,40 @@ const AddConfigSchedule = () => {
 
   const fetchDataForDepartment = async (departmentId) => {
     try {
+      // If "All" departments is selected
+      if (selectedDeptId === "all") {
+        // We already fetched all rooms earlier, so just set them again
+        setRooms(allRooms);
+        
+        // We already have all assignations, filter by school year
+        const relevantAssignations = allAssignations.filter(
+          a => a.SchoolYearId === parseInt(selectedSchoolYearId)
+        );
+        
+        setAssignations(relevantAssignations);
+        
+        // Create semester mapping
+        const allSemesterMap = {};
+        relevantAssignations.forEach(a => {
+          if (!allSemesterMap[a.Semester]) {
+            allSemesterMap[a.Semester] = [];
+          }
+          allSemesterMap[a.Semester].push(a);
+        });
+        
+        const allSems = [...new Set(relevantAssignations.map(a => a.Semester))].sort((a, b) => a - b);
+        setSemesters(allSems);
+        setSemesterData(allSemesterMap);
+        
+        // If there are semesters, select the first one by default if none selected
+        if (allSems.length > 0 && !selectedSemester) {
+          setSelectedSemester(allSems[0].toString());
+        }
+        
+        return;
+      }
+      
+      // For specific department
       if (!departmentId) {
         console.error("Invalid department ID:", departmentId);
         setNotification({
@@ -465,8 +621,8 @@ const AddConfigSchedule = () => {
     setSemesters([]);
     setProfessors([]);
 
-    if (deptId && selectedSchoolYearId) {
-      fetchDataForDepartment(deptId);
+    if ((deptId && deptId !== "all" && selectedSchoolYearId) || (deptId === "all" && selectedSchoolYearId)) {
+      fetchDataForDepartment(deptId === "all" ? null : deptId);
       if (currentRoomId) {
         setTimeout(() => {
           setFormData(prev => ({ ...prev, room_id: currentRoomId }));
@@ -479,15 +635,16 @@ const AddConfigSchedule = () => {
   const handleSchoolYearChange = (e) => {
     const schoolYearId = e.target.value;
     setSelectedSchoolYearId(schoolYearId);
-    const deptIdToUse = effectiveDeptId || selectedDeptId;
+    const deptIdToUse = selectedDeptId === "all" ? null : effectiveDeptId || selectedDeptId;
     resetForm();
     setAssignations([]);
     setSchedules([]);
     setSemesters([]);
     setSelectedSemester("");
 
-    if (deptIdToUse && schoolYearId) {
+    if ((deptIdToUse && schoolYearId) || (selectedDeptId === "all" && schoolYearId)) {
       fetchDataForDepartment(deptIdToUse);
+      fetchAllAssignations();
     }
   };
 
@@ -512,6 +669,7 @@ const AddConfigSchedule = () => {
           required
         >
           <option value="">Select Department</option>
+          <option value="all">All Departments</option>
           {departments.map(dept => (
             <option key={dept.id} value={dept.id}>
               {dept.Name}
@@ -544,7 +702,7 @@ const AddConfigSchedule = () => {
   };
 
   const handleAutomateSchedule = async () => {
-    if (!effectiveDeptId) {
+    if (!effectiveDeptId && selectedDeptId !== "all") {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
@@ -566,7 +724,7 @@ const AddConfigSchedule = () => {
       }
 
       const payload = {
-        DepartmentId: effectiveDeptId,
+        DepartmentId: selectedDeptId === "all" ? null : effectiveDeptId,
         semester: selectedSemester,
         SchoolYearId: parseInt(selectedSchoolYearId),
         variantCount: 2,
@@ -587,7 +745,7 @@ const AddConfigSchedule = () => {
 
         localStorage.setItem('scheduleVariants', JSON.stringify({
           variants: variants,
-          departmentId: effectiveDeptId,
+          departmentId: selectedDeptId === "all" ? "all" : effectiveDeptId,
           timestamp: Date.now()
         }));
         setNotification({
@@ -601,7 +759,7 @@ const AddConfigSchedule = () => {
         });
         setShowVariantModal(false);
       }
-    } catch (error) {
+} catch (error) {
       console.error('Schedule variant generation error:', error.response || error);
       setNotification({
         type: 'error',
@@ -617,14 +775,14 @@ const AddConfigSchedule = () => {
   };
 
   const handleSelectVariant = async (variantIndex) => {
-    if (!effectiveDeptId || !selectedSchoolYearId) return;
+    if ((!effectiveDeptId && selectedDeptId !== "all") || !selectedSchoolYearId) return;
 
     try {
       const selectedVariant = scheduleVariants[variantIndex];
 
       const response = await axios.post('/schedule/saveScheduleVariants', {
         variant: selectedVariant,
-        DepartmentId: effectiveDeptId,
+        DepartmentId: selectedDeptId === "all" ? null : effectiveDeptId,
         semester: selectedSemester,
         SchoolYearId: parseInt(selectedSchoolYearId)
       });
@@ -672,15 +830,23 @@ const AddConfigSchedule = () => {
       }
     } else if (name === "assignation_id") {
       if (value) {
-        const selectedAssignation = assignations.find(a => a.id === parseInt(value));
-        if (selectedAssignation?.CourseId) {
+        // First try to find in schedulableAssignations for more detailed info
+        const selectedAssignation = schedulableAssignations.find(a => a.id === parseInt(value));
+        // If not found, look in regular assignations
+        const fallbackAssignation = !selectedAssignation ? 
+          assignations.find(a => a.id === parseInt(value)) : 
+          null;
+          
+        const useAssignation = selectedAssignation || fallbackAssignation;
+        
+        if (useAssignation?.CourseId || useAssignation?.Course) {
           setFormData(prev => ({
             ...prev,
             [name]: value,
-            professorId: selectedAssignation.ProfessorId,
-            professorName: selectedAssignation.Professor?.Name || "Professor",
-            courseDuration: selectedAssignation.Course?.Duration,
-            courseType: selectedAssignation.Course.RoomType?.Type,
+            professorId: useAssignation.ProfessorId,
+            professorName: useAssignation.Professor?.Name || "Professor",
+            courseDuration: useAssignation.Course?.Duration,
+            courseType: useAssignation.Course?.RoomType?.Type,
           }));
         }
       } else {
@@ -710,10 +876,12 @@ const AddConfigSchedule = () => {
   };
 
   const toggleLockStatus = async (scheduleId, currentLockStatus) => {
-    if (!effectiveDeptId) return;
+    if (!effectiveDeptId && selectedDeptId !== "all") return;
 
     try {
-      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { DepartmentId: effectiveDeptId });
+      const response = await axios.put(`/schedule/toggleLock/${scheduleId}`, { 
+        DepartmentId: selectedDeptId === "all" ? null : effectiveDeptId 
+      });
       if (response.data.successful) {
         setNotification({ type: 'success', message: `Schedule ${currentLockStatus ? 'unlocked' : 'locked'} successfully!` });
         if (formData.room_id) fetchSchedulesForRoom(formData.room_id);
@@ -749,7 +917,7 @@ const AddConfigSchedule = () => {
       const response = await axios.put("/schedule/toggleLockAllSchedules", {
         scheduleIds: targetSchedules,
         isLocked: lockAction,
-        DepartmentId: effectiveDeptId
+        DepartmentId: selectedDeptId === "all" ? null : effectiveDeptId
       });
 
       if (response.data.successful) {
@@ -772,21 +940,27 @@ const AddConfigSchedule = () => {
   };
 
   const handleDeleteAllSchedules = async () => {
-    if (!effectiveDeptId) {
+    if (!effectiveDeptId && selectedDeptId !== "all") {
       setNotification({ type: 'error', message: "Please select a department first." });
       return;
     }
 
     try {
-      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${effectiveDeptId}`, {
+      const response = await axios.delete(`/schedule/deleteAllDepartmentSchedules/${selectedDeptId === "all" ? 0 : effectiveDeptId}`, {
         params: {
-          SchoolYearId: selectedSchoolYearId
+          SchoolYearId: selectedSchoolYearId,
+          allDepartments: selectedDeptId === "all"
         }
       });
 
       if (response.data.success) {
         setIsDeleteModalOpen(false);
-        setNotification({ type: 'success', message: `Successfully deleted all schedules in the department for the selected school year.` });
+        setNotification({ 
+          type: 'success', 
+          message: selectedDeptId === "all" 
+            ? `Successfully deleted all schedules across all departments for the selected school year.` 
+            : `Successfully deleted all schedules in this department for the selected school year.` 
+        });
         if (formData.room_id) await fetchSchedulesForRoom(formData.room_id);
         setSelectedSchedule(null);
         setSelectedScheduleId(null);
@@ -845,6 +1019,7 @@ const AddConfigSchedule = () => {
             <div className="flex justify-between items-center">
               <div>
                 <div>Semester: {schedule.Assignation?.Semester || 'N/A'}</div>
+                <div>Department: {schedule.Assignation?.Department?.Name || 'N/A'}</div>
               </div>
               <div className="flex">
                 <button onClick={(e) => {
@@ -918,6 +1093,7 @@ const AddConfigSchedule = () => {
         </div>
         <div>{event.Assignation?.Professor?.Name}</div>
         <div>Semester {event.Assignation?.Semester}</div>
+        <div>Department: {event.Assignation?.Department?.Name || 'N/A'}</div>
         {event.Assignation.ProgYrSecs?.length > 0 && (
           <div className="mt-1">
             {event.Assignation.ProgYrSecs.map((sec, sIdx) => (
@@ -952,7 +1128,7 @@ const AddConfigSchedule = () => {
               className="flex w-full justify-center bg-red-600 hover:bg-red-700 text-white px-10 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors mt-2"
               disabled={activeMode !== 'automation'}
             >
-              Delete All Department Schedules
+              Delete All {selectedDeptId === "all" ? "" : "Department"} Schedules
             </button>
           </div>
         )}
@@ -961,7 +1137,7 @@ const AddConfigSchedule = () => {
 
         <div className="mb-3">
           <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Automation Type:</label>
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <div className="flex items-center">
               <input type="radio" id="room-automation" name="automate-type" value="room" checked={automateType === 'room'} onChange={() => setAutomateType('room')} className="mr-2" disabled={activeMode !== 'automation'}
               />
@@ -970,8 +1146,16 @@ const AddConfigSchedule = () => {
             <div className="flex items-center">
               <input type="radio" id="all-automation" name="automate-type" value="all" checked={automateType === 'all'} onChange={() => setAutomateType('all')} className="mr-2" disabled={activeMode !== 'automation'}
               />
-              <label htmlFor="all-automation" className="text-xs sm:text-sm text-gray-700">All Department Rooms</label>
+              <label htmlFor="all-automation" className="text-xs sm:text-sm text-gray-700">All {selectedDeptId === "all" ? "Rooms" : "Department Rooms"}</label>
             </div>
+            {/* Only show the All Departments option to admin or users with no department */}
+            {canAccessAllDepartments && (
+              <div className="flex items-center">
+                <input type="radio" id="alldept-automation" name="automate-type" value="allDept" checked={automateType === 'allDept'} onChange={() => setAutomateType('allDept')} className="mr-2" disabled={activeMode !== 'automation'}
+                />
+                <label htmlFor="alldept-automation" className="text-xs sm:text-sm text-gray-700">All Departments</label>
+              </div>
+            )}
           </div>
         </div>
 
@@ -984,13 +1168,29 @@ const AddConfigSchedule = () => {
           </div>
         )}
 
-        <button onClick={handleAutomateSchedule} disabled={isAutomating || (automateType === 'room' && !formData.room_id) || activeMode !== 'automation' || !selectedSchoolYearId} className={`flex flex-1 justify-center mt-2 ${(automateType === 'room' && !formData.room_id) || activeMode !== 'automation' || !selectedSchoolYearId
-          ? 'bg-gray-400'
-          : 'bg-green-600 hover:bg-green-700'
-          } text-white px-4 py-2 rounded-lg transition-colors`}
-        >
-          {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
-        </button>
+        {automateType === 'allDept' ? (
+          <button 
+            onClick={() => setShowAllDeptAutomationModal(true)} 
+            disabled={!selectedSchoolYearId || !selectedSemester || activeMode !== 'automation'} 
+            className={`flex flex-1 justify-center mt-2 ${!selectedSchoolYearId || !selectedSemester || activeMode !== 'automation'
+              ? 'bg-gray-400'
+              : 'bg-purple-600 hover:bg-purple-700'
+            } text-white px-4 py-2 rounded-lg transition-colors`}
+          >
+            Schedule All Departments
+          </button>
+        ) : (
+          <button 
+            onClick={handleAutomateSchedule} 
+            disabled={isAutomating || (automateType === 'room' && !formData.room_id) || activeMode !== 'automation' || !selectedSchoolYearId || (!effectiveDeptId && selectedDeptId !== "all")} 
+            className={`flex flex-1 justify-center mt-2 ${(automateType === 'room' && !formData.room_id) || activeMode !== 'automation' || !selectedSchoolYearId || (!effectiveDeptId && selectedDeptId !== "all")
+              ? 'bg-gray-400'
+              : 'bg-green-600 hover:bg-green-700'
+            } text-white px-4 py-2 rounded-lg transition-colors`}
+          >
+            {isAutomating ? "Automating..." : `Automate ${automateType === 'room' ? 'Selected Room' : 'All Rooms'}`}
+          </button>
+        )}
       </div>
     );
   }
@@ -1072,7 +1272,8 @@ const AddConfigSchedule = () => {
                   disabled={!selectedSchoolYearId}
                 >
                   <option value="">Select Semester</option>
-                  {semesters.map(semester => (
+                  {/* Show all semesters if "All" departments is selected, otherwise show department-specific semesters */}
+                  {(selectedDeptId === "all" ? allSemesters : semesters).map(semester => (
                     <option key={semester} value={semester}>
                       Semester {semester}
                     </option>
@@ -1090,7 +1291,9 @@ const AddConfigSchedule = () => {
                   <option value="">Select Room</option>
                   {rooms.map(room => (
                     <option key={room.id} value={room.id}>
-                      {room.Code} - {room.Building} {room.Floor} (Primary Type: {room.RoomType?.Type || 'None'})
+                      {room.Code} - {room.Building} {room.Floor} 
+                      {selectedDeptId === "all" && room.RoomDepts && room.RoomDepts[0] ? ` (${room.RoomDepts[0].Name})` : ""}
+                      (Primary Type: {room.RoomType?.Type || 'None'})
                       (Additional Types: {room.TypeRooms?.map(item => item.Type).join(', ') || 'None'})
                     </option>
                   ))}
@@ -1122,6 +1325,7 @@ const AddConfigSchedule = () => {
                     return (
                       <option key={a.id} value={a.id}>
                         {a.Course?.Code} - {a.Course?.Description} | {a.Professor?.Name} | {sectionsString} | {scheduledHours.toFixed(1)}/{courseDuration}h ({remainingHours.toFixed(1)}h remaining)
+                        {selectedDeptId === "all" && a.Department ? ` - ${a.Department.Name}` : ""}
                       </option>
                     );
                   })}
@@ -1144,7 +1348,7 @@ const AddConfigSchedule = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
+<label className="block text-xs sm:text-sm font-medium mb-1 text-gray-700">Start Time:</label>
                     <input
                       type="time"
                       name="custom_start_time"
@@ -1254,7 +1458,7 @@ const AddConfigSchedule = () => {
         handleDeleteAllSchedules();
         setIsDeleteModalOpen(false);
       }} title="Delete Confirmation"
-        message={`Are you sure you want to delete ALL schedules in this department for the school year ${schoolYears.find(y => y.id === parseInt(selectedSchoolYearId))?.SY_Name || ''}? This action cannot be undone.`}
+        message={`Are you sure you want to delete ALL schedules ${selectedDeptId === "all" ? "across all departments" : "in this department"} for the school year ${schoolYears.find(y => y.id === parseInt(selectedSchoolYearId))?.SY_Name || ''}? This action cannot be undone.`}
       />
 
       <EditSchedRecordModal isOpen={isEditModalOpen} schedule={selectedSchedule} onClose={() => {
@@ -1276,6 +1480,23 @@ const AddConfigSchedule = () => {
 
       <ProfAvailabilityModal isOpen={isAvailabilityModalOpen} onClose={() => setIsAvailabilityModalOpen(false)} professorId={selectedProfessorId} schoolYearId={selectedSchoolYearId}
       />
+
+      {/* Only render the AllDepartmentScheduleModal if user has access to this feature */}
+      {canAccessAllDepartments && (
+        <AllDepartmentScheduleModal 
+          show={showAllDeptAutomationModal}
+          onHide={() => setShowAllDeptAutomationModal(false)}
+          schoolYearId={selectedSchoolYearId}
+          semester={selectedSemester}
+          onComplete={() => {
+            // Refresh data after saving
+            if (formData.room_id) {
+              fetchSchedulesForRoom(formData.room_id);
+            }
+            fetchSchedulableAssignations();
+          }}
+        />
+      )}
     </div>
   );
 }

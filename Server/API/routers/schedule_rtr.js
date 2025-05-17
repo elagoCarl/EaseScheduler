@@ -18,6 +18,7 @@ router.put('/toggleLockAllSchedules', schedule_ctrl.toggleLockAllSchedules)
 router.delete('/deleteAllDepartmentSchedules/:id', schedule_ctrl.deleteAllDepartmentSchedules)
 router.post('/generateScheduleVariants', schedule_ctrl.generateScheduleVariants)
 router.post('/saveScheduleVariants', schedule_ctrl.saveScheduleVariant)
+router.post('/generateAllDepartmentSchedule', schedule_ctrl.generateAllDepartmentSchedule)
 
 
 module.exports = router;

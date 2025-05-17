@@ -18,5 +18,6 @@ router.post('/addTypeRoom', room_ctrl.addTypeRoom)
 router.post('/addRoomWithTypes', room_ctrl.addRoomWithTypes)
 router.delete('/deleteTypeRoom', room_ctrl.deleteTypeRoom)
 router.get('/getPrimaryRoomType/:id', room_ctrl.getPrimaryRoomType)
+router.get('/getAllRooms', room_ctrl.getAllRooms)
 
 module.exports = router;

@@ -1002,6 +1002,43 @@ const addRoomWithTypes = async (req, res, next) => {
     }
 };
 
+const getAllRooms = async (req, res, next) => {
+    try {
+        const rooms = await Room.findAll({
+            order: [['createdAt', 'DESC']],
+            include: [
+                {
+                    model: Department,
+                    as: 'RoomDepts',
+                    attributes: ['id', 'Name'],
+                    through: { attributes: [] }
+                },
+                {
+                    model: RoomType,
+                    attributes: ['id', 'Type'],
+                },
+                {
+                    model: RoomType,
+                    as: 'TypeRooms',
+                    attributes: ['id', 'Type'],
+                    through: { attributes: [] }
+                }
+            ]
+        });
+
+        res.status(200).send({
+            successful: true,
+            message: rooms.length ? "Retrieved all rooms" : "No rooms found",
+            count: rooms.length,
+            data: rooms
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+};
 
 module.exports = {
     addRoom,
@@ -1017,5 +1054,6 @@ module.exports = {
     deleteTypeRoom,
     getRoomTypeByRoom,
     addRoomWithTypes,
-    getPrimaryRoomType
+    getPrimaryRoomType,
+    getAllRooms
 };
