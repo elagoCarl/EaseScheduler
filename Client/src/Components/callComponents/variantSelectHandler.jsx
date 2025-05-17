@@ -275,7 +275,6 @@ const ScheduleVariantModal = ({
                                 <tr>
                                   <th>Course</th>
                                   <th>Professor</th>
-                                  <th>Sections</th>
                                   <th>Reason</th>
                                 </tr>
                               </thead>
@@ -284,7 +283,6 @@ const ScheduleVariantModal = ({
                                   <tr key={i}>
                                     <td>{failed.Course}</td>
                                     <td>{failed.Professor}</td>
-                                    <td>{failed.Sections || 'None'}</td>
                                     <td>{failed.reason}</td>
                                   </tr>
                                 ))}
