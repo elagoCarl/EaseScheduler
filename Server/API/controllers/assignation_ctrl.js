@@ -911,6 +911,7 @@ const deleteAssignation = async (req, res, next) => {
         const t = await sequelize.transaction();
 
         try {
+            // Fetch the assignation with all necessary associations
             const assignation = await Assignation.findByPk(id, {
                 include: [
                     {
@@ -921,7 +922,7 @@ const deleteAssignation = async (req, res, next) => {
                         model: Professor
                     },
                     {
-                        model: ProgYrSec,
+                        model: ProgYrSec, // This will include associated sections through the many-to-many relationship
                         include: [{ model: Program }]
                     },
                     {
@@ -986,7 +987,10 @@ const deleteAssignation = async (req, res, next) => {
 
             // Check if there are paired courses to delete
             if (assignation.Course && assignation.Course.PairId) {
-                // Find any assignations of paired courses with the same professor, semester, and school year
+                // Get the section IDs associated with this assignation
+                const sectionIds = assignation.ProgYrSecs.map(section => section.id);
+                
+                // Find paired course assignations with the same professor, semester, school year
                 const pairedCourseAssignations = await Assignation.findAll({
                     where: {
                         SchoolYearId: assignation.SchoolYearId,
@@ -1000,13 +1004,33 @@ const deleteAssignation = async (req, res, next) => {
                             where: {
                                 PairId: assignation.Course.PairId
                             }
+                        },
+                        {
+                            model: ProgYrSec // Include sections
                         }
                     ],
                     transaction: t
                 });
-
-                // Delete the paired assignations
+                
+                // Filter to only include assignations that have matching sections
+                const matchingPairedAssignations = [];
+                
                 for (const pairedAssignation of pairedCourseAssignations) {
+                    const pairedSectionIds = pairedAssignation.ProgYrSecs.map(section => section.id);
+                    
+                    // Check if the paired assignation has the exact same sections
+                    // Both arrays should have the same length and contain the same section IDs
+                    const hasSameSections = 
+                        sectionIds.length === pairedSectionIds.length && 
+                        sectionIds.every(id => pairedSectionIds.includes(id));
+                    
+                    if (hasSameSections) {
+                        matchingPairedAssignations.push(pairedAssignation);
+                    }
+                }
+
+                // Delete the paired assignations that match our criteria
+                for (const pairedAssignation of matchingPairedAssignations) {
                     // Decrease professor units for paired courses if they're not tutorials
                     if (pairedAssignation.Course && !pairedAssignation.Course.isTutorial && assignation.Professor) {
                         const pairedUnitsToDecrease = pairedAssignation.Course.Units;
