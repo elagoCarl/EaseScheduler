@@ -21,14 +21,6 @@ module.exports = (sequelize, DataTypes) => {
             validate: {
                 notEmpty: { msg: "Building is required." }
             }
-        },
-        NumberOfSeats: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            validate: {
-                notEmpty: { msg: "Number of seats is required." },
-                min: 1
-            }
         }
     }, {
         timestamps: true
@@ -41,6 +33,10 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
         });
+
+        Room.belongsTo(models.RoomType, {
+            foreignKey: 'PrimaryTypeId',
+        })
 
         Room.belongsToMany(models.Department, {
             through: 'DeptRoom',

@@ -8,8 +8,8 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
         Code: room?.Code || "",
         Floor: room?.Floor || "1st",
         Building: room?.Building || "LV",
-        NumberOfSeats: room?.NumberOfSeats || "",
-        selectedRoomTypes: [] // Array to store multiple room types
+        selectedRoomTypes: [], // Array to store multiple room types
+        PrimaryTypeId: "" // New field for primary room type
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
@@ -41,46 +41,79 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                 const allRoomTypes = response.data.data;
                 setRoomTypes(allRoomTypes);
 
-                // Initialize selectedRoomTypes if the room has associated room types
+                // Initialize selectedRoomTypes and PrimaryTypeId
+                let primaryTypeId = "";
+                let initialRoomTypes = [];
+
+                // First, check for PrimaryTypeId in the room data
+                if (room.PrimaryTypeId) {
+                    primaryTypeId = room.PrimaryTypeId;
+                    
+                    // Find the primary type in all room types
+                    const primaryType = allRoomTypes.find(type => type.id === primaryTypeId);
+                    
+                    // Add to initialRoomTypes if not already there
+                    if (primaryType && !initialRoomTypes.some(t => t.id === primaryTypeId)) {
+                        initialRoomTypes.push({
+                            id: primaryTypeId,
+                            Type: primaryType.Type
+                        });
+                    }
+                }
+
+                // Then check for TypeRooms (associated room types)
                 if (room.TypeRooms && room.TypeRooms.length > 0) {
                     // Map room's associated types to our format
-                    const initialRoomTypes = room.TypeRooms.map(type => ({
-                        id: type.id,
-                        Type: type.Type
-                    }));
-                    setFormData(prev => ({
-                        ...prev,
-                        selectedRoomTypes: initialRoomTypes
-                    }));
-                } else if (room.RoomTypeId) {
-                    // For backward compatibility with older data structure
+                    room.TypeRooms.forEach(type => {
+                        // Only add if not already added as primary
+                        if (type.id !== primaryTypeId) {
+                            initialRoomTypes.push({
+                                id: type.id,
+                                Type: type.Type
+                            });
+                        }
+                    });
+                    
+                    // If no primary type found yet, use the first room type as primary
+                    if (!primaryTypeId && initialRoomTypes.length > 0) {
+                        primaryTypeId = initialRoomTypes[0].id;
+                    }
+                } 
+                
+                // For backward compatibility with older data structure
+                if (initialRoomTypes.length === 0 && room.RoomTypeId) {
                     const matchingType = allRoomTypes.find(
                         type => type.id === room.RoomTypeId
                     );
                     if (matchingType) {
-                        setFormData(prev => ({
-                            ...prev,
-                            selectedRoomTypes: [{
-                                id: matchingType.id,
-                                Type: matchingType.Type
-                            }]
-                        }));
+                        initialRoomTypes.push({
+                            id: matchingType.id,
+                            Type: matchingType.Type
+                        });
+                        primaryTypeId = matchingType.id;
                     }
-                } else if (room.Type) {
-                    // For older data structure where only Type name is available
+                } 
+                
+                // For even older data structure where only Type name is available
+                if (initialRoomTypes.length === 0 && room.Type) {
                     const matchingType = allRoomTypes.find(
                         type => type.Type === room.Type
                     );
                     if (matchingType) {
-                        setFormData(prev => ({
-                            ...prev,
-                            selectedRoomTypes: [{
-                                id: matchingType.id,
-                                Type: matchingType.Type
-                            }]
-                        }));
+                        initialRoomTypes.push({
+                            id: matchingType.id,
+                            Type: matchingType.Type
+                        });
+                        primaryTypeId = matchingType.id;
                     }
                 }
+
+                // Update form data with the collected information
+                setFormData(prev => ({
+                    ...prev,
+                    selectedRoomTypes: initialRoomTypes.filter(type => type.id !== primaryTypeId),
+                    PrimaryTypeId: primaryTypeId
+                }));
             } else {
                 setErrorMessage("Failed to load room types.");
             }
@@ -104,31 +137,62 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
         setFormData({ ...formData, [name]: value });
     };
 
+    // Handle primary room type change
+    const handlePrimaryRoomTypeChange = (e) => {
+        const newPrimaryTypeId = e.target.value;
+        
+        // Find the room type object for the new primary
+        const primaryType = roomTypes.find(type => type.id.toString() === newPrimaryTypeId.toString());
+        if (!primaryType) return;
+        
+        // Check if this type is already in selectedRoomTypes
+        const existingIndex = formData.selectedRoomTypes.findIndex(
+            type => type.id.toString() === newPrimaryTypeId.toString()
+        );
+        
+        // Create a new array without the new primary type (if it exists)
+        let updatedRoomTypes = [...formData.selectedRoomTypes];
+        if (existingIndex >= 0) {
+            updatedRoomTypes.splice(existingIndex, 1);
+        }
+        
+        setFormData({ 
+            ...formData, 
+            PrimaryTypeId: newPrimaryTypeId,
+            selectedRoomTypes: updatedRoomTypes
+        });
+    };
+
     // Add a room type to the list
     const addRoomType = () => {
         // Check if there are available room types to add
         if (roomTypes.length === 0 ||
-            formData.selectedRoomTypes.length === roomTypes.length) {
+            formData.selectedRoomTypes.length === roomTypes.length - 1) { // -1 because primary type is excluded
             return;
         }
 
-        // Find first room type that hasn't been selected yet
+        // Find first room type that hasn't been selected yet and isn't the primary type
         const availableRoomTypes = roomTypes.filter(
             type => !formData.selectedRoomTypes.some(
                 selectedType => selectedType.id === type.id
-            )
+            ) && type.id.toString() !== formData.PrimaryTypeId.toString()
         );
 
         if (availableRoomTypes.length > 0) {
+            const newRoomType = {
+                id: availableRoomTypes[0].id,
+                Type: availableRoomTypes[0].Type
+            };
+            
+            const updatedRoomTypes = [...formData.selectedRoomTypes, newRoomType];
+            
+            // If this is the first room type, automatically set it as primary
+            const PrimaryTypeId = formData.PrimaryTypeId || newRoomType.id;
+            
             setFormData({
                 ...formData,
-                selectedRoomTypes: [
-                    ...formData.selectedRoomTypes,
-                    {
-                        id: availableRoomTypes[0].id,
-                        Type: availableRoomTypes[0].Type
-                    }
-                ]
+                selectedRoomTypes: updatedRoomTypes,
+                PrimaryTypeId: PrimaryTypeId
             });
         }
     };
@@ -136,8 +200,21 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
     // Remove a room type from the list
     const removeRoomType = (index) => {
         const updatedRoomTypes = [...formData.selectedRoomTypes];
+        const removedType = updatedRoomTypes[index];
         updatedRoomTypes.splice(index, 1);
-        setFormData({ ...formData, selectedRoomTypes: updatedRoomTypes });
+        
+        // Update form data
+        let updatedFormData = { 
+            ...formData, 
+            selectedRoomTypes: updatedRoomTypes 
+        };
+        
+        // If we're removing the primary room type, reset the primary or set to first available
+        if (formData.PrimaryTypeId === removedType.id) {
+            updatedFormData.PrimaryTypeId = updatedRoomTypes.length > 0 ? updatedRoomTypes[0].id : "";
+        }
+        
+        setFormData(updatedFormData);
     };
 
     // Handle room type selection change
@@ -146,23 +223,42 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
 
         if (!selectedType) return;
 
-        // Check if this type is already selected in another slot
+        // Check if this type is already selected in another slot or is the primary type
         const isDuplicate = formData.selectedRoomTypes.some(
             (type, idx) => idx !== index && type.id.toString() === value.toString()
         );
+        
+        const isPrimaryType = value.toString() === formData.PrimaryTypeId.toString();
 
         if (isDuplicate) {
             setErrorMessage("This room type is already selected. Please choose another one.");
             return;
         }
+        
+        if (isPrimaryType) {
+            setErrorMessage("This room type is already set as the primary type. Please choose another one.");
+            return;
+        }
 
         const updatedRoomTypes = [...formData.selectedRoomTypes];
+        const oldTypeId = updatedRoomTypes[index].id;
         updatedRoomTypes[index] = {
             id: selectedType.id,
             Type: selectedType.Type
         };
 
-        setFormData({ ...formData, selectedRoomTypes: updatedRoomTypes });
+        // Update form data
+        let updatedFormData = { 
+            ...formData, 
+            selectedRoomTypes: updatedRoomTypes 
+        };
+        
+        // If we're changing the primary room type, update the primary
+        if (formData.PrimaryTypeId === oldTypeId) {
+            updatedFormData.PrimaryTypeId = selectedType.id;
+        }
+        
+        setFormData(updatedFormData);
         setErrorMessage("");
     };
 
@@ -174,20 +270,20 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
         setIsSubmitting(true);
 
         // Validate inputs
-        const seats = parseInt(formData.NumberOfSeats);
-        if (isNaN(seats) || seats < 1) {
-            setErrorMessage("Number of seats must be a positive number.");
+        if (!formData.PrimaryTypeId) {
+            setErrorMessage("Please select a primary room type.");
             shakeForm();
             setIsSubmitting(false);
             return;
         }
-
-        if (formData.selectedRoomTypes.length === 0) {
-            setErrorMessage("Please select at least one room type.");
-            shakeForm();
-            setIsSubmitting(false);
-            return;
-        }
+        
+        // We don't require additional room types anymore, as having a primary type is sufficient
+        // if (formData.selectedRoomTypes.length === 0) {
+        //     setErrorMessage("Please select at least one room type.");
+        //     shakeForm();
+        //     setIsSubmitting(false);
+        //     return;
+        // }
 
         try {
             // Create room data object
@@ -195,9 +291,14 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                 Code: formData.Code,
                 Floor: formData.Floor,
                 Building: formData.Building,
-                NumberOfSeats: seats,
-                RoomTypeIds: formData.selectedRoomTypes.map(type => type.id)
+                RoomTypeIds: formData.selectedRoomTypes.map(type => type.id),
+                PrimaryTypeId: formData.PrimaryTypeId // Include primary room type
             };
+            
+            // Ensure primary type is not included in RoomTypeIds
+            roomData.RoomTypeIds = roomData.RoomTypeIds.filter(
+                id => id.toString() !== formData.PrimaryTypeId.toString()
+            );
 
             // Call the API endpoint to update the room
             const response = await axios.put(
@@ -295,19 +396,21 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                         </select>
                     </div>
 
-                    {/* NumberOfSeats Field */}
+                    {/* Primary Room Type Section */}
                     <div className="space-y-1.5">
-                        <label className="block text-sm font-medium text-gray-700">Number of Seats</label>
-                        <input
-                            type="number"
-                            name="NumberOfSeats"
-                            placeholder="Number of Seats"
+                        <label className="block text-sm font-medium text-gray-700">Primary Room Type</label>
+                        <select
+                            name="PrimaryTypeId"
                             className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                            value={formData.NumberOfSeats}
-                            onChange={handleChange}
-                            min="1"
+                            value={formData.PrimaryTypeId}
+                            onChange={handlePrimaryRoomTypeChange}
                             required
-                        />
+                        >
+                            <option value="">Select Primary Room Type</option>
+                            {roomTypes.map((type) => (
+                                <option key={type.id} value={type.id}>{type.Type}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Room Types Section */}
@@ -339,11 +442,19 @@ const EditRoomModal = ({ room, onClose, onUpdate }) => {
                                             required
                                         >
                                             <option value="">Select Room Type</option>
-                                            {roomTypes.map((type) => (
-                                                <option key={type.id} value={type.id}>{type.Type}</option>
-                                            ))}
+                                            {roomTypes
+                                                .filter(type => type.id.toString() !== formData.PrimaryTypeId.toString())
+                                                .map((type) => (
+                                                    <option key={type.id} value={type.id}>{type.Type}</option>
+                                                ))}
                                         </select>
                                     </div>
+                                    {/* Add a badge for the primary room type */}
+                                    {formData.PrimaryTypeId === roomType.id && (
+                                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-md">
+                                            Primary
+                                        </span>
+                                    )}
                                     <button
                                         type="button"
                                         className="text-red-500 hover:text-red-700 p-1"

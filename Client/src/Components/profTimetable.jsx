@@ -14,41 +14,70 @@ const ProfTimetable = () => {
   const [selectedProf, setSelectedProf] = useState(null);
   const [professors, setProfessors] = useState([]);
   const [schedules, setSchedules] = useState([]);
-  const [loading, setLoading] = useState(true); // Loading for professors
+  const [loading, setLoading] = useState(true);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
   const [semesters, setSemesters] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState(null);
   const [loadingSemesters, setLoadingSemesters] = useState(true);
-
+  const [schoolYears, setSchoolYears] = useState([]);
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState(null);
+  const [loadingSchoolYears, setLoadingSchoolYears] = useState(true);
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
   const deptId = user.DepartmentId;
 
   useEffect(() => {
+    const fetchSchoolYears = async () => {
+      try {
+        setLoadingSchoolYears(true);
+        const { data } = await axios.get('/schoolYear/getAllSchoolYears');
+        if (data.successful && data.data.length) {
+          setSchoolYears(data.data);
+          setSelectedSchoolYear(data.data[0]?.id || null);
+        } else {
+          console.error('No school years found or API error');
+        }
+      } catch (error) {
+        console.error('Error fetching school years:', error);
+      } finally {
+        setLoadingSchoolYears(false);
+      }
+    };
+    fetchSchoolYears();
+  }, []);
+
+  useEffect(() => {
     const fetchSemesters = async () => {
+      if (!selectedSchoolYear) return;
+
       try {
         setLoadingSemesters(true);
-        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
+        // Updated endpoint to use URL parameter for deptId and query parameter for SchoolYearId
+        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}?SchoolYearId=${selectedSchoolYear}`);
         if (data.successful && data.data.length) {
-          // Extract unique semesters from assignations
-          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean)
-          
+          const uniqueSemesters = [...new Set(data.data.map(item => item.Semester))].filter(Boolean);
           setSemesters(uniqueSemesters);
           setSelectedSemester(uniqueSemesters[0] || null);
         } else {
           console.error('No semesters found or API error');
+          setSemesters([]);
+          setSelectedSemester(null);
         }
       } catch (error) {
         console.error('Error fetching semesters:', error);
+        setSemesters([]);
+        setSelectedSemester(null);
       } finally {
         setLoadingSemesters(false);
       }
     };
-    fetchSemesters();
-  }, [deptId]);
 
-  // Fetch professors using Axios
+    if (deptId && selectedSchoolYear) {
+      fetchSemesters();
+    }
+  }, [deptId, selectedSchoolYear]);
+
   useEffect(() => {
     const fetchProfessors = async () => {
       try {
@@ -68,14 +97,16 @@ const ProfTimetable = () => {
     fetchProfessors();
   }, [deptId]);
 
-  // Fetch schedules when professor or semester changes using Axios
   useEffect(() => {
-    if (!selectedProf || !selectedSemester) return;
+    if (!selectedProf || !selectedSemester || !selectedSchoolYear) return;
     const fetchSchedules = async () => {
       setLoadingSchedules(true);
       try {
-        // Send payload with the selected semester
-        const { data } = await axios.post(`/schedule/getSchedsByProf/${selectedProf.id}`, { Semester: selectedSemester });
+        // Send payload with the selected semester and school year
+        const { data } = await axios.post(`/schedule/getSchedsByProf/${selectedProf.id}`, {
+          Semester: selectedSemester,
+          SchoolYearId: selectedSchoolYear
+        });
         if (data.successful) {
           setSchedules(data.data);
         } else {
@@ -90,7 +121,7 @@ const ProfTimetable = () => {
       }
     };
     fetchSchedules();
-  }, [selectedProf, selectedSemester]);
+  }, [selectedProf, selectedSemester, selectedSchoolYear]);
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
@@ -117,14 +148,24 @@ const ProfTimetable = () => {
   };
 
   const getSectionsInfo = (schedule) => {
-    if (!schedule.ProgYrSecs || !Array.isArray(schedule.ProgYrSecs) || schedule.ProgYrSecs.length === 0) {
+    if (!schedule.Assignation || !schedule.Assignation.ProgYrSecs) {
       return 'No sections data';
     }
 
-    return schedule.ProgYrSecs
+    // Make sure ProgYrSecs is an array
+    const progYrSecs = schedule.Assignation.ProgYrSecs || [];
+
+    if (progYrSecs.length === 0) {
+      return 'No sections data';
+    }
+
+    return progYrSecs
       .map(sec => {
         if (!sec || !sec.Program) return 'Unknown';
-        return `${sec.Program.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`;
+        const programCode = sec.Program.Code || 'Unknown';
+        const year = sec.Year || '?';
+        const section = sec.Section || '?';
+        return `${programCode} ${year}-${section}`;
       })
       .join(', ');
   };
@@ -132,7 +173,6 @@ const ProfTimetable = () => {
   const ProfScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
-
     const courseCode = schedule.Assignation?.Course?.Code || 'Unknown Course';
     const courseDesc = schedule.Assignation?.Course?.Description || 'No description available';
     const sections = getSectionsInfo(schedule);
@@ -191,6 +231,15 @@ const ProfTimetable = () => {
     return renderEventInCell(hour, selectedDay);
   };
 
+  // Handle school year change
+  const handleSchoolYearChange = (e) => {
+    const newSchoolYearId = e.target.value;
+    setSelectedSchoolYear(newSchoolYearId);
+    // Reset semester when school year changes
+    setSelectedSemester(null);
+    setSemesters([]);
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col bg-gray-800"
@@ -219,21 +268,44 @@ const ProfTimetable = () => {
               </div>
               <div className="flex flex-wrap items-center gap-3 mt-3 sm:mt-0">
                 <button
-                onClick={() => navigate('/addConfigSchedule')}
-                className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
-                title="Go Back"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
+                  onClick={() => navigate('/addConfigSchedule')}
+                  className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
+                  title="Go Back"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* School Year Dropdown */}
+                <div className="w-full sm:w-auto">
+                  <select
+                    value={selectedSchoolYear || ''}
+                    onChange={handleSchoolYearChange}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm w-full"
+                    disabled={loadingSchoolYears}
+                  >
+                    {loadingSchoolYears ? (
+                      <option>Loading school years...</option>
+                    ) : schoolYears.length > 0 ? (
+                      schoolYears.map(sy => (
+                        <option key={sy.id} value={sy.id}>
+                          SY: {sy.SY_Name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No school years available</option>
+                    )}
+                  </select>
+                </div>
+
                 {/* Semester Dropdown */}
                 <div className="w-full sm:w-auto">
                   <select
                     value={selectedSemester || ''}
                     onChange={e => setSelectedSemester(e.target.value)}
                     className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm w-full"
-                    disabled={loadingSemesters}
+                    disabled={loadingSemesters || semesters.length === 0}
                   >
                     {loadingSemesters ? (
                       <option>Loading semesters...</option>
@@ -246,7 +318,7 @@ const ProfTimetable = () => {
                     )}
                   </select>
                 </div>
-                
+
                 {/* Professor Dropdown */}
                 <div className="w-full sm:w-auto">
                   <select
@@ -264,9 +336,9 @@ const ProfTimetable = () => {
                     ))}
                   </select>
                 </div>
-                
+
                 {/* Export Button */}
-                {selectedProf && selectedSemester && !loadingSchedules && (
+                {selectedProf && selectedSemester && selectedSchoolYear && !loadingSchedules && (
                   <ExportButton
                     selectedProf={selectedProf}
                     schedules={schedules}
@@ -338,31 +410,52 @@ const ProfTimetable = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2">
+                    {/* School Year Dropdown (Mobile) */}
                     <select
-                      value={selectedSemester || ''}
-                      onChange={e => setSelectedSemester(e.target.value)}
-                      className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200 flex-grow mr-2"
-                      disabled={loadingSemesters}
+                      value={selectedSchoolYear || ''}
+                      onChange={handleSchoolYearChange}
+                      className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200"
+                      disabled={loadingSchoolYears}
                     >
-                      {loadingSemesters ? (
+                      {loadingSchoolYears ? (
                         <option>Loading...</option>
-                      ) : semesters.length > 0 ? (
-                        semesters.map(semester => (
-                          <option key={semester} value={semester}>Semester: {semester}</option>
+                      ) : schoolYears.length > 0 ? (
+                        schoolYears.map(sy => (
+                          <option key={sy.id} value={sy.id}>SY: {sy.SY_Name}</option>
                         ))
                       ) : (
-                        <option value="">No semesters</option>
+                        <option value="">No school years</option>
                       )}
                     </select>
-                    {selectedProf && selectedSemester && !loadingSchedules && (
-                      <ExportButton
-                        selectedProf={selectedProf}
-                        schedules={schedules}
-                        days={days}
-                        timeSlots={timeSlots}
-                      />
-                    )}
+
+                    {/* Semester Dropdown (Mobile) */}
+                    <div className="flex items-center justify-between">
+                      <select
+                        value={selectedSemester || ''}
+                        onChange={e => setSelectedSemester(e.target.value)}
+                        className="rounded-lg px-2 py-1 text-sm bg-white text-gray-800 border border-gray-200 flex-grow mr-2"
+                        disabled={loadingSemesters || semesters.length === 0}
+                      >
+                        {loadingSemesters ? (
+                          <option>Loading...</option>
+                        ) : semesters.length > 0 ? (
+                          semesters.map(semester => (
+                            <option key={semester} value={semester}>Semester: {semester}</option>
+                          ))
+                        ) : (
+                          <option value="">No semesters</option>
+                        )}
+                      </select>
+                      {selectedProf && selectedSemester && selectedSchoolYear && !loadingSchedules && (
+                        <ExportButton
+                          selectedProf={selectedProf}
+                          schedules={schedules}
+                          days={days}
+                          timeSlots={timeSlots}
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
                 {loadingSchedules ? (

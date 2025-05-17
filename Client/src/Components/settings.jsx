@@ -49,7 +49,7 @@ const SettingsModal = ({ isOpen, closeSettingsModal }) => {
 
   const fetchSettings = async () => {
     try {
-      const response = await Axios.get(`/settings/getSettingsByDept/${deptId}`);
+      const response = await Axios.get(`/settings/getSettings`);
       if (response.data.successful) {
         setSettings(response.data.data);
         setOriginalSettings(JSON.parse(JSON.stringify(response.data.data))); // Deep copy
@@ -96,7 +96,7 @@ const SettingsModal = ({ isOpen, closeSettingsModal }) => {
 
   const handleSubmit = async () => {
     try {
-      const response = await Axios.put(`/settings/updateSettingsByDept/${deptId}`, settings);
+      const response = await Axios.put(`/settings/updateSettings`, settings);
       if (response.data.successful) {
         setSuccessMessage("Department settings updated successfully!");
         setTimeout(() => {

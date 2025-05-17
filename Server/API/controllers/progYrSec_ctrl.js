@@ -63,10 +63,10 @@ const addProgYrSec = async (req, res, next) => {
                     message: "Section must be a single uppercase letter from A to Z."
                 });
             }
-            if (NumberOfStudents <= 0 || NumberOfStudents > 60) {
+            if (NumberOfStudents <= 0 || NumberOfStudents > 50) {
                 return res.status(400).json({
                     successful: false,
-                    message: "Number of Students must be greater than 0 or less than 60."
+                    message: "Number of Students must be greater than 0 or less than 50."
                 });
             }
             // Create ProgYrSec record
@@ -276,10 +276,23 @@ const updateProgYrSec = async (req, res, next) => {
             });
         }
 
-        if (NumberOfStudents <= 0) {
+        if (Year < 1 || Year > 6) {
             return res.status(400).json({
                 successful: false,
-                message: "Number of Students must be greater than 0."
+                message: "Year must be between 1 and 6."
+            })
+        }
+        const sectionRegex = /^[A-Z]$/
+        if (!sectionRegex.test(Section)) {
+            return res.status(400).json({
+                successful: false,
+                message: "Section must be a single uppercase letter from A to Z."
+            });
+        }
+        if (NumberOfStudents <= 0 || NumberOfStudents > 50) {
+            return res.status(400).json({
+                successful: false,
+                message: "Number of Students must be greater than 0 or less than 50."
             });
         }
 
@@ -512,14 +525,14 @@ const getProgYrSecByCourse = async (req, res, next) => {
 
         // Format the response data and flatten the array structure
         let allSections = [];
-        
+
         coursePrograms.forEach(cp => {
             const program = cp.Program;
             // Filter sections to match the year in CourseProg (if Year is specified)
             const filteredSections = cp.Year
                 ? program.ProgYrSecs.filter(section => section.Year === cp.Year)
                 : program.ProgYrSecs;
-                
+
             // Add sections to our flat array instead of returning them in nested arrays
             allSections = [...allSections, ...filteredSections];
         });

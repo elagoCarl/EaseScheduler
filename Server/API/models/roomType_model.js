@@ -22,7 +22,12 @@ module.exports = (sequelize, DataTypes) => {
         RoomType.hasMany(models.Course, {
             onDelete: 'RESTRICT',
             onUpdate: 'CASCADE'
-        });
+        })
+        RoomType.hasMany(models.Room, {
+            foreignKey: 'PrimaryTypeId',
+            onDelete: 'RESTRICT',
+            onUpdate: 'CASCADE'
+        })
     };
 
     return RoomType;

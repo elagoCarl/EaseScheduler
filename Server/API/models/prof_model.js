@@ -16,18 +16,6 @@ module.exports = (sequelize, DataTypes) => {
                 notEmpty: { msg: "Email is required." }
             }
         },
-        FirstSemUnits: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            min: 0,
-            defaultValue: 0
-        },
-        SecondSemUnits: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            min: 0,
-            defaultValue: 0
-        },
         ProfStatusId: {
             type: DataTypes.INTEGER,
             allowNull: false,
@@ -46,11 +34,11 @@ module.exports = (sequelize, DataTypes) => {
         });
 
         Professor.belongsToMany(models.Course, {
-            through: {model: 'Assignation', unique: false}
+            through: { model: 'Assignation', unique: false }
         });
 
         Professor.belongsToMany(models.Department, {
-            through: {model: 'Assignation', unique: false}
+            through: { model: 'Assignation', unique: false }
         });
 
         Professor.hasMany(models.Assignation, {
@@ -58,6 +46,13 @@ module.exports = (sequelize, DataTypes) => {
         });
 
         Professor.belongsTo(models.ProfStatus);
+
+        // New association for ProfessorLoad
+        Professor.hasMany(models.ProfessorLoad, {
+            foreignKey: 'ProfId',
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        });
     };
 
     return Professor;

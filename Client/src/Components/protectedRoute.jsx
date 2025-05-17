@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './authContext';
 import PropTypes from 'prop-types';
+import { Loader2 } from "lucide-react";
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
@@ -11,7 +12,9 @@ const ProtectedRoute = ({ children }) => {
     // Render a loading indicator while the auth state is being determined
     if (loading) {
         return (
-            <div className="rounded-md h-12 w-12 border-4 border-t-4 border-blue-500 animate-spin absolute"></div>
+            <div className="fixed inset-0 flex justify-center items-center bg-white z-50">
+                <Loader2 className="rounded-full h-50 w-50  animate-spin transition stroke-blue-500" />
+            </div>
         );
     }
 
@@ -35,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
     const adminOnlyPaths = ['/accountlist', '/deptprog'];
 
     // Routes that Admin cannot access (accessible by other roles)
-    const adminRestrictedPaths = ['/courseprog', '/progyrsec', '/assignationscourseprof', '/course', '/settings', '/addconfigschedule', '/roomtimetable', '/proftimetable', '/sectiontimetable'];
+    const adminRestrictedPaths = ['/progyrsec', '/assignationscourseprof', '/settings',];
 
     // Check for Program Head and Admin routes
     if (programHeadAndAdminPaths.includes(normalizedPath) &&

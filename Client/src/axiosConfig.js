@@ -20,7 +20,6 @@ axiosInstance.interceptors.response.use(
     ) {
       originalRequest._retry = true;
       try {
-        // pang kuha ng tokens oo tangina sana gumana putcha
         await axiosInstance.get('/auth/refresh');
         return axiosInstance(originalRequest);
       } catch (refreshError) {

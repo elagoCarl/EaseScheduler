@@ -14,37 +14,55 @@ const SectionTimetable = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(0);
-
-  // Filter data
   const [programs, setPrograms] = useState([]);
   const [years, setYears] = useState([]);
   const [sections, setSections] = useState([]);
-  const [semesters, setSemesters] = useState([]); // New state for semesters
-  
-  // Selected filters
+  const [semesters, setSemesters] = useState([]);
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
-  const [selectedSemester, setSelectedSemester] = useState(null); // New state for selected semester
-
-  // Filtered schedules based on selected filters
+  const [selectedSemester, setSelectedSemester] = useState(null);
   const [filteredSchedules, setFilteredSchedules] = useState([]);
+  // Add school year state variables
+  const [schoolYears, setSchoolYears] = useState([]);
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState(null);
+  const [loadingSchoolYears, setLoadingSchoolYears] = useState(true);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const timeSlots = Array.from({ length: 15 }, (_, i) => 7 + i);
 
-  // Fetch semesters from assignation endpoint
+  // Fetch school years
+  useEffect(() => {
+    const fetchSchoolYears = async () => {
+      try {
+        setLoadingSchoolYears(true);
+        const { data } = await axios.get('/schoolYear/getAllSchoolYears');
+        if (data.successful && data.data.length) {
+          setSchoolYears(data.data);
+          setSelectedSchoolYear(data.data[0]?.id || null);
+        } else {
+          console.error('No school years found or API error');
+        }
+      } catch (error) {
+        console.error('Error fetching school years:', error);
+      } finally {
+        setLoadingSchoolYears(false);
+      }
+    };
+    fetchSchoolYears();
+  }, []);
+
+  // Fetch semesters based on selected school year
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
-        // Add null check for user and DepartmentId
-        if (!user || !user.DepartmentId) {
-          console.error('User or DepartmentId is missing');
+        if (!user || !user.DepartmentId || !selectedSchoolYear) {
+          console.error('User, DepartmentId, or SchoolYear is missing');
           return;
         }
 
         const deptId = user.DepartmentId;
-        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}`);
+        const { data } = await axios.get(`/assignation/getAllAssignationsByDeptInclude/${deptId}?SchoolYearId=${selectedSchoolYear}`);
 
         if (data.successful && data.data && data.data.length) {
           // Extract unique semesters from assignations
@@ -54,48 +72,62 @@ const SectionTimetable = () => {
             .sort();
 
           setSemesters(uniqueSemesters);
-          
+
           // Set initial selection if semesters available
           if (uniqueSemesters.length) {
             setSelectedSemester(uniqueSemesters[0]);
+          } else {
+            setSelectedSemester(null);
           }
         } else {
           console.error('No assignations found or API error');
+          setSemesters([]);
+          setSelectedSemester(null);
         }
       } catch (error) {
         console.error('Error fetching semesters:', error);
+        setSemesters([]);
+        setSelectedSemester(null);
       }
     };
-    
-    fetchSemesters();
-  }, [user]);
 
-  // Fetch all schedules and extract filter options
+    if (selectedSchoolYear) {
+      fetchSemesters();
+    }
+  }, [user, selectedSchoolYear]);
+
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        // Add null check for user and DepartmentId
-        if (!user || !user.DepartmentId || !selectedSemester) {
-          console.error('User, DepartmentId, or Semester is missing');
+        if (!user || !user.DepartmentId || !selectedSemester || !selectedSchoolYear) {
+          console.error('User, DepartmentId, Semester, or SchoolYear is missing');
           setLoading(false);
           return;
         }
 
         const deptId = user.DepartmentId;
-        // Include selectedSemester in the payload
-        const { data } = await axios.post(`/schedule/getSchedsByDept/${deptId}`, { Semester: selectedSemester });
+        // Include selectedSemester and selectedSchoolYear in the payload
+        const { data } = await axios.post(`/schedule/getSchedsByDept/${deptId}`, {
+          Semester: selectedSemester,
+          SchoolYearId: selectedSchoolYear
+        });
+
+        console.log('API Response:', data);
 
         if (data.successful && data.data && data.data.length) {
           const scheds = data.data;
+          console.log('First schedule item:', scheds[0]);
+
           setSchedules(scheds);
 
-          // Extract unique programs, years, and sections
           const uniquePrograms = [];
           const uniqueYears = [];
           const uniqueSections = [];
+
           scheds.forEach(schedule => {
-            if (schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0) {
-              schedule.ProgYrSecs.forEach(prog => {
+            // Check for Assignation.ProgYrSecs instead of ProgYrSecs directly
+            if (schedule.Assignation && schedule.Assignation.ProgYrSecs && schedule.Assignation.ProgYrSecs.length > 0) {
+              schedule.Assignation.ProgYrSecs.forEach(prog => {
                 if (prog.Program && !uniquePrograms.find(p => p.id === prog.Program.id)) {
                   uniquePrograms.push(prog.Program);
                 }
@@ -109,18 +141,15 @@ const SectionTimetable = () => {
             }
           });
 
-          // Sort and update state
           setPrograms(uniquePrograms.sort((a, b) => a.Code?.localeCompare(b.Code || '') || 0));
           setYears(uniqueYears.sort((a, b) => a - b));
           setSections(uniqueSections.sort());
 
-          // Set initial selections only if there are options available
           if (uniquePrograms.length) setSelectedProgram(uniquePrograms[0].id);
           if (uniqueYears.length) setSelectedYear(uniqueYears[0]);
           if (uniqueSections.length) setSelectedSection(uniqueSections[0]);
         } else {
           console.error('No schedules found or API error');
-          // Clear previous data when no schedules found
           setSchedules([]);
           setPrograms([]);
           setYears([]);
@@ -131,25 +160,25 @@ const SectionTimetable = () => {
         }
       } catch (error) {
         console.error('Error fetching schedules:', error);
-        // Clear data on error
         setSchedules([]);
       } finally {
         setLoading(false);
       }
     };
-    
-    // Only fetch schedules if a semester is selected
-    if (selectedSemester) {
+
+    if (selectedSemester && selectedSchoolYear) {
       setLoading(true);
       fetchSchedules();
     }
-  }, [user, selectedSemester]); // Added selectedSemester dependency
+  }, [user, selectedSemester, selectedSchoolYear]);
 
-  // Filter schedules when filters or schedules change
   useEffect(() => {
     if (schedules.length === 0) return;
     const filtered = schedules.filter(schedule =>
-      schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0 && schedule.ProgYrSecs.some(prog =>
+      schedule.Assignation &&
+      schedule.Assignation.ProgYrSecs &&
+      schedule.Assignation.ProgYrSecs.length > 0 &&
+      schedule.Assignation.ProgYrSecs.some(prog =>
         (!selectedProgram || (prog.Program && prog.Program.id === selectedProgram)) &&
         (!selectedYear || prog.Year === selectedYear) &&
         (!selectedSection || prog.Section === selectedSection)
@@ -171,7 +200,6 @@ const SectionTimetable = () => {
     return { top: `${(startMin / 60) * 100}%`, height: `${duration * 100}%` };
   };
 
-  // Get room info from Assignation.Rooms
   const getRoomInfo = (schedule) => {
     const room = schedule?.Room
     return {
@@ -180,14 +208,14 @@ const SectionTimetable = () => {
     };
   };
 
-  // New component that expands on hover (similar to the other timetable pages)
   const SectionScheduleEvent = ({ schedule }) => {
     const [hovered, setHovered] = useState(false);
     const pos = calculateEventPosition(schedule);
 
-    // Add null checks for all data access
-    const sectionsStr = schedule.ProgYrSecs && schedule.ProgYrSecs.length > 0
-      ? schedule.ProgYrSecs
+    const sectionsStr = schedule.Assignation &&
+      schedule.Assignation.ProgYrSecs &&
+      schedule.Assignation.ProgYrSecs.length > 0
+      ? schedule.Assignation.ProgYrSecs
         .map(sec => `${sec.Program?.Code || 'Unknown'} ${sec.Year || '?'}-${sec.Section || '?'}`)
         .join(', ')
       : 'Unknown';
@@ -217,7 +245,6 @@ const SectionTimetable = () => {
     );
   };
 
-  // Render event for both desktop and mobile views using SectionScheduleEvent
   const renderEvent = (hour, dayIndex) => {
     const apiDayIndex = dayIndex + 1;
     return filteredSchedules
@@ -238,16 +265,28 @@ const SectionTimetable = () => {
       });
   };
 
-  // Mobile view: render event only for the selected day
   const renderMobileEvent = (hour, dayIndex) => {
     if (dayIndex !== selectedDay) return null;
     return renderEvent(hour, selectedDay);
   };
 
-  // Find selected program safely
   const getSelectedProgramCode = () => {
     const program = programs.find(p => p.id === selectedProgram);
     return program?.Code || 'Unknown';
+  };
+
+  // Handle school year change
+  const handleSchoolYearChange = (e) => {
+    const newSchoolYearId = e.target.value;
+    setSelectedSchoolYear(newSchoolYearId);
+    // Reset semester when school year changes
+    setSelectedSemester(null);
+    setSemesters([]);
+  };
+
+  const getSelectedSchoolYearName = () => {
+    const schoolYear = schoolYears.find(sy => sy.id === selectedSchoolYear);
+    return schoolYear?.SY_Name || 'Unknown';
   };
 
   return (
@@ -262,140 +301,171 @@ const SectionTimetable = () => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full">
           {/* Header with filters */}
           <div className="bg-blue-600 p-4 sm:p-6">
-  {/* Header section with title and selected info */}
-  
-  
-  {/* Filters and export button */}
-  <div className="flex flex-col md:flex-row md:items-end justify-end gap-4">
-    <div className='flex flex-grow'>
-    <div className="flex flex-col mb-4">
-    <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
-    {selectedSemester && selectedProgram && selectedYear && selectedSection && (
-      <div className="text-blue-100">
-        <p className="text-lg font-semibold">{getSelectedProgramCode()} Year {selectedYear} Section {selectedSection} - {selectedSemester}</p>
-      </div>
-    )}
-  </div>
-    </div>
-  
-    {/* Filter controls in a responsive row */}
-    <div className="flex flex-wrap items-end gap-2 sm:gap-4">
-    <button
-                onClick={() => navigate('/addConfigSchedule')}
-                className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
-                title="Go Back"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-      {/* Semester Dropdown */}
-      <div className="flex flex-col">
-        <label className="text-blue-100 text-sm mb-1">Semester</label>
-        <select
-          value={selectedSemester || ''}
-          onChange={e => setSelectedSemester(e.target.value || null)}
-          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-        >
-          {semesters.length > 0 ? (
-            semesters.map(semester => (
-              <option key={semester} value={semester}>Semester: {semester}</option>
-            ))
-          ) : (
-            <option value="">No semesters available</option>
-          )}
-        </select>
-      </div>
-      
-      {/* Program Dropdown */}
-      <div className="flex flex-col">
-        <label className="text-blue-100 text-sm mb-1">Program</label>
-        <select
-          value={selectedProgram || ''}
-          onChange={e => setSelectedProgram(e.target.value ? parseInt(e.target.value) : null)}
-          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-          disabled={!selectedSemester || programs.length === 0}
-        >
-          {programs.length > 0 ? (
-            programs.map(program => (
-              <option key={program.id} value={program.id}>
-                {program.Code || 'Unknown'}
-              </option>
-            ))
-          ) : (
-            <option value="">No programs available</option>
-          )}
-        </select>
-      </div>
-      
-      {/* Year Dropdown */}
-      <div className="flex flex-col">
-        <label className="text-blue-100 text-sm mb-1">Year</label>
-        <select
-          value={selectedYear || ''}
-          onChange={e => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
-          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-          disabled={!selectedSemester || years.length === 0}
-        >
-          {years.length > 0 ? (
-            years.map(year => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))
-          ) : (
-            <option value="">No years available</option>
-          )}
-        </select>
-      </div>
-      
-      {/* Section Dropdown */}
-      <div className="flex flex-col">
-        <label className="text-blue-100 text-sm mb-1">Section</label>
-        <select
-          value={selectedSection || ''}
-          onChange={e => setSelectedSection(e.target.value || null)}
-          className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-          disabled={!selectedSemester || sections.length === 0}
-        >
-          {sections.length > 0 ? (
-            sections.map(section => (
-              <option key={section} value={section}>
-                {section}
-              </option>
-            ))
-          ) : (
-            <option value="">No sections available</option>
-          )}
-        </select>
-      </div>
-    </div>
-    
-    {/* Export button */}
-    {selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
-      <div className="mt-2 md:mt-0">
-        <ExportButton
-          selectedSection={{
-            Program: getSelectedProgramCode(),
-            Year: selectedYear,
-            Section: selectedSection,
-            Semester: selectedSemester
-          }}
-          schedules={filteredSchedules}
-          days={days}
-          timeSlots={timeSlots}
-        />
-      </div>
-    )}
-  </div>
-</div>
-          
+            {/* Header section with title and selected info */}
+
+            {/* Filters and export button */}
+            <div className="flex flex-col md:flex-row md:items-end justify-end gap-4">
+              <div className='flex flex-grow'>
+                <div className="flex flex-col mb-4">
+                  <h1 className="text-xl sm:text-2xl font-bold text-white">Section Timetable</h1>
+                  {selectedSchoolYear && selectedSemester && selectedProgram && selectedYear && selectedSection && (
+                    <div className="text-blue-100">
+                      <p className="text-lg font-semibold">
+                        {getSelectedProgramCode()} Year {selectedYear} Section {selectedSection} - SY: {getSelectedSchoolYearName()}, Sem: {selectedSemester}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Filter controls in a responsive row */}
+              <div className="flex flex-wrap items-end gap-2 sm:gap-4">
+                <button
+                  onClick={() => navigate('/addConfigSchedule')}
+                  className="bg-white text-blue-600 rounded-full p-3 mr-2 hover:bg-blue-200 duration-300 transition"
+                  title="Go Back"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* School Year Dropdown */}
+                <div className="flex flex-col">
+                  <label className="text-blue-100 text-sm mb-1">School Year</label>
+                  <select
+                    value={selectedSchoolYear || ''}
+                    onChange={handleSchoolYearChange}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                    disabled={loadingSchoolYears}
+                  >
+                    {loadingSchoolYears ? (
+                      <option>Loading school years...</option>
+                    ) : schoolYears.length > 0 ? (
+                      schoolYears.map(sy => (
+                        <option key={sy.id} value={sy.id}>
+                          SY: {sy.SY_Name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No school years available</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Semester Dropdown */}
+                <div className="flex flex-col">
+                  <label className="text-blue-100 text-sm mb-1">Semester</label>
+                  <select
+                    value={selectedSemester || ''}
+                    onChange={e => setSelectedSemester(e.target.value || null)}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                    disabled={!selectedSchoolYear || semesters.length === 0}
+                  >
+                    {semesters.length > 0 ? (
+                      semesters.map(semester => (
+                        <option key={semester} value={semester}>Semester: {semester}</option>
+                      ))
+                    ) : (
+                      <option value="">No semesters available</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Program Dropdown */}
+                <div className="flex flex-col">
+                  <label className="text-blue-100 text-sm mb-1">Program</label>
+                  <select
+                    value={selectedProgram || ''}
+                    onChange={e => setSelectedProgram(e.target.value ? parseInt(e.target.value) : null)}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                    disabled={!selectedSemester || programs.length === 0}
+                  >
+                    {programs.length > 0 ? (
+                      programs.map(program => (
+                        <option key={program.id} value={program.id}>
+                          {program.Code || 'Unknown'}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No programs available</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Year Dropdown */}
+                <div className="flex flex-col">
+                  <label className="text-blue-100 text-sm mb-1">Year</label>
+                  <select
+                    value={selectedYear || ''}
+                    onChange={e => setSelectedYear(e.target.value ? parseInt(e.target.value) : null)}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                    disabled={!selectedSemester || years.length === 0}
+                  >
+                    {years.length > 0 ? (
+                      years.map(year => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No years available</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Section Dropdown */}
+                <div className="flex flex-col">
+                  <label className="text-blue-100 text-sm mb-1">Section</label>
+                  <select
+                    value={selectedSection || ''}
+                    onChange={e => setSelectedSection(e.target.value || null)}
+                    className="rounded-lg px-3 py-1 sm:px-4 sm:py-2 bg-white text-gray-800 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                    disabled={!selectedSemester || sections.length === 0}
+                  >
+                    {sections.length > 0 ? (
+                      sections.map(section => (
+                        <option key={section} value={section}>
+                          {section}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No sections available</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Export button */}
+              {selectedSchoolYear && selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+                <div className="mt-2 md:mt-0">
+                  <ExportButton
+                    selectedSection={{
+                      Program: getSelectedProgramCode(),
+                      Year: selectedYear,
+                      Section: selectedSection,
+                      Semester: selectedSemester,
+                      SchoolYear: getSelectedSchoolYearName()
+                    }}
+                    schedules={filteredSchedules}
+                    days={days}
+                    timeSlots={timeSlots}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Calendar */}
           <div className="overflow-x-auto">
             <div className="p-2 sm:p-4">
               {/* Desktop View */}
               <div className="hidden md:block">
-                {!selectedSemester ? (
+                {!selectedSchoolYear ? (
+                  <div className="flex items-center justify-center py-16">
+                    <span className="text-gray-500 font-medium">Please select a school year to view schedules</span>
+                  </div>
+                ) : !selectedSemester ? (
                   <div className="flex items-center justify-center py-16">
                     <span className="text-gray-500 font-medium">Please select a semester to view schedules</span>
                   </div>
@@ -450,13 +520,14 @@ const SectionTimetable = () => {
                   <span className="text-gray-700 font-medium text-sm">Time</span>
                   <div className="flex items-center gap-2">
                     {/* Add ExportButton in mobile view */}
-                    {selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
+                    {selectedSchoolYear && selectedSemester && selectedProgram && selectedYear && selectedSection && !loading && filteredSchedules.length > 0 && (
                       <ExportButton
                         selectedSection={{
                           Program: getSelectedProgramCode(),
                           Year: selectedYear,
                           Section: selectedSection,
-                          Semester: selectedSemester // Add semester to export data
+                          Semester: selectedSemester,
+                          SchoolYear: getSelectedSchoolYearName()
                         }}
                         schedules={filteredSchedules}
                         days={days}
@@ -476,7 +547,11 @@ const SectionTimetable = () => {
                     </select>
                   </div>
                 </div>
-                {!selectedSemester ? (
+                {!selectedSchoolYear ? (
+                  <div className="flex items-center justify-center py-10">
+                    <span className="text-gray-500 font-medium text-sm">Please select a school year to view schedules</span>
+                  </div>
+                ) : !selectedSemester ? (
                   <div className="flex items-center justify-center py-10">
                     <span className="text-gray-500 font-medium text-sm">Please select a semester to view schedules</span>
                   </div>

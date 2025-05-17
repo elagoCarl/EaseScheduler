@@ -1,4 +1,4 @@
-const { RoomType, Room, Assignation } = require('../models')
+const { RoomType, Room, Assignation, sequelize } = require('../models')
 const jwt = require('jsonwebtoken')
 const { Op } = require('sequelize');
 const { REFRESH_TOKEN_SECRET } = process.env
@@ -64,9 +64,7 @@ const addRoomType = async (req, res, next) => {
     try {
         let roomTypes = req.body;
 
-        // Check if the request body contains an array of room types
         if (!Array.isArray(roomTypes)) {
-            // If not an array, convert the single room type to an array
             roomTypes = [roomTypes];
         }
 
@@ -80,6 +78,14 @@ const addRoomType = async (req, res, next) => {
                 });
             }
 
+            // Validate Type contains only letters
+            if (!/^[A-Za-z\s]+$/.test(Type)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: "Room type must contain letters and spaces only."
+                });
+            }
+
             const existingRoomType = await RoomType.findOne({ where: { Type } });
             if (existingRoomType) {
                 return res.status(406).json({
@@ -88,9 +94,7 @@ const addRoomType = async (req, res, next) => {
                 });
             }
 
-            const newRoomType = await RoomType.create({
-                Type
-            });
+            const newRoomType = await RoomType.create({ Type });
 
             const token = req.cookies?.refreshToken;
             if (!token) {
@@ -121,14 +125,14 @@ const addRoomType = async (req, res, next) => {
             successful: true,
             message: "Successfully added new room type."
         });
-    }
-    catch (err) {
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
         });
     }
 };
+
 
 
 const updateRoomType = async (req, res, next) => {
@@ -143,7 +147,14 @@ const updateRoomType = async (req, res, next) => {
             });
         }
 
-        // Check if room type exists
+        // Validate Type contains only letters
+        if (!/^[A-Za-z\s]+$/.test(Type)) {
+            return res.status(400).json({
+                successful: false,
+                message: "Room type must contain letters and spaces only."
+            });
+        }
+
         const roomType = await RoomType.findByPk(id);
         if (!roomType) {
             return res.status(404).json({
@@ -152,11 +163,10 @@ const updateRoomType = async (req, res, next) => {
             });
         }
 
-        // Check if the new type already exists (but not for this record)
         const existingRoomType = await RoomType.findOne({
             where: {
                 Type,
-                id: { [Op.ne]: id } // Not equal to current ID
+                id: { [Op.ne]: id }
             }
         });
 
@@ -167,10 +177,8 @@ const updateRoomType = async (req, res, next) => {
             });
         }
 
-        // Update the room type
         await roomType.update({ Type });
 
-        // Get the refresh token for history log
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({
@@ -199,8 +207,7 @@ const updateRoomType = async (req, res, next) => {
             successful: true,
             message: "Successfully updated room type."
         });
-    }
-    catch (err) {
+    } catch (err) {
         return res.status(500).json({
             successful: false,
             message: err.message || "An unexpected error occurred."
@@ -209,12 +216,13 @@ const updateRoomType = async (req, res, next) => {
 };
 
 
+
 const deleteRoomType = async (req, res, next) => {
     try {
         // Find the room type before deletion (to log the type name)
         const roomType = await RoomType.findOne({
             where: {
-                id: req.params.id, // The ID of the record to delete
+                id: req.params.id,
             },
         });
 
@@ -225,26 +233,36 @@ const deleteRoomType = async (req, res, next) => {
             });
         }
 
-        // Check if there are rooms using this room type
-        const roomsUsingType = await Room.count({
+        // Check if there are rooms using this room type in the junction table
+        const typeRoomsCount = await sequelize.models.TypeRoom.count({
             where: {
                 RoomTypeId: req.params.id
             }
         });
-        const assignationUsingType = await Assignation.count({
+        
+        // Check if any rooms are using this as their primary type
+        const roomsWithPrimaryType = await Room.count({
+            where: {
+                PrimaryTypeId: req.params.id
+            }
+        });
+        
+        // NEW: Check if any courses are using this room type
+        const coursesWithRoomType = await sequelize.models.Course.count({
             where: {
                 RoomTypeId: req.params.id
             }
         });
-
-        if (roomsUsingType > 0 || assignationUsingType > 0) {
+        
+        // Update the condition to include courses check
+        if (typeRoomsCount > 0 || roomsWithPrimaryType > 0 || coursesWithRoomType > 0) {
             return res.status(409).send({
                 successful: false,
-                message: "Cannot delete room type as it is being used by existing rooms or assignations."
+                message: "Cannot delete room type as it is being used by existing rooms or courses."
             });
         }
 
-        // Log the delete action
+        // Rest of your code remains the same...
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({

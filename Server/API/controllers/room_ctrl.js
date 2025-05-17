@@ -5,6 +5,8 @@ const util = require('../../utils')
 const { addHistoryLog } = require('../controllers/historyLogs_ctrl');
 const { get } = require('../routers/program_rtr');
 
+const isAlphanumeric = (str) => /^[a-zA-Z0-9]+$/.test(str);
+
 const addRoom = async (req, res, next) => {
     try {
         let rooms = req.body;
@@ -16,20 +18,27 @@ const addRoom = async (req, res, next) => {
         }
 
         for (const room of rooms) {
-            const { Code, Floor, Building, NumberOfSeats } = room;
+            const { Code, Floor, Building, PrimaryTypeId } = room;
 
-            if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
+            if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
                 return res.status(400).json({
                     successful: false,
                     message: "A mandatory field is missing."
                 });
             }
 
-            const existingRoom = await Room.findOne({ where: { Code } });
+            if (!isAlphanumeric(Code)) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Room Code must contain only letters and numbers."
+                });
+            }
+
+            const existingRoom = await Room.findOne({ where: { Code, Building } });
             if (existingRoom) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Room code already exists."
+                    message: "Room code already exists for the same building."
                 });
             }
 
@@ -40,19 +49,11 @@ const addRoom = async (req, res, next) => {
                 });
             }
 
-            // Validate NumberOfSeats is a positive integer
-            if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
-                return res.status(406).json({
-                    successful: false,
-                    message: "Number of seats must be a positive integer."
-                });
-            }
-
             const newRoom = await Room.create({
                 Code,
                 Floor,
                 Building,
-                NumberOfSeats
+                PrimaryTypeId
             });
 
             const token = req.cookies?.refreshToken;
@@ -75,7 +76,7 @@ const addRoom = async (req, res, next) => {
 
             const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Added Room: ${Building}${Code} floor: ${Floor}, seats: ${NumberOfSeats}`;
+            const details = `Added Room: ${Building}${Code} floor: ${Floor}`;
 
             await addHistoryLog(accountId, page, details);
         }
@@ -131,6 +132,19 @@ const getAllRoom = async (req, res, next) => {
     }
 }
 
+const getPrimaryRoom = async (req, res, next) => {
+    try {
+
+        const room = await Room.findByPk(req.params.id)
+
+    } catch (error) {
+        return res.status(500).json({
+            successful: false,
+            message: error.message || "An unexpected error occurred."
+        })
+    }
+}
+
 const getRoom = async (req, res, next) => {
     try {
         let room = await Room.findByPk(req.params.id, {
@@ -167,10 +181,10 @@ const getRoom = async (req, res, next) => {
 
 const deleteRoom = async (req, res, next) => {
     try {
-        // Find the professor before deletion (to log the professor's name)
+        // Find the room before deletion (to log the room details)
         const room = await Room.findOne({
             where: {
-                id: req.params.id, // Replace with the ID of the record you want to delete
+                id: req.params.id,
             },
         });
 
@@ -181,7 +195,21 @@ const deleteRoom = async (req, res, next) => {
             });
         }
 
-        // Log the archive action
+        // Check if room has associated room types
+        const typeRoomCount = await sequelize.models.TypeRoom.count({
+            where: {
+                RoomId: req.params.id
+            }
+        });
+
+        if (typeRoomCount > 0) {
+            return res.status(409).send({
+                successful: false,
+                message: "Cannot delete this room as it has associated room types. Please remove all room types from this room first."
+            });
+        }
+
+        // Log the delete action
         const token = req.cookies?.refreshToken;
         if (!token) {
             return res.status(401).json({
@@ -189,41 +217,52 @@ const deleteRoom = async (req, res, next) => {
                 message: "Unauthorized: refreshToken not found."
             });
         }
+
         let decoded;
         try {
-            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET); // or your secret key
+            decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
         } catch (err) {
             return res.status(403).json({
                 successful: false,
                 message: "Invalid refreshToken."
             });
         }
-        const accountId = decoded.id || decoded.accountId; // adjust based on your token payload
+
+        const accountId = decoded.id || decoded.accountId;
         const page = 'Room';
-        const details = `Deleted Room for: ${room.Building} ${room.Code}`; // Include professor's name or other info
+        const details = `Deleted Room: ${room.Building} ${room.Code}`;
 
         await addHistoryLog(accountId, page, details);
 
-        const deleteRoom = await room.destroy();
+        const deleteResult = await room.destroy();
 
-        if (deleteRoom) {
+        if (deleteResult) {
             res.status(200).send({
                 successful: true,
                 message: "Successfully deleted room."
-            })
+            });
         } else {
             res.status(400).send({
                 successful: false,
                 message: "Room not found."
-            })
+            });
         }
     } catch (err) {
+        // Check for specific database constraint error
+        if (err.name === 'SequelizeForeignKeyConstraintError' ||
+            (err.message && err.message.includes('foreign key constraint fails'))) {
+            return res.status(409).send({
+                successful: false,
+                message: "Cannot delete this room as it is being used by other records in the system. Please remove all associated data first."
+            });
+        }
+
         res.status(500).send({
             successful: false,
-            message: err.message
+            message: err.message || "An unexpected error occurred while deleting the room."
         });
     }
-}
+};
 
 const updateRoom = async (req, res, next) => {
     try {
@@ -237,13 +276,20 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        const { Code, Floor, Building, NumberOfSeats, RoomTypeIds } = req.body;
+        const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = req.body;
 
         // Validate required fields
-        if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
+        if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
             return res.status(400).json({
                 successful: false,
                 message: "A mandatory field is missing."
+            });
+        }
+
+        if (!isAlphanumeric(Code)) {
+            return res.status(406).json({
+                successful: false,
+                message: "Room Code must contain only letters and numbers."
             });
         }
 
@@ -255,30 +301,22 @@ const updateRoom = async (req, res, next) => {
             });
         }
 
-        // Validate NumberOfSeats is a positive integer
-        if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
-            return res.status(406).json({
-                successful: false,
-                message: "Number of seats must be a positive integer."
-            });
-        }
-
         // Validate room code uniqueness if it changed
         if (Code !== room.Code) {
-            const roomConflict = await Room.findOne({ where: { Code } });
+            const roomConflict = await Room.findOne({ where: { Code, Building } });
             if (roomConflict) {
                 return res.status(406).json({
                     successful: false,
-                    message: "Room code already exists."
+                    message: "Room code already exists for the same building."
                 });
             }
         }
 
-        // Validate room types
-        if (!Array.isArray(RoomTypeIds) || RoomTypeIds.length === 0) {
-            return res.status(400).json({
+        // Validate that PrimaryTypeId is not included in RoomTypeIds
+        if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.includes(PrimaryTypeId)) {
+            return res.status(406).json({
                 successful: false,
-                message: "At least one room type is required."
+                message: `PrimaryTypeId (${PrimaryTypeId}) cannot be included in RoomTypeIds for room ${Code}.`
             });
         }
 
@@ -299,7 +337,7 @@ const updateRoom = async (req, res, next) => {
             Code: room.Code,
             Floor: room.Floor,
             Building: room.Building,
-            NumberOfSeats: room.NumberOfSeats
+            PrimaryTypeId: room.PrimaryTypeId
         };
 
         // Get old room types for history log
@@ -315,7 +353,7 @@ const updateRoom = async (req, res, next) => {
                 Code,
                 Floor,
                 Building,
-                NumberOfSeats
+                PrimaryTypeId
             }, { transaction: t });
 
             // Update room types (clear and re-add)
@@ -348,7 +386,7 @@ const updateRoom = async (req, res, next) => {
 
             const accountId = decoded.id || decoded.accountId;
             const page = 'Room';
-            const details = `Updated Room: Old; Code: ${oldRoom.Code}, Floor: ${oldRoom.Floor}, Building: ${oldRoom.Building}, Types: ${oldRoomTypeNames}, Seats: ${oldRoom.NumberOfSeats};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Types: ${newRoomTypeNames}, Seats: ${NumberOfSeats}`;
+            const details = `Updated Room: Old; Code: ${oldRoom.Code}, Floor: ${oldRoom.Floor}, Building: ${oldRoom.Building}, Types: ${oldRoomTypeNames};;; New; Code: ${Code}, Floor: ${Floor}, Building: ${Building}, Types: ${newRoomTypeNames}`;
 
             await addHistoryLog(accountId, page, details);
 
@@ -490,6 +528,10 @@ const getRoomsByDept = async (req, res, next) => {
                 },
                 {
                     model: RoomType,
+                    attributes: ['id', 'Type'],
+                },
+                {
+                    model: RoomType,
                     as: 'TypeRooms',
                     attributes: ['id', 'Type'],
                     through: { attributes: [] }
@@ -596,6 +638,8 @@ const addTypeRoom = async (req, res) => {
                 message: "A mandatory field is missing."
             });
         }
+
+        // Find the room
         const room = await Room.findByPk(RoomId);
         if (!room) {
             return res.status(404).json({
@@ -603,6 +647,16 @@ const addTypeRoom = async (req, res) => {
                 message: "Room not found."
             });
         }
+
+        // Check if the RoomTypeId is the same as the room's PrimaryTypeId
+        if (room.PrimaryTypeId === RoomTypeId) {
+            return res.status(400).json({
+                successful: false,
+                message: "Room Type cannot be the same as the Primary Room Type."
+            });
+        }
+
+        // Find the room type being added
         const roomType = await RoomType.findByPk(RoomTypeId);
         if (!roomType) {
             return res.status(404).json({
@@ -611,15 +665,37 @@ const addTypeRoom = async (req, res) => {
             });
         }
 
+        // Find the primary room type
+        const primaryRoomType = await RoomType.findByPk(room.PrimaryTypeId);
+        if (!primaryRoomType) {
+            return res.status(404).json({
+                successful: false,
+                message: "Primary Room Type not found."
+            });
+        }
+
+        // Check if the room type value is the same as the primary room type value
+        if (roomType.Type === primaryRoomType.Type) {
+            return res.status(400).json({
+                successful: false,
+                message: `Room Type "${roomType.Type}" cannot be added as it matches the Primary Room Type.`
+            });
+        }
+
+        // Check if this room type is already associated with the room
         const existingType = await room.hasTypeRooms(RoomTypeId);
         if (existingType) {
             return res.status(406).json({
                 successful: false,
                 message: "Room and Type association already exists."
-            })
+            });
         }
 
+        // Add the room type association
         const newTypeRoom = await room.addTypeRooms(RoomTypeId);
+
+        // Add history log if needed
+        // (assuming history logging functionality is implemented elsewhere)
 
         return res.status(201).json({
             successful: true,
@@ -632,7 +708,7 @@ const addTypeRoom = async (req, res) => {
             message: err.message || "An unexpected error occurred."
         });
     }
-}
+};
 
 const deleteTypeRoom = async (req, res) => {
     try {
@@ -682,6 +758,52 @@ const deleteTypeRoom = async (req, res) => {
         });
     }
 }
+
+const getPrimaryRoomType = async (req, res) => {
+    try {
+        // Find the room by ID
+        const room = await Room.findByPk(req.params.id, {
+            attributes: ['id', 'Code', 'PrimaryTypeId'],
+            include: [{
+                model: RoomType,
+                as: 'RoomType', // This uses the belongsTo relationship with foreignKey: 'PrimaryTypeId'
+                attributes: ['id', 'Type']
+            }]
+        });
+
+        if (!room) {
+            return res.status(404).json({
+                successful: false,
+                message: "Room not found.",
+                data: null
+            });
+        }
+
+        if (!room.RoomType) {
+            return res.status(404).json({
+                successful: false,
+                message: "No primary room type assigned to this room.",
+                data: null
+            });
+        }
+
+        return res.status(200).json({
+            successful: true,
+            message: "Successfully retrieved primary room type.",
+            data: {
+                roomId: room.id,
+                roomCode: room.Code,
+                primaryTypeId: room.PrimaryTypeId,
+                primaryType: room.RoomType.Type
+            }
+        });
+    } catch (err) {
+        return res.status(500).json({
+            successful: false,
+            message: err.message || "An unexpected error occurred."
+        });
+    }
+};
 
 const getRoomTypeByRoom = async (req, res) => {
     try {
@@ -734,81 +856,116 @@ const addRoomWithTypes = async (req, res, next) => {
             rooms = [rooms];
         }
 
+        // Pre-validate all rooms before starting transaction
+        for (const room of rooms) {
+            const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = room;
+
+            // Validate room data
+            if (!util.checkMandatoryFields([Code, Floor, Building, PrimaryTypeId])) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `A mandatory room field is missing for room ${Code}.`
+                });
+            }
+
+            if (!isAlphanumeric(Code)) {
+                return res.status(406).json({
+                    successful: false,
+                    message: "Room Code must contain only letters and numbers."
+                });
+            }
+
+            // Check if room code already exists
+            const existingRoom = await Room.findOne({ where: { Code, Building } });
+            if (existingRoom) {
+                return res.status(409).json({
+                    successful: false,
+                    message: `Room code ${Code} already exists for the same building.`
+                });
+            }
+
+            // Validate building
+            if (!['LV', 'GP'].includes(Building)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `Invalid Building for room ${Code}. Must be either 'LV' or 'GP'.`
+                });
+            }
+
+            // Validate that PrimaryTypeId is not included in RoomTypeIds
+            if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.includes(PrimaryTypeId)) {
+                return res.status(400).json({
+                    successful: false,
+                    message: `PrimaryTypeId (${PrimaryTypeId}) cannot be included in RoomTypeIds for room ${Code}.`
+                });
+            }
+
+            // Fetch primary room type to compare with other room types
+            const primaryRoomType = await RoomType.findByPk(PrimaryTypeId);
+            if (!primaryRoomType) {
+                return res.status(404).json({
+                    successful: false,
+                    message: `Primary Room Type with ID ${PrimaryTypeId} not found.`
+                });
+            }
+
+            // Validate room types exist if provided and ensure they're unique from primary type
+            if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.length > 0) {
+                for (const typeId of RoomTypeIds) {
+                    const roomType = await RoomType.findByPk(typeId);
+                    if (!roomType) {
+                        return res.status(404).json({
+                            successful: false,
+                            message: `Room Type with ID ${typeId} not found.`
+                        });
+                    }
+
+                    // Check if room type value is the same as primary type value
+                    if (roomType.Type === primaryRoomType.Type) {
+                        return res.status(400).json({
+                            successful: false,
+                            message: `Room Type "${roomType.Type}" cannot be both a primary type and an additional room type for room ${Code}.`
+                        });
+                    }
+                }
+            }
+        }
+
+        // Validate room types to be created
+        if (roomTypes.length > 0) {
+            for (const roomType of roomTypes) {
+                if (!roomType.Type) {
+                    return res.status(400).json({
+                        successful: false,
+                        message: "Room Type is required."
+                    });
+                }
+            }
+        }
+
         // Start a transaction to ensure data consistency
         const result = await sequelize.transaction(async (t) => {
             const createdRooms = [];
 
             for (const room of rooms) {
-                const { Code, Floor, Building, NumberOfSeats, RoomTypeIds } = room;
-
-                // Validate room data
-                if (!util.checkMandatoryFields([Code, Floor, Building, NumberOfSeats])) {
-                    throw new Error("A mandatory room field is missing.");
-                }
-
-                // Check if room code already exists
-                const existingRoom = await Room.findOne({
-                    where: { Code },
-                    transaction: t
-                });
-
-                if (existingRoom) {
-                    throw new Error(`Room code ${Code} already exists.`);
-                }
-
-                // Validate building
-                if (!['LV', 'GP'].includes(Building)) {
-                    throw new Error(`Invalid Building for room ${Code}.`);
-                }
-
-                // Validate NumberOfSeats
-                if (!Number.isInteger(Number(NumberOfSeats)) || Number(NumberOfSeats) < 1) {
-                    throw new Error(`Number of seats must be a positive integer for room ${Code}.`);
-                }
+                const { Code, Floor, Building, PrimaryTypeId, RoomTypeIds } = room;
 
                 // Create new room
                 const newRoom = await Room.create({
                     Code,
                     Floor,
                     Building,
-                    NumberOfSeats
+                    PrimaryTypeId
                 }, { transaction: t });
 
                 // Associate room types if provided
                 if (RoomTypeIds && Array.isArray(RoomTypeIds) && RoomTypeIds.length > 0) {
-                    // Validate room types exist
-                    for (const typeId of RoomTypeIds) {
-                        const roomType = await RoomType.findByPk(typeId, { transaction: t });
-                        if (!roomType) {
-                            throw new Error(`Room Type with ID ${typeId} not found.`);
-                        }
-                    }
-
                     // Add room types to the room
-                    await newRoom.addTypeRooms(RoomTypeIds, { transaction: t });
+                    await newRoom.setTypeRooms(RoomTypeIds, { transaction: t });
                 }
 
                 createdRooms.push(newRoom);
             }
-
-            // Create global room types if provided
-            if (roomTypes.length > 0) {
-                for (const roomType of roomTypes) {
-                    if (!roomType.Type) {
-                        throw new Error("Room Type is required.");
-                    }
-
-                    const [type, created] = await RoomType.findOrCreate({
-                        where: { Type: roomType.Type },
-                        transaction: t
-                    });
-
-                    if (!created) {
-                        console.log(`Room Type ${roomType.Type} already exists.`);
-                    }
-                }
-            }
-
             return createdRooms;
         });
 
@@ -844,6 +1001,8 @@ const addRoomWithTypes = async (req, res, next) => {
         });
     }
 };
+
+
 module.exports = {
     addRoom,
     getAllRoom,
@@ -857,5 +1016,6 @@ module.exports = {
     addTypeRoom,
     deleteTypeRoom,
     getRoomTypeByRoom,
-    addRoomWithTypes
+    addRoomWithTypes,
+    getPrimaryRoomType
 };

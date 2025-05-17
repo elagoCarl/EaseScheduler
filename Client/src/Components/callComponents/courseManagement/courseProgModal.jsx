@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { X, BookOpen, Trash2, Plus } from 'lucide-react';
-import Axios from '../../axiosConfig';
+import { X, BookOpen, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import Axios from '../../../axiosConfig';
 import { toast } from 'react-toastify';
-import { useAuth } from '../../Components/authContext';
+import { useAuth } from '../../authContext';
 
-const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
+const CourseProgModal = ({ isOpen, onClose, courseId, courseName, departmentId: propDepartmentId }) => {
     const { user } = useAuth();
-    const departmentId = user?.DepartmentId;
+    // Use the prop departmentId if user's department is null
+    const departmentId = user?.DepartmentId || propDepartmentId;
+
     const [programs, setPrograms] = useState([]);
     const [allPrograms, setAllPrograms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,11 +16,14 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
     const [adding, setAdding] = useState(false);
     const [selectedProgram, setSelectedProgram] = useState('');
     const [selectedYear, setSelectedYear] = useState(1);
+    const [selectedSemester, setSelectedSemester] = useState(1);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [programToDelete, setProgramToDelete] = useState(null);
 
     useEffect(() => {
-        console.log("Modal opened with courseId:", courseId);
-        if (isOpen && courseId) {
+        console.log("Modal opened with courseId:", courseId, "departmentId:", departmentId);
+        if (isOpen && courseId && departmentId) {
             fetchProgramsForCourse(courseId);
             fetchDepartmentPrograms(departmentId);
         }
@@ -35,7 +40,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                     courseProgramId: program.courseProgramId, // CourseProg ID
                     name: program.name || "Unnamed Program",
                     code: program.code || "",
-                    year: program.year || null
+                    year: program.year || null,
+                    semester: program.semester || null
                 }));
 
                 setPrograms(formattedPrograms);
@@ -71,12 +77,17 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
         }
     };
 
-    const handleDeleteCourseProg = async (courseProgramId) => {
-        if (!confirm("Are you sure you want to remove this program association?")) {
-            return;
-        }
+    const openDeleteConfirmation = (program) => {
+        setProgramToDelete(program);
+        setDeleteConfirmOpen(true);
+    };
 
+    const handleDeleteCourseProg = async () => {
+        if (!programToDelete) return;
+
+        const courseProgramId = programToDelete.courseProgramId;
         setDeleting(courseProgramId);
+
         try {
             const response = await Axios.delete(`/courseProg/deleteCourseProg/${courseProgramId}`);
             if (response.data.successful) {
@@ -93,13 +104,15 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
             console.error(error);
         } finally {
             setDeleting(null);
+            setDeleteConfirmOpen(false);
+            setProgramToDelete(null);
         }
     };
 
     const handleAddCourseProg = async (e) => {
         e.preventDefault();
-        if (!selectedProgram || !selectedYear) {
-            toast.error("Please select both a program and year");
+        if (!selectedProgram || !selectedYear || !selectedSemester) {
+            toast.error("Please select a program, year, and semester");
             return;
         }
 
@@ -108,7 +121,8 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
             const response = await Axios.post('/courseProg/addCourseProg', {
                 CourseId: courseId,
                 ProgramId: selectedProgram,
-                Year: selectedYear
+                Year: selectedYear,
+                Semester: selectedSemester
             });
 
             if (response.data.successful) {
@@ -116,6 +130,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                 fetchProgramsForCourse(courseId); // Refresh the list
                 setSelectedProgram(''); // Reset form
                 setSelectedYear(1);
+                setSelectedSemester(1);
                 setShowAddForm(false);
             } else {
                 toast.error(response.data.message || "Failed to associate program");
@@ -143,21 +158,54 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
 
     if (!isOpen) return null;
 
-    // Group programs by year
-    const programsByYear = {};
+    // Display a message if no department is selected
+    if (!departmentId) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
+                    <AlertTriangle className="mx-auto text-yellow-500 mb-4" size={48} />
+                    <h2 className="text-xl font-semibold text-gray-800 mb-2">Department Required</h2>
+                    <p className="text-gray-600 mb-4">
+                        Please select a department first to view and manage program associations.
+                    </p>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Group programs by year and semester
+    const programsByYearAndSemester = {};
     programs.forEach(program => {
         const year = program.year || 'Unspecified';
-        if (!programsByYear[year]) {
-            programsByYear[year] = [];
+        const semester = program.semester || 'Unspecified';
+        const key = `${year}-${semester}`;
+
+        if (!programsByYearAndSemester[key]) {
+            programsByYearAndSemester[key] = {
+                year,
+                semester,
+                programs: []
+            };
         }
-        programsByYear[year].push(program);
+        programsByYearAndSemester[key].programs.push(program);
     });
 
-    // Sort years numerically with 'Unspecified' at the end
-    const sortedYears = Object.keys(programsByYear).sort((a, b) => {
-        if (a === 'Unspecified') return 1;
-        if (b === 'Unspecified') return -1;
-        return parseInt(a) - parseInt(b);
+    // Sort groups by year then semester
+    const sortedGroups = Object.values(programsByYearAndSemester).sort((a, b) => {
+        if (a.year === 'Unspecified') return 1;
+        if (b.year === 'Unspecified') return -1;
+        if (parseInt(a.year) !== parseInt(b.year)) {
+            return parseInt(a.year) - parseInt(b.year);
+        }
+        if (a.semester === 'Unspecified') return 1;
+        if (b.semester === 'Unspecified') return -1;
+        return parseInt(a.semester) - parseInt(b.semester);
     });
 
     return (
@@ -172,7 +220,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                        className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
                     >
                         <X size={20} />
                     </button>
@@ -241,6 +289,20 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                                         ))}
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Semester
+                                    </label>
+                                    <select
+                                        value={selectedSemester}
+                                        onChange={(e) => setSelectedSemester(Number(e.target.value))}
+                                        className="w-full p-2 border border-gray-300 rounded text-sm"
+                                        required
+                                    >
+                                        <option value={1}>Semester 1</option>
+                                        <option value={2}>Semester 2</option>
+                                    </select>
+                                </div>
                                 <div className="flex justify-end">
                                     <button
                                         type="submit"
@@ -250,7 +312,7 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                                     >
                                         {adding ? (
                                             <span className="flex items-center">
-                                                <div className="w-4 h-4 mr-2 border-t-2 border-white border-solid rounded-full animate-spin"></div>
+                                                <div className="w-4 h-4 mr-2 border-t-2 border-white border-solid rounded animate-spin"></div>
                                                 Adding...
                                             </span>
                                         ) : (
@@ -264,19 +326,21 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
 
                     {loading ? (
                         <div className="flex justify-center items-center h-40">
-                            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
+                            <div className="animate-spin rounded h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
                         </div>
                     ) : programs.length > 0 ? (
                         <div className="space-y-4">
-                            {sortedYears.map(year => (
-                                <div key={`year-${year}`} className="mb-4">
+                            {sortedGroups.map(group => (
+                                <div key={`year-${group.year}-semester-${group.semester}`} className="mb-4">
                                     <h4 className="text-sm font-medium text-gray-700 mb-2 border-b border-gray-200 pb-1">
-                                        {year === 'Unspecified' ? 'Year: Unspecified' : `Year ${year}`}
+                                        {group.year === 'Unspecified' ? 'Year: Unspecified' : `Year ${group.year}`}
+                                        {' - '}
+                                        {group.semester === 'Unspecified' ? 'Semester: Unspecified' : `Semester ${group.semester}`}
                                     </h4>
                                     <div className="space-y-2">
-                                        {programsByYear[year].map(program => (
+                                        {group.programs.map(program => (
                                             <div
-                                                key={`program-${program.programId}`}
+                                                key={`program-${program.programId}-${program.courseProgramId}`}
                                                 className="bg-gray-50 p-3 rounded border border-gray-100 hover:border-blue-200 transition-colors"
                                             >
                                                 <div className="flex justify-between items-start">
@@ -285,14 +349,14 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                                                         {program.code && <p className="text-xs text-gray-500">{program.code}</p>}
                                                     </div>
                                                     <button
-                                                        onClick={() => handleDeleteCourseProg(program.courseProgramId)}
+                                                        onClick={() => openDeleteConfirmation(program)}
                                                         disabled={deleting === program.courseProgramId}
-                                                        className={`text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 
+                                                        className={`text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 
                                                             ${deleting === program.courseProgramId ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                         title="Remove program association"
                                                     >
                                                         {deleting === program.courseProgramId ? (
-                                                            <div className="w-4 h-4 border-t-2 border-red-500 border-solid rounded-full animate-spin"></div>
+                                                            <div className="w-4 h-4 border-t-2 border-red-500 border-solid rounded animate-spin"></div>
                                                         ) : (
                                                             <Trash2 size={16} />
                                                         )}
@@ -320,6 +384,72 @@ const CourseProgModal = ({ isOpen, onClose, courseId, courseName }) => {
                     </button>
                 </div>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                        <div className="bg-red-50 p-4 flex items-start space-x-3">
+                            <div className="bg-red-100 rounded p-2">
+                                <AlertTriangle className="text-red-600" size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-800">Confirm Removal</h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Are you sure you want to remove this program association? This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+
+                        {programToDelete && (
+                            <div className="p-4 border-t border-b border-gray-200 bg-gray-50">
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium">{programToDelete.name}</span>
+                                    {programToDelete.code && (
+                                        <span className="text-xs text-gray-500">{programToDelete.code}</span>
+                                    )}
+                                    <div className="flex items-center mt-1 text-xs text-gray-500">
+                                        <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">
+                                            Year {programToDelete.year || "Unspecified"}
+                                        </span>
+                                        <span className="mx-2">•</span>
+                                        <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs">
+                                            Semester {programToDelete.semester || "Unspecified"}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="p-4 flex justify-end space-x-3">
+                            <button
+                                onClick={() => {
+                                    setDeleteConfirmOpen(false);
+                                    setProgramToDelete(null);
+                                }}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteCourseProg}
+                                disabled={deleting}
+                                className={`px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center
+                                    ${deleting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                                {deleting ? (
+                                    <>
+                                        <div className="w-4 h-4 mr-2 border-t-2 border-white border-solid rounded animate-spin"></div>
+                                        Removing...
+                                    </>
+                                ) : (
+                                    "Remove"
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

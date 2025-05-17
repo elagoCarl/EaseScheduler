@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, Edit, Trash2, ChevronRight } from 'lucide-react';
-import axios from '../../axiosConfig.js';
+import axios from '../../../axiosConfig.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 

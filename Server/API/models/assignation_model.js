@@ -9,39 +9,9 @@ module.exports = (sequelize, DataTypes) => {
         Semester: {
             type: DataTypes.INTEGER,
             allowNull: false,
-            min: 1,
-            max: 2
         },
-        ProfessorId: {
-            type: DataTypes.INTEGER,
-            allowNull: true,
-            references: {
-                model: 'Professors',
-                key: 'id'
-            },
-            onDelete: 'SET NULL',
-            onUpdate: 'CASCADE'
-        }
-
     }, {
         timestamps: true,
-        indexes: [
-            {
-                name: 'assignation_unique_idx',
-                unique: true,
-                fields: ['Semester', 'CourseId', 'ProfessorId', 'DepartmentId']
-            },
-            {
-                name: 'Assignations_DepartmentId_ProfessorId_index',
-                unique: false,
-                fields: ['ProfessorId']
-            },
-            {
-                name: 'Assignations_DepartmentId_CourseId_index',
-                unique: false,
-                fields: ['CourseId', 'DepartmentId']
-            },
-        ]
     });
 
     Assignation.associate = (models) => {
@@ -75,6 +45,13 @@ module.exports = (sequelize, DataTypes) => {
         Assignation.hasMany(models.Schedule, {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
+        })
+        Assignation.belongsTo(models.SchoolYear, {
+            onDelete: 'CASCADE',
+            onUpdate: 'CASCADE'
+        });
+        Assignation.belongsToMany(models.ProgYrSec, { 
+            through: 'AssignationSection'
         });
     };
 

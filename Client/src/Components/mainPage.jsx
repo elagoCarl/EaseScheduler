@@ -31,7 +31,7 @@ const MainPage = () => {
       className="bg-cover bg-center bg-no-repeat min-h-screen flex flex-col justify-between bg-gray-800"
       
     >
-      <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+      <div className="absolute inset-0 bg-gray-900"></div>
 
       {/* Content container */}
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -81,14 +81,14 @@ const MainPage = () => {
           {/* Modal content - Centered on mobile, bottom-right on larger screens */}
           <div
             ref={modalRef}
-            className="fixed z-50 bg-white rounded-lg shadow-lg p-4 md:p-6 w-5/6 max-w-sm
+            className="fixed z-50 bg-white rounded-lg shadow-lg p-4 md:p-12 w-4/6 max-w-md
                       top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
                       md:translate-y-0 md:translate-x-0 md:top-auto md:left-auto
                       md:bottom-10 md:right-10"
           >
             <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-2 md:mb-3">Contact Us</h2>
             <p className="text-gray-800 text-sm md:text-base">
-              Please reach out to us at <a href="mailto:easescheduler@gmail.com" className="text-blue-500 hover:underline">easescheduler@gmail.com</a>.
+              Please reach out to us at <a href="mailto:easescheduler@gmail.com" className="text-blue-500 hover:underline">Easescheduler@gmail.com</a>.
             </p>
           </div>
         </>

@@ -5,36 +5,26 @@ import bigpic from './Img/BigBog.svg';
 import ProfileBtn from './Img/ProfileBtn.png';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../Components/authContext';
-
-// Import Lucide React Icons
 import { Home, Settings, Calendar, Users, Building2, BookOpen, Layers, UserCog } from 'lucide-react';
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { user, setUser } = useAuth(); // Get the user and setUser function
-
+  const { user, setUser } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [fadeIn, setFadeIn] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [departmentLoaded, setDepartmentLoaded] = useState(false);
   const [isLoadingUserDetails, setIsLoadingUserDetails] = useState(false);
-
-  // Create refs for the profile button and the dropdown
   const profileBtnRef = useRef(null);
   const dropdownRef = useRef(null);
   const modalRef = useRef(null);
-
-  // Check if user is an admin
   const isAdmin = user?.Roles === 'Admin';
   const isProgramHead = user?.Roles === 'Program Head';
   const isAdminOrProgramHead = isAdmin || isProgramHead;
   const isNonAdmin = user?.Roles !== 'Admin';
 
-  // Fetch user data including department when component mounts
   useEffect(() => {
-    // Only fetch user details if we have a user but no department name
-    // and we're not already loading user details
     const fetchUserDetails = async () => {
       if (user && !user.Department?.Name && !isLoadingUserDetails && !departmentLoaded) {
         setIsLoadingUserDetails(true);
@@ -61,9 +51,6 @@ const HomePage = () => {
   }, [user, setUser, isLoadingUserDetails, departmentLoaded]);
 
   const openModal = (content) => {
-    if (isAdmin && content === 'Timetables') {
-      return;
-    }
     setModalContent(content);
     setIsModalOpen(true);
   };
@@ -165,7 +152,7 @@ const HomePage = () => {
           ref={dropdownRef}
           className="absolute right-5 mt-16 bg-white shadow-lg rounded-md p-4 z-10 max-w-full"
           style={{
-            top: "calc(40px + 1rem)" // Position below the profile button
+            top: "calc(40px + 1rem)"
           }}
         >
           {/* User Profile Section */}
@@ -238,17 +225,13 @@ const HomePage = () => {
           <section>
             <div className='relative pt-4 mx-auto'>
               <div className='grid lg:grid-cols-2 sm:grid-cols-3 gap-15 mt-30'>
-                {/* Timetables Card - Disabled for Admin */}
+                {/* Timetables Card - Now accessible for Admin */}
                 <button
-                  className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
-                    ${isAdmin
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
-                  onClick={() => !isAdmin && openModal('Timetables')}
-                  disabled={isAdmin}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
+                  onClick={() => openModal('Timetables')}
                 >
                   <Calendar className="h-70 w-70 md:h-100 md:w-100 text-white" />
-                  <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
+                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Timetables
                   </span>
                 </button>
@@ -275,17 +258,13 @@ const HomePage = () => {
                   </span>
                 </button>
 
-                {/* Course Management Card - Disabled for Admin */}
+                {/* Course Management Card - Now accessible for Admin too */}
                 <button
-                  onClick={() => !isAdmin && navigate('/course')}
-                  disabled={isAdmin}
-                  className={`p-12 sm:p-18 md:p-30 shadow-2xl rounded-lg flex flex-col justify-center items-center
-                    ${isAdmin
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-500 transition duration-500 hover:scale-110 cursor-pointer'}`}
+                  onClick={() => navigate('/course')}
+                  className='p-12 sm:p-18 md:p-30 shadow-2xl bg-blue-500 rounded-lg transition duration-500 hover:scale-110 flex flex-col justify-center items-center cursor-pointer'
                 >
-                  <BookOpen className={`h-70 w-70 md:h-100 md:w-100 text-white ${isAdmin ? 'opacity-50' : ''}`} />
-                  <span className={`text-sm md:text-lg 2xl:text-2xl font-semibold ${isAdmin ? 'text-gray-200' : 'text-[#FFFFFF]'}`}>
+                  <BookOpen className="h-70 w-70 md:h-100 md:w-100 text-white" />
+                  <span className="text-[#FFFFFF] text-sm md:text-lg 2xl:text-2xl font-semibold">
                     Course Management
                   </span>
                 </button>

@@ -33,10 +33,6 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE'
         });
-        Department.hasMany(models.Settings, {
-            onDelete: 'CASCADE',
-            onUpdate: 'CASCADE'
-        });
         Department.belongsToMany(models.Room, {
             through: 'DeptRoom',
             as: 'DeptRooms',
