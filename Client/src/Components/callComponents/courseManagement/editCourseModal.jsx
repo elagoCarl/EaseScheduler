@@ -20,7 +20,8 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
     Duration: "",
     Units: "",
     RoomTypeId: "",
-    DepartmentId: ""
+    DepartmentId: "",
+    isTutorial: false  // Add isTutorial to formData
   });
   const [roomTypes, setRoomTypes] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -34,7 +35,10 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
     if (isOpen && course) {
       // Check if this is a paired course
       setIsPair(course.PairId !== null);
-      setIsTutorial(course.isTutorial || false);
+      
+      // Set isTutorial state
+      const tutorialStatus = course.isTutorial || false;
+      setIsTutorial(tutorialStatus);
 
       // Reset form with course data
       setFormData({
@@ -42,9 +46,11 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
         Description: course.Description || "",
         Type: course.Type || "",
         Duration: course.Duration || "",
-        Units: course.Units || "",
+        // If course is tutorial, set Units to 0
+        Units: tutorialStatus ? 0 : (course.Units || ""),
         RoomTypeId: course.RoomTypeId || "",
-        DepartmentId: departmentId || ""
+        DepartmentId: departmentId || "",
+        isTutorial: tutorialStatus  // Include in formData
       });
       setErrorMessage("");
       setSuccessMessage("");
@@ -158,8 +164,32 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const { name, value, type, checked } = e.target;
+    
+    // Special handling for isTutorial checkbox
+    if (name === "isTutorial") {
+      const isTutorialChecked = type === "checkbox" ? checked : value === true;
+      
+      // Update the isTutorial state
+      setIsTutorial(isTutorialChecked);
+      
+      // Update formData with isTutorial and set Units to 0 if isTutorial is true
+      setFormData({
+        ...formData,
+        isTutorial: isTutorialChecked,
+        Units: isTutorialChecked ? 0 : formData.Units
+      });
+    } else if (name === "Units" && isTutorial) {
+      // If the course is a tutorial and user tries to change Units, keep it at 0
+      // Don't update the state for Units field if it's a tutorial course
+      return;
+    } else {
+      // Normal handling for other inputs
+      setFormData({ 
+        ...formData, 
+        [name]: type === "checkbox" ? checked : value 
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -177,7 +207,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
 
     // Basic client-side validation - just check if fields are filled
     if (!formData.Code || !formData.Description || !formData.Duration ||
-      !formData.Units || !formData.Type || !formData.RoomTypeId) {
+      !formData.Type || !formData.RoomTypeId) {
       setErrorMessage("Please fill in all required fields.");
       shakeForm();
       setIsSubmitting(false);
@@ -185,16 +215,20 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
     }
 
     try {
+      // If course is tutorial, ensure Units is always 0 in the payload
+      const unitsValue = isTutorial ? 0 : parseInt(formData.Units);
+      
       const response = await Axios.put(
         `/course/updateCourse/${course.id}`,
         {
           Code: formData.Code,
           Description: formData.Description,
           Duration: parseInt(formData.Duration),
-          Units: parseInt(formData.Units),
+          Units: unitsValue,
           Type: formData.Type,
           RoomTypeId: formData.RoomTypeId,
-          DepartmentId: departmentId
+          DepartmentId: departmentId,
+          isTutorial: isTutorial  // Include isTutorial in payload
         }
       );
 
@@ -247,7 +281,7 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
           <div className="bg-blue-50 border-t border-blue-200 p-3 flex items-start space-x-2">
             <AlertCircle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-blue-700">
-              This is a tutorial course. Note that tutorial courses have Units automatically set to 0.
+              This is a tutorial course. Units are automatically set to 0.
             </p>
           </div>
         )}
@@ -311,15 +345,30 @@ const EditCourseModal = ({ isOpen, onClose, course, onUpdateSuccess, departmentI
                 type="number"
                 name="Units"
                 placeholder="Enter number of units"
-                min="1"
+                min="0" // Changed from min="1" to allow 0 for tutorials
                 max="30"
-                className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
-                value={formData.Units}
+                className={`w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${isTutorial ? 'bg-gray-100' : ''}`}
+                value={isTutorial ? 0 : formData.Units}
                 onChange={handleInputChange}
                 disabled={isTutorial}
                 required
               />
             </div>
+          </div>
+
+          {/* Add isTutorial checkbox */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="isTutorial"
+              name="isTutorial"
+              checked={isTutorial}
+              onChange={handleInputChange}
+              className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="isTutorial" className="text-sm font-medium text-gray-700">
+              Tutorial Course (Units will be set to 0)
+            </label>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
